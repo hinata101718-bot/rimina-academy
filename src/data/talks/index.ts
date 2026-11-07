@@ -4,6 +4,7 @@ import { PHRASES_G } from './phrases_g';
 import { PHRASES_EV } from './phrases_ev';
 import { PHRASES_REL } from './phrases_rel';
 import { PHRASES_NEW } from './phrases_new';
+import { PHRASES_A3 } from './phrases_a3';
 import type { PhraseTable } from '../../core/types';
-export const PHRASES: PhraseTable = { ...BASE, ...PHRASES_IV, ...PHRASES_G, ...PHRASES_EV, ...PHRASES_REL, ...PHRASES_NEW };
+export const PHRASES: PhraseTable = { ...BASE, ...PHRASES_IV, ...PHRASES_G, ...PHRASES_EV, ...PHRASES_REL, ...PHRASES_NEW, ...PHRASES_A3 };
 export { TALKS } from './talks';

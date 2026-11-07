@@ -13,7 +13,7 @@ export function seasonOf(month: number): Season {
 export const SEASON_NAMES: Record<Season, string> = { spring: '春', summer: '夏', autumn: '秋', winter: '冬' };
 
 /** slot：1〜4＝その週、5＝月末 */
-export interface CalEvent { slot: number; label: string; icon: string; big?: boolean }
+export interface CalEvent { slot: number; label: string; icon: string; big?: boolean; birthday?: string }
 
 /** 一年の決まった行事 */
 const YEARLY: { month: number; slot: number; label: string; icon: string }[] = [
@@ -31,6 +31,8 @@ export function monthEvents(s: GameState, month = s.month): CalEvent[] {
   if (month === s.month && s.world.schoolDefensePending) out.push({ slot: 5, label: '学校防衛戦', icon: 'shield', big: true });
   else if (month !== 5) out.push({ slot: 5, label: '月末の依頼', icon: 'battle' });
   if (month === s.month && examCandidates(s).length) out.push({ slot: s.week, label: '兵種試験', icon: 'exam' });
+  // 生徒の誕生日
+  for (const st of Object.values(s.students)) if (st.status === 'enrolled' && st.birthday && st.birthday.month === month) out.push({ slot: st.birthday.week, label: `${st.given}の誕生日`, icon: 'cake', birthday: st.id });
   return out;
 }
 

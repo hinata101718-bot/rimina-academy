@@ -189,6 +189,14 @@ export function resolveWeek(s: GameState, rng: Rng): WeekResult {
   const tutored = new Map<string, string>();
   startGrowthLog();
 
+  // 誕生日の週
+  const bdays = enrolled(s).filter((st) => st.birthday && st.birthday.month === s.month && st.birthday.week === s.week);
+  for (const st of bdays) {
+    changeMotivation(st, B.birthday.motivation);
+    addTrust(st, B.birthday.trust);
+    lines.push(`今週は${st.given}の誕生日。みんなで小さなお祝いをした（やる気↑）`);
+  }
+
   // 授業
   for (const st of enrolled(s)) {
     if (!available(st)) continue;
@@ -348,7 +356,10 @@ function doWeekend(s: GameState, rng: Rng, w: WeekendAction, lines: string[], fe
     lines.push('週末：みんなでゆっくり休んだ');
   } else if (w.kind === 'tea') {
     const ids = w.ids.filter((id) => s.students[id] && available(s.students[id]));
-    for (let i = 0; i < ids.length; i++) for (let j = i + 1; j < ids.length; j++) push(addSupport(s, rng, ids[i], ids[j], B.weekend.teaSupport, sm));
+    // 誕生日の子がいるお茶会は、支援が上がりやすい
+    const bd = ids.some((id) => { const b = s.students[id].birthday; return b && b.month === s.month && b.week === s.week; });
+    for (let i = 0; i < ids.length; i++) for (let j = i + 1; j < ids.length; j++) push(addSupport(s, rng, ids[i], ids[j], B.weekend.teaSupport, sm * (bd ? B.birthday.teaMul : 1)));
+    if (bd) lines.push('お茶会は誕生日のお祝いも兼ねて、いつもよりにぎやかだった');
     for (const id of ids) { const st = s.students[id]; changeMotivation(st, 1); st.fatigue = clamp(st.fatigue - B.fatigue.tea, 0, 100); if (festival) addRecent(s, st, 'ev_festival', '収穫祭'); }
     lines.push(`週末：お茶会（${ids.map((id) => s.students[id].given).join('・')}）`);
     // 会話が起きやすい
@@ -466,6 +477,8 @@ export function startMonthStudents(s: GameState, rng: Rng): string[] {
   }
   // 在校生の家族の便り（たまに）
   for (const st of list) if (rng.chance(B.familyLetterChance)) familyLetter(s, rng, st);
+  // 誕生日の月：家族からのお祝いの便り
+  for (const st of list) if (st.birthday?.month === s.month && rng.chance(B.letters.birthdayChance)) birthdayLetter(s, rng, st);
   // 試験を受けられる子
   const ex = examCandidates(s);
   if (ex.length) notify(s, `兵種試験を受けられる生徒が${ex.length}人`);
@@ -478,6 +491,14 @@ function familyLetter(s: GameState, rng: Rng, st: Student): void {
     ? `${s.instructor.name}先生へ。${st.given}は元気にしておりますか。院の子どもたちは、${st.given}の話を聞くのを楽しみにしています。どうかよろしくお願いいたします。—${who}`
     : `${s.instructor.name}先生へ。いつも${st.given}がお世話になっております。${COUNTRY_NAMES[st.origin]}の家では、みな元気です。${st.given}は手紙ではいつも学校のことばかり書いてきます。どうかよろしくお願いいたします。—${st.given}の${who}`;
   s.mail.unshift({ id: `m${s.nextId++}`, year: s.year, month: s.month, from: `${st.given}の${st.house === 'orphan' ? '孤児院' : '家族'}`, title: '家族からの便り', body, read: false, studentId: st.id });
+}
+
+function birthdayLetter(s: GameState, rng: Rng, st: Student): void {
+  const who = st.house === 'orphan' ? '孤児院のみんな' : rng.pick(['母', '父', '兄', '姉', '祖母', '家族一同']);
+  const body = st.house === 'orphan'
+    ? `${s.instructor.name}先生へ。今月は${st.given}の誕生日ですね。院の子どもたちが、${st.given}のために小さな絵を描きました。同封いたしますので、どうか渡してあげてください。—${who}`
+    : `${s.instructor.name}先生へ。今月、${st.given}は${st.age + 1}歳になります。遠く離れていて祝ってやれないのが残念です。${COUNTRY_NAMES[st.origin]}の家から、ささやかな贈り物を送ります。—${st.given}の${who}`;
+  s.mail.unshift({ id: `m${s.nextId++}`, year: s.year, month: s.month, from: `${st.given}の${st.house === 'orphan' ? '孤児院' : '家族'}`, title: '誕生日のお祝い', body, read: false, studentId: st.id });
 }
 
 const SPOT = [

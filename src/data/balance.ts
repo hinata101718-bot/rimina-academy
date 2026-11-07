@@ -300,6 +300,9 @@ export const B = {
     learn: 900,
     flip: 650,            // 日めくり
   },
+  // ---- 誕生日（誕生日の週：やる気+1、お茶会で支援が上がりやすい） ----
+  birthday: { motivation: 1, teaMul: 1.5, trust: 2 },
+  letters: { birthdayChance: 0.4, careChance: 0.08 }, // 誕生日の月の家族の便り・卒業生からの差し入れ
   // ---- その他 ----
   exportReminderDays: 14,
   itemPrice: { vulnerary: 100, elixir: 500 },

@@ -56,7 +56,9 @@ export function MonthCalendar({ s }: { s: GameState }) {
           return (
             <div class={`calcell${now ? ' now' : ''}${past ? ' past' : ''}${k === 5 ? ' end' : ''}`}>
               <div class="calw">{k === 5 ? '月末' : `第${k}週`}</div>
-              <div class="calev">{here.slice(0, 2).map((e) => <span class={`calicon${e.big ? ' big' : ''}`} title={e.label}><Icon name={e.icon} size={16} /><i>{e.label}</i></span>)}</div>
+              <div class="calev">{here.filter((e) => !e.birthday).slice(0, 2).map((e) => <span class={`calicon${e.big ? ' big' : ''}`} title={e.label}><Icon name={e.icon} size={16} /><i>{e.label}</i></span>)}
+                {here.some((e) => e.birthday) && <span class="calicon bday" title={here.filter((e) => e.birthday).map((e) => e.label).join('・')}><Icon name="cake" size={15} /><i>{here.filter((e) => e.birthday).length === 1 ? here.find((e) => e.birthday)!.label.replace('の誕生日', '') : `誕生日${here.filter((e) => e.birthday).length}人`}</i></span>}
+              </div>
             </div>
           );
         })}

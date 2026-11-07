@@ -58,6 +58,7 @@ function Home({ s }: { s: GameState }) {
     if (st.fatigue >= B.fatigue.warnAt && available(st)) todo.push({ icon: 'bell', text: `疲れがたまっている：${st.given}（疲労${Math.round(st.fatigue)}）`, go: () => navigate({ tab: 'students', page: 'detail', id: st.id }) });
     if (st.motivation <= 0) todo.push({ icon: 'bell', text: `やる気がとても低い：${st.given}`, go: () => navigate({ tab: 'students', page: 'detail', id: st.id }) });
   }
+  for (const st of list) if (st.birthday && st.birthday.month === s.month && st.birthday.week === s.week) todo.push({ icon: 'cake', text: `今週は${st.given}の誕生日（お茶会に招くと仲が深まりやすい）`, go: () => navigate({ tab: 'school', page: 'weekend' }) });
   const unread = s.mail.filter((m) => !m.read).length;
   if (unread) todo.push({ icon: 'mail', text: `郵便受けに未読の手紙が${unread}通`, go: () => navigate({ tab: 'school', page: 'mail' }) });
   const [spotMsg, setSpotMsg] = useState('');
@@ -259,7 +260,7 @@ function Weekend({ s }: { s: GameState }) {
           {list.map((st) => {
             const on = pick.includes(st.id);
             const sup = pick.filter((x) => x !== st.id).map((x) => { const v = supportValue(s, x, st.id); return `${s.students[x].given}と${supportRank(v) || '—'}`; }).join(' ');
-            return <StuRow st={st} onClick={() => setPick(on ? pick.filter((x) => x !== st.id) : [...pick, st.id].slice(-(mode === 'tea' ? 3 : 2)))} sub={`${PERSONALITIES[st.personality].name}${sup ? `・支援 ${sup}` : ''}`} right={<span style={{ fontSize: 22 }}>{on ? '☑' : '☐'}</span>} />;
+            return <StuRow st={st} onClick={() => setPick(on ? pick.filter((x) => x !== st.id) : [...pick, st.id].slice(-(mode === 'tea' ? 3 : 2)))} sub={`${st.birthday && st.birthday.month === s.month && st.birthday.week === s.week ? '🎂今週が誕生日・' : ''}${PERSONALITIES[st.personality].name}${sup ? `・支援 ${sup}` : ''}`} right={<span style={{ fontSize: 22 }}>{on ? '☑' : '☐'}</span>} />;
           })}
           <div class="row">
             <button class="btn ghost" onClick={() => setMode(null)}>やめる</button>

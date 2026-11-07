@@ -129,7 +129,12 @@ export function simulateAlumni(s: GameState, rng: Rng): AlumniNews[] {
     const retireAge = B.alumni.retireAge[0] + ((st.id.charCodeAt(st.id.length - 1) * 7) % (B.alumni.retireAge[1] - B.alumni.retireAge[0] + 1));
     if (st.age >= retireAge) { c.retired = true; big(st, 'が引退した'); continue; }
     // 手紙
-    if (st.trust >= B.trust.letterAt && rng.chance(B.alumni.letterRate)) mail(s, `${st.given}（${st.cohort}期生）`, '先生へ', letterBody(rng, st), st.id);
+    if (st.trust >= B.trust.letterAt && rng.chance(B.alumni.letterRate)) mail(s, `${st.given}（${st.cohort}期生）`, '先生へ', letterBody(rng, st, s), st.id);
+    // 後輩への差し入れ（傷薬が届く）
+    else if (st.trust >= B.trust.letterAt && rng.chance(B.letters.careChance)) {
+      s.items.vulnerary += 2;
+      mail(s, `${st.given}（${st.cohort}期生）`, '後輩たちへの差し入れ', `先生、${c.country ? `${COUNTRY_SHORT[c.country]}の` : ''}町で良い傷薬を見つけたので、少し送ります。後輩たちが無事に帰ってこられますように。—${st.given}（${st.cohort}期生）（傷薬が2つ武器庫に届いた）`, st.id);
+    }
   }
   return news;
 }
@@ -153,7 +158,7 @@ function promotionLetter(rng: Rng, st: Student, cls: string, nation: boolean, he
   return `${head}${tail}—${st.given}（${st.cohort}期生）`.replace(/わたし/g, st.gender === 'm' ? '僕' : 'わたし');
 }
 
-function letterBody(rng: Rng, st: Student): string {
+function letterBody(rng: Rng, st: Student, s?: GameState): string {
   const c = st.career!;
   const where = c.kind === 'army' ? `${COUNTRY_SHORT[c.country!]}で${RANK_TITLES[c.path][Math.min(c.rank, RANK_TITLES[c.path].length - 1)]}をしています` : c.kind === 'home' ? '故郷で元気にやっています' : c.kind === 'merc' ? '傭兵としてあちこちを回っています' : '学校で後輩たちに教えています';
   const extra = rng.pick([
@@ -161,6 +166,8 @@ function letterBody(rng: Rng, st: Student): string {
     '後輩たちにもよろしく伝えてください。',
     'ときどき、学校の食堂の味を思い出します。',
     '先生も体に気をつけてください。',
+    ...(s && s.world.era === 'peace' ? ['戦のない毎日に、まだ少しとまどっています。でも、悪くないです。'] : s && s.world.tension > B.world.warAbove ? ['前線は厳しいですが、先生の「生きて帰れ」を毎晩思い出しています。'] : []),
+    ...(s && s.instructor.generation > 1 ? [`新しい先生にもよろしくお伝えください。${s.instructor.name}先生なら、きっと大丈夫です。`] : []),
   ]);
   return `先生、お元気ですか。${where}。${extra}—${st.given}（${st.cohort}期生）`;
 }

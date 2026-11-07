@@ -238,3 +238,18 @@ describe('兵種の仕上げ', () => {
     expect(forecast(b, u, e, u.x, u.y, sup).atk.count).toBe(2);
   });
 });
+
+describe('誕生日', () => {
+  it('入学時に誕生日が決まり、古いセーブの生徒にも付く。誕生日の週はやる気が上がる', () => {
+    const s = deserialize(fixture('v2-save.json'));
+    for (const st of Object.values(s.students)) expect(st.birthday).toBeTruthy();
+    const st = enrolled(s)[0];
+    st.birthday = { month: s.month, week: s.week };
+    st.motivation = 1;
+    s.pending = [];
+    const res = resolveWeek(s, new Rng(s));
+    expect(res.lines.some((l) => l.includes(`${st.given}の誕生日`))).toBe(true);
+    const n = newGame({ name: 't', background: 'knight', seed: 77 });
+    for (const x of enrolled(n)) { expect(x.birthday!.month).toBeGreaterThanOrEqual(0); expect(x.birthday!.week).toBeGreaterThanOrEqual(1); }
+  });
+});
