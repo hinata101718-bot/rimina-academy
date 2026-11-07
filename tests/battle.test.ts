@@ -116,3 +116,14 @@ describe('戦闘の進行', () => {
     void attack; void finishBattle;
   });
 });
+
+import { MAPS } from '../src/data/maps';
+describe('マップの型', () => {
+  it('すべて縦12×横8で、出撃位置が10か所以上ある', () => {
+    for (const m of Object.values(MAPS)) {
+      expect(m.rows.length, m.id).toBe(12);
+      for (const r of m.rows) expect(r.length, m.id).toBe(8);
+      expect(m.rows.join('').split('P').length - 1, m.id).toBeGreaterThanOrEqual(10);
+    }
+  });
+});
