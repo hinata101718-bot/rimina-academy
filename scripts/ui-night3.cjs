@@ -43,6 +43,8 @@ const only = process.argv.slice(3);
   await tab('学校');
   await p.click('button:has-text("施設・講師")'); await shot('06-facilities-full', true);
   await tab('学校');
+  await p.click('button:has-text("教官・副教官")'); await shot('06b-instructor-full', true);
+  await tab('学校');
   await p.click('button:has-text("武器庫")'); await shot('07-armory');
   await tab('戦況'); await shot('08-war-full', true);
   await tab('年鑑'); await shot('09-yearbook');
@@ -64,6 +66,27 @@ const only = process.argv.slice(3);
   if (await p.$('text=月末の依頼掲示板')) {
     await shot('14-questboard');
     await p.click('.sheet .pcard >> nth=0'); await shot('15-deploy');
+  }
+  // 追加のセーブ（入学試験・引退・エンディング）があれば撮る
+  const extra = [['entrance', '16-entrance'], ['retire', '17-retire'], ['ending', '18-ending']];
+  for (const [f, n] of extra) {
+    const file = path.join(process.env.SHOTS_DIR || '', `${f}.json`);
+    if (!process.env.SHOTS_DIR || !require('fs').existsSync(file)) continue;
+    await open(file);
+    for (let k = 0; k < 15; k++) { if (await p.$('.scene') || await p.$('button:has-text("引退して")') || await p.$('button:has-text("合格にする")') || await p.$('button:has-text("この学校を続ける")')) break; const c = await p.$('.sheet button:has-text("閉じる"), .sheet button:has-text("スキップ")'); if (!c) break; await c.click(); await p.waitForTimeout(100); }
+    await p.waitForTimeout(1500);
+    await shot(n);
+    if (f === 'ending') {
+      for (let k = 0; k < 6; k++) { await p.click('.scene'); await p.waitForTimeout(60); await p.click('.scene'); await p.waitForTimeout(60); }
+      await p.waitForTimeout(1200); await shot('18b-ending-epilogue');
+      const sk = await p.$('.scene button:has-text("読み飛ばす")'); if (sk) await sk.click();
+      await p.waitForTimeout(300); await shot('18c-ending-choice');
+    }
+    if (f === 'retire') {
+      await p.click('text=引退して、後継を選ぶ'); await p.waitForTimeout(1800); await shot('17b-farewell');
+      const sk = await p.$('.scene button:has-text("読み飛ばす")'); if (sk) await sk.click();
+      await p.waitForTimeout(300); await shot('17c-successor');
+    }
   }
   console.log('errors:', errors.length ? errors.join('\n') : 'none');
   await b.close();

@@ -403,7 +403,7 @@ body { background-attachment: fixed; }
 .sc-foot .fat { flex: 1; max-width: 140px; }
 .checkbox { width: 30px; height: 30px; border-radius: 8px; border: 2px solid var(--main); display: inline-flex; align-items: center; justify-content: center; color: #fff; font-weight: bold; flex: none; background: var(--paper2); }
 .checkbox.on { background: var(--main); }
-.appstats { display: grid; grid-template-columns: repeat(5, 1fr); gap: 2px 6px; margin: 6px 0 4px; background: #f3ede0; border-radius: 8px; padding: 4px 8px; }
+.appstats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 2px 14px; margin: 6px 0 4px; background: #f3ede0; border-radius: 8px; padding: 4px 8px; }
 .appstats div { display: flex; justify-content: space-between; font-size: 12px; }
 .appstats b { font-family: var(--mincho); font-size: 15px; }
 .sumlist li { display: flex; gap: 8px; align-items: flex-start; font-size: 13px; padding: 6px 0; }
