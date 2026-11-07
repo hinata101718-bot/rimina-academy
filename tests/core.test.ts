@@ -83,9 +83,14 @@ describe('1週間', () => {
 });
 
 describe('会話データ', () => {
-  it('話題8種以上・全性格の口調がある', () => {
-    expect(new Set(TALKS.map((t) => t.topic)).size).toBeGreaterThanOrEqual(8);
-    for (const [id, e] of Object.entries(PHRASES)) for (const p of PERSONALITY_IDS) expect(e[p], `${id}/${p}`).toBeTruthy();
+  it('話題20〜30種・地の文以外は性格ごとの口調がある（分岐で使わない性格は空でよい。talks.test.ts で全組み合わせを確認）', () => {
+    const n = new Set(TALKS.map((t) => t.topic)).size;
+    expect(n).toBeGreaterThanOrEqual(20);
+    expect(n).toBeLessThanOrEqual(30);
+    for (const [id, e] of Object.entries(PHRASES)) {
+      if (id.startsWith('n_')) { expect(e.default, id).toBeTruthy(); continue; }
+      for (const p of PERSONALITY_IDS) expect(e[p] !== undefined, `${id}/${p}`).toBe(true);
+    }
   });
 });
 

@@ -14,7 +14,8 @@ import { B, SKILLS, STATS, RANK_POINTS } from '../data/balance';
 import { rankOf, nextRankPoints } from '../core/util';
 import type { SkillId, Rank } from '../core/types';
 import type { GameState, Student } from '../core/state';
-import { supportRank } from '../core/support';
+import { supportRank, archiveOf } from '../core/support';
+import { TalkView } from './Talk';
 import { titleOf } from '../core/alumni';
 import { sfx } from './sound';
 import { ensureSpellPlan, usableSpells } from '../core/spells';
@@ -140,6 +141,7 @@ function Detail({ s, st }: { s: GameState; st: Student }) {
             )}
           </div>
           <SpellCard st={st} />
+          <TalkArchive s={s} st={st} />
           <div class="card">
             <h3>仲間との支援</h3>
             {supports.length === 0 && <div class="muted">まだ特に親しい仲間はいない</div>}
@@ -226,6 +228,31 @@ function SpellCard({ st }: { st: Student }) {
         );
       })}
       {st.spells.some((id) => !usable.has(id)) && <div class="muted small">灰色の魔法は、今の兵種では使えません。</div>}
+    </div>
+  );
+}
+
+function TalkArchive({ s, st }: { s: GameState; st: Student }) {
+  const [open, setOpen] = useState<string | null>(null);
+  const list = archiveOf(s, st).slice().reverse();
+  return (
+    <div class="card">
+      <h3>会話の記録</h3>
+      {!list.length && <div class="muted">まだ記録はありません（支援会話や面談をすると、ここで読み返せます）</div>}
+      {list.map((t) => {
+        const other = t.a === st.id ? t.b : t.a;
+        const who = other === 'teacher' ? '先生' : s.students[other]?.given ?? '';
+        const label = t.kind === 'interview' ? '面談' : t.kind === 'special' ? '特別な面談' : `支援${t.rank}`;
+        return (
+          <div style={{ borderTop: '1px dashed var(--line)', padding: '4px 0' }}>
+            <div class="row between" style={{ cursor: 'pointer', minHeight: 40 }} onClick={() => { sfx('move'); setOpen(open === t.id ? null : t.id!); }}>
+              <span class="grow"><span class="tag gray">{label}</span> {who}と「{t.title}」</span>
+              <span class="muted small">{t.year}年目 {open === t.id ? '▲' : '▼'}</span>
+            </div>
+            {open === t.id && <TalkView s={s} t={t} />}
+          </div>
+        );
+      })}
     </div>
   );
 }

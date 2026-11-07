@@ -10,6 +10,8 @@ import { enrolled, available, notify, addRep, chronicle } from './game';
 import { addSupport, addTrust, addRecent, getSupport, buildTalk, supportRank } from './support';
 import { gainExp, startGrowthLog, stopGrowthLog, snapGrowth, diffGrowth } from './growth';
 import { learnSpells, learnedText } from './spells';
+import { buildInterview, consultFlag, specialInterview } from './interview';
+import type { InterviewTopic } from '../data/talks/interviews';
 import { examCandidates } from './exam';
 
 export type Policy = 'balance' | 'talent' | 'dream' | 'combat';
@@ -209,10 +211,15 @@ export function resolveWeek(s: GameState, rng: Rng): WeekResult {
       if (dream.skills.includes(k) && rng.chance(0.3)) changeMotivation(st, 1);
       lines.push(`個人指導：${st.given}の${SKILL_NAMES[k]}が+${Math.round(g)}`);
     } else {
-      lines.push(...interview(s, rng, st, t.kind === 'consult'));
+      const r = interview(s, rng, st, t.kind === 'consult');
+      lines.push(...r.lines);
+      if (r.talk) talks.push(r.talk);
     }
   }
   s.consults = [];
+  // 信頼が深まった子との特別な面談
+  const sp = specialInterview(s, rng, enrolled(s).filter(available));
+  if (sp) { talks.push(sp); lines.push(`${s.students[sp.a]?.given}と「${sp.title}」について語り合った（特別な面談）`); }
 
   // 週末
   for (const w of s.plan.weekend) talks.push(...doWeekend(s, rng, w, lines, festival));
@@ -265,36 +272,44 @@ export function resolveWeek(s: GameState, rng: Rng): WeekResult {
   return { lines, talks, growth };
 }
 
-function interview(s: GameState, rng: Rng, st: Student, consult: boolean): string[] {
+function interview(s: GameState, rng: Rng, st: Student, consult: boolean): { lines: string[]; talk: TalkLog | null } {
   const out: string[] = [];
-  let topic = '近況';
+  let topic: InterviewTopic = 'recent';
+  const flags: string[] = [];
   if (st.dropoutSign) {
     st.dropoutSign.talksNeeded -= 1;
-    topic = '引き止め';
+    topic = 'retain';
+    flags.push(`reason_${st.dropoutSign.reason}`);
     if (st.dropoutSign.talksNeeded <= 0) {
       out.push(`面談：${st.given}は「もう少しここで頑張ってみます」と言った（退学の予兆が消えた）`);
       st.dropoutSign = null;
+      flags.push('cleared');
     } else out.push(`面談：${st.given}の迷いはまだ晴れない。もう一度話をしよう`);
+  } else if (consult) {
+    topic = 'consult';
+    flags.push(consultFlag(rng, s, st));
+    out.push(`相談：${st.given}の話を聞いた`);
+    revealTalent(s, st, 3, out);
   } else if (st.motivation <= 1) {
-    topic = '悩み';
+    topic = 'worry';
     out.push(`面談：${st.given}の悩みを聞いた`);
-  } else if (st.grade === 3) {
-    topic = '進路';
+  } else if (st.grade === 3 && rng.chance(0.6)) {
+    topic = 'career';
     const d = DREAMS.find((x) => x.id === st.dream)!;
     out.push(`面談：${st.given}と進路の話をした${d.text ? `（夢は${d.text}）` : ''}`);
-  } else if (st.talent && st.talentReveal >= B.talent.hint1) {
-    topic = '兵種';
+  } else if (st.talent && st.talentReveal >= B.talent.hint1 && rng.chance(0.6)) {
+    topic = 'class';
     revealTalent(s, st, B.tutoring.talkReveal, out);
     out.push(`面談：${st.given}と兵種の話をした`);
   } else {
-    out.push(`面談：${st.given}と${consult ? '相談事について' : '近況について'}話した`);
+    out.push(`面談：${st.given}と近況について話した`);
     revealTalent(s, st, 3, out);
   }
-  void topic;
   changeMotivation(st, 1);
   addTrust(st, B.tutoring.talkTrust + (consult ? 3 : 0));
   st.lastAttention = s.absWeek;
-  return out;
+  const talk = buildInterview(s, rng, st, topic, flags);
+  return { lines: out, talk };
 }
 
 function doWeekend(s: GameState, rng: Rng, w: WeekendAction, lines: string[], festival: boolean): TalkLog[] {

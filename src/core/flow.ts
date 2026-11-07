@@ -8,7 +8,7 @@ import { Rng } from './rng';
 import { enrolled, addMoney, addRep, chronicle, notify, enrollCohort, capacity, mail, available } from './game';
 import { resolveWeek, startMonthStudents, changeMotivation, revealTalent, addSkill } from './week';
 import { rollQuests } from './quests';
-import { addSupport, addRecent, getSupport } from './support';
+import { addSupport, addRecent, getSupport, pruneArchive } from './support';
 import { gainExp, startGrowthLog, stopGrowthLog, snapGrowth, diffGrowth } from './growth';
 import { learnSpells } from './spells';
 import { createBattle, unitFromStudent, defaultWeaponFor, type Deploy } from './battle/setup';
@@ -260,6 +260,7 @@ export function yearEnd(s: GameState, graduated: string[]): void {
   if (s.reputation > B.reputation.decayFloor) addRep(s, -(s.reputation - B.reputation.decayFloor) * B.reputation.yearlyDecay);
   // 6. 教官の加齢
   s.instructor.age += 1;
+  pruneArchive(s);
   // 8. 廃校期限
   const deadline: string[] = [];
   if (s.year === B.school.deadlineYear && !s.world.vassal) {

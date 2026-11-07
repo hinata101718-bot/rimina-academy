@@ -34,7 +34,7 @@ export function newGame(opts: { name: string; background: string; seed: number; 
     armory: STARTING_ARMORY.map((w, i) => ({ uid: `w${i}`, weaponId: w })),
     items: { vulnerary: 3, elixir: 0 },
     instructor: { name: opts.name || '教官', background: bg.id, age: bg.age, experience: 0, skills, cha: bg.cha, generation: 1 },
-    students: {}, supports: {}, focus: {}, plan: { tutoring: [], weekend: [] },
+    students: {}, supports: {}, archive: {}, focus: {}, plan: { tutoring: [], weekend: [] },
     consults: [], pinned: [], spotlight: [], notices: [], pending: [], quests: [], battle: null, applicants: [],
     world: {
       power: { ...B.world.startPower }, relations: { ...B.world.startRelations }, tension: B.world.startTension,

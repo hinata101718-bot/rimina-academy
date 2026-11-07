@@ -95,24 +95,54 @@ export interface WeaponDef {
 export type TalkTopic =
   | 'dream' | 'origin' | 'house' | 'trait'
   | 'ev_cover' | 'ev_samekill' | 'ev_exam' | 'ev_loss' | 'ev_homewar' | 'ev_festival' | 'ev_spar' | 'ev_injury'
-  | 'rel_friend' | 'rel_rival' | 'rel_love' | 'daily';
+  | 'rel_friend' | 'rel_rival' | 'rel_love' | 'daily'
+  | 'food' | 'study' | 'teacher' | 'family' | 'hobby' | 'war' | 'future' | 'fear';
 
 /** 会話の片方（a または b）にかける条件 */
 export interface TalkSideCond {
   hasDream?: boolean;
   house?: House;
   personality?: PersonalityId;
+  /** 性格のどれか */
+  personalities?: PersonalityId[];
+  /** 性格のまとまり（にぎやか・静か・しっかり） */
+  group?: 'loud' | 'quiet' | 'steady';
   trait?: string;
+  origin?: Origin;
+  /** 夢のどれか（DreamDef.id） */
+  dream?: string[];
+  /** 最近の出来事（RecentEvent.type）がある */
+  recent?: string;
+  /** 才能のヒントが出ている */
+  talent?: boolean;
+  /** 上の学年 */
+  senior?: boolean;
+  /** 疲れている（疲労50以上） */
+  tired?: boolean;
+  /** やる気が低い／高い */
+  lowMood?: boolean;
+  highMood?: boolean;
+  /** 支援C以上の仲間がいる */
+  hasFriend?: boolean;
+  grade?: number;
 }
 /** 二人の組にかける条件 */
 export interface TalkCond {
   a?: TalkSideCond;
   b?: TalkSideCond;
   sameCountry?: boolean;
+  sameHouse?: boolean;
+  sameGrade?: boolean;
   kind?: 'friend' | 'rival' | 'love';
+  /** 戦況（平和期・緊張期・激戦期） */
+  stage?: 'peace' | 'tension' | 'war';
+  /** 会話を組み立てるときに渡される目印（面談の結果など） */
+  flag?: string;
+  notFlag?: string;
 }
-export type TalkSay = string | { if: TalkCond; then: string; else: string };
-export interface TalkLine { by: 'a' | 'b'; say: TalkSay }
+export type TalkSay = string | { if: TalkCond; then: TalkSay; else: TalkSay };
+/** by：a・b＝話す人、n＝地の文（場面の説明）、t＝先生（面談） */
+export interface TalkLine { by: 'a' | 'b' | 'n' | 't'; say: TalkSay }
 export interface TalkDef {
   id: string;
   topic: TalkTopic;

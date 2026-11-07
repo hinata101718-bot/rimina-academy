@@ -201,3 +201,15 @@ table.stats td { padding: 3px 4px; border-bottom: 1px dotted var(--line); }
 .learn { position: fixed; left: 0; right: 0; top: 35%; z-index: 72; display: flex; justify-content: center; padding: 0 12px; pointer-events: none; }
 .learn > div { background: linear-gradient(#2c2550, #1a1733); color: #fff; border: 2px solid #b9a0ff; border-radius: 12px; padding: 12px 18px; text-align: center; max-width: 360px; width: 100%; box-shadow: 0 0 24px rgba(160, 130, 255, .55); animation: banner .5s ease-out; }
 .learn b { font-size: 17px; display: block; margin: 4px 0; }
+
+/* 会話：タップ送り */
+.tplayer { user-select: none; cursor: pointer; }
+.tstage { display: flex; justify-content: space-between; align-items: flex-end; padding: 10px 6px 0; min-height: 120px; background: linear-gradient(transparent 40%, var(--main2)); border-radius: 12px 12px 0 0; }
+.tface { text-align: center; opacity: .45; filter: grayscale(.35) brightness(.85); transform: scale(.88); transform-origin: bottom center; transition: all .2s; }
+.tface.on { opacity: 1; filter: none; transform: scale(1.05); }
+.tbox { position: relative; background: var(--paper2); border: 2px solid var(--main); border-radius: 0 0 12px 12px; padding: 8px 12px 10px; min-height: 92px; font-size: 16px; line-height: 1.6; }
+.tbox.narr { font-style: italic; color: var(--sub); text-align: center; display: flex; align-items: center; justify-content: center; }
+.tname { font-weight: bold; color: var(--main); font-size: 13px; }
+.tnext { color: var(--accent); animation: cursor-blink .6s infinite alternate; }
+.tchoice { margin-top: 8px; display: grid; gap: 6px; }
+.narr-line { text-align: center; color: var(--sub); font-size: 13px; font-style: italic; margin: 6px 0; }

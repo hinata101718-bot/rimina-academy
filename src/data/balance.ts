@@ -88,7 +88,8 @@ export const B = {
     range: 2, maxPartners: 2,
     loveChance: 0.35,
   },
-  trust: { max: 100, letterAt: 50, consultBeforeDropAt: 60 },
+  trust: { max: 100, letterAt: 50, consultBeforeDropAt: 60, specialAt: [40, 70, 90] },
+  archive: { perStudent: 24, departedKeep: 8, departedYears: 3 },
   // ---- 退学 ----
   dropout: {
     lowMotivationWeeks: 6,   // 「とても低い」がこの週数続くと予兆

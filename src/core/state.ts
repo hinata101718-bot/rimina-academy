@@ -55,6 +55,10 @@ export interface Student {
   /** 覚える魔法の一覧（入学時に決まる）と、覚えた魔法 */
   spellPlan?: SpellSlot[];
   spells: string[];
+  /** 会話の記録（GameState.archive の id、新しいものが後ろ） */
+  archive?: string[];
+  /** 信頼40・70・90の特別な面談のうち、済んだもの */
+  trustTalks?: number[];
   targets: [SkillId, SkillId];
   targetsAuto: boolean;
   classId: string;
@@ -179,7 +183,19 @@ export interface GrowthEntry {
   why?: string;
 }
 
-export interface TalkLog { a: string; b: string; rank: string; title: string; lines: { by: string; text: string }[] }
+/** 会話の1行。by は生徒のid、'teacher'（先生）、'narr'（地の文） */
+export interface TalkLineLog { by: string; text: string }
+export interface TalkChoiceOption { label: string; lines: TalkLineLog[]; effect: { trust?: number; motivation?: number; fatigue?: number } }
+export interface TalkLog {
+  id?: string;
+  a: string; b: string; rank: string; title: string; lines: TalkLineLog[];
+  /** support＝支援会話、interview＝面談、special＝信頼が深まったときの特別な面談 */
+  kind?: 'support' | 'interview' | 'special';
+  /** 先生の返事を選ぶ（面談の一部） */
+  choice?: { prompt: string; options: TalkChoiceOption[] };
+  chosen?: number;
+  year?: number; month?: number;
+}
 
 export interface WeekPlan {
   /** 個人指導の枠：生徒id と 内容 */
@@ -230,6 +246,8 @@ export interface GameState {
   instructor: Instructor;
   students: Record<string, Student>;
   supports: Record<string, Support>;
+  /** 会話の記録（読み返し用）。id→会話。生徒ごとの id の一覧は Student.archive */
+  archive: Record<string, TalkLog>;
   focus: Record<number, [SkillId, SkillId]>; // 学年→重点科目
   plan: WeekPlan;
   consults: string[];      // 相談に来ている生徒

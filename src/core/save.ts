@@ -25,6 +25,7 @@ export function migrate(s: GameState, from: number): GameState {
   s.settings = { ...defaultSettings(), ...oldSettings };
   if (from < 2) migrateTo2(s, oldSettings as Partial<GameState['settings']>);
   s.heirs ??= [];
+  s.archive ??= {};
   s.notices ??= [];
   s.version = SAVE_VERSION;
   return s;

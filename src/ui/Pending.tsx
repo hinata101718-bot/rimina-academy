@@ -3,6 +3,8 @@ import { useStore, act, navigate } from './store';
 import { Sheet, StuRow, money } from './common';
 import { Portrait } from './Portrait';
 import { GrowthPlayer } from './Growth';
+import { TalkPlayer } from './Talk';
+import { chooseReply } from '../core/interview';
 import { usableSpells } from '../core/spells';
 import type { GameState, TalkLog, Student, GrowthEntry } from '../core/state';
 import { enrolled, available, deployLimit, capacity } from '../core/game';
@@ -28,7 +30,7 @@ export function PendingView() {
   const done = () => act((g) => { g.pending.shift(); });
   switch (p.type) {
     case 'weekSummary': return <WeekSummary lines={p.lines} talks={p.talks} growth={p.growth} onDone={done} />;
-    case 'talk': return <Sheet title="支援会話"><TalkView t={p.talk} /><button class="btn primary block" onClick={done}>閉じる</button></Sheet>;
+    case 'talk': return <Sheet title={p.talk.kind === 'support' || !p.talk.kind ? '支援会話' : '面談'}><TalkPlayer s={s} t={p.talk} onDone={done} onChoice={(k) => act((g) => chooseReply(g, p.talk, k))} /></Sheet>;
     case 'event': return <Sheet title={p.title}><div class="paper">{p.lines.map((l) => <p>{l}</p>)}</div><button class="btn primary block" style={{ marginTop: 10 }} onClick={done}>閉じる</button></Sheet>;
     case 'battleResult': return <BattleResult s={s} p={p} onDone={done} />;
     case 'questBoard': return <QuestBoard s={s} />;
@@ -40,18 +42,10 @@ export function PendingView() {
   }
 }
 
-export function TalkView({ t }: { t: TalkLog }) {
-  const { s } = useStore();
-  if (!s) return null;
-  const a = s.students[t.a], b = s.students[t.b];
-  return (
-    <div class="talk">
-      <div class="muted">{a?.given}と{b?.given}　支援{t.rank}「{t.title}」</div>
-      {t.lines.map((l) => { const st = s.students[l.by]; const right = l.by === t.b; return (
-        <div class={`line${right ? ' right' : ''}`}>{st && <Portrait st={st} size={40} />}<div class="bubble"><div class="small muted">{st?.given}</div>{l.text}</div></div>
-      ); })}
-    </div>
-  );
+function talkCountLabel(talks: TalkLog[]): string {
+  const sup = talks.filter((t) => t.kind === 'support' || !t.kind).length;
+  const iv = talks.length - sup;
+  return [sup ? `支援会話${sup}件` : '', iv ? `面談${iv}件` : ''].filter(Boolean).join('・');
 }
 
 function WeekSummary({ lines, talks, growth, onDone }: { lines: string[]; talks: TalkLog[]; growth?: GrowthEntry[]; onDone: () => void }) {
@@ -61,12 +55,14 @@ function WeekSummary({ lines, talks, growth, onDone }: { lines: string[]; talks:
   if (!s) return null;
   if (g === 0) return <Sheet title="今週の成長"><GrowthPlayer s={s} entries={growth ?? []} title="伸びた生徒" onDone={() => setG(1)} /></Sheet>;
   if (i >= 0 && i < talks.length) {
-    return <Sheet title="支援会話"><TalkView t={talks[i]} /><button class="btn primary block" onClick={() => { sfx('ok'); setI(i + 1); }}>{i + 1 < talks.length ? '次の会話へ' : 'まとめに戻る'}</button></Sheet>;
+    const t = talks[i];
+    return <Sheet title={`${t.kind === 'support' || !t.kind ? '支援会話' : t.kind === 'special' ? '特別な面談' : '面談'}（${i + 1}／${talks.length}）`}><TalkPlayer key={i} s={s} t={t} onDone={() => setI(i + 1)} onChoice={(k) => act((g) => chooseReply(g, t, k))} /></Sheet>;
   }
   return (
     <Sheet title="今週のまとめ">
       <ul class="list">{lines.map((l) => <li class="small">{l}</li>)}</ul>
-      {talks.length > 0 && i < 0 && <button class="btn block" style={{ marginTop: 8 }} onClick={() => setI(0)}>💬 支援会話が{talks.length}件あります</button>}
+      {talks.length > 0 && i < 0 && <button class="btn accent block" style={{ marginTop: 8 }} onClick={() => setI(0)}>会話を見る（{talkCountLabel(talks)}）</button>}
+      {talks.length > 0 && i >= talks.length && <div class="muted small" style={{ marginTop: 6 }}>会話は生徒の個人ページの「会話の記録」で読み返せます。</div>}
       <button class="btn primary block" style={{ marginTop: 8 }} onClick={() => { sfx('ok'); onDone(); }}>閉じる</button>
     </Sheet>
   );

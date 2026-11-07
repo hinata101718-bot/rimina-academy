@@ -1,8 +1,11 @@
 // 支援値（生徒どうし）・信頼（教官へ）・支援会話の組み立て
 import { B } from '../data/balance';
-import { TRAITS, PERSONALITIES, COUNTRY_NAMES, DREAMS } from '../data/people';
+import { TRAITS, PERSONALITIES, COUNTRY_NAMES, DREAMS, SKILL_NAMES, TALENTS } from '../data/people';
+import { CLASSES } from '../data/classes';
+import { ORIGIN_FLAVOR, HOUSE_FLAVOR, SEASON_WORDS, SEASON_SCENE } from '../data/talks/flavor';
+import { tensionStage } from './world';
 import { TALKS, PHRASES } from '../data/talks';
-import type { TalkCond, TalkDef, TalkSay, TalkSideCond, PersonalityId } from './types';
+import type { TalkCond, TalkDef, TalkSay, TalkSideCond, PersonalityId, SkillId } from './types';
 import type { GameState, Student, Support, TalkLog } from './state';
 import { Rng } from './rng';
 import { pairKey, clamp } from './util';
@@ -76,19 +79,52 @@ function loveAffinity(a: Student, b: Student): number {
 
 // ---------- 支援会話 ----------
 
-function sideOk(st: Student, c: TalkSideCond | undefined): boolean {
+function sideOk(s: GameState | null, st: Student, c: TalkSideCond | undefined, other: Student): boolean {
   if (!c) return true;
   if (c.hasDream !== undefined && (st.dream !== 'none') !== c.hasDream) return false;
   if (c.house && st.house !== c.house) return false;
   if (c.personality && st.personality !== c.personality) return false;
+  if (c.personalities && !c.personalities.includes(st.personality)) return false;
+  if (c.group && PERSONALITIES[st.personality].group !== c.group) return false;
   if (c.trait && !st.knownTraits.includes(c.trait)) return false;
+  if (c.origin && st.origin !== c.origin) return false;
+  if (c.dream && !c.dream.includes(st.dream)) return false;
+  if (c.recent && !(s && st.recent.some((e) => e.type === c.recent && s.absWeek - e.week <= 12))) return false;
+  if (c.talent !== undefined && (!!st.talent && st.talentReveal >= B.talent.hint1) !== c.talent) return false;
+  if (c.senior !== undefined && (st.grade > other.grade && other.grade > 0) !== c.senior) return false;
+  if (c.tired !== undefined && (st.fatigue >= 50) !== c.tired) return false;
+  if (c.lowMood !== undefined && (st.motivation <= 1) !== c.lowMood) return false;
+  if (c.highMood !== undefined && (st.motivation >= 3) !== c.highMood) return false;
+  if (c.hasFriend !== undefined && (!!(s && bestFriend(s, st))) !== c.hasFriend) return false;
+  if (c.grade !== undefined && st.grade !== c.grade) return false;
   return true;
 }
-function condOk(c: TalkCond | undefined, a: Student, b: Student, sp: Support): boolean {
+/** いちばん支援値の高い仲間（支援C以上・在校生） */
+export function bestFriend(s: GameState, st: Student): Student | null {
+  let best: Student | null = null, v = B.support.C - 0.01;
+  for (const sp of Object.values(s.supports)) {
+    if (sp.a !== st.id && sp.b !== st.id) continue;
+    const o = s.students[sp.a === st.id ? sp.b : sp.a];
+    if (o && o.status === 'enrolled' && sp.value > v) { v = sp.value; best = o; }
+  }
+  return best;
+}
+let talkFlags: Set<string> = new Set();
+/** 会話を組み立てる間だけ使う目印 */
+export function withTalkFlags<T>(flags: string[], fn: () => T): T {
+  const keep = talkFlags; talkFlags = new Set(flags);
+  try { return fn(); } finally { talkFlags = keep; }
+}
+export function condOk(c: TalkCond | undefined, a: Student, b: Student, sp: Support | null, s: GameState | null = null): boolean {
   if (!c) return true;
-  if (!sideOk(a, c.a) || !sideOk(b, c.b)) return false;
+  if (!sideOk(s, a, c.a, b) || !sideOk(s, b, c.b, a)) return false;
   if (c.sameCountry !== undefined && (a.origin === b.origin) !== c.sameCountry) return false;
-  if (c.kind && sp.kind !== c.kind) return false;
+  if (c.sameHouse !== undefined && (a.house === b.house) !== c.sameHouse) return false;
+  if (c.sameGrade !== undefined && (a.grade === b.grade) !== c.sameGrade) return false;
+  if (c.kind && sp?.kind !== c.kind) return false;
+  if (c.stage && (!s || tensionStage(s.world.tension) !== c.stage)) return false;
+  if (c.flag && !talkFlags.has(c.flag)) return false;
+  if (c.notFlag && talkFlags.has(c.notFlag)) return false;
   return true;
 }
 
@@ -98,32 +134,84 @@ function recentEvent(a: Student, b: Student, type: string, now: number) {
     ?? a.recent.find((e) => e.type === type && now - e.week <= 10 && !e.with);
 }
 
-export function phrase(rng: Rng, id: string, p: PersonalityId): string {
+/** 性格に合う文面がなく、他の性格の文面を使った回数（テスト用） */
+export const phraseFallbacks = { count: 0, keys: new Set<string>() };
+export function phrase(rng: Rng, id: string, p: PersonalityId | 'default'): string {
   const e = PHRASES[id];
   if (!e) return `（${id}）`;
-  const v = e[p] ?? e.default ?? Object.values(e)[0];
+  let v = (p === 'default' ? undefined : e[p]) ?? e.default;
+  // 分岐で使わない性格の文面は空にしてある。万一のときは他の性格の文面を使う
+  if (v === undefined || v === '' || (Array.isArray(v) && !v.length)) { phraseFallbacks.count++; phraseFallbacks.keys.add(`${id}.${p}`); v = Object.values(e).find((x) => x && (!Array.isArray(x) || x.length)); }
   if (Array.isArray(v)) return rng.pick(v);
   return v ?? `（${id}）`;
 }
 
-export function fillText(text: string, s: GameState, me: Student, you: Student, detail: string): string {
-  const dreamText = (st: Student) => DREAMS.find((d) => d.id === st.dream)?.text || '自分の道を見つけること';
-  const traitName = (st: Student) => (st.knownTraits[0] ? TRAITS[st.knownTraits[0]].name : PERSONALITIES[st.personality].name);
-  return text
-    .replace(/\{me\}/g, me.given).replace(/\{you\}/g, you.given)
-    .replace(/\{myDream\}/g, dreamText(me)).replace(/\{yourDream\}/g, dreamText(you))
-    .replace(/\{myCountry\}/g, COUNTRY_NAMES[me.origin]).replace(/\{yourCountry\}/g, COUNTRY_NAMES[you.origin])
-    .replace(/\{myTrait\}/g, traitName(me)).replace(/\{yourTrait\}/g, traitName(you))
-    .replace(/\{event\}/g, detail || 'あのこと')
-    .replace(/\{teacher\}/g, s.instructor.name).replace(/\{school\}/g, 'リミナ分校');
+function hashId(t: string): number { let h = 0; for (const c of t) h = (h * 31 + c.charCodeAt(0)) | 0; return Math.abs(h); }
+export function flavorOf(st: Student) { const list = ORIGIN_FLAVOR[st.origin]; return list[hashId(st.id) % list.length]; }
+function bestSkill(st: Student): SkillId {
+  return (Object.keys(st.skills) as SkillId[]).filter((k) => k !== 'gun' || st.skills.gun > 0).sort((a, b) => st.skills[b] - st.skills[a])[0];
 }
 
-const TOPIC_TITLE: Record<string, string> = {
+export function fillText(text: string, s: GameState, me: Student | null, you: Student | null, detail: string): string {
+  const dreamText = (st: Student | null) => (st && DREAMS.find((d) => d.id === st.dream)?.text) || '自分の道を見つけること';
+  const traitName = (st: Student | null) => (!st ? '' : st.knownTraits[0] ? TRAITS[st.knownTraits[0]].name : PERSONALITIES[st.personality].name);
+  const f = (st: Student | null, k: keyof ReturnType<typeof flavorOf>) => (st ? flavorOf(st)[k] : '');
+  const rep = (st: Student | null, prefix: string, t: string) => t
+    .replace(new RegExp(`\\{${prefix}Dream\\}`, 'g'), dreamText(st))
+    .replace(new RegExp(`\\{${prefix}Country\\}`, 'g'), st ? COUNTRY_NAMES[st.origin] : '')
+    .replace(new RegExp(`\\{${prefix}Trait\\}`, 'g'), traitName(st))
+    .replace(new RegExp(`\\{${prefix}Home\\}`, 'g'), f(st, 'home'))
+    .replace(new RegExp(`\\{${prefix}Food\\}`, 'g'), f(st, 'food'))
+    .replace(new RegExp(`\\{${prefix}Sight\\}`, 'g'), f(st, 'sight'))
+    .replace(new RegExp(`\\{${prefix}Fest\\}`, 'g'), f(st, 'fest'))
+    .replace(new RegExp(`\\{${prefix}Cold\\}`, 'g'), f(st, 'cold'))
+    .replace(new RegExp(`\\{${prefix}House\\}`, 'g'), st ? HOUSE_FLAVOR[st.house].home : '')
+    .replace(new RegExp(`\\{${prefix}Duty\\}`, 'g'), st ? HOUSE_FLAVOR[st.house].duty : '')
+    .replace(new RegExp(`\\{${prefix}Skill\\}`, 'g'), st ? SKILL_NAMES[bestSkill(st)] : '')
+    .replace(new RegExp(`\\{${prefix}Class\\}`, 'g'), st ? CLASSES[st.classId]?.name ?? '' : '')
+    .replace(new RegExp(`\\{${prefix}Friend\\}`, 'g'), st ? bestFriend(s, st)?.given ?? '仲間' : '')
+    .replace(new RegExp(`\\{${prefix}TalentSkill\\}`, 'g'), st ? SKILL_NAMES[(st.talent && TALENTS[st.talent].skill) || bestSkill(st)] : '')
+    .replace(new RegExp(`\\{${prefix}Hint\\}`, 'g'), st && st.talent ? TALENTS[st.talent].hint1.replace(/気がする$/, '') : '');
+  let out = rep(me, 'my', rep(you, 'your', me ? adaptPronoun(text, me) : text));
+  out = out
+    .replace(/\{me\}/g, me?.given ?? '').replace(/\{you\}/g, you?.given ?? '')
+    .replace(/\{event\}/g, detail || 'あのこと')
+    .replace(/\{season\}/g, SEASON_WORDS[s.month] ?? '').replace(/\{scene\}/g, SEASON_SCENE[s.month] ?? '中庭')
+    .replace(/\{teacher\}/g, s.instructor.name).replace(/\{school\}/g, 'リミナ分校')
+    .replace(/ことのため/g, 'ため'); // 「騎士になることのため」→「騎士になるため」
+  return out;
+}
+
+/** 一人称を話す人の性別・性格に合わせる（文面は「俺」「僕」「わたし」で書いてある） */
+const MALE_I: Partial<Record<PersonalityId, string>> = { hot: '俺', competitive: '俺', calm: '俺', cynic: '僕', whimsical: 'ぼく', timid: 'ぼく', shy: 'ぼく', gentle: 'ぼく', cheerful: 'ぼく' };
+export function adaptPronoun(text: string, me: Student): string {
+  if (me.gender === 'f') return text.replace(/俺/g, me.personality === 'hot' || me.personality === 'competitive' ? 'あたし' : 'わたし').replace(/僕/g, 'わたし');
+  const i = MALE_I[me.personality];
+  return i ? text.replace(/わたし/g, i) : text;
+}
+
+export const TOPIC_TITLE: Record<string, string> = {
   dream: '夢の話', origin: '故郷の話', house: '生まれの話', trait: 'お互いの癖', ev_cover: 'かばってくれた日',
   ev_samekill: '息の合った一撃', ev_exam: '試験のあと', ev_loss: '去った仲間', ev_homewar: '故郷の知らせ',
   ev_festival: '収穫祭の夜', ev_spar: '手合わせのあと', ev_injury: 'けがのあと', rel_friend: '友として',
   rel_rival: '好敵手', rel_love: '打ち明け話', daily: 'なにげない話',
+  food: '好きな食べもの', study: '授業のこと', teacher: '先生のこと', family: '家族の話', hobby: '休みの日',
+  war: '戦争のこと', future: '卒業したら', fear: '怖いもの',
 };
+
+/** TALKS の行を、話す人の性格の文面にして並べる */
+export function renderLines(s: GameState, rng: Rng, lines: TalkDef['lines'], a: Student, b: Student, sp: Support | null, detail: string): TalkLog['lines'] {
+  const resolve = (say: TalkSay): string => (typeof say === 'string' ? say : condOk(say.if, a, b, sp, s) ? resolve(say.then) : resolve(say.else));
+  const out: TalkLog['lines'] = [];
+  for (const l of lines) {
+    const key = resolve(l.say);
+    if (!key) continue; // 空の分岐は行ごと省く
+    if (l.by === 'n') { out.push({ by: 'narr', text: fillText(phrase(rng, key, 'default'), s, a, b, detail) }); continue; }
+    const me = l.by === 'a' ? a : b, you = l.by === 'a' ? b : a;
+    out.push({ by: me.id, text: fillText(phrase(rng, key, me.personality), s, me, you, detail) });
+  }
+  return out;
+}
 
 export function buildTalk(s: GameState, rng: Rng, sp: Support, rank: 'C' | 'B' | 'A'): TalkLog | null {
   let a = s.students[sp.a], b = s.students[sp.b];
@@ -133,7 +221,7 @@ export function buildTalk(s: GameState, rng: Rng, sp: Support, rank: 'C' | 'B' |
     if (t.rank !== rank || sp.seen.includes(t.id)) continue;
     for (const swap of [false, true]) {
       const x = swap ? b : a, y = swap ? a : b;
-      if (!condOk(t.when, x, y, sp)) continue;
+      if (!condOk(t.when, x, y, sp, s)) continue;
       let w = 1; let detail = '';
       if (t.topic.startsWith('ev_')) {
         const ev = recentEvent(x, y, t.topic, s.absWeek);
@@ -142,7 +230,7 @@ export function buildTalk(s: GameState, rng: Rng, sp: Support, rank: 'C' | 'B' |
       } else if (t.topic.startsWith('rel_')) {
         const kind = t.topic.slice(4);
         if (sp.kind !== kind) continue;
-        w = 3;
+        w = rank === 'A' ? 5 : 3;
       } else if (t.topic === 'trait' && x.knownTraits.length === 0) continue;
       cands.push({ t, w, swap, detail });
     }
@@ -155,12 +243,51 @@ export function buildTalk(s: GameState, rng: Rng, sp: Support, rank: 'C' | 'B' |
   const c = rng.weighted(cands, (x) => x.w);
   if (c.swap) [a, b] = [b, a];
   sp.seen.push(c.t.id);
-  const resolve = (say: TalkSay): string => (typeof say === 'string' ? say : condOk(say.if, a, b, sp) ? say.then : say.else);
-  const lines = c.t.lines.map((l) => {
-    const me = l.by === 'a' ? a : b, you = l.by === 'a' ? b : a;
-    return { by: me.id, text: fillText(phrase(rng, resolve(l.say), me.personality), s, me, you, c.detail) };
-  });
-  return { a: a.id, b: b.id, rank, title: TOPIC_TITLE[c.t.topic] ?? '会話', lines };
+  const t: TalkLog = { a: a.id, b: b.id, rank, title: TOPIC_TITLE[c.t.topic] ?? '会話', lines: renderLines(s, rng, c.t.lines, a, b, sp, c.detail), kind: 'support' };
+  archiveTalk(s, t);
+  return t;
+}
+// ---------- 会話の記録 ----------
+
+/** 会話を記録に残す（生徒ごとに新しいもの30件まで） */
+export function archiveTalk(s: GameState, t: TalkLog): TalkLog {
+  s.archive ??= {};
+  t.id ??= `k${s.nextId++}`;
+  t.year = s.year; t.month = s.month;
+  s.archive[t.id] = t;
+  for (const id of [t.a, t.b]) {
+    const st = s.students[id];
+    if (!st) continue;
+    st.archive ??= [];
+    st.archive.push(t.id);
+    while (st.archive.length > B.archive.perStudent) {
+      const old = st.archive.shift()!;
+      const o = s.archive[old];
+      const still = o && [o.a, o.b].some((x) => x !== id && s.students[x]?.archive?.includes(old));
+      if (!still) delete s.archive[old];
+    }
+  }
+  return t;
+}
+/** 年度末：学校を離れた生徒の記録を減らす（セーブが重くなりすぎないように） */
+export function pruneArchive(s: GameState): void {
+  if (!s.archive) return;
+  for (const st of Object.values(s.students)) {
+    if (st.status === 'enrolled' || !st.archive?.length) continue;
+    const left = st.diedYear ?? (st.enrollYear + 3);
+    const keep = s.year - left >= B.archive.departedYears ? 0 : B.archive.departedKeep;
+    // 面談より支援会話を残す
+    const ids = st.archive.filter((id) => s.archive[id]);
+    const support = ids.filter((id) => s.archive[id].kind === 'support' || !s.archive[id].kind);
+    st.archive = support.slice(-keep);
+    if (!keep) st.archive = [];
+  }
+  const used = new Set<string>();
+  for (const st of Object.values(s.students)) for (const id of st.archive ?? []) used.add(id);
+  for (const id of Object.keys(s.archive)) if (!used.has(id)) delete s.archive[id];
+}
+export function archiveOf(s: GameState, st: Student): TalkLog[] {
+  return (st.archive ?? []).map((id) => s.archive?.[id]).filter((x): x is TalkLog => !!x);
 }
 
 /** 信頼を増やす */
