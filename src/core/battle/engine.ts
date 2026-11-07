@@ -297,6 +297,24 @@ export function visit(b: BattleState, u: Unit): string {
   log(b, `${u.name}：${text}`, 'info');
   return text;
 }
+/** 扉（シーフ系が隣で開ける） */
+export function canOpenDoor(b: BattleState, u: Unit): { x: number; y: number } | null {
+  if (!hasAb(u, 'unlock')) return null;
+  for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+    const x = u.x + dx, y = u.y + dy;
+    if (x >= 0 && y >= 0 && x < b.width && y < b.height && b.tiles[y * b.width + x] === 'door') return { x, y };
+  }
+  return null;
+}
+export function openDoor(b: BattleState, u: Unit): string {
+  const d = canOpenDoor(b, u);
+  if (!d) return '';
+  b.tiles[d.y * b.width + d.x] = 'road';
+  u.acted = true; u.moved = true;
+  const text = `${u.name}が扉の鍵を開けた`;
+  log(b, text, 'info');
+  return text;
+}
 export function canOpenChest(b: BattleState, u: Unit) {
   return hasAb(u, 'unlock') ? b.chests.find((c) => !c.opened && dist(c, u) <= 1) ?? null : null;
 }

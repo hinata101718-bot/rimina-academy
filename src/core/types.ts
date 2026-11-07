@@ -43,6 +43,8 @@ export interface AbilityDef {
   aloneAvo?: number;     // 2マス以内に味方がいないと回避+
   unlock?: boolean;      // 宝箱・扉を開けられる
   effective?: MoveType[];// 特効（威力×3）
+  pierce?: number;       // 相手の守備・魔防をN低いものとして攻撃
+  followUp?: number;     // 追撃に必要な速さの差がN少なくてよい
 }
 
 export interface ClassDef {

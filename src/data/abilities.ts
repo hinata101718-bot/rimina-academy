@@ -21,20 +21,20 @@ const list: AbilityDef[] = [
   { id: 'quick_step', name: '足さばき', desc: '回避+10。', avo: 10 },
   { id: 'meteor', name: '流星', desc: '必殺+15。', crit: 15 },
   { id: 'sword_mind', name: '剣心一如', desc: '必殺+15、命中+10。', crit: 15, hit: 10 },
-  { id: 'magic_blade', name: '魔刃', desc: '与えるダメージ+2。', dmg: 2 },
+  { id: 'magic_blade', name: '魔刃', desc: '与えるダメージ+2、命中+5。', dmg: 2, hit: 5 },
   { id: 'rune_ward', name: '刻印の守り', desc: '与えるダメージ+2、受けるダメージ−2。', dmg: 2, prot: 2 },
   { id: 'lockpick', name: '鍵開け', desc: '宝箱と扉を鍵なしで開けられる。回避+5。', unlock: true, avo: 5 },
-  { id: 'shadow_step', name: '忍び足', desc: '宝箱と扉を開けられる。回避+10、必殺+5。', unlock: true, avo: 10, crit: 5 },
+  { id: 'shadow_step', name: '忍び足', desc: '宝箱と扉を開けられる。回避+10、必殺+5。速さの差が2少なくても追撃できる。', unlock: true, avo: 10, crit: 5, followUp: 2 },
   { id: 'vanish', name: '影隠れ', desc: '宝箱と扉を開けられる。回避+15、必殺+10。', unlock: true, avo: 15, crit: 10 },
 
   // ---------- 槍兵系 ----------
   { id: 'charge', name: '突撃', desc: '与えるダメージ+1。', dmg: 1 },
   { id: 'chivalry', name: '騎士道', desc: '隣接する味方の守備+2。', adjAllyDef: 2 },
   { id: 'iron_rampart', name: '鉄城', desc: '受けるダメージ−3。', prot: 3 },
-  { id: 'magic_lance', name: '魔騎突', desc: '与えるダメージ+2。', dmg: 2 },
+  { id: 'magic_lance', name: '魔騎突', desc: '相手の守備・魔防を4低いものとして攻撃する。', pierce: 4 },
   { id: 'dark_aura', name: '闇纏い', desc: '与えるダメージ+2、受けるダメージ−1。', dmg: 2, prot: 1 },
   { id: 'wind_ride', name: '風乗り', desc: '回避+10。', avo: 10 },
-  { id: 'sky_dance', name: '天舞', desc: '回避+15。', avo: 15 },
+  { id: 'sky_dance', name: '天舞', desc: '回避+15、受けるダメージ−1。', avo: 15, prot: 1 },
   { id: 'gale', name: '疾風', desc: '回避+15、命中+5。', avo: 15, hit: 5 },
 
   // ---------- 戦士系 ----------
@@ -44,7 +44,7 @@ const list: AbilityDef[] = [
   { id: 'war_cry', name: '雄叫び', desc: '与えるダメージ+2。', dmg: 2 },
   { id: 'frenzy', name: '狂奔', desc: 'HPが半分以下のとき攻撃+5。必殺+5。', lowHpAtk: 5, crit: 5 },
   { id: 'conqueror', name: '覇気', desc: '与えるダメージ+3、必殺+5。', dmg: 3, crit: 5 },
-  { id: 'courage', name: '勇猛', desc: '命中+10、与えるダメージ+1。', hit: 10, dmg: 1 },
+  { id: 'courage', name: '勇猛', desc: '命中+10、与えるダメージ+1、必殺+5。', hit: 10, dmg: 1, crit: 5 },
   { id: 'indomitable', name: '不屈の闘志', desc: 'HPが半分以下のとき攻撃+4。与えるダメージ+2。', lowHpAtk: 4, dmg: 2 },
 
   // ---------- アーチャー系 ----------
@@ -52,12 +52,12 @@ const list: AbilityDef[] = [
   { id: 'hawk_eye', name: '鷹の目', desc: '命中+20。', hit: 20 },
   { id: 'farsight', name: '千里眼', desc: '命中+20、必殺+10。', hit: 20, crit: 10 },
   { id: 'mounted_shot', name: '騎射', desc: '命中+5、与えるダメージ+1。', hit: 5, dmg: 1 },
-  { id: 'running_shot', name: '駆け射ち', desc: '命中+10、与えるダメージ+1。', hit: 10, dmg: 1 },
+  { id: 'running_shot', name: '駆け射ち', desc: '命中+10。速さの差が2少なくても追撃できる。', hit: 10, followUp: 2 },
   { id: 'sky_arrow', name: '天弓', desc: '命中+10、与えるダメージ+2、必殺+5。', hit: 10, dmg: 2, crit: 5 },
 
   // ---------- 魔道士系 ----------
   { id: 'focus', name: '精神統一', desc: '命中+10。', hit: 10 },
-  { id: 'wisdom', name: '叡智', desc: '与えるダメージ+2、命中+5。', dmg: 2, hit: 5 },
+  { id: 'wisdom', name: '叡智', desc: '与えるダメージ+1、相手の魔防を2低いものとして攻撃する。命中+5。', dmg: 1, pierce: 2, hit: 5 },
   { id: 'arcane', name: '深淵の理', desc: '与えるダメージ+3、命中+10。', dmg: 3, hit: 10 },
   { id: 'venom', name: '毒呪', desc: '攻撃が命中した相手を毒にする。', poison: true },
   { id: 'hex', name: '弱体の呪', desc: '攻撃が命中した相手の守備・魔防を下げる。', weaken: true },

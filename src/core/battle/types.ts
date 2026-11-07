@@ -1,6 +1,6 @@
 import type { MoveType, Stats, WeaponType } from '../types';
 
-export type Terrain = 'plain' | 'forest' | 'mountain' | 'fort' | 'river' | 'bridge' | 'village' | 'wall' | 'road';
+export type Terrain = 'plain' | 'forest' | 'mountain' | 'fort' | 'river' | 'bridge' | 'village' | 'wall' | 'road' | 'door';
 
 export interface Unit {
   uid: string;

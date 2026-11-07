@@ -3,7 +3,7 @@ import { useStore, act } from './store';
 import type { BattleState, Unit, LastAction } from '../core/battle/types';
 import {
   reachable, threatTiles, enemyThreat, moveUnit, attack, heal, wait, useItem, endPlayerPhase, rewind, canRewind, canVisit, visit,
-  canOpenChest, openChest, canPersuade, persuade, canRescue, rescue, canEscape, escape, command, canCommand, commandRate, allActed, findPath, canHealTarget,
+  canOpenChest, openChest, canOpenDoor, openDoor, canPersuade, persuade, canRescue, rescue, canEscape, escape, command, canCommand, commandRate, allActed, findPath, canHealTarget,
   type EnemyReplay, type UnitView,
 } from '../core/battle/engine';
 import { forecast, weaponOf, staffOf, staffsOf, inRange, dist, canUseNow, tile, terrainDef, attackWeapons, healAmount, bestStaffFor } from '../core/battle/calc';
@@ -25,7 +25,7 @@ type Mode =
   | { kind: 'confirm'; uid: string; from: [number, number]; target: string; heal?: boolean; wid: string | null }
   | { kind: 'command'; cmd: 'again' | 'aim' | 'retreat' };
 
-const TMARK: Record<string, string> = { forest: '🌲', mountain: '⛰', fort: '🏰', river: '', bridge: '', village: '🏠', wall: '', plain: '', road: '' };
+const TMARK: Record<string, string> = { forest: '🌲', mountain: '⛰', fort: '🏰', river: '', bridge: '', village: '🏠', wall: '', plain: '', road: '', door: '🚪' };
 
 interface CombatShow {
   a: string; d: string; hpA: number; hpD: number; heal: boolean; big: boolean; dur: number; top: boolean;
@@ -432,6 +432,7 @@ function ActionMenu({ b, u, s, onAttack, onHeal, onDone, onBack, snapshot }: { b
         {u.item && u.hp < u.maxHp && <button class="btn small" onClick={() => doAct((bb, uu) => { useItem(bb, uu); }, true)}>{u.item === 'elixir' ? '特効薬' : '傷薬'}</button>}
         {canVisit(b, u) && <button class="btn small" onClick={() => doAct((bb, uu) => visit(bb, uu))}>訪問</button>}
         {canOpenChest(b, u) && <button class="btn small" onClick={() => doAct((bb, uu) => openChest(bb, uu))}>宝箱</button>}
+        {canOpenDoor(b, u) && <button class="btn small" onClick={() => doAct((bb, uu) => openDoor(bb, uu))}>扉を開ける</button>}
         {canPersuade(b, u) && <button class="btn small primary" onClick={() => doAct((bb, uu) => persuade(bb, ctx, uu))}>説得</button>}
         {canRescue(b, u) && <button class="btn small accent" onClick={() => doAct((bb, uu) => rescue(bb, uu))}>救出</button>}
         {canEscape(b, u) && <button class="btn small accent" onClick={() => doAct((bb, uu) => escape(bb, uu))}>脱出</button>}

@@ -16,12 +16,16 @@ export const SCHOOL_MAX_TIER = 3;
 export function classUnlocked(s: GameState, c: ClassDef): boolean {
   if (c.needGun && !s.world.gunUnlocked) return false;
   if (c.needStable && (s.facilities.stable ?? 0) < 1) return false;
-  if (c.nation || c.hidden || c.tier > SCHOOL_MAX_TIER) return false;
+  if (c.hidden) return true; // 英雄：受けられる子だけが nextClasses に出る
+  if (c.nation || c.tier > SCHOOL_MAX_TIER) return false;
   return true;
 }
 
+/** 隠し兵種「英雄」：才能「英雄の器」の子が上級から（在学中は Lv20 以上で受験できる） */
+export function heroOpen(st: Student): boolean { return st.talent === 'hero' && (CLASSES[st.classId]?.tier ?? 0) === 3; }
+
 /** 受験に必要なレベル（段階ごと） */
-export function levelReq(c: ClassDef): number { return B.exam.levelReq[c.tier] ?? 0; }
+export function levelReq(c: ClassDef): number { return c.hidden ? B.exam.heroLevel : B.exam.levelReq[c.tier] ?? 0; }
 
 export function meetsSkillReq(st: Student, c: ClassDef): boolean {
   return Object.entries(c.req).every(([k, r]) => st.skills[k as SkillId] >= RANK_POINTS[r as Rank]);
@@ -46,7 +50,7 @@ export function missingReqs(s: GameState, st: Student, c: ClassDef): string[] {
 
 /** 受けられる兵種（前提を満たすもの全部。条件を満たさないものも含めて返す） */
 export function nextClasses(s: GameState, st: Student): ClassDef[] {
-  return CLASS_LIST.filter((c) => c.prereq.includes(st.classId) && !c.nation && !c.hidden && c.tier <= SCHOOL_MAX_TIER && (!c.needGun || s.world.gunUnlocked));
+  return CLASS_LIST.filter((c) => c.prereq.includes(st.classId) && !c.nation && (c.hidden ? heroOpen(st) : c.tier <= SCHOOL_MAX_TIER) && (!c.needGun || s.world.gunUnlocked));
 }
 
 export function passRate(st: Student, c: ClassDef): number {
@@ -76,6 +80,7 @@ export function takeExam(s: GameState, rng: Rng, st: Student, classId: string): 
     addRecent(s, st, 'ev_exam', c.name);
     st.motivation = Math.min(4, st.motivation + 1);
     if (c.tier >= 2) chronicle(s, `${st.given}が${c.name}に`, 'student');
+    if (c.hidden) { st.talentReveal = 100; st.growthKnown = true; chronicle(s, `${st.given}が隠された兵種「${c.name}」に至った`, 'student'); }
     notify(s, `${st.given}が兵種試験に合格し、${c.name}になった`, st.id);
     return { ok, rate, text: `合格！ ${st.given}は${c.name}になった` };
   }

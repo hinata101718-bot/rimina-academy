@@ -169,3 +169,72 @@ describe('エンディング', () => {
     for (const k of ['peace', 'unify', 'ceasefire', 'neutral'] as const) expect(endingScene(s, new Rng(s), k, 'kingdom').length).toBeGreaterThan(5);
   });
 });
+
+import { MAPS } from '../src/data/maps';
+import { createBattle } from '../src/core/battle/setup';
+import { canOpenDoor, openDoor } from '../src/core/battle/engine';
+import { nextClasses, heroOpen } from '../src/core/exam';
+import { forecast } from '../src/core/battle/calc';
+describe('兵種の仕上げ', () => {
+  it('扉のある型：扉を開けなくても敵将まで行ける、扉の奥には宝箱', () => {
+    for (const id of ['old_keep', 'prison']) {
+      const m = MAPS[id];
+      expect(m.doors).toBe(true);
+      const W = 8, H = 12;
+      const ok = (x: number, y: number) => x >= 0 && y >= 0 && x < W && y < H && !'#D'.includes(m.rows[y][x]);
+      const start = [m.rows.length - 2, 0].map(() => 0) && (() => { for (let y = H - 1; y >= 0; y--) for (let x = 0; x < W; x++) if (m.rows[y][x] === 'P') return [x, y]; return [0, 0]; })();
+      const seen = new Set([start.join(',')]); const q = [start];
+      while (q.length) { const [x, y] = q.shift()!; for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const k = `${x + dx},${y + dy}`; if (!seen.has(k) && ok(x + dx, y + dy)) { seen.add(k); q.push([x + dx, y + dy]); } } }
+      let k = ''; m.rows.forEach((r, y) => [...r].forEach((c, x) => { if (c === 'K') k = `${x},${y}`; }));
+      expect(seen.has(k), id).toBe(true);
+      expect(m.rows.join('').includes('D')).toBe(true);
+    }
+  });
+  it('シーフ系は扉を開けられる（ほかの兵種は開けられない）', () => {
+    const s = newGame({ name: 't', background: 'knight', seed: 31 });
+    const st = enrolled(s)[0];
+    const q = { id: 'qd', kind: 'bandit' as const, title: '古城', client: 'x', clientCountry: null, enemyCountry: null, objective: 'rout' as const, template: 'old_keep', level: 3, reward: 100, danger: 1, weather: 'clear' as const, real: false };
+    s.quests = [q];
+    const b = createBattle(s, q, [{ studentId: st.id, armoryUid: null, item: null, staffUid: null }], 5);
+    expect(b.chests.length).toBe(2);
+    const u = b.units.find((x) => x.studentId === st.id)!;
+    u.x = 4; u.y = 2; // 扉 (4,3) の上
+    expect(canOpenDoor(b, u)).toBeNull();
+    u.abilities = ['lockpick'];
+    expect(canOpenDoor(b, u)).toEqual({ x: 4, y: 3 });
+    openDoor(b, u);
+    expect(b.tiles[3 * 8 + 4]).toBe('road');
+  });
+  it('英雄：才能「英雄の器」の子が上級から、Lv20で受験できる', () => {
+    const s = newGame({ name: 't', background: 'knight', seed: 41 });
+    const st = enrolled(s)[0];
+    st.classId = 'swordmaster'; st.level = 20;
+    st.talent = null;
+    expect(nextClasses(s, st).some((c) => c.id === 'hero')).toBe(false);
+    st.talent = 'hero';
+    expect(heroOpen(st)).toBe(true);
+    const hero = nextClasses(s, st).find((c) => c.id === 'hero')!;
+    expect(meetsReq(st, hero)).toBe(true);
+    st.level = 19;
+    expect(meetsReq(st, hero)).toBe(false);
+  });
+  it('上級の固有スキル：魔騎突は守備・魔防を下げて攻撃、駆け射ちは追撃しやすい', () => {
+    const s = newGame({ name: 't', background: 'knight', seed: 51 });
+    const st = enrolled(s)[0];
+    const q = { id: 'qd', kind: 'drill' as const, title: '演習', client: 'x', clientCountry: null, enemyCountry: null, objective: 'rout' as const, template: 'training', level: 3, reward: 0, danger: 1, weather: 'clear' as const, real: false };
+    const b = createBattle(s, q, [{ studentId: st.id, armoryUid: null, item: null, staffUid: null }], 5);
+    const u = b.units.find((x) => x.studentId === st.id)!;
+    const e = b.units.find((x) => x.side === 'enemy')!;
+    u.weaponId = 'iron_sword'; u.weapons = ['iron_sword']; e.x = u.x; e.y = u.y - 1;
+    const sup = () => 0;
+    const base = forecast(b, u, e, u.x, u.y, sup).atk.dmg;
+    u.abilities = ['magic_lance'];
+    const pierced = forecast(b, u, e, u.x, u.y, sup).atk.dmg;
+    expect(pierced).toBeGreaterThanOrEqual(Math.min(base + 4, pierced));
+    expect(pierced).toBeGreaterThan(base - 1);
+    u.stats.spd = e.stats.spd + 2; u.abilities = [];
+    expect(forecast(b, u, e, u.x, u.y, sup).atk.count).toBe(1);
+    u.abilities = ['running_shot'];
+    expect(forecast(b, u, e, u.x, u.y, sup).atk.count).toBe(2);
+  });
+});

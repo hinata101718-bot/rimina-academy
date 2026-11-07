@@ -14,7 +14,7 @@ import { emptyStats } from '../util';
 import { tensionStage } from '../world';
 import { usableSpells } from '../spells';
 
-const CHAR: Record<string, Terrain> = { '.': 'plain', F: 'forest', M: 'mountain', T: 'fort', '~': 'river', '=': 'bridge', V: 'village', '#': 'wall', r: 'road' };
+const CHAR: Record<string, Terrain> = { '.': 'plain', F: 'forest', M: 'mountain', T: 'fort', '~': 'river', '=': 'bridge', V: 'village', '#': 'wall', r: 'road', D: 'door' };
 
 export interface Deploy { studentId: string; armoryUid: string | null; item: 'vulnerary' | 'elixir' | null; staffUid?: string | null }
 
@@ -134,7 +134,7 @@ export function createBattle(s: GameState, quest: Quest, deploys: Deploy[], seed
   };
   if (quest.objective === 'escort' && !b.goal) b.goal = { x: 3, y: 0 };
   // 宝箱
-  for (const [x, y] of chestSpots) if (rng.chance(0.6)) {
+  for (const [x, y] of chestSpots) if (tpl.doors || rng.chance(0.6)) {
     const specials = Object.values(WEAPONS).filter((w) => w.price === 0 && w.type !== 'gun' && !w.spell);
     b.chests.push({ x, y, weaponId: rng.pick(specials).id, opened: false });
   }

@@ -6,7 +6,7 @@ import type { CountryId } from './types';
 import type { GameState, Student } from './state';
 import { Rng } from './rng';
 import { gainExp } from './growth';
-import { effectiveStats, chronicle, mail, addFriendship } from './game';
+import { effectiveStats, chronicle, mail, addFriendship, notify } from './game';
 import { tensionStage, atWar } from './world';
 import { loveOf } from './support';
 
@@ -50,7 +50,12 @@ export function simulateAlumni(s: GameState, rng: Rng): AlumniNews[] {
         const nation = kids.filter((k) => k.nation);
         const next = nation.length && rng.chance(0.5) ? rng.pick(nation) : rng.pick(kids);
         st.classId = next.id;
-        if (next.tier >= 4) big(st, `が${next.name}になった`);
+        if (next.tier >= 4) {
+          big(st, `が${next.nation ? `${COUNTRY_SHORT[next.nation]}だけの兵種、` : next.hidden ? '伝説の兵種、' : '最上級の兵種、'}${next.name}になった`);
+          notify(s, `卒業生の${st.given}が${next.name}に昇格した`, st.id);
+          if (st.trust >= 30) mail(s, `${st.given}（${st.cohort}期生）`, '昇格のお知らせ', promotionLetter(rng, st, next.name, !!next.nation, !!next.hidden), st.id);
+          if (next.hidden || next.nation) chronicle(s, `卒業生の${st.given}が${next.name}に`, 'student');
+        }
         else st.history.push({ year: s.year, text: `${next.name}になった` });
       }
     }
@@ -138,6 +143,14 @@ let _idx: Record<string, string> | null = null;
 function WEAPON_NAME_INDEX(): Record<string, string> {
   if (!_idx) { _idx = {}; for (const w of Object.values(WEAPONS)) _idx[w.name] = w.id; }
   return _idx;
+}
+
+function promotionLetter(rng: Rng, st: Student, cls: string, nation: boolean, hero: boolean): string {
+  const c = st.career!;
+  const where = c.country ? COUNTRY_SHORT[c.country] : '';
+  const head = hero ? `先生、信じられないかもしれませんが……わたしは「${cls}」と呼ばれるようになりました。` : nation ? `先生、${where}の${cls}に任じられました！ ${where}でも、なれる人はほんのひと握りだそうです。` : `先生、ついに${cls}になりました。`;
+  const tail = rng.pick(['学校で最初に剣を握った日のことを、今でも覚えています。', '先生に教わった基本を、毎朝欠かさず続けてきたおかげです。', '後輩たちにも、あきらめなければ届くと伝えてください。']);
+  return `${head}${tail}—${st.given}（${st.cohort}期生）`.replace(/わたし/g, st.gender === 'm' ? '僕' : 'わたし');
 }
 
 function letterBody(rng: Rng, st: Student): string {

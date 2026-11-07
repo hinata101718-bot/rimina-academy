@@ -108,6 +108,7 @@ function sideStats(b: BattleState, a: Unit, d: Unit, ax: number, ay: number, sup
   defStat += adjacentAllies(b, d).reduce((s, o) => s + sumAb(o, 'adjAllyDef'), 0);
   defStat -= d.weaken > 0 ? B.battle.weakenAmount : 0;
   if (magical && d.ward) defStat += d.ward;
+  defStat -= sumAb(a, 'pierce');
   if (w.type === 'gun') defStat = Math.floor(defStat * B.battle.gunDefPierce);
   let dmg = atk - Math.max(0, defStat) - sumAb(d, 'prot') - adjacentAllies(b, d).reduce((s, o) => s + sumAb(o, 'adjAllyProt'), 0);
   dmg = Math.max(0, Math.round(dmg));
@@ -119,7 +120,7 @@ function sideStats(b: BattleState, a: Unit, d: Unit, ax: number, ay: number, sup
   if (adjacentEnemies(b, d).length >= 3) avo += sumAb(d, 'surroundedAvo');
   if (!b.units.some((o) => o !== d && !o.dead && isFriendly(o, d) && dist(o, d) <= 2)) avo += sumAb(d, 'aloneAvo');
   const crit = clamp(Math.round(w.crit + a.stats.skl / 2 + sa.crit + sumAb(a, 'crit') + (pa?.crit ?? 0) - d.stats.lck), 0, 100);
-  const count = a.stats.spd - d.stats.spd >= B.battle.doubleSpeed && w.type !== 'gun' ? 2 : 1;
+  const count = a.stats.spd - d.stats.spd >= B.battle.doubleSpeed - sumAb(a, 'followUp') && w.type !== 'gun' ? 2 : 1;
   return { dmg, hit: clamp(Math.round(hit - avo), 0, 100), crit, count, triangle: tri, effective, canAttack: true };
 }
 
@@ -131,7 +132,7 @@ export function forecast(b: BattleState, a: Unit, d: Unit, ax: number, ay: numbe
     const atk = sideStats(b, a, d, ax, ay, sup, false);
     const def = sideStats(b, d, a, d.x, d.y, sup, true);
     // 反撃側の追撃
-    if (def.canAttack && d.stats.spd - a.stats.spd >= B.battle.doubleSpeed && weaponOf(d)?.type !== 'gun') def.count = 2; else if (def.canAttack) def.count = 1;
+    if (def.canAttack && d.stats.spd - a.stats.spd >= B.battle.doubleSpeed - sumAb(d, 'followUp') && weaponOf(d)?.type !== 'gun') def.count = 2; else if (def.canAttack) def.count = 1;
     return { attacker: a, defender: d, atk, def };
   } finally { a.x = ox; a.y = oy; }
 }

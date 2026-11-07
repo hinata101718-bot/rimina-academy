@@ -1,9 +1,12 @@
 // マップの型（縦12×横8）。記号：
 // . 平地  F 森  M 山  T 砦  ~ 川  = 橋  V 村  # 壁  r 道  ? 可変（森・平地・山）
+// D 扉（シーフ系だけが隣で開けられる。開けると道になる）
 // P 味方の出撃位置  E 敵の候補位置  K ボス  G 目的地・制圧地点  C 宝箱  S 守る対象（村人・商人）
 export interface MapTemplate {
   id: string; name: string; rows: string[];
   bossTerrain?: string;
+  /** 扉のある型（扉の奥の宝箱はかならず置く） */
+  doors?: boolean;
 }
 
 export const MAPS: Record<string, MapTemplate> = {
@@ -104,6 +107,34 @@ export const MAPS: Record<string, MapTemplate> = {
     '.#....#.',
     'PPP..PPP',
     '.PPGPP..',
+  ] },
+  old_keep: { id: 'old_keep', name: '古城の宝物庫', doors: true, rows: [
+    'C#E.K.E#',
+    'D#..T..#',
+    '..?..?.E',
+    'E.##D##.',
+    '..#...#.',
+    '.?#.C.#?',
+    '..#####.',
+    '?..E...?',
+    '.?....?.',
+    '........',
+    'PPP..PPP',
+    '.PP..PP.',
+  ] },
+  prison: { id: 'prison', name: '地下の牢', doors: true, rows: [
+    '#C#E.K#C',
+    '#D#...#D',
+    '?...E...',
+    '.E.##.E.',
+    '...##...',
+    '?.?..?.?',
+    '.#.##.#.',
+    '.##CD.#.',
+    '..##....',
+    '........',
+    'PPP..PPP',
+    '.PP..PP.',
   ] },
   school: { id: 'school', name: 'リミナ分校', rows: [
     'E.E..E.E',

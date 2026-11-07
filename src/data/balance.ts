@@ -135,7 +135,7 @@ export const B = {
     yearlyDecay: 0.08, decayFloor: 40, schoolDefenseWin: 3,
   },
   // ---- 試験 ----
-  exam: { baseRate: 60, perPoints: 5, max: 100, levelReq: [0, 5, 10, 20, 30] as number[] }, // 段階ごとの受験レベル（初級5・中級10・上級20・最上級30）
+  exam: { baseRate: 60, perPoints: 5, max: 100, levelReq: [0, 5, 10, 20, 30] as number[], heroLevel: 20 }, // 段階ごとの受験レベル（初級5・中級10・上級20・最上級30）
   // ---- 戦闘 ----
   battle: {
     width: 8, height: 12,
@@ -169,6 +169,7 @@ export const B = {
     village: { name: '村', avo: 10, def: 0, cost: { infantry: 1, cavalry: 1, armor: 1, flying: 1 } },
     wall: { name: '壁', avo: 0, def: 0, cost: { infantry: 99, cavalry: 99, armor: 99, flying: 99 } },
     road: { name: '道', avo: 0, def: 0, cost: { infantry: 1, cavalry: 1, armor: 1, flying: 1 } },
+    door: { name: '扉', avo: 0, def: 0, cost: { infantry: 99, cavalry: 99, armor: 99, flying: 99 } }, // シーフ系が隣で開けると道になる
   },
   // ---- 依頼 ----
   quests: {
