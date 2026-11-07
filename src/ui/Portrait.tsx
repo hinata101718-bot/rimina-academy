@@ -133,7 +133,7 @@ export function Portrait({ st, size = 48, game }: { st: Student; size?: number; 
   const img = faceImageFor(st, g);
   if (img) {
     // 顔画像は胸から上の絵なので、小さい表示ほど顔のあたりを大きく切り抜く
-    const zoom = size <= 64 ? 1.55 : size <= 120 ? 1.3 : 1.0;
+    const zoom = size <= 64 ? 1.2 : size <= 120 ? 1.08 : 1.0;
     return (
       <span style={{ width: size, height: size, borderRadius: size <= 120 ? '22%' : '12px', overflow: 'hidden', flex: 'none', display: 'inline-block', position: 'relative', background: '#f7f0e2', border: '1.5px solid #c9bfa8', boxSizing: 'border-box' }}>
         <img src={img} alt="" loading="lazy" style={{ position: 'absolute', width: `${zoom * 100}%`, left: `${-(zoom - 1) * 50}%`, top: zoom > 1 ? '-2%' : '0', filter: dead ? 'grayscale(1)' : undefined }} />
