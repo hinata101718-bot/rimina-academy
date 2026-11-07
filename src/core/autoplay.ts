@@ -1,0 +1,140 @@
+// オートプレイ（長期シミュレーション・テスト用）。画面なしで1年を進める
+import { B } from '../data/balance';
+import { WEAPONS } from '../data/weapons';
+import type { SkillId } from './types';
+import type { GameState, Student } from './state';
+import { enrolled, available, deployLimit, capacity } from './game';
+import { nextWeek, startBattle, finishBattle, finishCareers, admit, autoAdmitIds, battleCtx, rng, ensureReinforcementFactory } from './flow';
+import { autoPlayerPhase, endPlayerPhase } from './battle/engine';
+import { autoExam } from './exam';
+import { autoRecommend, suitablePath } from './career';
+import { upgradeFacility, hireTeacher, facilityCost, buyWeapon, type FacilityId } from './teachers';
+import type { Deploy } from './battle/setup';
+import { meetsRank } from './util';
+import { CLASSES } from '../data/classes';
+
+/** 武器の自動割り当て */
+export function autoDeploy(s: GameState, limit = deployLimit(s)): Deploy[] {
+  const list = enrolled(s).filter(available).sort((a, b) => b.level - a.level).slice(0, limit);
+  const used = new Set<string>();
+  let items = s.items.vulnerary;
+  return list.map((st) => {
+    const w = bestArmoryWeapon(s, st, used, false);
+    if (w) used.add(w);
+    const staff = bestArmoryWeapon(s, st, used, true);
+    if (staff) used.add(staff);
+    const item = items > 0 ? (items--, 'vulnerary' as const) : null;
+    return { studentId: st.id, armoryUid: w, item, staffUid: staff };
+  });
+}
+
+export function canEquip(st: Student, weaponId: string): boolean {
+  const w = WEAPONS[weaponId];
+  if (!w) return false;
+  const c = CLASSES[st.classId] ?? CLASSES.novice;
+  if (!c.weapons.includes(w.type)) return false;
+  const skill = (w.type === 'holy' || w.type === 'staff' ? 'faith' : w.type) as SkillId;
+  return meetsRank(st.skills[skill] ?? 0, w.rank);
+}
+
+export function bestArmoryWeapon(s: GameState, st: Student, used: Set<string>, staff: boolean): string | null {
+  let best: { uid: string; score: number } | null = null;
+  for (const a of s.armory) {
+    if (used.has(a.uid)) continue;
+    const w = WEAPONS[a.weaponId];
+    if (!w || (w.type === 'staff') !== staff || !canEquip(st, a.weaponId)) continue;
+    const skill = (w.type === 'holy' || w.type === 'staff' ? 'faith' : w.type) as SkillId;
+    const score = (st.skills[skill] ?? 0) + w.might * 5;
+    if (!best || score > best.score) best = { uid: a.uid, score };
+  }
+  return best?.uid ?? null;
+}
+
+/** 戦闘を自動で最後まで */
+export function autoBattle(s: GameState): void {
+  const b = s.battle;
+  if (!b) return;
+  ensureReinforcementFactory(s);
+  const ctx = battleCtx(s);
+  let guard = 0;
+  while (s.battle && s.battle.phase !== 'done' && guard++ < 60) {
+    autoPlayerPhase(s.battle, ctx);
+    if ((s.battle.phase as string) === 'done') break;
+    endPlayerPhase(s.battle, ctx);
+  }
+  if (s.battle && s.battle.phase !== 'done') { s.battle.phase = 'done'; s.battle.result = 'lose'; }
+  finishBattle(s);
+}
+
+/** 処理待ちの画面を自動で片付ける */
+export function autoPending(s: GameState): void {
+  let guard = 0;
+  while (s.pending.length && guard++ < 50) {
+    const p = s.pending[0];
+    if (p.type === 'questBoard') {
+      const real = s.quests.filter((q) => q.real);
+      const lv = enrolled(s).reduce((a, x) => a + x.level, 0) / Math.max(1, enrolled(s).length);
+      const pick = real.filter((q) => q.danger <= (lv > 8 ? 3 : 2)).sort((a, b) => b.reward - a.reward)[0] ?? s.quests[0];
+      startBattle(s, pick.id, autoDeploy(s));
+      autoBattle(s);
+      continue;
+    }
+    if (p.type === 'career') {
+      const plans = enrolled(s).filter((x) => x.grade === 3).map((st) => ({ studentId: st.id, recommend: autoRecommend(s, st), path: suitablePath(st) }));
+      finishCareers(s, plans);
+      continue;
+    }
+    if (p.type === 'entrance') { admit(s, autoAdmitIds(s)); continue; }
+    s.pending.shift();
+  }
+}
+
+/** 学校経営の自動判断（月に1回） */
+export function autoManage(s: GameState): void {
+  const r = rng(s);
+  for (const st of enrolled(s)) autoExam(s, r, st);
+  // 施設
+  const order: FacilityId[] = ['training', 'chapel', 'library', 'dining', 'stable', 'range'];
+  for (const f of order) {
+    const c = facilityCost(s, f);
+    if (c !== null && s.money >= c + 1200) { upgradeFacility(s, f); break; }
+  }
+  // 講師
+  if (s.teacherCandidates.length && s.money > 3000 && s.teachers.length < 3) {
+    const t = s.teacherCandidates.sort((a, b) => b.points - a.points)[0];
+    if (t.salary * 12 < s.money / 2) hireTeacher(s, t.id);
+  }
+  // 武器
+  if (s.money > 2500 && s.armory.length < enrolled(s).length + 4) {
+    const w = r.pick(Object.values(WEAPONS).filter((x) => x.price > 0 && x.price <= 800 && (x.type !== 'gun' || s.world.gunUnlocked)));
+    buyWeapon(s, w.id, w.price);
+  }
+  // 重点科目
+  for (const g of [1, 2, 3]) {
+    const list = enrolled(s).filter((x) => x.grade === g);
+    if (!list.length) continue;
+    const count: Record<string, number> = {};
+    for (const st of list) for (const k of st.targets) count[k] = (count[k] ?? 0) + 1;
+    const top = Object.entries(count).sort((a, b) => b[1] - a[1]).map((x) => x[0] as SkillId);
+    if (top.length >= 2) s.focus[g] = [top[0], top[1]];
+  }
+  void capacity; void B;
+}
+
+/** 1週間ぶん自動で進める */
+export function autoWeek(s: GameState): void {
+  autoPending(s);
+  if (s.week === 1) autoManage(s);
+  nextWeek(s);
+  autoPending(s);
+}
+
+export function autoYears(s: GameState, years: number, onYear?: (s: GameState) => void): void {
+  const target = s.year + years;
+  let guard = 0;
+  while (s.year < target && guard++ < years * 60) {
+    const y = s.year;
+    autoWeek(s);
+    if (s.year !== y) onYear?.(s);
+  }
+}
