@@ -124,9 +124,9 @@ export const B = {
     alumniSalaryMul: 0.5,
   },
   reputation: {
-    questWin: [1, 3] as [number, number], questWinByDanger: [0, 0.9, 1.3, 1.8], questLose: -2, deathInSchool: -3, dropout: -1,
+    questWin: [1, 3] as [number, number], questWinByDanger: [0, 1.1, 1.5, 2.0], questLose: -2, deathInSchool: -3, dropout: -1,
     exhibition: [2, 4] as [number, number], promotionDiv: 4, promotionMax: 3,
-    yearlyDecay: 0.08, decayFloor: 35, schoolDefenseWin: 3,
+    yearlyDecay: 0.08, decayFloor: 40, schoolDefenseWin: 3,
   },
   // ---- 試験 ----
   exam: { baseRate: 60, perPoints: 5, max: 100 },
@@ -207,15 +207,16 @@ export const B = {
     peaceBelow: 35, warAbove: 65,
     relWar: -50, relAllied: 50,
     warriorPowerMul: 0.3, strategistPowerMul: 0.25, civilRelMul: 0.3,
-    empireAmbition: -0.28, allianceBridge: 0.12, warFatigueYears: 6, warFatiguePerYear: 1.0,
+    empireAmbition: -0.22, allianceBridge: 0.15, warFatigueYears: 4, warFatiguePerYear: 1.2,
     yearRandom: 3, warDecay: -3,
     tensionPerWar: 8, tensionPerFriendly: -5, tensionPowerGapDiv: 10,
     tensionBase: 0, tensionWarPair: 38, tensionTensePair: 12, tensionTenseMul: 0.2, tensionAlliedPair: -6, tensionFriendlyPair: -2,
     monthlyDrift: 1.2,
-    powerMeanRevert: 0.08,
+    powerMeanRevert: 0.08, powerMeanRevertYear: 0.12,
+    pairWarFatigue: 1.5, pairWarFatigueMax: 10, weakSidePower: 30, weakSidePeace: 6, civilRelMax: 5, warriorPowerMax: 4, monthlyWarDrift: -0.1,
     gunYears: [3, 6] as [number, number],
     events: {
-      borderClashRel: -15,
+      borderClashRel: -15, borderClashBelow: -35,
       invasionPower: -10, invasionEmpirePower: 70,
       kingDeathYear: 5,
       allianceStrifePower: 40, allianceStrifeHit: -8,
@@ -232,6 +233,8 @@ export const B = {
   // ---- その他 ----
   exportReminderDays: 14,
   itemPrice: { vulnerary: 100, elixir: 500 },
+  familyLetterChance: 0.01,
+  pressureAt: -20, vassalInviteGap: 50,
 };
 
 export type Difficulty = 'easy' | 'normal' | 'hard';

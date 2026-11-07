@@ -58,7 +58,7 @@ export function monthlyWorld(s: GameState, rng: Rng): string[] {
   }
   for (const p of PAIRS) {
     let d = (rng.next() - 0.52) * 2.2 * speed;
-    if (relStage(w.relations[p.key]) === 'war') d -= 0.25 * speed;
+    if (relStage(w.relations[p.key]) === 'war') d += B.world.monthlyWarDrift * speed;
     // 帝国は野心が強い（統一の大義）
     if (p.a === 'empire' || p.b === 'empire') d += B.world.empireAmbition * speed * (w.warYears >= B.world.warFatigueYears ? 0.3 : 1);
     if (p.key === 'ak') d += B.world.allianceBridge;
@@ -95,17 +95,24 @@ export function yearlyWorld(s: GameState, rng: Rng): string[] {
     const war = pathPoints(s, c, 'warrior') * B.world.warriorPowerMul;
     const strat = pathPoints(s, c, 'strategist') * B.world.strategistPowerMul;
     const atWarCount = COUNTRIES.filter((o) => o !== c && atWar(s, c, o)).length;
-    let d = war * 0.4 + rng.int(-B.world.yearRandom, B.world.yearRandom) * speed;
+    let d = Math.min(B.world.warriorPowerMax, war * 0.4) + rng.int(-B.world.yearRandom, B.world.yearRandom) * speed;
     if (atWarCount) d += (strat - 2) * 0.6 * speed - atWarCount * 2 * speed;
-    d += (50 - w.power[c]) * 0.08;
+    d += (50 - w.power[c]) * B.world.powerMeanRevertYear;
     addPower(s, c, d);
   }
   for (const p of PAIRS) {
     const civ = Math.min(pathPoints(s, p.a, 'civil'), pathPoints(s, p.b, 'civil'));
-    let d = civ * B.world.civilRelMul + rng.int(-4, 3) * speed;
+    let d = Math.min(B.world.civilRelMax, civ * B.world.civilRelMul) + rng.int(-4, 3) * speed;
     if (relStage(w.relations[p.key]) === 'war') d += B.world.warDecay * speed;
     // 長い戦争は疲れを生み、停戦へ向かう力も働く
     if (w.warYears >= B.world.warFatigueYears) d += (w.warYears - B.world.warFatigueYears + 1) * B.world.warFatiguePerYear * 3;
+    // 長い戦争は両国を疲れさせ、弱った側は停戦を求める
+    w.pairWarYears ??= {};
+    if (relStage(w.relations[p.key]) === 'war') {
+      w.pairWarYears[p.key] = (w.pairWarYears[p.key] ?? 0) + 1;
+      d += Math.min(B.world.pairWarFatigueMax, w.pairWarYears[p.key] * B.world.pairWarFatigue);
+      if (Math.min(w.power[p.a], w.power[p.b]) < B.world.weakSidePower) d += B.world.weakSidePeace;
+    } else w.pairWarYears[p.key] = 0;
     addRel(s, p.key, d);
   }
   recalcTension(s, 0.6);
@@ -145,7 +152,7 @@ export function majorEvents(s: GameState, rng: Rng, yearEnd: boolean): string[] 
   // 2. 国境紛争
   for (const p of PAIRS) {
     const v = w.relations[p.key];
-    if (v < -25 && v >= B.world.relWar && cd(s, `border_${p.key}`) && rng.chance(0.12)) {
+    if (v < B.world.events.borderClashBelow && v >= B.world.relWar && cd(s, `border_${p.key}`) && rng.chance(0.1)) {
       addRel(s, p.key, B.world.events.borderClashRel);
       setCd(s, `border_${p.key}`, 14);
       const alumni = [...activeAlumni(s, p.a), ...activeAlumni(s, p.b)];

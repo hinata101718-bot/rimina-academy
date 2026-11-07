@@ -403,12 +403,24 @@ export function startMonthStudents(s: GameState, rng: Rng): string[] {
   const cands = [...list].sort((a, b) => a.spotlightCount - b.spotlightCount || a.lastAttention - b.lastAttention);
   for (const st of cands.slice(0, n)) {
     st.spotlightCount += 1;
-    s.spotlight.push({ id: st.id, text: spotlightText(rng, st), done: false });
+    const text = spotlightText(rng, st);
+    s.spotlight.push({ id: st.id, text, done: false });
+    if (text.includes('手紙')) familyLetter(s, rng, st);
   }
+  // 在校生の家族の便り（たまに）
+  for (const st of list) if (rng.chance(B.familyLetterChance)) familyLetter(s, rng, st);
   // 試験を受けられる子
   const ex = examCandidates(s);
   if (ex.length) notify(s, `兵種試験を受けられる生徒が${ex.length}人`);
   return out;
+}
+
+function familyLetter(s: GameState, rng: Rng, st: Student): void {
+  const who = st.house === 'orphan' ? '育ててくれた孤児院の院長' : rng.pick(['母', '父', '兄', '姉', '祖母']);
+  const body = st.house === 'orphan'
+    ? `${s.instructor.name}先生へ。${st.given}は元気にしておりますか。院の子どもたちは、${st.given}の話を聞くのを楽しみにしています。どうかよろしくお願いいたします。—${who}`
+    : `${s.instructor.name}先生へ。いつも${st.given}がお世話になっております。${COUNTRY_NAMES[st.origin]}の家では、みな元気です。${st.given}は手紙ではいつも学校のことばかり書いてきます。どうかよろしくお願いいたします。—${st.given}の${who}`;
+  s.mail.unshift({ id: `m${s.nextId++}`, year: s.year, month: s.month, from: `${st.given}の${st.house === 'orphan' ? '孤児院' : '家族'}`, title: '家族からの便り', body, read: false, studentId: st.id });
 }
 
 const SPOT = [

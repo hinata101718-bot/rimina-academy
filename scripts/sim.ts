@@ -11,7 +11,7 @@ const YEARS = Number(process.argv[2] ?? 30);
 const RUNS = Number(process.argv[3] ?? 10);
 
 interface YearRow { year: number; tension: number; stage: string; money: number; rep: number; students: number; grads: number; aliveGrads: number; deaths: number; power: string; rels: string; events: string[] }
-interface RunResult { seed: number; bg: string; rows: YearRow[]; error: string | null; zeroMoneyYears: number; vassal: string | null; gunYear: number | null; bigEvents: Record<string, number>; wins: number; losses: number; alumniDeaths: number; ms: number }
+interface RunResult { seed: number; bg: string; rows: YearRow[]; error: string | null; zeroMoneyYears: number; vassal: string | null; everVassal: boolean; gunYear: number | null; bigEvents: Record<string, number>; wins: number; losses: number; alumniDeaths: number; ms: number }
 
 function snapshot(s: GameState, events: string[]): YearRow {
   const grads = Object.values(s.students).filter((x) => x.status === 'graduated');
@@ -51,7 +51,7 @@ for (let r = 0; r < RUNS; r++) {
     });
   } catch (e) { error = (e as Error).stack ?? String(e); }
   const alumniDeaths = Object.values(s.students).filter((x) => x.status === 'graduated' && x.career && !x.career.alive).length;
-  results.push({ seed, bg, rows, error, zeroMoneyYears: zero, vassal: s.world.vassal, gunYear, bigEvents, wins: s.stats.battlesWon, losses: s.stats.battlesLost, alumniDeaths, ms: Date.now() - t0 });
+  results.push({ seed, bg, rows, error, zeroMoneyYears: zero, vassal: s.world.vassal, everVassal: s.chronicle.some((c) => c.text.includes('傘下に入る')), gunYear, bigEvents, wins: s.stats.battlesWon, losses: s.stats.battlesLost, alumniDeaths, ms: Date.now() - t0 });
   console.log(`run ${r + 1}/${RUNS} seed=${seed} ${bg} years=${rows.length} money=${s.money} rep=${Math.round(s.reputation)} grads=${s.stats.graduates} deaths(在学)=${s.stats.deaths} tension=${Math.round(s.world.tension)} ${error ? 'ERROR' : 'ok'} (${Date.now() - t0}ms)`);
   if (error) console.log(error);
 }
@@ -66,8 +66,8 @@ const errs = results.filter((r) => r.error).length;
 lines.push(`- エラー：**${errs ? `${errs}回で発生` : 'なし'}**`);
 lines.push(`- 最後まで回った年数の平均：${avg(results.map((r) => r.rows.length)).toFixed(1)}年`);
 lines.push(`- お金が0の年があった回：${results.filter((r) => r.zeroMoneyYears > 0).length}回（年数の合計 ${results.reduce((a, r) => a + r.zeroMoneyYears, 0)}）`);
-lines.push(`- 傘下に入った回：${results.filter((r) => r.vassal).length}回`);
-lines.push(`- 銃が登場した年：${results.map((r) => r.gunYear ?? '—').join(', ')}`);
+lines.push(`- 3年目の期限で傘下に入った回：${results.filter((r) => r.everVassal).length}回（そのうち、のちに独立を取り戻した回：${results.filter((r) => r.everVassal && !r.vassal).length}回）`);
+lines.push(`- 銃が登場した年（目安）：${results.map((r) => r.gunYear ?? '—').join(', ')}`);
 lines.push('');
 const at = (y: number, f: (row: YearRow) => number) => avg(results.map((r) => r.rows.find((x) => x.year === y)).filter(Boolean).map((x) => f(x!)));
 lines.push('## 年ごとの平均', '');

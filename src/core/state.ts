@@ -117,6 +117,7 @@ export interface WorldState {
   gunUnlocked: boolean;
   kingDied: boolean;
   warYears: number;    // 激戦期が続いた年数
+  pairWarYears?: Record<string, number>; // 国の組ごとの戦争の年数
   epidemic: boolean;
   famine: boolean;
   vassal: CountryId | null;

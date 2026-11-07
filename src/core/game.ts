@@ -121,6 +121,7 @@ export function chronicle(s: GameState, text: string, kind: 'school' | 'world' |
   s.chronicle.push({ year: s.year, month: s.month, text, kind });
 }
 export function notify(s: GameState, text: string, studentId?: string): void {
+  s.notices = s.notices.filter((n) => n.text !== text);
   s.notices.push({ id: `n${s.nextId++}`, text, studentId });
   if (s.notices.length > 30) s.notices.shift();
 }

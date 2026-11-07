@@ -3,6 +3,7 @@ import { useStore, act, setGame, emit } from './store';
 import { exportFile, saveSlot } from './storage';
 import { DIFFICULTY, type Difficulty } from '../data/balance';
 import { sfx } from './sound';
+import { autoWeek } from '../core/autoplay';
 
 export function SettingsTab() {
   const { s } = useStore();
@@ -48,6 +49,13 @@ export function SettingsTab() {
         <div class="row between"><span>音量</span><input type="range" min="0" max="1" step="0.1" value={s.settings.volume} onInput={(e) => set((x) => { x.volume = Number((e.target as HTMLInputElement).value); })} /></div>
         <button class="btn ghost small" onClick={() => sfx('level')}>試しに鳴らす</button>
       </div>
+      <details class="card"><summary class="muted">テスト用</summary>
+        <div class="muted small">自動で進めます（戦闘も自動、進路は本人の希望どおり）。動作確認のための機能です。</div>
+        <div class="row" style={{ marginTop: 6 }}>
+          <button class="btn small" onClick={() => act((g) => { const m = g.month, y = g.year; let k = 0; while (g.month === m && g.year === y && k++ < 10) autoWeek(g); })}>1ヶ月進める</button>
+          <button class="btn small" onClick={() => act((g) => { const y = g.year; let k = 0; while (g.year === y && k++ < 60) autoWeek(g); })}>1年進める</button>
+        </div>
+      </details>
       <div class="muted small" style={{ textAlign: 'center' }}>辺境士官学校 ―戦争が終わる日まで― 1夜目の版</div>
     </div>
   );

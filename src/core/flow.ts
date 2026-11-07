@@ -274,6 +274,12 @@ export function yearEnd(s: GameState, graduated: string[]): void {
     chronicle(s, '独立を取り戻した', 'school');
     s.pending.push({ type: 'event', title: '独立の宣言', lines: [`評判が十分に高まり、学校は${COUNTRY_NAMES[v]}の傘下から抜けて中立に戻った。`] });
   }
+  // 三国からの書簡
+  for (const c of COUNTRIES) {
+    if (s.world.friendship[c] <= B.pressureAt) mail(s, `${COUNTRY_NAMES[c]}の使者`, '警告の書簡', `貴校は我が国と敵対する国に肩入れしすぎている。このままでは援助を打ち切り、貴校の卒業生の受け入れも考え直さざるを得ない。—${COUNTRY_NAMES[c]}`);
+    const others = COUNTRIES.filter((o) => o !== c);
+    if (!s.world.vassal && others.every((o) => s.world.friendship[c] - s.world.friendship[o] >= B.vassalInviteGap)) mail(s, `${COUNTRY_NAMES[c]}の使者`, '傘下への誘い', `貴校と我が国の縁は深い。我が国の傘下に入れば、十分な援助を約束しよう。考えておいてほしい。—${COUNTRY_NAMES[c]}`);
+  }
   // 5. 新聞
   const headline = world.find((x) => !x.startsWith('大陸は')) ?? world[0] ?? '大陸は静かな一年だった';
   const paper = {

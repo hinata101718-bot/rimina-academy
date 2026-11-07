@@ -152,6 +152,9 @@ export function BattleView() {
       </div>
       <div class="panel">
         {msg && <div class="guide">{msg}</div>}
+        {s.settings.guide && s.year === 1 && s.month === 0 && b.phase === 'player' && !msg && (
+          <div class="guide">{mode.kind === 'idle' ? '青い丸が味方です。タップすると、動ける範囲（青）と攻撃できる範囲（赤）が出ます。赤い丸（敵）をタップすると、その敵の攻撃範囲が見えます。' : mode.kind === 'selected' ? '青いマスをタップして移動します。その場で行動するなら、自分のマスをもう一度タップ。' : mode.kind === 'menu' ? '攻撃するなら「攻撃」、何もしないなら「待機」。「戻る」で移動をやり直せます。' : '戦闘予測を見て「決定」。命中・威力・反撃を確かめましょう。全員が動いたら「ターン終了」。'}</div>
+        )}
         {b.phase === 'done' ? (
           <div class="card" style={{ textAlign: 'center' }}>
             <h2>{b.result === 'win' ? '勝利！' : '敗北……'}</h2>
