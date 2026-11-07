@@ -14,6 +14,8 @@ import { rankOf } from '../core/util';
 import type { SkillId } from '../core/types';
 import type { GameState, WeekendAction } from '../core/state';
 import { sfx } from './sound';
+import { Icon } from './icons';
+import { SchoolArt, MonthCalendar, ArtSlot } from './HomeDeco';
 import { supportRank, supportValue } from '../core/support';
 
 const GUIDE = [
@@ -57,34 +59,49 @@ function Home({ s }: { s: GameState }) {
   const guideOn = s.settings.guide && s.year === 1 && s.month === 0;
   return (
     <div>
+      <SchoolArt s={s} />
+      <MonthCalendar s={s} />
+      {s.month === 3 && <ArtSlot name="event_camp" />}
       {guideOn && <div class="guide">{GUIDE[Math.min(GUIDE.length - 1, s.week - 1)]}</div>}
       <div class="two">
         <div>
+          {s.spotlight.length > 0 && (
+            <div class="card">
+              <h3>今月の主役</h3>
+              <div class="facecards">
+                {s.spotlight.map((sp) => { const st = s.students[sp.id]; if (!st) return null; return (
+                  <div class="facecard" onClick={() => navigate({ tab: 'students', page: 'detail', id: st.id })}>
+                    <Portrait st={st} size={72} />
+                    <div class="grow">
+                      <b>{st.given}</b> <span class="muted small">{st.grade}年</span>
+                      <div class="small">{sp.text}</div>
+                      {!sp.done && st.status === 'enrolled' ? <button class="btn small accent" style={{ marginTop: 4 }} onClick={(e) => { e.stopPropagation(); sfx('ok'); act((g) => setSpotMsg(doSpotlight(g, rng(g), st.id))); }}>声をかける</button> : <span class="tag gray">声をかけた</span>}
+                    </div>
+                  </div>
+                ); })}
+              </div>
+              {spotMsg && <div class="muted">{spotMsg}</div>}
+            </div>
+          )}
           <div class="card">
             <h3>やること一覧</h3>
             <ul class="list todo">
               {todo.map((t) => <li onClick={() => { sfx('move'); t.go(); }}><span class="dot" style={{ background: t.red ? undefined : 'var(--line)' }} /><span class="grow">{t.text}</span><span class="muted">›</span></li>)}
             </ul>
           </div>
-          {s.spotlight.length > 0 && (
-            <div class="card">
-              <h3>今月の主役</h3>
-              {s.spotlight.map((sp) => { const st = s.students[sp.id]; if (!st) return null; return (
-                <div>
-                  <StuRow st={st} sub={sp.text} right={!sp.done && st.status === 'enrolled' ? <button class="btn small" onClick={(e) => { e.stopPropagation(); sfx('ok'); act((g) => setSpotMsg(doSpotlight(g, rng(g), st.id))); }}>声をかける</button> : <span class="muted small">済</span>} />
-                </div>
-              ); })}
-              {spotMsg && <div class="muted">{spotMsg}</div>}
-            </div>
-          )}
         </div>
         <div>
           {s.pinned.length > 0 && (
             <div class="card">
               <h3>気にかける生徒</h3>
-              {s.pinned.map((id) => s.students[id]).filter(Boolean).map((st) => (
-                <StuRow st={st} sub={`${moodIcon(st)} やる気${B.motivationLabel[st.motivation]}・疲労${Math.round(st.fatigue)}・信頼${Math.round(st.trust)}`} />
-              ))}
+              <div class="facecards small">
+                {s.pinned.map((id) => s.students[id]).filter(Boolean).map((st) => (
+                  <div class="facecard" onClick={() => navigate({ tab: 'students', page: 'detail', id: st.id })}>
+                    <Portrait st={st} size={56} />
+                    <div class="grow"><b>{st.given}</b><div class="small">{moodIcon(st)} やる気{B.motivationLabel[st.motivation]}</div><div class="small muted">疲労{Math.round(st.fatigue)}・信頼{Math.round(st.trust)}</div></div>
+                  </div>
+                ))}
+              </div>
             </div>
           )}
           <div class="card">
@@ -96,10 +113,10 @@ function Home({ s }: { s: GameState }) {
           <div class="card">
             <h3>学校のこと</h3>
             <div class="grid2">
-              <button class="btn ghost" onClick={() => navigate({ tab: 'school', page: 'lessons' })}>📚 授業</button>
-              <button class="btn ghost" onClick={() => navigate({ tab: 'school', page: 'facilities' })}>🏠 施設・講師</button>
-              <button class="btn ghost" onClick={() => navigate({ tab: 'school', page: 'armory' })}>🗡 武器庫</button>
-              <button class="btn ghost" onClick={() => navigate({ tab: 'school', page: 'mail' })}>✉️ 郵便受け{unread ? `（${unread}）` : ''}</button>
+              <button class="btn ghost iconbtn" onClick={() => navigate({ tab: 'school', page: 'lessons' })}><Icon name="lesson" /> 授業</button>
+              <button class="btn ghost iconbtn" onClick={() => navigate({ tab: 'school', page: 'facilities' })}><Icon name="house" /> 施設・講師</button>
+              <button class="btn ghost iconbtn" onClick={() => navigate({ tab: 'school', page: 'armory' })}><Icon name="sword" /> 武器庫</button>
+              <button class="btn ghost iconbtn" onClick={() => navigate({ tab: 'school', page: 'mail' })}><Icon name="mail" /> 郵便受け{unread ? `（${unread}）` : ''}</button>
             </div>
             <div class="muted" style={{ marginTop: 6 }}>在籍 {list.length}人・講師 {s.teachers.length}人・評判 {Math.round(s.reputation)}／100{s.year <= B.school.deadlineYear && !s.world.vassal ? `（${B.school.deadlineYear}年目の終わりまでに${B.school.deadlineRep}が目標）` : ''}</div>
           </div>
@@ -212,6 +229,7 @@ function Weekend({ s }: { s: GameState }) {
     <div>
       <Back to={() => navigate({ tab: 'school' })} />
       <h2>週末の交流（{s.plan.weekend.length}／{n}）</h2>
+      {s.month === 8 && <ArtSlot name="event_festival" />}
       {s.month === 8 && <div class="guide">収穫祭の月です。交流が1回多く、支援が上がりやすくなっています。</div>}
       {s.plan.weekend.map((w, i) => <div class="card row between"><span>{name(w)}</span><button class="btn ghost small" onClick={() => act((g) => { g.plan.weekend.splice(i, 1); })}>取り消す</button></div>)}
       {s.plan.weekend.length < n && !mode && (

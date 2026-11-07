@@ -126,7 +126,7 @@ table.stats td { padding: 3px 4px; border-bottom: 1px dotted var(--line); }
 .unit.done { filter: grayscale(.7) brightness(.85); }
 .unit.boss { border-color: #ffd34a; }
 .unit .hp { position: absolute; bottom: 1px; left: 10%; right: 10%; height: 4px; background: rgba(0,0,0,.4); border-radius: 2px; }
-.unit .hp > span { display: block; height: 100%; background: #6fe06f; border-radius: 2px; }
+.unit .hp > span { display: block; height: 100%; background: #6fe06f; border-radius: 2px; transition: width .5s ease-out; }
 .unit .nm { max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding: 0 2px; }
 .pop { position: absolute; z-index: 5; pointer-events: none; font-weight: bold; color: #fff; text-shadow: 0 0 3px #000, 0 0 3px #000; font-size: 16px; animation: pop .9s ease-out forwards; }
 .pop.crit { color: #ffd34a; font-size: 20px; } .pop.miss { color: #ddd; } .pop.heal { color: #8ff08f; }
@@ -213,3 +213,75 @@ table.stats td { padding: 3px 4px; border-bottom: 1px dotted var(--line); }
 .tnext { color: var(--accent); animation: cursor-blink .6s infinite alternate; }
 .tchoice { margin-top: 8px; display: grid; gap: 6px; }
 .narr-line { text-align: center; color: var(--sub); font-size: 13px; font-style: italic; margin: 6px 0; }
+
+/* ===== 見た目（2夜目）：線画アイコン・紙の手帳・季節・校舎・カレンダー ===== */
+.icon { display: inline-block; vertical-align: -0.2em; flex: none; }
+.tabs button .ic { line-height: 0; }
+.iconbtn { display: flex; align-items: center; justify-content: center; gap: 6px; }
+.header .chip .icon { vertical-align: -3px; }
+.next-week { display: inline-flex; align-items: center; gap: 4px; }
+
+/* 紙の手帳風 */
+.card { position: relative; background-color: var(--paper2); background-image: linear-gradient(180deg, rgba(255,255,255,.35), rgba(255,255,255,0) 40%); border: 1px solid var(--line); box-shadow: 0 1px 0 rgba(255,255,255,.7) inset, 0 2px 4px rgba(60, 50, 30, .12); }
+.card::after { content: ""; position: absolute; inset: 3px; border: 1px dashed rgba(140, 115, 70, .18); border-radius: 8px; pointer-events: none; }
+.card > h3 { display: flex; align-items: center; gap: 6px; }
+.card > h3::before { content: "❖"; color: var(--gold); font-size: 11px; }
+.card > h3::after { content: ""; flex: 1; height: 0; border-bottom: 1px solid var(--line); box-shadow: 0 2px 0 -1px var(--paper2), 0 3px 0 -1px var(--line); margin-left: 4px; }
+
+/* 季節の色合い（緊張度の色合いと重ねる） */
+body[data-season="spring"] { background-image: radial-gradient(120% 40% at 85% 0%, rgba(243, 182, 200, .28), transparent 70%); }
+body[data-season="summer"] { background-image: radial-gradient(120% 40% at 85% 0%, rgba(255, 226, 140, .30), transparent 70%); }
+body[data-season="autumn"] { background-image: radial-gradient(120% 40% at 85% 0%, rgba(230, 150, 80, .24), transparent 70%); }
+body[data-season="winter"] { background-image: radial-gradient(120% 40% at 85% 0%, rgba(190, 210, 235, .38), transparent 70%); }
+body { background-attachment: fixed; }
+
+/* 季節の飾り */
+.seasonfx { position: fixed; inset: 0; pointer-events: none; z-index: 5; overflow: hidden; }
+.seasonfx span { position: absolute; top: -20px; width: 10px; height: 10px; opacity: .55; animation-name: fall; animation-timing-function: linear; animation-iteration-count: infinite; }
+.seasonfx.spring span { background: #f6b9cb; border-radius: 10px 0 10px 0; }
+.seasonfx.autumn span { background: #d98a3d; border-radius: 0 10px 0 10px; width: 11px; height: 9px; }
+.seasonfx.winter span { background: #fff; border-radius: 50%; width: 7px; height: 7px; box-shadow: 0 0 3px rgba(150, 170, 200, .8); opacity: .8; }
+.seasonfx.summer span { background: radial-gradient(circle, rgba(255, 250, 200, .9), transparent 70%); width: 14px; height: 14px; animation-name: twinkle; top: auto; bottom: 30%; }
+.seasonfx .glare { position: absolute; right: -60px; top: -60px; width: 220px; height: 220px; border-radius: 50%; background: radial-gradient(circle, rgba(255, 240, 170, .35), transparent 70%); animation: glare 6s ease-in-out infinite alternate; }
+@keyframes fall { from { transform: translate(0, 0) rotate(0deg); } 50% { transform: translate(30px, 50vh) rotate(180deg); } to { transform: translate(-10px, 105vh) rotate(360deg); } }
+@keyframes twinkle { 0%, 100% { opacity: 0; transform: translateY(0); } 50% { opacity: .6; transform: translateY(-40px); } }
+@keyframes glare { from { opacity: .6; } to { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .seasonfx { display: none; } }
+
+/* 校舎の絵 */
+.schoolart { position: relative; margin: 0 -12px 6px; height: 150px; overflow: hidden; border-bottom: 3px double var(--line); }
+.schoolart svg, .schoolart img { width: 100%; height: 100%; display: block; object-fit: cover; }
+.schoolart .schoolname { position: absolute; left: 10px; bottom: 6px; font-family: "Hiragino Mincho ProN", "Noto Serif JP", serif; font-weight: bold; color: #3a2f22; background: rgba(255, 250, 240, .75); padding: 0 8px; border-radius: 6px; font-size: 13px; }
+.artslot { margin: 6px 0; border-radius: 10px; overflow: hidden; border: 1px solid var(--line); }
+.artslot img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+/* カレンダー */
+.calendar .calmonth .big { font-size: 22px; font-weight: bold; font-family: "Hiragino Mincho ProN", "Noto Serif JP", serif; margin-right: 6px; }
+.calnext { color: var(--accent); font-weight: bold; }
+.calgrid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px; margin-top: 16px; }
+.calcell { position: relative; border: 1px solid var(--line); border-radius: 8px; padding: 3px 2px 4px; min-height: 64px; text-align: center; background: rgba(255,255,255,.35); }
+.calcell.past { opacity: .5; }
+.calcell.end { background: rgba(180, 67, 47, .07); }
+.calcell.now { border: 2px solid var(--main); background: var(--main2); box-shadow: 0 0 0 2px rgba(47, 107, 90, .15); }
+.calw { font-size: 11px; color: var(--sub); }
+.calev { display: flex; flex-direction: column; align-items: center; gap: 1px; margin-top: 2px; }
+.calicon { display: flex; flex-direction: column; align-items: center; color: var(--main); line-height: 1.1; }
+.calicon.big { color: var(--accent); }
+.calicon i { font-style: normal; font-size: 10px; white-space: nowrap; }
+.calcell.now::before { content: "今週"; position: absolute; left: 50%; top: -15px; transform: translateX(-50%); background: var(--main); color: #fff; font-size: 10px; line-height: 14px; padding: 0 7px; border-radius: 7px; white-space: nowrap; }
+
+/* 顔つきのカード */
+.facecards { display: grid; gap: 8px; }
+.facecards.small { grid-template-columns: 1fr 1fr; }
+.facecard { display: flex; gap: 8px; align-items: center; padding: 6px; border-radius: 10px; background: rgba(255,255,255,.45); border: 1px solid var(--line); cursor: pointer; min-height: 60px; }
+.facecards.small .facecard { flex-direction: column; text-align: center; gap: 2px; }
+
+/* 日めくり */
+.pageflip { position: fixed; inset: 0; z-index: 80; display: flex; align-items: center; justify-content: center; background: rgba(20, 18, 14, .25); animation: fadein .1s; }
+.flipbox { position: relative; width: 170px; height: 190px; perspective: 600px; }
+.flippage { position: absolute; inset: 0; background: #fffaf0; border: 1px solid #c9b88f; border-radius: 8px; box-shadow: 0 8px 22px rgba(0,0,0,.3); display: flex; flex-direction: column; align-items: center; justify-content: center; border-top: 18px solid #a5493a; font-family: "Hiragino Mincho ProN", "Noto Serif JP", serif; color: #2b2a26; }
+.flippage.front { transform-origin: top center; animation: flip var(--flip, 650ms) ease-in forwards; backface-visibility: hidden; }
+.flipweek { font-size: 38px; font-weight: bold; }
+.flipmonth { font-size: 54px; font-weight: bold; color: #a5493a; animation: monthpop calc(var(--flip, 650ms) * 1.2) ease-out; }
+@keyframes flip { 0% { transform: rotateX(0deg); } 60% { transform: rotateX(-100deg); opacity: 1; } 100% { transform: rotateX(-120deg); opacity: 0; } }
+@keyframes monthpop { 0%, 40% { transform: scale(.6); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }

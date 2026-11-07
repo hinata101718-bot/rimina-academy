@@ -1,9 +1,10 @@
+import { loadArtManifest } from './ui/HomeDeco';
 import { render } from 'preact';
 import { App } from './ui/App';
 import './ui/styles.css';
 import { loadFaceManifest } from './ui/Portrait';
 
-loadFaceManifest().finally(() => render(<App />, document.getElementById('app')!));
+Promise.all([loadFaceManifest(), loadArtManifest()]).finally(() => render(<App />, document.getElementById('app')!));
 
 if ('serviceWorker' in navigator && import.meta.env.PROD) {
   window.addEventListener('load', () => {

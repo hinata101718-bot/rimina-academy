@@ -3,6 +3,7 @@ import { useStore, act, navigate } from './store';
 import { Sheet, StuRow, money } from './common';
 import { Portrait } from './Portrait';
 import { GrowthPlayer } from './Growth';
+import { ArtSlot } from './HomeDeco';
 import { TalkPlayer } from './Talk';
 import { chooseReply } from '../core/interview';
 import { usableSpells } from '../core/spells';
@@ -90,6 +91,7 @@ function QuestBoard({ s }: { s: GameState }) {
   if (!q) {
     return (
       <Sheet title="月末の依頼掲示板">
+        {s.month === 5 && <ArtSlot name="event_exhibition" />}
         {s.settings.guide && s.year === 1 && s.month === 0 && <div class="guide">最初は「演習」を選びましょう。演習では誰も死にません。実戦は報酬と評判がもらえますが、倒れた生徒が戦死することがあります。</div>}
         {s.quests.map((x) => (
           <div class="card" onClick={() => { sfx('ok'); setQid(x.id); }} style={{ cursor: 'pointer' }}>
@@ -167,6 +169,7 @@ function Entrance({ s }: { s: GameState }) {
   const [sel, setSel] = useState<string[]>(() => autoAdmitIds(s));
   return (
     <Sheet title={`${s.year}年目 入学試験`}>
+      <ArtSlot name="event_entrance" />
       <div class="muted">志願者{s.applicants.length}人。定員{cap}人まで合格にできます（選択中 {sel.length}人）。</div>
       {s.applicants.map((a) => <ApplicantCard st={a} on={sel.includes(a.id)} toggle={() => setSel(sel.includes(a.id) ? sel.filter((x) => x !== a.id) : sel.length < cap ? [...sel, a.id] : sel)} />)}
       <button class="btn primary block" disabled={!sel.length} onClick={() => { sfx('graduation'); act((g) => admit(g, sel)); }}>この{sel.length}人を合格にする（入学式へ）</button>
@@ -210,6 +213,7 @@ function Graduation({ s, cohort, lines, onDone }: { s: GameState; cohort: number
     const st = s.students[lines[i].id];
     return (
       <Sheet title={`${cohort}期生 卒業式`}>
+        {i === 0 && <ArtSlot name="event_graduation" />}
         <div style={{ textAlign: 'center' }}><Portrait st={st} size={96} /></div>
         <h2 style={{ textAlign: 'center' }}>{st.given} {st.family}</h2>
         <div style={{ textAlign: 'center' }} class="muted">{st.career ? `${st.career.kind === 'army' ? `${COUNTRY_SHORT[st.career.country!]}の軍・${PATH_NAMES[st.career.path]}` : { stay: '学校に残る', home: '故郷に帰る', merc: '流れの傭兵', army: '' }[st.career.kind]}` : ''}</div>
@@ -236,6 +240,7 @@ export function NewsView({ id }: { id: string }) {
   if (!s || !n) return null;
   return (
     <div class="paper" style={n.tension > 65 ? { background: '#cfc8bb' } : undefined}>
+      <ArtSlot name="event_newspaper" height={110} />
       <div class="head">リンデルガ新報　{n.year}年目</div>
       <h2 style={{ marginTop: 4 }}>{n.headline}</h2>
       {n.body.map((l) => <p style={{ margin: '4px 0' }}>{l}</p>)}
