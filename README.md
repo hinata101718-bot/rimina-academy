@@ -13,7 +13,8 @@
 | `npm run dev` | 手元で動かす（http://localhost:5173/rimina-academy/） |
 | `npm run build` | 公開用のファイルを `dist/` に作る |
 | `npm test` | 自動テスト |
-| `npm run sim -- 30 10` | 長期シミュレーション（30年×10回）。結果は `docs/sim-report.md` |
+| `npm run sim -- 30 10` | 長期シミュレーション（30年×10回を、進路の方針「おまかせ・和平狙い・統一狙い」ごとに）。結果は `docs/sim-report.md` |
+| `npx tsx scripts/check-talks.ts` | 会話データの検証（行数・分岐・10性格の文面・差し込み） |
 
 ## フォルダの中身
 
@@ -21,5 +22,8 @@
 - `src/ui/` … 画面（Preact）
 - `src/data/` … 数値・文章・兵種・武器・名前・会話・マップの型（**数値の調整は `src/data/balance.ts`**）
 - `public/faces/` … 顔画像の差し替え口（`README.md` を参照）
+- `public/art/` … 校舎・季節・行事の1枚絵の差し替え口（`README.md` を参照）
+- `src/data/talks/` … 支援会話と面談の流れ・文面（`talks.ts`＝支援会話の流れ、`interviews.ts`＝面談の流れと先生のセリフ、`phrases*.ts`＝性格ごとの文面）
+- `src/data/spells.ts` … 魔法（技能ランクで覚える）
 - `public/bgm/` … BGM の置き場所（`peace.mp3` など）
 - `scripts/` … シミュレーションや画面確認の道具
