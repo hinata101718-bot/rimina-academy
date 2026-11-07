@@ -7,7 +7,7 @@ import { enrolled, available, deployLimit, capacity } from './game';
 import { nextWeek, startBattle, finishBattle, finishCareers, admit, autoAdmitIds, battleCtx, rng, ensureReinforcementFactory } from './flow';
 import { autoPlayerPhase, endPlayerPhase, rewind, canRewind } from './battle/engine';
 import { autoExam } from './exam';
-import { autoRecommend, suitablePath, type CareerChoice, type CareerPlan } from './career';
+import { autoRecommend, suitablePath, availableChoices as availableChoicesOf, type CareerChoice, type CareerPlan } from './career';
 import { COUNTRIES } from '../data/people';
 import { activeAlumni } from './world';
 import { effectiveStats } from './game';
@@ -84,7 +84,7 @@ export function autoBattle(s: GameState): void {
 }
 
 // ---------- 進路の方針（長期シミュレーション用） ----------
-export type CareerPolicy = 'auto' | 'peace' | 'unify';
+export type CareerPolicy = 'auto' | 'peace' | 'unify' | 'none';
 let careerPolicy: CareerPolicy = 'auto';
 export function setCareerPolicy(p: CareerPolicy): void { careerPolicy = p; }
 
@@ -92,6 +92,8 @@ export function setCareerPolicy(p: CareerPolicy): void { careerPolicy = p; }
 export function autoCareerPlans(s: GameState, policy: CareerPolicy = careerPolicy): CareerPlan[] {
   const third = enrolled(s).filter((x) => x.grade === 3);
   if (policy === 'auto') return third.map((st) => ({ studentId: st.id, recommend: autoRecommend(s, st), path: suitablePath(st) }));
+  // 何もしない：教え子を三国の軍に送らない（故郷か傭兵へ）
+  if (policy === 'none') return third.map((st) => ({ studentId: st.id, recommend: availableChoicesOf(st).includes('home') ? 'home' : 'merc', path: suitablePath(st) }));
   if (policy === 'unify') {
     const top = [...COUNTRIES].sort((a, b) => s.world.power[b] - s.world.power[a])[0];
     return third.map((st) => {

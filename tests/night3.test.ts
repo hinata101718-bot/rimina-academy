@@ -122,3 +122,50 @@ describe('副教官', () => {
     expect(res.lines.some((l) => l.includes(`担任の${grad.given}`))).toBe(true);
   });
 });
+
+import { endingReady, checkEndings, continueSchool, buildHallEntry, endingScene } from '../src/core/ending';
+describe('エンディング', () => {
+  const base = () => { const s = newGame({ name: 't', background: 'knight', seed: 21 }); autoYears(s, 3); autoPending(s); return s; };
+  it('統一：一国の国力が他の二国の合計を上回る状態が2年続く', () => {
+    const s = base();
+    s.world.power = { kingdom: 90, empire: 30, alliance: 40 };
+    s.world.unifyYears = { kingdom: 2 };
+    expect(endingReady(s, 'year')).toEqual({ kind: 'unify', country: 'kingdom' });
+    expect(endingReady(s, 'month')).toBeNull();
+  });
+  it('疲弊の停戦：戦いの疲れが8年分、三国すべての国力が35以下', () => {
+    const s = base();
+    s.world.power = { kingdom: 30, empire: 35, alliance: 20 };
+    s.world.exhaustion = 8;
+    expect(endingReady(s, 'year')?.kind).toBe('ceasefire');
+    s.world.power.empire = 36;
+    expect(endingReady(s, 'year')).toBeNull();
+  });
+  it('和平の円卓は、その月にも判定。場面は後日談・年表・エンドロール・最後の一枚まで', () => {
+    const s = base();
+    s.world.peaceRoundYear = s.year;
+    expect(checkEndings(s, new Rng(s), 'month')).toBe('peace');
+    const scene = s.pending.find((p) => p.type === 'scene');
+    expect(scene && scene.type === 'scene' && scene.lines.some((l) => l.roll)).toBe(true);
+    expect(scene && scene.type === 'scene' && scene.lines.some((l) => l.title === '最後の一枚')).toBe(true);
+    expect(s.pending.some((p) => p.type === 'ending')).toBe(true);
+    // 続ける：平和な時代、同じエンディングは二度起きない
+    continueSchool(s);
+    expect(s.world.era).toBe('peace');
+    expect(endingReady(s, 'year')).toBeNull();
+    autoYears(s, 2);
+    expect(s.endings?.length).toBe(1);
+    const hall = buildHallEntry(s);
+    expect(hall.endings[0].kind).toBe('peace');
+    expect(JSON.parse(JSON.stringify(hall)).graduates.length).toBeGreaterThan(0);
+  });
+  it('学校の中立宣言：評判100・卒業生150人・友好度70以上・独立・防衛戦に勝った年', () => {
+    const s = base();
+    s.reputation = 100; s.world.friendship = { kingdom: 80, empire: 75, alliance: 90 }; s.world.vassal = null; s.world.defenseWonYear = s.year;
+    expect(endingReady(s, 'month')).toBeNull(); // 卒業生が足りない
+    const g = Object.values(s.students).find((x) => x.status === 'graduated')!;
+    for (let i = 0; i < 150; i++) s.students[`x${i}`] = { ...g, id: `x${i}` };
+    expect(endingReady(s, 'month')?.kind).toBe('neutral');
+    for (const k of ['peace', 'unify', 'ceasefire', 'neutral'] as const) expect(endingScene(s, new Rng(s), k, 'kingdom').length).toBeGreaterThan(5);
+  });
+});

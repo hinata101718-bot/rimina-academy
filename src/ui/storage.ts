@@ -1,6 +1,7 @@
 // ブラウザ内の保存（IndexedDB、使えなければ localStorage）
 import type { GameState } from '../core/state';
 import { serialize, deserialize } from '../core/save';
+import type { HallEntry } from '../core/ending';
 
 const DB = 'rimina-academy';
 const STORE = 'saves';
@@ -78,3 +79,18 @@ export function exportFile(s: GameState): void {
 export function importFile(file: File): Promise<GameState> {
   return file.text().then((t) => deserialize(t));
 }
+
+// ---------- 殿堂（セーブ枠とは別に保存） ----------
+export async function loadHall(): Promise<HallEntry[]> {
+  const t = await get('hall');
+  if (!t) return [];
+  try { const j = JSON.parse(t); return Array.isArray(j) ? j : []; } catch { return []; }
+}
+export async function addHall(e: HallEntry): Promise<void> {
+  const list = await loadHall();
+  list.push(e);
+  await put('hall', JSON.stringify(list.slice(-20)));
+}
+/** 「ふつう」「名門」スタートが選べるか（エンディングに一度でも届いたら） */
+export async function startsUnlocked(): Promise<boolean> { return (await get('unlockStarts')) === '1' || (await loadHall()).length > 0; }
+export async function unlockStarts(): Promise<void> { await put('unlockStarts', '1'); }

@@ -258,6 +258,23 @@ export const B = {
     newFriendship: 10,       // 新しい教官の所属していた国との縁
     externalAge: [30, 38] as [number, number],
   },
+  // ---- 開始の状態（「ふつう」「名門」はエンディングに一度届くと選べる） ----
+  starts: {
+    poor: { name: '廃校寸前', money: 800, rep: 10, facility: 0, cohort: [6, 8] as [number, number], quality: 0, deadline: true },
+    normal: { name: 'ふつう', money: 3000, rep: 40, facility: 1, cohort: [8, 9] as [number, number], quality: 0.3, deadline: false },
+    elite: { name: '名門', money: 6000, rep: 70, facility: 2, cohort: [9, 10] as [number, number], quality: 0.6, deadline: false },
+  },
+  // ---- エンディング（設計書 §15） ----
+  ending: {
+    unifyYears: 2,               // 一国の国力が他の二国の合計を上回る状態が2年続く
+    ceasefireWarYears: 8,        // 戦いの疲れ（激戦期1年=1、緊張期1年=0.5、平和期は−1）が8年分
+    ceasefirePower: 35,          // 三国すべての国力が35以下
+    neutralRep: 100, neutralGrads: 150, neutralFriendship: 70,
+    // 戦いの疲れ：長く戦うほど、三国とも国力が削れていく（強い国ほど大きく）
+    exhaustWar: 1, exhaustTension: 0.5, exhaustPeace: -1, exhaustDrainFrom: 3, exhaustDrainPer: 0.03,
+    // エンディングのあと「この学校を続ける」と平和な時代。まれに再び戦争
+    peaceEraRel: 30, relapseChance: 0.02,
+  },
   // ---- 副教官（学年の担任） ----
   vice: { minYears: 1, max: 3, tutorMul: 0.7, tutorPerVice: 1 },
   // ---- 演出（ミリ秒）。設定の「演出の速さ」「敵ターンの速さ」で倍率がかかる ----

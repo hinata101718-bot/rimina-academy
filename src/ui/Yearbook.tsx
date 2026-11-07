@@ -1,4 +1,8 @@
-import { useState } from 'preact/hooks';
+import { useState, useEffect } from 'preact/hooks';
+import { loadHall } from './storage';
+import { ENDING_NAMES, endingTitle, type HallEntry, type HallStudent } from '../core/ending';
+import type { EndingKind } from '../core/state';
+import { ClassName } from './cards';
 import { useStore, navigate } from './store';
 import { StuRow } from './common';
 import { Portrait } from './Portrait';
@@ -12,19 +16,20 @@ import { Icon } from './icons';
 
 export function YearbookTab() {
   const { s } = useStore();
-  const [tab, setTab] = useState<'roster' | 'photos' | 'chronicle' | 'records' | 'news'>('roster');
+  const [tab, setTab] = useState<'roster' | 'photos' | 'chronicle' | 'records' | 'news' | 'hall'>('roster');
   if (!s) return null;
   return (
     <div>
       <h2>年鑑</h2>
       <div class="seg" style={{ marginBottom: 8 }}>
-        {(['roster', 'photos', 'chronicle', 'records', 'news'] as const).map((t) => <button class={tab === t ? 'on' : ''} onClick={() => setTab(t)}>{{ roster: '卒業生', photos: '写真', chronicle: '年表', records: '記録', news: '新聞' }[t]}</button>)}
+        {(['roster', 'photos', 'chronicle', 'records', 'news', 'hall'] as const).map((t) => <button class={tab === t ? 'on' : ''} onClick={() => setTab(t)}>{{ roster: '卒業生', photos: '写真', chronicle: '年表', records: '記録', news: '新聞', hall: '殿堂' }[t]}</button>)}
       </div>
       {tab === 'roster' && <Roster s={s} />}
       {tab === 'photos' && <Photos s={s} />}
       {tab === 'chronicle' && <Chronicle s={s} />}
       {tab === 'records' && <Records s={s} />}
       {tab === 'news' && <News s={s} />}
+      {tab === 'hall' && <Hall s={s} />}
     </div>
   );
 }
@@ -134,3 +139,50 @@ function News({ s }: { s: GameState }) {
     </div>
   );
 }
+
+function hallStu(h: HallStudent): Student {
+  return { ...h, status: h.dead ? 'dead' : 'graduated', career: h.dead ? { alive: false } : null } as unknown as Student;
+}
+
+function Hall({ s }: { s: GameState }) {
+  const [list, setList] = useState<HallEntry[] | null>(null);
+  const [open, setOpen] = useState<string | null>(null);
+  useEffect(() => { loadHall().then(setList); }, []);
+  const reached = new Set<string>([...(list ?? []).flatMap((h) => h.endings.map((e) => e.kind)), ...(s.endings ?? []).map((e) => e.kind)]);
+  return (
+    <div>
+      <div class="card">
+        <h3>到達したエンディング</h3>
+        <div class="row gap6">{(Object.keys(ENDING_NAMES) as EndingKind[]).map((k) => <span class={`chip-o ${reached.has(k) ? 'main' : 'gray'}`}>{reached.has(k) ? ENDING_NAMES[k] : '？？？'}</span>)}</div>
+        <div class="muted small" style={{ marginTop: 4 }}>エンディングのあと「新しい学校で始める」を選ぶと、その学校の年鑑がここに保存されます（セーブ枠とは別に保存）。</div>
+      </div>
+      {list === null && <div class="empty-note">読み込み中……</div>}
+      {list && !list.length && <div class="empty-note">まだ殿堂に入った学校はありません</div>}
+      {list && [...list].reverse().map((h) => (
+        <div class="pcard tap" onClick={() => setOpen(open === h.id ? null : h.id)}>
+          <div class="row between nowrap"><span class="ptitle">{h.instructor}教官のリミナ分校</span><span class="muted small">{h.years}年間</span></div>
+          <div class="row gap4">{h.endings.map((e) => <span class="flag">{endingTitle(e.kind, e.country)}（{e.year}年目）</span>)}</div>
+          <div class="small muted">卒業生 {h.graduates.filter((g) => g.title !== '在学中に戦死').length}人・{h.stats.battlesWon}勝{h.stats.battlesLost}敗・教官 {h.instructors.length}代</div>
+          {open === h.id && (
+            <div onClick={(e) => e.stopPropagation()}>
+              <h3>歴代の教官</h3>
+              {h.instructors.map((i) => <div class="small">{i.generation}代目 {i.name}（{i.from}〜{i.to}年目）</div>)}
+              <h3>卒業写真</h3>
+              {h.photos.map((p) => (
+                <div class="photo" style={{ marginBottom: 6 }}>
+                  <div class="photo-cap">{p.cohort}期生（{p.year}年目）</div>
+                  {p.ids.map((id) => h.graduates.find((g) => g.id === id)).filter((x): x is HallStudent => !!x).map((g) => <div class="seat"><Portrait st={hallStu(g)} size={40} />{g.dead && <div class="deadmark">✝</div>}<div>{g.given}</div></div>)}
+                </div>
+              ))}
+              <h3>卒業生</h3>
+              {h.graduates.slice(0, 200).map((g) => <div class="row nowrap gap6 small ruled"><Portrait st={hallStu(g)} size={30} /><b>{g.given}</b><span class="muted">{g.cohort}期生・Lv{g.level}・{g.title}</span></div>)}
+              <h3>年表</h3>
+              <ul class="list">{h.chronicle.slice(-80).map((c) => <li class="small">{c.year}年目　{c.text}</li>)}</ul>
+            </div>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
+void ClassName;

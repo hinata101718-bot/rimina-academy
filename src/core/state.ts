@@ -166,6 +166,14 @@ export interface WorldState {
   /** 和平の円卓（三国それぞれに大使以上の教え子がいる和平会議）が開かれた年。エンディングは3夜目 */
   peaceRoundYear?: number | null;
   schoolDefensePending: boolean;
+  /** 一国の国力が他の二国の合計を上回った年数（続けて） */
+  unifyYears?: Partial<Record<CountryId, number>>;
+  /** 戦いの疲れ（激戦期1年=1、緊張期1年=0.5、平和期は−1） */
+  exhaustion?: number;
+  /** 学校防衛戦に勝った年 */
+  defenseWonYear?: number;
+  /** エンディングのあと「この学校を続ける」を選んだ平和な時代 */
+  era?: 'peace' | null;
   eventCooldown: Record<string, number>; // 大事件ごとの再発までの月数
   history: { year: number; tension: number; power: Record<CountryId, number> }[];
 }
@@ -195,6 +203,8 @@ export interface ChronicleEntry { year: number; month: number; text: string; kin
 
 export interface Photo { cohort: number; year: number; ids: string[]; empty: string[] }
 
+export type EndingKind = 'peace' | 'unify' | 'ceasefire' | 'neutral';
+
 /** 画面に出す「処理待ち」 */
 export type Pending =
   | { type: 'weekSummary'; lines: string[]; talks: TalkLog[]; growth?: GrowthEntry[] }
@@ -210,7 +220,7 @@ export type Pending =
   | { type: 'retire'; forced: boolean }
   | { type: 'successor' }
   | { type: 'scene'; title: string; lines: SceneLine[]; after?: 'ending' }
-  | { type: 'ending' };
+  | { type: 'ending'; kind: EndingKind; country?: CountryId };
 
 /** 成長の記録（ゲージの演出用）。前と後の値だけを持つ */
 export interface GrowthEntry {
@@ -311,6 +321,10 @@ export interface GameState {
   pastInstructors?: PastInstructor[];
   /** 副教官（学年の担任） */
   vice?: ViceInstructor[];
+  /** 「ふつう」「名門」スタート：廃校の期限なし */
+  noDeadline?: boolean;
+  /** 到達したエンディング */
+  endings?: { kind: EndingKind; year: number; country?: CountryId }[];
   /** 後継の打診を断った卒業生（その年度の間） */
   declinedSuccessors?: string[];
   nextId: number;

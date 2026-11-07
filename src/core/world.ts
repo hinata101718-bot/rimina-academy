@@ -5,6 +5,7 @@ import type { CountryId } from './types';
 import type { GameState, Student } from './state';
 import { Rng } from './rng';
 import { clamp, relKey } from './util';
+import { yearlyExhaustion, yearlyUnifyCount } from './ending';
 
 export type Stage = 'peace' | 'tension' | 'war';
 export function tensionStage(t: number): Stage {
@@ -67,6 +68,8 @@ export function monthlyWorld(s: GameState, rng: Rng): string[] {
     // 帝国は野心が強い（統一の大義）
     if (p.a === 'empire' || p.b === 'empire') d += B.world.empireAmbition * speed * (w.warYears >= B.world.warFatigueYears ? 0.3 : 1) * Math.max(0.25, 1 - diplomats(s, 'empire') * B.world.events.diplomatAmbitionDamp);
     if (p.key === 'ak') d += B.world.allianceBridge;
+    // エンディングのあとの平和な時代：関係は良いほうへ
+    if (w.era === 'peace') d = Math.abs(d) * 0.5;
     addRel(s, p.key, d);
   }
   recalcTension(s, 0.15);
@@ -125,6 +128,9 @@ export function yearlyWorld(s: GameState, rng: Rng): string[] {
   w.warYears = stage === 'war' ? w.warYears + 1 : 0;
   // 激戦期が長いと国力が削れる
   if (stage === 'war') for (const c of COUNTRIES) addPower(s, c, -2.5 * speed);
+  // 戦いの疲れ（疲弊の停戦へ）と、統一の年数
+  yearlyExhaustion(s, stage);
+  yearlyUnifyCount(s);
   w.history.push({ year: s.year, tension: Math.round(w.tension), power: { ...w.power } });
   out.push(`大陸は${STAGE_NAMES[stage]}（緊張度${Math.round(w.tension)}）`);
   out.push(...majorEvents(s, rng, true));
@@ -157,7 +163,7 @@ export function majorEvents(s: GameState, rng: Rng, yearEnd: boolean): string[] 
   // 2. 国境紛争
   for (const p of PAIRS) {
     const v = w.relations[p.key];
-    if (v < B.world.events.borderClashBelow && v >= B.world.relWar && cd(s, `border_${p.key}`) && rng.chance(0.1)) {
+    if (w.era !== 'peace' && v < B.world.events.borderClashBelow && v >= B.world.relWar && cd(s, `border_${p.key}`) && rng.chance(0.1)) {
       addRel(s, p.key, B.world.events.borderClashRel);
       setCd(s, `border_${p.key}`, 14);
       const alumni = [...activeAlumni(s, p.a), ...activeAlumni(s, p.b)];
@@ -170,7 +176,7 @@ export function majorEvents(s: GameState, rng: Rng, yearEnd: boolean): string[] 
     }
   }
   // 3. 帝国の侵攻
-  if (w.power.empire >= B.world.events.invasionEmpirePower && atWar(s, 'empire', 'kingdom') && cd(s, 'invasion') && rng.chance(0.25)) {
+  if (w.era !== 'peace' && w.power.empire >= B.world.events.invasionEmpirePower && atWar(s, 'empire', 'kingdom') && cd(s, 'invasion') && rng.chance(0.25)) {
     addPower(s, 'kingdom', B.world.events.invasionPower);
     addPower(s, 'empire', 2);
     setCd(s, 'invasion', 18);
@@ -199,7 +205,6 @@ export function majorEvents(s: GameState, rng: Rng, yearEnd: boolean): string[] 
         '三国の代表が同盟の都の円卓を囲み、戦を終わらせる話し合いが開かれた。',
         `三国すべての席に、リミナ分校の教え子の姿があった！（${names.join('・')}）`,
         '長い話し合いの末、三国は停戦の約束を交わした。大陸に、久しぶりに穏やかな風が吹いている。',
-        '（「和平の円卓」のエンディングの場面は、次の版で作ります）',
       ]);
     } else {
       fire('和平会議', [
@@ -236,7 +241,7 @@ export function majorEvents(s: GameState, rng: Rng, yearEnd: boolean): string[] 
     fire('疫病の流行', ['大陸で疫病が流行している。今年は体調を崩す生徒が出やすい（疲労の限界が下がる）。']);
   }
   // 9. 学校防衛戦
-  if (tensionStage(w.tension) === 'war' && !yearEnd && !w.schoolDefensePending && cd(s, 'defense') && s.month !== 5 && s.month !== 11 && rng.chance(B.world.events.schoolDefenseChance)) {
+  if (w.era !== 'peace' && tensionStage(w.tension) === 'war' && !yearEnd && !w.schoolDefensePending && cd(s, 'defense') && s.month !== 5 && s.month !== 11 && rng.chance(B.world.events.schoolDefenseChance)) {
     w.schoolDefensePending = true;
     setCd(s, 'defense', 20);
     fire('学校に迫る戦火', ['国境の戦いが学校の近くまで迫っている。今月末は学校を守る戦い（学校防衛戦）になる。']);

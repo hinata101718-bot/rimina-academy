@@ -20,6 +20,7 @@ import { generateStudent } from './student';
 import { rollTeacherCandidates, monthlySalaries, yearlyRaises } from './teachers';
 import { absMonth, MONTH_NAMES } from './util';
 import { retireCheck, viceOf, cleanVice } from './instructor';
+import { checkEndings, peaceEraYear } from './ending';
 import { TRAITS } from '../data/people';
 import type { BattleCtx } from './battle/engine';
 import { supportValue } from './support';
@@ -170,7 +171,7 @@ export function finishBattle(s: GameState): void {
       }
     } else if (q.kind === 'schoolDefense') {
       s.world.schoolDefensePending = false;
-      if (win) { addRep(s, B.reputation.schoolDefenseWin); chronicle(s, '学校防衛戦に勝利', 'school'); lines.push(`学校を守り抜いた！ 評判+${B.reputation.schoolDefenseWin}`); }
+      if (win) { addRep(s, B.reputation.schoolDefenseWin); s.world.defenseWonYear = s.year; chronicle(s, '学校防衛戦に勝利', 'school'); lines.push(`学校を守り抜いた！ 評判+${B.reputation.schoolDefenseWin}`); }
       else { addRep(s, -5); s.money = Math.round(s.money * 0.7); chronicle(s, '学校防衛戦に敗れ、校舎が荒らされた', 'school'); lines.push('校舎が荒らされた……（お金−30%、評判−5）'); }
     } else if (q.real) {
       if (win) {
@@ -186,6 +187,7 @@ export function finishBattle(s: GameState): void {
   }
   s.pending.push({ type: 'battleResult', lines, grades, win, growth });
   s.battle = null;
+  if (q?.kind === 'schoolDefense' && win) checkEndings(s, r, 'month');
   endMonth(s);
 }
 
@@ -220,6 +222,7 @@ export function startMonth(s: GameState): void {
   const lines: string[] = [];
   lines.push(...monthlySalaries(s));
   lines.push(...monthlyWorld(s, r));
+  checkEndings(s, r, 'month');
   lines.push(...startMonthStudents(s, r));
   s.quests = rollQuests(s);
   // 月の始めの自動の重点科目（未設定なら前月のまま）
@@ -279,7 +282,7 @@ export function yearEnd(s: GameState, graduated: string[]): void {
   yearlyRaises(s);
   // 8. 廃校期限
   const deadline: string[] = [];
-  if (s.year === B.school.deadlineYear && !s.world.vassal) {
+  if (s.year === B.school.deadlineYear && !s.world.vassal && !s.noDeadline) {
     if (s.reputation >= B.school.deadlineRep) { deadline.push('評判が目標に届き、廃校の危機を乗り越えた！'); chronicle(s, '廃校の危機を乗り越えた', 'school'); }
     else {
       const best = [...COUNTRIES].sort((a, c) => s.world.friendship[c] - s.world.friendship[a] || activeAlumni(s, c).length - activeAlumni(s, a).length)[0];
@@ -319,6 +322,9 @@ export function yearEnd(s: GameState, graduated: string[]): void {
   s.news.unshift(paper);
   s.pending.push({ type: 'newspaper', id: paper.id });
   s.world.epidemic = false; s.world.famine = false;
+  // エンディングの判定（年度末）。平和な時代は、まれに再び戦の気配
+  peaceEraYear(s, r);
+  checkEndings(s, r, 'year');
   // 9. 新年度
   s.year += 1; s.month = 0; s.week = 1;
   for (const st of Object.values(s.students)) if (st.status === 'enrolled') st.offers = st.grade === 3 ? st.offers : st.offers;

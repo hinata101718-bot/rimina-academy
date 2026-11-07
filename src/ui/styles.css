@@ -436,3 +436,6 @@ body { background-attachment: fixed; }
 .roll { display: flex; flex-wrap: wrap; gap: 4px 12px; justify-content: center; font-family: var(--mincho); font-size: 14px; max-height: 300px; overflow: hidden; animation: rollup 6s linear; }
 .roll .dead { color: var(--sub); }
 @keyframes rollup { from { transform: translateY(40px); opacity: 0; } 15% { opacity: 1; } to { transform: translateY(0); } }
+.scene { min-height: 74vh; justify-content: center; }
+.scene .tbox { white-space: pre-line; }
+.scene-faces > div { width: auto; min-width: 66px; }

@@ -4,7 +4,11 @@
 //   並べて回すとき：npx tsx scripts/sim.ts 30 10 peace --json=/tmp/peace.json  → 最後に --merge=a.json,b.json,c.json
 import { writeFileSync, readFileSync } from 'node:fs';
 import { newGame, enrolled } from '../src/core/game';
-import { autoYears, setCareerPolicy, type CareerPolicy } from '../src/core/autoplay';
+import { autoYears, setCareerPolicy, setAutoEnding, type CareerPolicy } from '../src/core/autoplay';
+import { continueSchool, endingTitle, ENDING_NAMES } from '../src/core/ending';
+import type { EndingKind } from '../src/core/state';
+// エンディングのあとは「この学校を続ける」を選ぶ（平和な時代）
+setAutoEnding((s) => continueSchool(s));
 import { tensionStage, STAGE_NAMES, PAIRS, relStage, REL_NAMES } from '../src/core/world';
 import type { GameState } from '../src/core/state';
 import { BACKGROUNDS } from '../src/data/people';
@@ -12,13 +16,13 @@ import { BACKGROUNDS } from '../src/data/people';
 const argv = process.argv.slice(2);
 const flag = (k: string) => argv.find((a) => a.startsWith(`--${k}=`))?.split('=')[1];
 const pos = argv.filter((a) => !a.startsWith('--'));
-const YEARS = Number(pos[0] ?? 30);
+const YEARS = Number(pos[0] ?? 40);
 const RUNS = Number(pos[1] ?? 10);
-const POLICIES = (pos[2] ?? 'auto,peace,unify').split(',') as CareerPolicy[];
-const POLICY_NAMES: Record<CareerPolicy, string> = { auto: 'おまかせ', peace: '和平狙い（文官を三国へ）', unify: '統一狙い（一番強い国へ武官を集める）' };
+const POLICIES = (pos[2] ?? 'peace,unify,none').split(',') as CareerPolicy[];
+const POLICY_NAMES: Record<CareerPolicy, string> = { none: '何もしない（教え子を三国の軍へ送らない）', auto: 'おまかせ', peace: '和平狙い（文官を三国へ）', unify: '統一狙い（一番強い国へ武官を集める）' };
 
 interface YearRow { year: number; tension: number; stage: string; money: number; rep: number; students: number; grads: number; aliveGrads: number; deaths: number; alumniDead: number; power: string; rels: string; events: string[] }
-interface RunResult { policy: CareerPolicy; seed: number; bg: string; rows: YearRow[]; error: string | null; zeroMoneyYears: number; vassal: string | null; everVassal: boolean; gunYear: number | null; bigEvents: Record<string, number>; wins: number; losses: number; alumniDeaths: number; graduates: number; peaceTalks: number; roundYear: number | null; ms: number }
+interface RunResult { policy: CareerPolicy; seed: number; bg: string; rows: YearRow[]; error: string | null; zeroMoneyYears: number; vassal: string | null; everVassal: boolean; gunYear: number | null; bigEvents: Record<string, number>; wins: number; losses: number; alumniDeaths: number; graduates: number; peaceTalks: number; roundYear: number | null; ms: number; endings: { kind: EndingKind; year: number; country?: string }[]; generations: number; instructorAges: number[] }
 
 function snapshot(s: GameState, events: string[]): YearRow {
   const grads = Object.values(s.students).filter((x) => x.status === 'graduated');
@@ -59,8 +63,8 @@ function runAll(policy: CareerPolicy): RunResult[] {
     } catch (e) { error = (e as Error).stack ?? String(e); }
     const grads = Object.values(s.students).filter((x) => x.status === 'graduated');
     const alumniDeaths = grads.filter((x) => x.career && !x.career.alive).length;
-    results.push({ policy, seed, bg, rows, error, zeroMoneyYears: zero, vassal: s.world.vassal, everVassal: s.chronicle.some((c) => c.text.includes('傘下に入る')), gunYear, bigEvents, wins: s.stats.battlesWon, losses: s.stats.battlesLost, alumniDeaths, graduates: grads.length, peaceTalks: s.world.peaceTalksHeld, roundYear: s.world.peaceRoundYear ?? null, ms: Date.now() - t0 });
-    console.log(`[${policy}] run ${r + 1}/${RUNS} seed=${seed} ${bg} money=${s.money} rep=${Math.round(s.reputation)} grads=${grads.length} 卒業後の戦死=${alumniDeaths}（${Math.round((alumniDeaths / Math.max(1, grads.length)) * 100)}%） 和平会議=${s.world.peaceTalksHeld} 円卓=${s.world.peaceRoundYear ?? '—'} ${error ? 'ERROR' : 'ok'} (${Date.now() - t0}ms)`);
+    results.push({ policy, seed, bg, rows, error, zeroMoneyYears: zero, vassal: s.world.vassal, everVassal: s.chronicle.some((c) => c.text.includes('傘下に入る')), gunYear, bigEvents, wins: s.stats.battlesWon, losses: s.stats.battlesLost, alumniDeaths, graduates: grads.length, peaceTalks: s.world.peaceTalksHeld, roundYear: s.world.peaceRoundYear ?? null, ms: Date.now() - t0, endings: (s.endings ?? []).map((e) => ({ ...e })), generations: s.instructor.generation, instructorAges: (s.pastInstructors ?? []).map((p) => p.age) });
+    console.log(`[${policy}] run ${r + 1}/${RUNS} seed=${seed} ${bg} money=${s.money} rep=${Math.round(s.reputation)} grads=${grads.length} 卒業後の戦死=${alumniDeaths}（${Math.round((alumniDeaths / Math.max(1, grads.length)) * 100)}%） 和平会議=${s.world.peaceTalksHeld} エンディング=${(s.endings ?? []).map((e) => `${endingTitle(e.kind, e.country as never)}${e.year}年目`).join('・') || 'なし'} 教官${s.instructor.generation}代 ${error ? 'ERROR' : 'ok'} (${Date.now() - t0}ms)`);
     if (error) console.log(error);
   }
   return results;
@@ -77,14 +81,25 @@ function report(all: RunResult[]): string {
   lines.push(`オートプレイ（画面なし・自動で判断）で **${years}年 × ${all.length / policies.length}回** を、進路の方針ごとに回した結果です。`, `作成：\`npm run sim\`（${new Date().toISOString().slice(0, 10)}）`, '');
   lines.push('進路の方針：', ...policies.map((p) => `- **${POLICY_NAMES[p]}**`), '');
   lines.push('## 方針ごとのまとめ', '');
-  lines.push('| 方針 | エラー | 和平会議（平均回数） | 和平の円卓に届いた回 | 円卓の年 | 30年目の所持金（平均） | 卒業後の戦死の割合（最大の回） | 在学中の戦死（平均） |');
+  lines.push('| 方針 | エラー | 最初のエンディング（回数） | 最初のエンディングの年（平均・最小〜最大） | 教官の代替わり（平均） | 最終年の所持金（平均） | 卒業後の戦死の割合（平均・最大の回） | 在学中の戦死（平均） |');
   lines.push('|---|---|---|---|---|---|---|---|');
   for (const p of policies) {
     const rs = all.filter((r) => r.policy === p);
     const last = rs.map((r) => r.rows[r.rows.length - 1]);
     const ratios = rs.map((r) => r.alumniDeaths / Math.max(1, r.graduates));
-    const rounds = rs.filter((r) => r.roundYear !== null);
-    lines.push(`| ${POLICY_NAMES[p]} | ${rs.filter((r) => r.error).length} | ${avg(rs.map((r) => r.peaceTalks)).toFixed(1)} | ${rounds.length}／${rs.length} | ${rounds.map((r) => r.roundYear).join(', ') || '—'} | ${Math.round(avg(last.map((x) => x?.money ?? 0)))}G | ${pct(avg(ratios) * 100, 100)}（${pct(Math.max(...ratios) * 100, 100)}） | ${avg(last.map((x) => x?.deaths ?? 0)).toFixed(1)} |`);
+    const first = rs.map((r) => r.endings[0]).filter(Boolean);
+    const kinds: Record<string, number> = {};
+    for (const e of first) { const k = endingTitle(e.kind, e.country as never); kinds[k] = (kinds[k] ?? 0) + 1; }
+    const ys = first.map((e) => e.year);
+    lines.push(`| ${POLICY_NAMES[p]} | ${rs.filter((r) => r.error).length} | ${Object.entries(kinds).map(([k, v]) => `${k} ${v}`).join('・') || 'なし'}（${first.length}／${rs.length}） | ${ys.length ? `${avg(ys).toFixed(1)}年（${Math.min(...ys)}〜${Math.max(...ys)}）` : '—'} | ${avg(rs.map((r) => r.generations - 1)).toFixed(1)}回 | ${Math.round(avg(last.map((x) => x?.money ?? 0)))}G | ${pct(avg(ratios) * 100, 100)}（${pct(Math.max(...ratios) * 100, 100)}） | ${avg(last.map((x) => x?.deaths ?? 0)).toFixed(1)} |`);
+  }
+  lines.push('');
+  lines.push('エンディングの種類ごとの到達率（その回で一度でも届いたか）：', '');
+  lines.push(`| 方針 | ${(Object.keys(ENDING_NAMES) as EndingKind[]).map((k) => ENDING_NAMES[k]).join(' | ')} |`);
+  lines.push(`|---|${(Object.keys(ENDING_NAMES) as EndingKind[]).map(() => '---').join('|')}|`);
+  for (const p of policies) {
+    const rs = all.filter((r) => r.policy === p);
+    lines.push(`| ${POLICY_NAMES[p]} | ${(Object.keys(ENDING_NAMES) as EndingKind[]).map((k) => pct(rs.filter((r) => r.endings.some((e) => e.kind === k)).length, rs.length)).join(' | ')} |`);
   }
   lines.push('');
   for (const p of policies) {
@@ -99,7 +114,7 @@ function report(all: RunResult[]): string {
     const at = (y: number, f: (row: YearRow) => number) => avg(results.map((r) => r.rows.find((x) => x.year === y)).filter(Boolean).map((x) => f(x!)));
     lines.push('| 年 | 緊張度 | 所持金 | 評判 | 在籍 | 卒業生（累計） | 現役の卒業生 | 卒業後の戦死（累計） | 在学中の戦死（累計） |');
     lines.push('|---|---|---|---|---|---|---|---|---|');
-    for (const y of [1, 2, 3, 5, 8, 10, 15, 20, 25, 30].filter((y) => y <= years)) {
+    for (const y of [1, 2, 3, 5, 8, 10, 15, 20, 25, 30, 35, 40].filter((y) => y <= years)) {
       lines.push(`| ${y} | ${at(y, (r) => r.tension).toFixed(0)} | ${at(y, (r) => r.money).toFixed(0)} | ${at(y, (r) => r.rep).toFixed(0)} | ${at(y, (r) => r.students).toFixed(1)} | ${at(y, (r) => r.grads).toFixed(0)} | ${at(y, (r) => r.aliveGrads).toFixed(0)} | ${at(y, (r) => r.alumniDead).toFixed(0)} | ${at(y, (r) => r.deaths).toFixed(1)} |`);
     }
     lines.push('');
@@ -110,11 +125,11 @@ function report(all: RunResult[]): string {
     const ev: Record<string, number> = {};
     for (const r of results) for (const [k, v] of Object.entries(r.bigEvents)) ev[k] = (ev[k] ?? 0) + v;
     lines.push(`大事件（全回の合計）：${Object.entries(ev).sort((a, b) => b[1] - a[1]).map(([k, v]) => `${k} ${v}回`).join('・') || 'なし'}`, '');
-    lines.push('| 回 | 経歴 | 最終の所持金 | 最終の評判 | 卒業生 | 卒業後の戦死 | 戦死の割合 | 和平会議 | 円卓 | 戦闘の勝敗 | 最終の緊張度 | 傘下 |');
-    lines.push('|---|---|---|---|---|---|---|---|---|---|---|---|');
+    lines.push('| 回 | 経歴 | エンディング | 教官 | 最終の所持金 | 最終の評判 | 卒業生 | 卒業後の戦死 | 戦死の割合 | 和平会議 | 戦闘の勝敗 | 最終の緊張度 | 傘下 |');
+    lines.push('|---|---|---|---|---|---|---|---|---|---|---|---|---|');
     results.forEach((r, i) => {
       const last = r.rows[r.rows.length - 1];
-      lines.push(`| ${i + 1} | ${BACKGROUNDS.find((b) => b.id === r.bg)?.name} | ${last?.money ?? '—'} | ${last?.rep ?? '—'} | ${r.graduates} | ${r.alumniDeaths} | ${pct(r.alumniDeaths, r.graduates)} | ${r.peaceTalks} | ${r.roundYear ?? '—'} | ${r.wins}勝${r.losses}敗 | ${last?.tension ?? '—'}（${last?.stage ?? ''}） | ${r.vassal ?? 'なし'} |`);
+      lines.push(`| ${i + 1} | ${BACKGROUNDS.find((b) => b.id === r.bg)?.name} | ${r.endings.map((e) => `${endingTitle(e.kind, e.country as never)}（${e.year}年目）`).join('・') || 'なし'} | ${r.generations}代（引退${r.instructorAges.join('・') || '—'}歳） | ${last?.money ?? '—'} | ${last?.rep ?? '—'} | ${r.graduates} | ${r.alumniDeaths} | ${pct(r.alumniDeaths, r.graduates)} | ${r.peaceTalks} | ${r.wins}勝${r.losses}敗 | ${last?.tension ?? '—'}（${last?.stage ?? ''}） | ${r.vassal ?? 'なし'} |`);
     });
     lines.push('');
   }

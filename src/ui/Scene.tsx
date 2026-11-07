@@ -46,7 +46,7 @@ export function ScenePlayer({ s, lines, onDone }: { s: GameState; lines: SceneLi
       {line.art && <ArtSlot name={line.art} height={150} />}
       {line.title && <div class="scene-title">{line.title}</div>}
       {line.faces && line.faces.length > 0 && (
-        <div class="scene-faces">{line.faces.map((id) => s.students[id]).filter(Boolean).map((x) => <div><Portrait st={x} size={line.faces!.length > 6 ? 46 : 60} frame={countryColor(x.origin)} /><div class="small">{x.given}</div></div>)}</div>
+        <div class="scene-faces">{line.faces.map((id) => s.students[id]).filter(Boolean).map((x) => <div><Portrait st={x} size={line.faces!.length === 1 ? 110 : line.faces!.length <= 3 ? 84 : line.faces!.length > 6 ? 46 : 60} frame={countryColor(x.origin)} /><div class="small">{x.given}</div></div>)}</div>
       )}
       {photo && (
         <div class="photo scene-photo">
@@ -55,7 +55,7 @@ export function ScenePlayer({ s, lines, onDone }: { s: GameState; lines: SceneLi
           {photo.empty.map((id) => s.students[id]).filter(Boolean).map((x) => <div class="seat"><div class="empty" style={{ width: 44, height: 44 }} /><div class="muted">{x.given}</div></div>)}
         </div>
       )}
-      {line.roll && <div class="roll">{line.roll.map((r) => <span class={r.dead ? 'dead' : ''}>{r.name}{r.dead ? '✝' : ''}</span>)}</div>}
+      {line.roll && <div class="roll" key={i}>{line.roll.map((r) => <span class={r.dead ? 'dead' : ''}>{r.name}{r.dead ? '✝' : ''}</span>)}</div>}
       {(st || line.by === 'teacher') && (
         <div class="scene-speaker">{st ? <Portrait st={st} size={84} frame={countryColor(st.origin)} /> : <TeacherFace s={s} size={84} />}</div>
       )}

@@ -7,6 +7,11 @@ import { ScenePlayer } from './Scene';
 import { retireInstructor, successorCandidates, askSuccessor, externalSuccessor } from '../core/instructor';
 import { rng } from '../core/flow';
 import { TeacherFace } from './Talk';
+import { continueSchool, buildHallEntry, endingTitle, ENDING_NAMES, ENDING_SUB } from '../core/ending';
+import { addHall, unlockStarts, saveSlot } from './storage';
+import { setGame } from './store';
+import type { CountryId } from '../core/types';
+import type { EndingKind } from '../core/state';
 import { titleOf } from '../core/alumni';
 import { ArtSlot } from './HomeDeco';
 import { TalkPlayer } from './Talk';
@@ -45,6 +50,7 @@ export function PendingView() {
     case 'entrance': return <Entrance s={s} />;
     case 'career': return <Career s={s} />;
     case 'graduation': return <Graduation s={s} cohort={p.cohort} lines={p.lines} onDone={done} />;
+    case 'ending': return <EndingChoice s={s} kind={p.kind} country={p.country} />;
     case 'retire': return <Retire s={s} forced={p.forced} />;
     case 'successor': return <Successor s={s} />;
     case 'scene': return <Sheet title={p.title}><ScenePlayer key={p.title} s={s} lines={p.lines} onDone={done} /></Sheet>;
@@ -323,6 +329,37 @@ function Successor({ s }: { s: GameState }) {
       ))}
       {!list.length && <div class="empty-note">頼める卒業生がいません</div>}
       <button class="btn block" style={{ marginTop: 8 }} onClick={() => { if (!confirm('外部から「流れの旅人」の教官を迎えます。よろしいですか？')) return; sfx('ok'); act((g) => externalSuccessor(g, rng(g))); }}>外部から教官を迎える（流れの旅人）</button>
+    </Sheet>
+  );
+}
+
+function EndingChoice({ s, kind, country }: { s: GameState; kind: EndingKind; country?: CountryId }) {
+  const [busy, setBusy] = useState(false);
+  const reached = new Set((s.endings ?? []).map((e) => e.kind));
+  return (
+    <Sheet title="エンディング">
+      <div class="pcard" style={{ textAlign: 'center' }}>
+        <div class="muted small">{ENDING_SUB[kind]}</div>
+        <div class="scene-title">{endingTitle(kind, country)}</div>
+        <div class="small">{s.year}年目・卒業生 {s.stats.graduates}人・{s.instructor.generation}代目教官 {s.instructor.name}</div>
+      </div>
+      <div class="card">
+        <h3>到達したエンディング</h3>
+        <div class="row gap6">{(Object.keys(ENDING_NAMES) as EndingKind[]).map((k) => <span class={`chip-o ${reached.has(k) ? 'main' : 'gray'}`}>{reached.has(k) ? ENDING_NAMES[k] : '？？？'}</span>)}</div>
+      </div>
+      <div class="paper small">
+        <p><b>この学校を続ける</b>：平和な時代が始まります。戦争の大事件は起きず、依頼は魔物退治や治安維持が中心になります（まれに、再び戦の気配が漂うことも）。</p>
+        <p><b>新しい学校で始める</b>：この学校の年鑑を「殿堂」に保存して、タイトル画面に戻ります（いつでも年鑑の「殿堂」で見られます）。次からは「ふつう」「名門」の学校からも始められます。このセーブもそのまま残ります。</p>
+      </div>
+      <button class="btn primary block" style={{ marginTop: 8 }} disabled={busy} onClick={() => { sfx('ok'); unlockStarts(); act((g) => continueSchool(g)); }}>この学校を続ける</button>
+      <button class="btn accent block" style={{ marginTop: 8 }} disabled={busy} onClick={async () => {
+        if (!confirm('この学校の年鑑を殿堂に保存して、タイトル画面に戻ります。よろしいですか？')) return;
+        setBusy(true); sfx('graduation');
+        await addHall(buildHallEntry(s)); await unlockStarts();
+        act((g) => continueSchool(g));
+        await saveSlot(s);
+        setGame(null);
+      }}>新しい学校で始める（殿堂に保存）</button>
     </Sheet>
   );
 }

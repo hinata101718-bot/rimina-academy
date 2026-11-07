@@ -20,7 +20,9 @@ export function defaultSettings(): Settings {
 
 export function rng(s: { rng: number }): Rng { return new Rng(s); }
 
-export function newGame(opts: { name: string; background: string; seed: number; slot?: number; startGrade?: number }): GameState {
+export type StartKind = 'poor' | 'normal' | 'elite';
+export function newGame(opts: { name: string; background: string; seed: number; slot?: number; startGrade?: number; start?: StartKind }): GameState {
+  const st0 = B.starts[opts.start ?? 'poor'];
   const bg = BACKGROUNDS.find((b) => b.id === opts.background) ?? BACKGROUNDS[3];
   const skills = emptySkills(RANK_POINTS[bg.defaultRank as Rank]);
   for (const [k, r] of Object.entries(bg.skills)) skills[k as SkillId] = RANK_POINTS[r as Rank];
@@ -28,8 +30,8 @@ export function newGame(opts: { name: string; background: string; seed: number; 
   const s: GameState = {
     version: SAVE_VERSION, slot: opts.slot ?? 0, rng: opts.seed | 0, createdAt: Date.now(), lastExport: Date.now(),
     year: 1, month: 0, week: 1, absWeek: 0,
-    money: B.school.startMoney, reputation: B.school.startReputation,
-    facilities: { training: 0, library: 0, stable: 0, chapel: 0, dining: 0, range: 0 },
+    money: opts.start ? st0.money : B.school.startMoney, reputation: opts.start ? st0.rep : B.school.startReputation,
+    facilities: { training: st0.facility, library: st0.facility, stable: st0.facility, chapel: st0.facility, dining: st0.facility, range: 0 },
     teachers: [], teacherCandidates: [],
     armory: STARTING_ARMORY.map((w, i) => ({ uid: `w${i}`, weaponId: w })),
     items: { vulnerary: 3, elixir: 0 },
@@ -49,10 +51,11 @@ export function newGame(opts: { name: string; background: string; seed: number; 
   };
   const r = rng(s);
   s.world.gunYear = r.int(...B.world.gunYears);
-  s.chronicle.push({ year: 1, month: 0, text: `${s.instructor.name}が教官として着任`, kind: 'school' });
+  s.chronicle.push({ year: 1, month: 0, text: `${s.instructor.name}が教官として着任${opts.start && opts.start !== 'poor' ? `（${st0.name}の学校から）` : ''}`, kind: 'school' });
+  if (!st0.deadline) s.noDeadline = true;
   // 一期生
-  const n = r.int(...B.student.firstYearCount);
-  enrollCohort(s, Array.from({ length: n }, () => generateStudent(s, r, { quality: 0 })));
+  const n = r.int(...(opts.start ? st0.cohort : B.student.firstYearCount));
+  enrollCohort(s, Array.from({ length: n }, () => generateStudent(s, r, { quality: st0.quality })));
   if (opts.startGrade && opts.startGrade > 1) {
     // デバッグ：在校生を上の学年として始める
     for (const st of enrolled(s)) {

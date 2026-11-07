@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'preact/hooks';
 import { slotInfos, loadSlot, deleteSlot, importFile, type SlotInfo } from './storage';
 import { setGame } from './store';
-import { newGame } from '../core/game';
+import { newGame, type StartKind } from '../core/game';
+import { startsUnlocked } from './storage';
+import { B } from '../data/balance';
 import { makeSeed } from '../core/rng';
 import { BACKGROUNDS } from '../data/people';
 import { sfx, unlockAudio } from './sound';
@@ -81,6 +83,9 @@ function Opening({ slot, onCancel }: { slot: number; onCancel: () => void }) {
   const [bg, setBg] = useState('knight');
   const [step, setStep] = useState(-1);
   const [debugGrade, setDebugGrade] = useState(1);
+  const [start, setStart] = useState<StartKind>('poor');
+  const [unlocked, setUnlocked] = useState(false);
+  useEffect(() => { startsUnlocked().then(setUnlocked); }, []);
   const [game, setG] = useState<GameState | null>(null);
   if (step === -1) {
     return (
@@ -98,6 +103,13 @@ function Opening({ slot, onCancel }: { slot: number; onCancel: () => void }) {
             </div>
           ))}
         </div>
+        {unlocked && (
+          <div class="card">
+            <h3>学校の始まり</h3>
+            <div class="seg">{(['poor', 'normal', 'elite'] as StartKind[]).map((k) => <button class={start === k ? 'on' : ''} onClick={() => setStart(k)}>{B.starts[k].name}</button>)}</div>
+            <div class="muted small" style={{ marginTop: 4 }}>{start === 'poor' ? '施設はボロボロ、お金も評判もわずか。3年目の終わりまでに評判を上げないと傘下入り。' : start === 'normal' ? `施設はすべて段階${B.starts.normal.facility}、所持金${B.starts.normal.money}G・評判${B.starts.normal.rep}から。廃校の期限はなし。` : `施設はすべて段階${B.starts.elite.facility}、所持金${B.starts.elite.money}G・評判${B.starts.elite.rep}から。素質のある志願者が集まる。廃校の期限はなし。`}</div>
+          </div>
+        )}
         <details class="card"><summary class="muted">テスト用の設定</summary>
           <div class="row" style={{ marginTop: 8 }}>一期生を
             <select value={debugGrade} onChange={(e) => setDebugGrade(Number((e.target as HTMLSelectElement).value))}>
@@ -109,7 +121,7 @@ function Opening({ slot, onCancel }: { slot: number; onCancel: () => void }) {
           <button class="btn ghost" onClick={onCancel}>戻る</button>
           <button class="btn primary grow" onClick={() => {
             sfx('ok');
-            const g = newGame({ name: name.trim() || 'アルノルト', background: bg, seed: makeSeed(), slot, startGrade: debugGrade });
+            const g = newGame({ name: name.trim() || 'アルノルト', background: bg, seed: makeSeed(), slot, startGrade: debugGrade, start: unlocked ? start : undefined });
             setG(g); setStep(0);
           }}>着任する</button>
         </div>
