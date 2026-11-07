@@ -2,7 +2,9 @@ import { useState } from 'preact/hooks';
 import { useStore, act, navigate } from './store';
 import { Sheet, StuRow, money } from './common';
 import { Portrait } from './Portrait';
-import type { GameState, TalkLog, Student } from '../core/state';
+import { GrowthPlayer } from './Growth';
+import { usableSpells } from '../core/spells';
+import type { GameState, TalkLog, Student, GrowthEntry } from '../core/state';
 import { enrolled, available, deployLimit, capacity } from '../core/game';
 import { startBattle, admit, autoAdmitIds, finishCareers } from '../core/flow';
 import { autoDeploy, canEquip } from '../core/autoplay';
@@ -25,7 +27,7 @@ export function PendingView() {
   const p = s.pending[0];
   const done = () => act((g) => { g.pending.shift(); });
   switch (p.type) {
-    case 'weekSummary': return <WeekSummary lines={p.lines} talks={p.talks} onDone={done} />;
+    case 'weekSummary': return <WeekSummary lines={p.lines} talks={p.talks} growth={p.growth} onDone={done} />;
     case 'talk': return <Sheet title="支援会話"><TalkView t={p.talk} /><button class="btn primary block" onClick={done}>閉じる</button></Sheet>;
     case 'event': return <Sheet title={p.title}><div class="paper">{p.lines.map((l) => <p>{l}</p>)}</div><button class="btn primary block" style={{ marginTop: 10 }} onClick={done}>閉じる</button></Sheet>;
     case 'battleResult': return <BattleResult s={s} p={p} onDone={done} />;
@@ -52,8 +54,12 @@ export function TalkView({ t }: { t: TalkLog }) {
   );
 }
 
-function WeekSummary({ lines, talks, onDone }: { lines: string[]; talks: TalkLog[]; onDone: () => void }) {
+function WeekSummary({ lines, talks, growth, onDone }: { lines: string[]; talks: TalkLog[]; growth?: GrowthEntry[]; onDone: () => void }) {
+  const { s } = useStore();
+  const [g, setG] = useState(growth?.length ? 0 : 1);
   const [i, setI] = useState(-1);
+  if (!s) return null;
+  if (g === 0) return <Sheet title="今週の成長"><GrowthPlayer s={s} entries={growth ?? []} title="伸びた生徒" onDone={() => setG(1)} /></Sheet>;
   if (i >= 0 && i < talks.length) {
     return <Sheet title="支援会話"><TalkView t={talks[i]} /><button class="btn primary block" onClick={() => { sfx('ok'); setI(i + 1); }}>{i + 1 < talks.length ? '次の会話へ' : 'まとめに戻る'}</button></Sheet>;
   }
@@ -67,6 +73,8 @@ function WeekSummary({ lines, talks, onDone }: { lines: string[]; talks: TalkLog
 }
 
 function BattleResult({ s, p, onDone }: { s: GameState; p: Extract<GameState['pending'][number], { type: 'battleResult' }>; onDone: () => void }) {
+  const [step, setStep] = useState(p.growth?.length ? 0 : 1);
+  if (step === 0) return <Sheet title={p.win ? '勝利 ― 成長の記録' : '敗北 ― 成長の記録'}><GrowthPlayer s={s} entries={p.growth ?? []} title="出撃した生徒" onDone={() => setStep(1)} /></Sheet>;
   return (
     <Sheet title={p.win ? '勝利' : '敗北'}>
       <h3>講評</h3>
@@ -105,14 +113,14 @@ function QuestBoard({ s }: { s: GameState }) {
   const avail = enrolled(s).filter(available);
   return (
     <Sheet title={`出撃準備：${q.title}`} onClose={s.quests.length > 1 ? () => { setQid(null); setDeploy(null); } : undefined}>
-      <div class="small muted">出撃できるのは{limit}人まで。武器は武器庫から割り当てます（技能ランクが足りない武器は使えません）。</div>
+      <div class="small muted">出撃できるのは{limit}人まで。武器は武器庫から割り当てます（技能ランクが足りない武器は使えません）。魔法は本人が覚えたものを使います。</div>
       {q.weather === 'rain' && <div class="tag red">雨：移動−1、銃は使えない</div>}
       {q.weather === 'fog' && <div class="tag red">霧：弓・魔道・銃の射程−1</div>}
       {avail.map((st) => {
         const i = d.findIndex((x) => x.studentId === st.id);
         const on = i >= 0;
         const opts = s.armory.filter((a) => canEquip(st, a.weaponId) && WEAPONS[a.weaponId].type !== 'staff' && (!used.has(a.uid) || d[i]?.armoryUid === a.uid));
-        const staffs = s.armory.filter((a) => canEquip(st, a.weaponId) && WEAPONS[a.weaponId].type === 'staff' && (!used.has(a.uid) || d[i]?.staffUid === a.uid));
+        const spells = usableSpells(st).map((id) => WEAPONS[id]?.name).filter(Boolean);
         const cls = CLASSES[st.classId];
         return (
           <div class="card" style={{ opacity: on ? 1 : 0.6 }}>
@@ -124,14 +132,12 @@ function QuestBoard({ s }: { s: GameState }) {
                   <option value="">武器なし</option>
                   {opts.map((a) => <option value={a.uid}>{WEAPONS[a.weaponId].name}{a.engraved ? `（${a.engraved}）` : ''}</option>)}
                 </select>
-                {staffs.length > 0 && <select value={d[i].staffUid ?? ''} onChange={(e) => { const nd = [...d]; nd[i] = { ...nd[i], staffUid: (e.target as HTMLSelectElement).value || null }; setD(nd); }}>
-                  <option value="">杖なし</option>{staffs.map((a) => <option value={a.uid}>{WEAPONS[a.weaponId].name}</option>)}
-                </select>}
                 <select value={d[i].item ?? ''} onChange={(e) => { const nd = [...d]; nd[i] = { ...nd[i], item: ((e.target as HTMLSelectElement).value || null) as Deploy['item'] }; setD(nd); }}>
                   <option value="">道具なし</option>
                   <option value="vulnerary" disabled={s.items.vulnerary <= d.filter((x, j) => j !== i && x.item === 'vulnerary').length}>傷薬（残{s.items.vulnerary}）</option>
                   <option value="elixir" disabled={s.items.elixir <= d.filter((x, j) => j !== i && x.item === 'elixir').length}>特効薬（残{s.items.elixir}）</option>
                 </select>
+                {spells.length > 0 && <div class="small muted" style={{ width: '100%' }}>使える魔法：{spells.join('・')}</div>}
               </div>
             )}
           </div>

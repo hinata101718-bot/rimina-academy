@@ -23,6 +23,9 @@ const SOUNDS: Record<string, Note[]> = {
   graduation: [[392, 0, 0.3, 'triangle', 0.2], [523, 0.3, 0.3, 'triangle', 0.2], [659, 0.6, 0.3, 'triangle', 0.2], [784, 0.9, 0.6, 'triangle', 0.2]],
   sad: [[330, 0, 0.5, 'sine', 0.15], [262, 0.45, 0.8, 'sine', 0.12]],
   heal: [[700, 0, 0.1, 'sine', 0.15], [1000, 0.08, 0.15, 'sine', 0.12]],
+  tick: [[1568, 0, 0.06, 'square', 0.1], [2093, 0.04, 0.08, 'square', 0.08]],
+  page: [[300, 0, 0.05, 'triangle', 0.1], [500, 0.03, 0.06, 'triangle', 0.06]],
+  text: [[1200, 0, 0.02, 'square', 0.03]],
 };
 
 export function sfx(name: keyof typeof SOUNDS | string) {

@@ -3,13 +3,14 @@ import { B } from '../data/balance';
 import { BACKGROUNDS, COUNTRIES, COUNTRY_SHORT, COUNTRY_NAMES, SKILL_NAMES } from '../data/people';
 import { WEAPONS } from '../data/weapons';
 import type { CountryId, SkillId } from './types';
-import type { GameState, Quest, Student } from './state';
+import type { GameState, Quest, Student, GrowthEntry } from './state';
 import { Rng } from './rng';
 import { enrolled, addMoney, addRep, chronicle, notify, enrollCohort, capacity, mail, available } from './game';
 import { resolveWeek, startMonthStudents, changeMotivation, revealTalent, addSkill } from './week';
 import { rollQuests } from './quests';
 import { addSupport, addRecent, getSupport } from './support';
-import { gainExp } from './growth';
+import { gainExp, startGrowthLog, stopGrowthLog, snapGrowth, diffGrowth } from './growth';
+import { learnSpells } from './spells';
 import { createBattle, unitFromStudent, defaultWeaponFor, type Deploy } from './battle/setup';
 import { startPlayerPhase, setReinforcementFactory, weaponSkillId } from './battle/engine';
 import { monthlyWorld, yearlyWorld, questWorldEffect, tensionStage, activeAlumni } from './world';
@@ -38,7 +39,7 @@ export function nextWeek(s: GameState): void {
   if (s.pending.length || s.battle || s.gameOver) return;
   const r = rng(s);
   const res = resolveWeek(s, r);
-  s.pending.push({ type: 'weekSummary', lines: res.lines.length ? res.lines : ['穏やかな一週間だった'], talks: res.talks });
+  s.pending.push({ type: 'weekSummary', lines: res.lines.length ? res.lines : ['穏やかな一週間だった'], talks: res.talks, growth: res.growth });
   s.absWeek += 1;
   if (s.week >= 4) {
     s.quests = rollQuests(s);
@@ -88,6 +89,8 @@ export function finishBattle(s: GameState): void {
   const expMul = b.real ? 1 : B.battle.drillExpMul;
   lines.push(win ? `勝利！「${b.title}」` : `敗北……「${b.title}」`);
   if (win) s.stats.battlesWon++; else s.stats.battlesLost++;
+  const growth: GrowthEntry[] = [];
+  startGrowthLog();
 
   for (const u of b.units) {
     if (!u.studentId || u.side === 'enemy' && !u.persuadable) continue;
@@ -104,6 +107,7 @@ export function finishBattle(s: GameState): void {
       continue;
     }
     if (st.status !== 'enrolled') continue;
+    const snap = snapGrowth(st);
     st.battles += 1;
     st.kills += u.kills;
     for (const [w, n] of Object.entries(u.usedWeapon)) {
@@ -113,6 +117,7 @@ export function finishBattle(s: GameState): void {
       if (def && st.talent) revealTalent(s, st, B.talent.battleReveal / 2);
     }
     const ups = gainExp(s, r, st, u.expGain * expMul);
+    growth.push(diffGrowth(st, snap, learnSpells(s, st)));
     for (const up of ups) lines.push(`${st.given}がLv${up.level}に上がった（${Object.entries(up.gains).map(([k, v]) => `${k}+${v}`).join(' ') || '変化なし'}）`.replace(/hp/g, 'HP').replace(/str/g, '力').replace(/mag/g, '魔力').replace(/skl/g, '技').replace(/spd/g, '速さ').replace(/lck/g, '幸運').replace(/def/g, '守備').replace(/res/g, '魔防').replace(/cha/g, '魅力'));
     const f = b.fallen.find((x) => x.studentId === st.id);
     const score = u.kills * 3 + u.hits + u.dmgDealt / 12 - (f ? 3 : 0) + (u.expGain >= 40 ? 1 : 0);
@@ -133,6 +138,7 @@ export function finishBattle(s: GameState): void {
       if (helper?.studentId) addRecent(s, st, 'ev_cover', helper.name, helper.studentId);
     }
   }
+  stopGrowthLog();
   // 支援：隣接して戦った組
   for (const [k, n] of Object.entries(b.adjacencyPairs)) {
     const [a, c] = k.split('|');
@@ -177,7 +183,7 @@ export function finishBattle(s: GameState): void {
       } else { addRep(s, B.reputation.questLose); lines.push(`依頼は失敗。評判${B.reputation.questLose}`); }
     }
   }
-  s.pending.push({ type: 'battleResult', lines, grades, win });
+  s.pending.push({ type: 'battleResult', lines, grades, win, growth });
   s.battle = null;
   endMonth(s);
 }

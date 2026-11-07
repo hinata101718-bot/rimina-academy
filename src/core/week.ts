@@ -3,12 +3,13 @@ import { B, SKILLS } from '../data/balance';
 import { TRAITS, TALENTS, DREAMS, SKILL_NAMES, PERSONALITIES, COUNTRY_NAMES } from '../data/people';
 import { CLASSES } from '../data/classes';
 import type { SkillId, CountryId } from './types';
-import type { GameState, Student, TalkLog, WeekendAction } from './state';
+import type { GameState, Student, TalkLog, WeekendAction, GrowthEntry } from './state';
 import { Rng } from './rng';
 import { rankLetter, clamp, rankOf } from './util';
 import { enrolled, available, notify, addRep, chronicle } from './game';
 import { addSupport, addTrust, addRecent, getSupport, buildTalk, supportRank } from './support';
-import { gainExp } from './growth';
+import { gainExp, startGrowthLog, stopGrowthLog, snapGrowth, diffGrowth } from './growth';
+import { learnSpells, learnedText } from './spells';
 import { examCandidates } from './exam';
 
 export type Policy = 'balance' | 'talent' | 'dream' | 'combat';
@@ -161,7 +162,7 @@ export function autoPlan(s: GameState, rng: Rng): void {
 
 // ---------- 1週間の解決 ----------
 
-export interface WeekResult { lines: string[]; talks: TalkLog[] }
+export interface WeekResult { lines: string[]; talks: TalkLog[]; growth: GrowthEntry[] }
 
 export function resolveWeek(s: GameState, rng: Rng): WeekResult {
   const lines: string[] = [];
@@ -170,6 +171,9 @@ export function resolveWeek(s: GameState, rng: Rng): WeekResult {
   const camp = s.month === 3;
   const festival = s.month === 8;
   const before = new Map(enrolled(s).map((st) => [st.id, { skills: { ...st.skills }, level: st.level, mot: st.motivation }]));
+  const snaps = new Map(enrolled(s).map((st) => [st.id, snapGrowth(st)]));
+  const tutored = new Map<string, string>();
+  startGrowthLog();
 
   // 授業
   for (const st of enrolled(s)) {
@@ -192,6 +196,7 @@ export function resolveWeek(s: GameState, rng: Rng): WeekResult {
     const st = s.students[t.studentId];
     if (!st || !available(st)) continue;
     st.lastAttention = s.absWeek;
+    tutored.set(st.id, t.kind === 'skill' ? '個人指導' : t.kind === 'consult' ? '相談' : '面談');
     if (t.kind === 'skill') {
       const k = t.skill ?? st.targets[0];
       const mul = teacherMul(s, k) * facilityMul(s, k) * B.motivationMul[st.motivation] * fatigueMul(st) * talentMul(st, k) * traitLessonMul(st, true);
@@ -233,21 +238,31 @@ export function resolveWeek(s: GameState, rng: Rng): WeekResult {
   // 退学の予兆
   lines.push(...processDropout(s, rng));
 
-  // まとめ：技能ランクの変化
+  // まとめ：技能ランクの変化・覚えた魔法・成長の記録
+  const growth: GrowthEntry[] = [];
   for (const st of enrolled(s)) {
     const b = before.get(st.id); if (!b) continue;
+    let rankUp = false;
     for (const k of SKILLS) {
       const r0 = rankOf(b.skills[k]), r1 = rankOf(st.skills[k]);
-      if (r0 !== r1) lines.push(`${st.given}の${SKILL_NAMES[k]}が${r1}に上がった`);
+      if (r0 !== r1) { lines.push(`${st.given}の${SKILL_NAMES[k]}が${r1}に上がった`); rankUp = true; }
     }
+    const learned = learnSpells(s, st);
+    for (const id of learned) lines.push(learnedText(st, id));
     if (st.level > b.level) lines.push(`${st.given}がLv${st.level}になった`);
+    const snap = snaps.get(st.id);
+    if (snap && (tutored.has(st.id) || rankUp || st.level > b.level || learned.length)) {
+      const why = tutored.get(st.id) ?? (st.level > b.level ? 'レベルアップ' : learned.length ? '魔法' : 'ランクアップ');
+      growth.push(diffGrowth(st, snap, learned, why));
+    }
     if (st.motivation < b.mot && st.motivation <= 1) { lines.push(`${st.given}のやる気が下がっている`); notify(s, `${st.given}のやる気が「${B.motivationLabel[st.motivation]}」`, st.id); }
   }
 
+  stopGrowthLog();
   // 次の週の相談
   rollConsults(s, rng);
   s.plan = { tutoring: [], weekend: [] };
-  return { lines, talks };
+  return { lines, talks, growth };
 }
 
 function interview(s: GameState, rng: Rng, st: Student, consult: boolean): string[] {
@@ -444,13 +459,14 @@ export function doSpotlight(s: GameState, rng: Rng, id: string): string {
   addTrust(st, 5);
   const k = st.targets[0];
   addSkill(st, k, 10);
+  const learned = learnSpells(s, st);
   revealTalent(s, st, 8);
   const res = rng.pick([
     `${st.given}は少し照れくさそうに笑った。`,
     `${st.given}は「ありがとうございます」と頭を下げた。`,
     `${st.given}の表情が明るくなった。`,
   ]);
-  return `${res}（やる気↑・信頼↑・${SKILL_NAMES[k]}+10）`;
+  return `${res}（やる気↑・信頼↑・${SKILL_NAMES[k]}+10）${learned.map((id) => learnedText(st, id)).join('')}`;
 }
 
 export function hasFocusOverlap(s: GameState, st: Student): boolean {

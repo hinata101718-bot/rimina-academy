@@ -107,6 +107,7 @@ function sideStats(b: BattleState, a: Unit, d: Unit, ax: number, ay: number, sup
   let defStat = magical ? d.stats.res : d.stats.def + dTile.def;
   defStat += adjacentAllies(b, d).reduce((s, o) => s + sumAb(o, 'adjAllyDef'), 0);
   defStat -= d.weaken > 0 ? B.battle.weakenAmount : 0;
+  if (magical && d.ward) defStat += d.ward;
   if (w.type === 'gun') defStat = Math.floor(defStat * B.battle.gunDefPierce);
   let dmg = atk - Math.max(0, defStat) - sumAb(d, 'prot') - adjacentAllies(b, d).reduce((s, o) => s + sumAb(o, 'adjAllyProt'), 0);
   dmg = Math.max(0, Math.round(dmg));
@@ -135,12 +136,30 @@ export function forecast(b: BattleState, a: Unit, d: Unit, ax: number, ay: numbe
   } finally { a.x = ox; a.y = oy; }
 }
 
-export function staffOf(u: Unit): WeaponDef | null {
-  for (const id of u.weapons) { const w = WEAPONS[id]; if (w && w.type === 'staff') return w; }
-  return null;
+export function staffsOf(u: Unit): WeaponDef[] {
+  return u.weapons.map((id) => WEAPONS[id]).filter((w): w is WeaponDef => !!w && w.type === 'staff');
 }
-export function healAmount(u: Unit): number {
-  const w = staffOf(u);
+/** 回復の杖（いちばん遠くまで届くもの。範囲表示・AI用） */
+export function staffOf(u: Unit): WeaponDef | null {
+  const list = staffsOf(u);
+  if (!list.length) return null;
+  return [...list].sort((a, b) => b.maxRange - a.maxRange || b.might - a.might)[0];
+}
+export function healAmount(u: Unit, w: WeaponDef | null = staffOf(u)): number {
   if (!w) return 0;
   return w.might + Math.floor(u.stats.mag / 2);
+}
+/** 相手に一番合う回復（届くもののうち、毒なら治すもの→回復量が足りるもの） */
+export function bestStaffFor(b: BattleState, u: Unit, t: Unit): WeaponDef | null {
+  const d = dist(u, t);
+  const list = staffsOf(u).filter((w) => inRange(b, w, d));
+  if (!list.length) return null;
+  const need = t.maxHp - t.hp;
+  const score = (w: WeaponDef) => ((t.poison || t.weaken) && w.cure ? 50 : 0) + Math.min(need, healAmount(u, w)) - healAmount(u, w) * 0.01;
+  return [...list].sort((a, b) => score(b) - score(a))[0];
+}
+/** 攻撃に使える武器・魔法の一覧 */
+export function attackWeapons(b: BattleState, u: Unit): WeaponDef[] {
+  const ids = [...new Set([...(u.weaponId ? [u.weaponId] : []), ...u.weapons])];
+  return ids.map((id) => WEAPONS[id]).filter((w): w is WeaponDef => !!w && w.type !== 'staff' && canUseNow(b, u, w));
 }

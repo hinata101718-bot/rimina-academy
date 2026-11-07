@@ -1,6 +1,7 @@
-// 武器データ（耐久なし）。設計書 §8.6・§8.7 を参照。
+// 武器データ（耐久なし）。設計書 §8.6・§8.7 を参照。魔法（魔道・信仰）は spells.ts（技能ランクで覚える）。
 // 威力/命中/必殺/射程/必要ランク/価格。price 0 は購入不可（依頼報酬・村でのみ入手）。
 import type { WeaponDef } from '../core/types';
+import { SPELL_LIST } from './spells';
 
 const list: WeaponDef[] = [
   // ---------- 剣 ----------
@@ -31,30 +32,17 @@ const list: WeaponDef[] = [
   { id: 'longbow', name: 'ロングボウ', type: 'bow', might: 7, hit: 65, crit: 0, minRange: 2, maxRange: 3, rank: 'C', price: 0, effective: ['flying'], desc: '遠くまで届く長弓。' },
   { id: 'piercing_bow', name: '貫きの弓', type: 'bow', might: 9, hit: 75, crit: 25, minRange: 2, maxRange: 2, rank: 'C', price: 0, effective: ['flying'], desc: '急所を射抜く鋭い弓。' },
 
-  // ---------- 魔道 ----------
-  { id: 'fire', name: 'ファイアー', type: 'magic', might: 5, hit: 90, crit: 0, minRange: 1, maxRange: 2, rank: 'E', price: 350, desc: '炎を放つ初歩の魔道書。' },
-  { id: 'thunder', name: 'サンダー', type: 'magic', might: 7, hit: 75, crit: 5, minRange: 1, maxRange: 2, rank: 'D', price: 800, desc: '雷を落とす魔道書。' },
-  { id: 'thoron', name: 'トロン', type: 'magic', might: 11, hit: 70, crit: 10, minRange: 1, maxRange: 2, rank: 'B', price: 2000, desc: '強烈な雷光を放つ魔道書。' },
-  { id: 'miasma', name: 'ミアズマ', type: 'magic', might: 8, hit: 70, crit: 0, minRange: 1, maxRange: 2, rank: 'C', price: 1200, desc: '瘴気で敵を包む闇の魔道書。' },
-  { id: 'curse_brand', name: 'カースブランド', type: 'magic', might: 12, hit: 65, crit: 5, minRange: 1, maxRange: 2, rank: 'B', price: 0, desc: '呪いの烙印を刻む闇の魔道書。' },
-
-  // ---------- 信仰（白魔法の攻撃書） ----------
-  { id: 'lumina', name: 'ルミナ', type: 'holy', might: 4, hit: 95, crit: 0, minRange: 1, maxRange: 2, rank: 'E', price: 350, desc: '小さな聖なる光を放つ。' },
-  { id: 'celesta', name: 'セレスタ', type: 'holy', might: 8, hit: 80, crit: 5, minRange: 1, maxRange: 2, rank: 'C', price: 1000, desc: '天からの光で敵を討つ。' },
-  { id: 'sanctus', name: 'サンクトゥス', type: 'holy', might: 12, hit: 75, crit: 5, minRange: 1, maxRange: 2, rank: 'B', price: 0, desc: '大いなる聖光で邪を払う。' },
-
-  // ---------- 杖（might=回復量、信仰技能） ----------
-  { id: 'heal', name: 'ライブ', type: 'staff', might: 10, hit: 100, crit: 0, minRange: 1, maxRange: 1, rank: 'E', price: 300, desc: '隣の味方のHPを10回復する。' },
-  { id: 'mend', name: 'リライブ', type: 'staff', might: 20, hit: 100, crit: 0, minRange: 1, maxRange: 1, rank: 'C', price: 800, desc: '隣の味方のHPを20回復する。' },
-  { id: 'far_heal', name: 'ウィンドヒール', type: 'staff', might: 10, hit: 100, crit: 0, minRange: 1, maxRange: 3, rank: 'B', price: 1800, desc: '離れた味方のHPを10回復する。' },
-
   // ---------- 銃（守備を半分無視） ----------
   { id: 'matchlock', name: '火縄銃', type: 'gun', might: 10, hit: 70, crit: 0, minRange: 2, maxRange: 4, rank: 'E', price: 500, desc: '火縄で撃つ初期の銃。' },
   { id: 'improved_gun', name: '改良銃', type: 'gun', might: 13, hit: 75, crit: 0, minRange: 2, maxRange: 4, rank: 'D', price: 1000, desc: '命中を高めた改良型の銃。' },
   { id: 'long_gun', name: '長銃', type: 'gun', might: 15, hit: 80, crit: 0, minRange: 2, maxRange: 4, rank: 'C', price: 2200, desc: '銃身を伸ばした精密な銃。' },
 ];
 
-export const WEAPONS: Record<string, WeaponDef> = Object.fromEntries(list.map((w) => [w.id, w]));
+export const WEAPONS: Record<string, WeaponDef> = Object.fromEntries([...list, ...SPELL_LIST].map((w) => [w.id, w]));
+/** 武器庫に入る武器（魔法以外） */
+export const ARMS = list;
+/** 魔法かどうか（魔道書・杖を含む古い武器庫の品も） */
+export function isSpellType(type: string): boolean { return type === 'magic' || type === 'holy' || type === 'staff'; }
 
 /** 初期の武器庫（同じidの繰り返しで本数を表す） */
 export const STARTING_ARMORY: string[] = [
@@ -62,6 +50,4 @@ export const STARTING_ARMORY: string[] = [
   'iron_lance', 'iron_lance',
   'iron_axe', 'iron_axe',
   'iron_bow', 'iron_bow',
-  'fire',
-  'heal',
 ];

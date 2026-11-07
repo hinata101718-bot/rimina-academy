@@ -2,6 +2,8 @@
 import { SAVE_VERSION } from '../data/balance';
 import type { GameState } from './state';
 import { defaultSettings } from './game';
+import { WEAPONS } from '../data/weapons';
+import { ensureSpellPlan, learnSpells } from './spells';
 
 export interface SaveFile { app: 'rimina-academy'; version: number; savedAt: number; state: GameState }
 
@@ -18,11 +20,55 @@ export function deserialize(text: string): GameState {
 }
 
 export function migrate(s: GameState, from: number): GameState {
-  // 将来の形式変更はここに書く（from < 2 なら … のように）
   if (from > SAVE_VERSION) throw new Error('新しい版のセーブデータです。ページを再読み込みしてください');
-  s.settings = { ...defaultSettings(), ...(s.settings ?? {}) };
+  const oldSettings = s.settings ?? {};
+  s.settings = { ...defaultSettings(), ...oldSettings };
+  if (from < 2) migrateTo2(s, oldSettings as Partial<GameState['settings']>);
   s.heirs ??= [];
   s.notices ??= [];
   s.version = SAVE_VERSION;
   return s;
+}
+
+/**
+ * 1夜目の版（version 1）→ 2夜目の版（version 2）
+ * - 魔法は技能ランクで覚える形に：武器庫の魔道書・杖は売ったことにしてお金に換える（購入価格の半額）
+ * - 生徒全員に「覚える魔法の一覧」を作り、今の技能ランクまでの魔法を覚えさせる
+ * - 演出の設定を足す（敵ターンは「ゆっくり」に）
+ */
+function migrateTo2(s: GameState, old: Partial<GameState['settings']>): void {
+  if (old.animSpeed === undefined) s.settings.animSpeed = 2;
+  if (old.flip === undefined) s.settings.flip = true;
+  s.settings.enemySpeed = 1;
+  // 武器庫の魔法を売る
+  let total = 0;
+  const sold: Record<string, number> = {};
+  s.armory = (s.armory ?? []).filter((a) => {
+    const w = WEAPONS[a.weaponId];
+    if (!w) return false;
+    if (!w.spell) return true;
+    const v = Math.floor((w.value ?? w.price ?? 0) / 2);
+    total += v;
+    sold[w.name] = (sold[w.name] ?? 0) + 1;
+    return false;
+  });
+  s.money = Math.round((s.money ?? 0) + total);
+  // 生徒の魔法
+  for (const st of Object.values(s.students ?? {})) {
+    st.spells ??= [];
+    ensureSpellPlan(st);
+    learnSpells(null, st);
+  }
+  for (const st of s.applicants ?? []) { st.spells ??= []; ensureSpellPlan(st); learnSpells(null, st); }
+  // 出撃中の戦闘：持っている魔道書・杖はそのまま使える（同じ名前の魔法として扱う）
+  const soldText = Object.entries(sold).map(([n, c]) => `${n}×${c}`).join('・');
+  s.pending ??= [];
+  s.pending.push({
+    type: 'event', title: '魔法の覚え方が変わりました',
+    lines: [
+      '魔法（魔道）と回復の杖（信仰）は、買うのではなく、生徒が技能ランクを上げたときに覚えるようになりました。',
+      soldText ? `武器庫にあった ${soldText} は売り払い、${total}G になりました。` : '武器庫に魔道書・杖はありませんでした。',
+      '生徒たちは、今の技能ランクまでの魔法をすでに覚えています。個人ページで「覚えた魔法」と「次に覚える魔法」を見られます。',
+    ],
+  });
 }

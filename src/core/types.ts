@@ -78,6 +78,16 @@ export interface WeaponDef {
   price: number;      // 0=購入不可（特殊）
   effective?: MoveType[];
   desc?: string;
+  /** 魔法（技能ランクで覚える。武器庫・購入なし） */
+  spell?: boolean;
+  /** 才能のある子だけが覚える珍しい魔法 */
+  rare?: boolean;
+  /** 古いセーブを変換するときの元の値段 */
+  value?: number;
+  poison?: boolean;   // 命中時に毒
+  weaken?: boolean;   // 命中時に弱体
+  cure?: boolean;     // 回復のとき毒・弱体を治す
+  ward?: number;      // 回復のとき魔防+（次の自分の番まで）
 }
 
 // ---------- 会話 ----------
@@ -112,3 +122,6 @@ export interface TalkDef {
 }
 /** 意味ID → 性格 → 文面（配列ならランダムに1つ） */
 export type PhraseTable = Record<string, Partial<Record<PersonalityId, string | string[]>> & { default?: string | string[] }>;
+
+/** 覚える魔法の一覧の1枠（技能ランクがここに届いたら覚える） */
+export interface SpellSlot { id: string; rank: Rank; skill: 'magic' | 'faith' }

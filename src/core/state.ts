@@ -1,5 +1,5 @@
 // ゲームの状態（セーブされるもの）の型
-import type { CountryId, Origin, House, Gender, PersonalityId, SkillId, Stats, Path } from './types';
+import type { CountryId, Origin, House, Gender, PersonalityId, SkillId, Stats, Path, SpellSlot } from './types';
 import type { Difficulty, DifficultyMods } from '../data/balance';
 import type { BattleState } from './battle/types';
 
@@ -52,6 +52,9 @@ export interface Student {
   level: number;
   exp: number;
   skills: Record<SkillId, number>;
+  /** 覚える魔法の一覧（入学時に決まる）と、覚えた魔法 */
+  spellPlan?: SpellSlot[];
+  spells: string[];
   targets: [SkillId, SkillId];
   targetsAuto: boolean;
   classId: string;
@@ -154,9 +157,9 @@ export interface Photo { cohort: number; year: number; ids: string[]; empty: str
 
 /** 画面に出す「処理待ち」 */
 export type Pending =
-  | { type: 'weekSummary'; lines: string[]; talks: TalkLog[] }
+  | { type: 'weekSummary'; lines: string[]; talks: TalkLog[]; growth?: GrowthEntry[] }
   | { type: 'questBoard' }
-  | { type: 'battleResult'; lines: string[]; grades: { id: string; grade: string; note: string }[]; win: boolean }
+  | { type: 'battleResult'; lines: string[]; grades: { id: string; grade: string; note: string }[]; win: boolean; growth?: GrowthEntry[] }
   | { type: 'event'; title: string; lines: string[] }
   | { type: 'entrance' }
   | { type: 'career' }
@@ -164,6 +167,17 @@ export type Pending =
   | { type: 'newspaper'; id: string }
   | { type: 'teacherHire' }
   | { type: 'talk'; talk: TalkLog };
+
+/** 成長の記録（ゲージの演出用）。前と後の値だけを持つ */
+export interface GrowthEntry {
+  id: string;
+  exp0: number; lv0: number; exp1: number; lv1: number;
+  ups: { level: number; gains: Partial<Stats> }[];
+  stats0: Stats;
+  skills: { k: SkillId; p0: number; p1: number }[];
+  spells: string[];
+  why?: string;
+}
 
 export interface TalkLog { a: string; b: string; rank: string; title: string; lines: { by: string; text: string }[] }
 
@@ -184,6 +198,10 @@ export interface Settings {
   portrait: 'face' | 'dot';
   cutin: 'all' | 'important' | 'off';
   enemySpeed: 1 | 2 | 3;
+  /** 演出の速さ（HPゲージ・レベルアップ・会話の文字送りなど） */
+  animSpeed: 1 | 2 | 3;
+  /** 週が進むときの日めくりの演出 */
+  flip: boolean;
   rewind: boolean;
   guide: boolean;
   sound: boolean;

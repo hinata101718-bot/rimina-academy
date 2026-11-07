@@ -1,7 +1,7 @@
 // バランス値。ゲームの数値はすべてここに集める（設計書の「ふつう」が初期値）。
 import type { Rank, SkillId, StatId } from '../core/types';
 
-export const SAVE_VERSION = 1;
+export const SAVE_VERSION = 2;
 
 export const RANKS: Rank[] = ['E', 'E+', 'D', 'D+', 'C', 'C+', 'B', 'B+', 'A', 'A+', 'S'];
 export const RANK_POINTS: Record<Rank, number> = {
@@ -230,6 +230,28 @@ export const B = {
   },
   // ---- 教官 ----
   instructor: { retireMin: 50, retireMax: 65 },
+  // ---- 演出（ミリ秒）。設定の「演出の速さ」「敵ターンの速さ」で倍率がかかる ----
+  anim: {
+    speedMul: [1, 1.35, 1, 0.6],      // 演出の速さ：ゆっくり／ふつう／はやい
+    enemySpeedMul: [1, 1, 0.65, 0.4],  // 敵ターンの速さ：ゆっくり／ふつう／はやい
+    fastMul: 0.12,                     // タップで早送りしたときの倍率
+    enemyFocus: 380,      // 動く敵に枠を合わせてから歩き出すまで
+    enemyWalkStep: 130,   // 敵が1マス歩く時間
+    playerWalkStep: 55,   // 味方が1マス歩く時間
+    targetFlash: 330,     // 攻撃対象を光らせる時間
+    enemyAfter: 260,      // 敵1体の行動のあとの間
+    strikeLead: 220,      // 一撃ごとの溜め
+    gauge: 500,           // HPゲージが減る時間
+    strikeAfter: 260,     // 一撃のあとの間
+    killPause: 420,
+    panelAfter: 320,
+    banner: 700,          // 「敵のターン」などの帯
+    expGauge: 700,        // 経験値ゲージが伸びる時間
+    skillGauge: 600,
+    levelStat: 230,       // レベルアップで能力が1つ光る間隔
+    learn: 900,
+    flip: 650,            // 日めくり
+  },
   // ---- その他 ----
   exportReminderDays: 14,
   itemPrice: { vulnerary: 100, elixir: 500 },

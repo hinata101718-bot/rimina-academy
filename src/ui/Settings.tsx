@@ -39,6 +39,9 @@ export function SettingsTab() {
         <h3>表示・演出</h3>
         <div class="row between"><span>名簿の顔</span><div class="seg"><button class={s.settings.portrait === 'face' ? 'on' : ''} onClick={() => set((x) => { x.portrait = 'face'; })}>似顔絵</button><button class={s.settings.portrait === 'dot' ? 'on' : ''} onClick={() => set((x) => { x.portrait = 'dot'; })}>色の丸</button></div></div>
         <div class="row between" style={{ marginTop: 6 }}><span>カットイン</span><div class="seg">{(['all', 'important', 'off'] as const).map((c) => <button class={s.settings.cutin === c ? 'on' : ''} onClick={() => set((x) => { x.cutin = c; })}>{{ all: '毎回', important: '大事な時', off: 'なし' }[c]}</button>)}</div></div>
+        <div class="row between" style={{ marginTop: 6 }}><span>演出の速さ</span><div class="seg">{([1, 2, 3] as const).map((c) => <button class={s.settings.animSpeed === c ? 'on' : ''} onClick={() => set((x) => { x.animSpeed = c; })}>{{ 1: 'ゆっくり', 2: 'ふつう', 3: 'はやい' }[c]}</button>)}</div></div>
+        <div class="muted small">HPゲージ・経験値・レベルアップ・会話の文字送りの速さです。演出中は画面をタップすると早送りできます。</div>
+        <div class="row between" style={{ marginTop: 6 }}><span>週が進むときの日めくり</span><input type="checkbox" checked={s.settings.flip} onChange={(e) => set((x) => { x.flip = (e.target as HTMLInputElement).checked; })} /></div>
         <div class="row between" style={{ marginTop: 6 }}><span>敵ターンの速さ</span><div class="seg">{([1, 2, 3] as const).map((c) => <button class={s.settings.enemySpeed === c ? 'on' : ''} onClick={() => set((x) => { x.enemySpeed = c; })}>{{ 1: 'ゆっくり', 2: 'ふつう', 3: 'はやい' }[c]}</button>)}</div></div>
         <div class="row between" style={{ marginTop: 6 }}><span>巻き戻し（1戦闘3回）</span><input type="checkbox" checked={s.settings.rewind} onChange={(e) => set((x) => { x.rewind = (e.target as HTMLInputElement).checked; })} /></div>
         <div class="row between" style={{ marginTop: 6 }}><span>最初の月の案内</span><input type="checkbox" checked={s.settings.guide} onChange={(e) => set((x) => { x.guide = (e.target as HTMLInputElement).checked; })} /></div>
@@ -56,7 +59,7 @@ export function SettingsTab() {
           <button class="btn small" onClick={() => act((g) => { const y = g.year; let k = 0; while (g.year === y && k++ < 60) autoWeek(g); })}>1年進める</button>
         </div>
       </details>
-      <div class="muted small" style={{ textAlign: 'center' }}>辺境士官学校 ―戦争が終わる日まで― 1夜目の版</div>
+      <div class="muted small" style={{ textAlign: 'center' }}>辺境士官学校 ―戦争が終わる日まで― 2夜目の版</div>
     </div>
   );
 }

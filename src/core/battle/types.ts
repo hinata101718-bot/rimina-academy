@@ -25,6 +25,7 @@ export interface Unit {
   aiActive?: boolean;
   poison: number;
   weaken: number;
+  ward?: number;           // 守りの祈り：魔防+（次の自分の番まで）
   reloadTurn: number;      // 銃：このターンは撃てない
   aimed: boolean;
   abilities: string[];

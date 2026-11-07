@@ -12,6 +12,7 @@ import { Rng } from '../rng';
 import { effectiveStats } from '../game';
 import { emptyStats } from '../util';
 import { tensionStage } from '../world';
+import { usableSpells } from '../spells';
 
 const CHAR: Record<string, Terrain> = { '.': 'plain', F: 'forest', M: 'mountain', T: 'fort', '~': 'river', '=': 'bridge', V: 'village', '#': 'wall', r: 'road' };
 
@@ -33,9 +34,12 @@ export function studentAbilities(st: Student): string[] {
   return ab;
 }
 
-export function unitFromStudent(st: Student, side: Unit['side'], uid: string, x: number, y: number, weapons: string[]): Unit {
+export function unitFromStudent(st: Student, side: Unit['side'], uid: string, x: number, y: number, arms: string[]): Unit {
   const stats = effectiveStats(st);
-  const attack = weapons.find((w) => WEAPONS[w] && WEAPONS[w].type !== 'staff') ?? null;
+  // 武器（武器庫から持ってきたもの）＋今の兵種で使える覚えた魔法
+  const weapons = [...arms.filter((w) => WEAPONS[w] && !WEAPONS[w].spell), ...usableSpells(st)];
+  const spells = usableSpells(st).map((id) => WEAPONS[id]).filter((w) => w.type !== 'staff').sort((a, b) => b.might - a.might);
+  const attack = weapons.find((w) => WEAPONS[w] && !WEAPONS[w].spell) ?? spells[0]?.id ?? null;
   return baseUnit({
     uid, side, studentId: st.id, name: st.given, classId: st.classId, level: st.level, stats, x, y,
     weaponId: attack, weapons, abilities: studentAbilities(st), personality: st.personality,
@@ -57,9 +61,9 @@ function classForLevel(rng: Rng, id: string, level: number, gun: boolean): Class
 }
 
 function weaponFor(type: WeaponType, level: number): string | null {
-  const list = Object.values(WEAPONS).filter((w) => w.type === type && w.price > 0);
+  const list = Object.values(WEAPONS).filter((w) => w.type === type && (w.price > 0 || (w.spell && !w.rare && (w.value ?? 0) <= 2000)));
   if (!list.length) return null;
-  list.sort((a, b) => a.price - b.price);
+  list.sort((a, b) => (a.price || a.value || 0) - (b.price || b.value || 0));
   const idx = level < 7 ? 0 : level < 15 ? Math.min(1, list.length - 1) : Math.min(2, list.length - 1);
   return list[idx].id;
 }
@@ -130,7 +134,7 @@ export function createBattle(s: GameState, quest: Quest, deploys: Deploy[], seed
   if (quest.objective === 'escort' && !b.goal) b.goal = { x: 3, y: 0 };
   // 宝箱
   for (const [x, y] of chestSpots) if (rng.chance(0.6)) {
-    const specials = Object.values(WEAPONS).filter((w) => w.price === 0 && w.type !== 'gun');
+    const specials = Object.values(WEAPONS).filter((w) => w.price === 0 && w.type !== 'gun' && !w.spell);
     b.chests.push({ x, y, weaponId: rng.pick(specials).id, opened: false });
   }
   // 味方
@@ -141,8 +145,6 @@ export function createBattle(s: GameState, quest: Quest, deploys: Deploy[], seed
     const ws: string[] = [];
     const item = d.armoryUid ? s.armory.find((a) => a.uid === d.armoryUid) : null;
     if (item) ws.push(item.weaponId);
-    const staff = d.staffUid ? s.armory.find((a) => a.uid === d.staffUid) : null;
-    if (staff) ws.push(staff.weaponId);
     const u = unitFromStudent(st, 'player', `p${i}`, pos[0], pos[1], ws);
     u.armoryUid = d.armoryUid ?? undefined;
     u.item = d.item;
@@ -222,14 +224,15 @@ function maybeAlumni(s: GameState, b: BattleState, q: Quest, rng: Rng): void {
   }
 }
 
+/** 卒業生が戦場で使う武器（魔法は覚えたものを別に使う） */
 export function defaultWeaponFor(st: Student): string {
   const c = CLASSES[st.classId] ?? CLASSES.novice;
   let best: { id: string; pts: number } | null = null;
   for (const t of c.weapons) {
-    if (t === 'staff') continue;
-    const skill = t === 'holy' ? 'faith' : t;
+    if (t === 'staff' || t === 'magic' || t === 'holy') continue;
+    const skill = t;
     const pts = (st.skills as Record<string, number>)[skill] ?? 0;
     if (!best || pts > best.pts) best = { id: weaponFor(t, st.level) ?? 'iron_sword', pts };
   }
-  return best?.id ?? 'iron_sword';
+  return best?.id ?? (usableSpells(st).length ? '' : 'iron_sword');
 }

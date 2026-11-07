@@ -1,4 +1,5 @@
 // 生徒の自動生成
+import { makeSpellPlan, learnSpells } from './spells';
 import { B, SKILLS, STATS } from '../data/balance';
 import { NAMES } from '../data/names';
 import {
@@ -126,7 +127,7 @@ export function generateStudent(s: GameState, rng: Rng, opt: GenOptions = {}): S
   const face = generateFace(rng, origin, gender);
   if (parents) { face.hair = parents[0].face.hair; if (rng.chance(0.5)) face.hairStyle = parents[1].face.hairStyle; }
 
-  return {
+  const st: Student = {
     id: newId(s), given, family, gender, age, birthYear: s.year - age,
     origin, house, personality, dream, traits, knownTraits, talent, talentReveal: 0,
     stats, growth, growthKnown: false, level: 1, exp: 0, skills, targets, targetsAuto: true,
@@ -136,7 +137,11 @@ export function generateStudent(s: GameState, rng: Rng, opt: GenOptions = {}): S
     kills: 0, battles: 0, weaponUse: {}, bestGrade: null, memories: [], offers: [], exhibitionScore: 0,
     career: null, history: [], farewell: null, keepsake: null,
     parents: parents ? [parents[0].id, parents[1].id] : [], children: [], spouse: null, diedYear: null, deathNote: null,
+    spells: [],
   };
+  st.spellPlan = makeSpellPlan(st);
+  learnSpells(null, st);
+  return st;
 }
 
 function highestSkill(sk: Record<SkillId, number>): SkillId {

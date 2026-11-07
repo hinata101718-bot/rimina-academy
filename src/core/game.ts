@@ -14,7 +14,7 @@ import { autoTargets } from './week';
 export function defaultSettings(): Settings {
   return {
     difficulty: 'normal', mods: { ...DIFFICULTY.normal }, portrait: 'face', cutin: 'important',
-    enemySpeed: 2, rewind: true, guide: true, sound: true, volume: 0.6,
+    enemySpeed: 1, animSpeed: 2, flip: true, rewind: true, guide: true, sound: true, volume: 0.6,
   };
 }
 

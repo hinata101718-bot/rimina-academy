@@ -17,6 +17,8 @@ import type { GameState, Student } from '../core/state';
 import { supportRank } from '../core/support';
 import { titleOf } from '../core/alumni';
 import { sfx } from './sound';
+import { ensureSpellPlan, usableSpells } from '../core/spells';
+import { WEAPONS } from '../data/weapons';
 
 export function StudentsTab() {
   const { s, route } = useStore();
@@ -137,6 +139,7 @@ function Detail({ s, st }: { s: GameState; st: Student }) {
               </div>
             )}
           </div>
+          <SpellCard st={st} />
           <div class="card">
             <h3>仲間との支援</h3>
             {supports.length === 0 && <div class="muted">まだ特に親しい仲間はいない</div>}
@@ -193,6 +196,36 @@ function ExamList({ s }: { s: GameState }) {
           </div>
         );
       })}
+    </div>
+  );
+}
+
+function SpellCard({ st }: { st: Student }) {
+  const plan = ensureSpellPlan(st);
+  const usable = new Set(usableSpells(st));
+  return (
+    <div class="card">
+      <h3>魔法</h3>
+      <div class="muted small">魔道・信仰の技能ランクが上がると、一人ひとり決まった魔法を覚えます。戦闘では、今の兵種で使える魔法を選んで使えます（回数の制限なし）。</div>
+      {(['magic', 'faith'] as const).map((k) => {
+        const slots = plan.filter((x) => x.skill === k);
+        return (
+          <div style={{ marginTop: 6 }}>
+            <b>{SKILL_NAMES[k]}</b> <span class="muted small">（今 {rankOf(st.skills[k])}）</span>
+            <div class="row" style={{ gap: 4, marginTop: 2 }}>
+              {slots.map((x) => {
+                const got = st.spells.includes(x.id);
+                const w = WEAPONS[x.id];
+                return got
+                  ? <span class={`tag${usable.has(x.id) ? '' : ' gray'}`} title={w?.desc}>{w?.name}{w?.rare ? '★' : ''}</span>
+                  : <span class="tag gray">{k === 'magic' ? '魔道' : '信仰'}{x.rank}で？？？</span>;
+              })}
+              {!slots.length && <span class="muted small">覚える魔法はない</span>}
+            </div>
+          </div>
+        );
+      })}
+      {st.spells.some((id) => !usable.has(id)) && <div class="muted small">灰色の魔法は、今の兵種では使えません。</div>}
     </div>
   );
 }

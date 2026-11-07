@@ -1,11 +1,11 @@
 // 戦闘の進行：移動・攻撃・回復・待機・指示・敵AI・勝敗・巻き戻し
 import { B } from '../../data/balance';
 import { WEAPONS } from '../../data/weapons';
-import type { BattleState, Unit, Strike, Terrain } from './types';
+import type { BattleState, Unit, Strike, Terrain, LastAction } from './types';
 import { Rng } from '../rng';
 import {
   tile, terrainDef, dist, unitAt, moveOf, moveTypeOf, weaponOf, isFriendly, canUseNow, inRange, rangeOf,
-  forecast, healAmount, staffOf, hasAb, abilitiesOf, type SupportFn,
+  forecast, healAmount, staffOf, staffsOf, bestStaffFor, attackWeapons, hasAb, abilitiesOf, type SupportFn,
 } from './calc';
 import { clamp } from '../util';
 
@@ -55,10 +55,56 @@ export function reachable(b: BattleState, u: Unit): Map<number, number> {
   return best;
 }
 
+/** 移動できるマスと、そこへの一つ前のマス（歩く道順の復元用） */
+function reachParents(b: BattleState, u: Unit): Map<number, { c: number; prev: number }> {
+  const best = new Map<number, { c: number; prev: number }>();
+  const mv = moveOf(b, u);
+  const start = idx(b, u.x, u.y);
+  const q: [number, number, number][] = [[u.x, u.y, 0]];
+  best.set(start, { c: 0, prev: -1 });
+  while (q.length) {
+    q.sort((a, c) => a[2] - c[2]);
+    const [x, y, c] = q.shift()!;
+    for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+      const nx = x + dx, ny = y + dy;
+      if (nx < 0 || ny < 0 || nx >= b.width || ny >= b.height) continue;
+      const nc = c + moveCost(b, u, tile(b, nx, ny));
+      if (nc > mv) continue;
+      const o = unitAt(b, nx, ny);
+      if (o && !isFriendly(u, o)) continue;
+      const k = idx(b, nx, ny);
+      if ((best.get(k)?.c ?? Infinity) <= nc) continue;
+      best.set(k, { c: nc, prev: idx(b, x, y) });
+      q.push([nx, ny, nc]);
+    }
+  }
+  return best;
+}
+function pathFromParents(b: BattleState, par: Map<number, { c: number; prev: number }>, from: [number, number], tx: number, ty: number): [number, number][] {
+  const out: [number, number][] = [];
+  let k = idx(b, tx, ty);
+  if (!par.has(k)) return tx === from[0] && ty === from[1] ? [from] : [from, [tx, ty]];
+  let guard = 0;
+  while (k >= 0 && guard++ < 200) { out.unshift([k % b.width, Math.floor(k / b.width)]); k = par.get(k)!.prev; }
+  return out;
+}
+/** u が今いるマスから (tx, ty) まで歩く道順（両端を含む） */
+export function findPath(b: BattleState, u: Unit, tx: number, ty: number): [number, number][] {
+  return pathFromParents(b, reachParents(b, u), [u.x, u.y], tx, ty);
+}
+
+/** 画面の演出用：ユニットの位置とHPの写し */
+export interface UnitView { uid: string; x: number; y: number; hp: number; dead: boolean }
+export interface ReplayStep { uid: string; path: [number, number][]; action: LastAction | null; after: UnitView[] }
+export interface EnemyReplay { initial: UnitView[]; steps: ReplayStep[] }
+export function viewsOf(b: BattleState): UnitView[] {
+  return b.units.map((u) => ({ uid: u.uid, x: u.x, y: u.y, hp: u.hp, dead: u.dead }));
+}
+
 /** 移動先のマス群から攻撃できるマス */
 export function threatTiles(b: BattleState, u: Unit, from: Iterable<number>, staff = false): Set<number> {
   const out = new Set<number>();
-  const ws = staff ? [staffOf(u)].filter(Boolean) : u.weapons.map((w) => WEAPONS[w]).filter((w) => w && w.type !== 'staff' && canUseNow(b, u, w));
+  const ws = staff ? staffsOf(u) : u.weapons.map((w) => WEAPONS[w]).filter((w) => w && w.type !== 'staff' && canUseNow(b, u, w));
   if (!staff && u.weaponId && !ws.length) { const w = weaponOf(u); if (w && canUseNow(b, u, w)) ws.push(w); }
   for (const k of from) {
     const x = k % b.width, y = Math.floor(k / b.width);
@@ -139,8 +185,8 @@ function strike(b: BattleState, ctx: BattleCtx, a: Unit, d: Unit, out: Strike[])
   if (a.side !== 'enemy' && !isFriendly(a, d)) (b.hitBy[d.uid] ??= []).includes(a.uid) || b.hitBy[d.uid].push(a.uid);
   out.push({ by: a.uid, hit: true, crit, dmg });
   log(b, `${a.name}→${d.name} ${crit ? '必殺！' : ''}${dmg}ダメージ`, crit ? 'crit' : 'hit');
-  if (abilitiesOf(a).some((x) => x.poison)) d.poison = B.battle.poisonTurns;
-  if (abilitiesOf(a).some((x) => x.weaken)) d.weaken = B.battle.weakenTurns;
+  if (w.poison || abilitiesOf(a).some((x) => x.poison)) d.poison = B.battle.poisonTurns;
+  if (w.weaken || abilitiesOf(a).some((x) => x.weaken)) d.weaken = B.battle.weakenTurns;
   if (d.hp <= 0) defeat(b, ctx, d, a);
 }
 
@@ -197,12 +243,20 @@ function recordAdjacency(b: BattleState, a: Unit) {
   }
 }
 
-export function heal(b: BattleState, a: Unit, t: Unit): boolean {
-  if (a.acted || b.phase === 'done' || !isFriendly(a, t) || t.dead || t.hp >= t.maxHp) return false;
-  const w = staffOf(a);
-  if (!w || !inRange(b, w, dist(a, t))) return false;
-  const amt = Math.min(t.maxHp - t.hp, healAmount(a));
+export function canHealTarget(b: BattleState, a: Unit, t: Unit): boolean {
+  if (!isFriendly(a, t) || t.dead || t === a || t.side === 'enemy' && a.side !== 'enemy') return false;
+  const w = bestStaffFor(b, a, t);
+  if (!w) return false;
+  return t.hp < t.maxHp || (!!w.cure && (t.poison > 0 || t.weaken > 0)) || (!!w.ward && !t.ward);
+}
+export function heal(b: BattleState, a: Unit, t: Unit, staffId?: string): boolean {
+  if (a.acted || b.phase === 'done' || !canHealTarget(b, a, t)) return false;
+  const w = (staffId ? staffsOf(a).find((x) => x.id === staffId && inRange(b, x, dist(a, t))) : null) ?? bestStaffFor(b, a, t);
+  if (!w) return false;
+  const amt = Math.min(t.maxHp - t.hp, healAmount(a, w));
   t.hp += amt;
+  if (w.cure) { t.poison = 0; t.weaken = 0; }
+  if (w.ward) t.ward = w.ward;
   a.usedWeapon[w.id] = (a.usedWeapon[w.id] ?? 0) + 1;
   if (a.side !== 'enemy') a.expGain += B.battle.exp.heal;
   a.moved = true; a.acted = true;
@@ -239,7 +293,7 @@ export function visit(b: BattleState, u: Unit): string {
   let text: string;
   if (roll < 0.4) { u.item = u.item ?? 'vulnerary'; text = '村人から傷薬をもらった'; }
   else if (roll < 0.7) { text = '村人が「この先に気をつけて」と教えてくれた（全員の命中+5、このターン）'; for (const o of b.units) if (o.side === 'player') o.aimed = o.aimed || r.chance(0.5); }
-  else { const specials = Object.values(WEAPONS).filter((w) => w.price === 0 && w.type !== 'gun'); const w = r.pick(specials); (b.visitedChestLog ??= []).push(w.id); text = `村人から「${w.name}」を託された（戦闘後に武器庫へ）`; }
+  else { const specials = Object.values(WEAPONS).filter((w) => w.price === 0 && w.type !== 'gun' && !w.spell); const w = r.pick(specials); (b.visitedChestLog ??= []).push(w.id); text = `村人から「${w.name}」を託された（戦闘後に武器庫へ）`; }
   log(b, `${u.name}：${text}`, 'info');
   return text;
 }
@@ -308,6 +362,7 @@ function phaseStart(b: BattleState, side: 'player' | 'enemy'): void {
     if (tile(b, u.x, u.y) === 'fort' && u.hp < u.maxHp) u.hp = Math.min(u.maxHp, u.hp + Math.ceil(u.maxHp * B.battle.fortHealPct));
     if (u.poison > 0) { u.hp = Math.max(1, u.hp - Math.ceil(u.maxHp * B.battle.poisonPct)); u.poison -= 1; }
     if (u.weaken > 0) u.weaken -= 1;
+    u.ward = 0;
     for (const a of abilitiesOf(u)) if (a.auraHeal) for (const o of b.units.filter(mine)) if (o !== u && dist(o, u) <= 2) o.hp = Math.min(o.maxHp, o.hp + a.auraHeal);
   }
 }
@@ -318,31 +373,33 @@ export function startPlayerPhase(b: BattleState): void {
   snapshot(b);
 }
 
-/** 味方フェーズ終了→敵フェーズを一気に処理して次の味方フェーズへ。敵の行動の列を返す（演出用） */
-export function endPlayerPhase(b: BattleState, ctx: BattleCtx): { uid: string; action: BattleState['lastAction']; from: [number, number] }[] {
-  const steps: { uid: string; action: BattleState['lastAction']; from: [number, number] }[] = [];
-  if (b.phase !== 'player') return steps;
+/** 味方フェーズ終了→敵フェーズを一気に処理して次の味方フェーズへ。敵の行動の記録を返す（演出用） */
+export function endPlayerPhase(b: BattleState, ctx: BattleCtx): EnemyReplay {
+  const replay: EnemyReplay = { initial: [], steps: [] };
+  if (b.phase !== 'player') return replay;
   for (const u of b.units) if (u.side !== 'enemy') { u.aimed = false; }
   b.phase = 'enemy';
   phaseStart(b, 'enemy');
+  replay.initial = viewsOf(b);
   const enemies = b.units.filter((u) => u.side === 'enemy' && !u.dead);
   for (const e of enemies) {
     if ((b.phase as string) === 'done' || e.dead) continue;
     const from: [number, number] = [e.x, e.y];
+    const par = reachParents(b, e);
     b.lastAction = null;
     enemyAct(b, ctx, e);
-    steps.push({ uid: e.uid, action: b.lastAction, from });
+    replay.steps.push({ uid: e.uid, path: pathFromParents(b, par, from, e.x, e.y), action: b.lastAction, after: viewsOf(b) });
   }
-  if ((b.phase as string) === 'done') return steps;
+  if ((b.phase as string) === 'done') return replay;
   checkEnd(b);
-  if ((b.phase as string) === 'done') return steps;
-  if (b.objective === 'defend' && b.turn >= b.defendTurns) { finish(b, 'win'); return steps; }
+  if ((b.phase as string) === 'done') return replay;
+  if (b.objective === 'defend' && b.turn >= b.defendTurns) { finish(b, 'win'); return replay; }
   b.turn += 1;
   // 援軍の卒業生
   if (b.reinforcement && b.turn === b.reinforcementsAt) spawnReinforcement(b);
-  if (b.turn > b.maxTurns) { finish(b, 'lose'); return steps; }
+  if (b.turn > b.maxTurns) { finish(b, 'lose'); return replay; }
   startPlayerPhase(b);
-  return steps;
+  return replay;
 }
 
 export let reinforcementFactory: ((b: BattleState) => Unit | null) | null = null;
@@ -371,25 +428,26 @@ export function enemyAct(b: BattleState, ctx: BattleCtx, e: Unit, attackOnly = f
       const reach = e.ai === 'hold' ? new Map([[idx(b, e.x, e.y), 0]]) : reachable(b, e);
       for (const k of reach.keys()) {
         const x = k % b.width, y = Math.floor(k / b.width);
-        const t = hurt.find((h) => inRange(b, staff, Math.abs(h.x - x) + Math.abs(h.y - y)));
-        if (t) { e.x = x; e.y = y; heal(b, e, t); return; }
+        const t = hurt.find((h) => staffsOf(e).some((w) => inRange(b, w, Math.abs(h.x - x) + Math.abs(h.y - y))));
+        if (t) { const ox = e.x, oy = e.y; e.x = x; e.y = y; if (heal(b, e, t)) return; e.x = ox; e.y = oy; }
       }
     }
   }
-  const w = weaponOf(e);
   if (e.ai === 'ambush' && !e.aiActive) {
     const threat = enemyThreat(b, e);
     if (targets.some((t) => threat.has(idx(b, t.x, t.y)))) e.aiActive = true;
     else return;
   }
   const reach = e.ai === 'hold' ? new Map([[idx(b, e.x, e.y), 0]]) : reachable(b, e);
-  let best: { score: number; x: number; y: number; t: Unit } | null = null;
-  if (w && canUseNow(b, e, w)) {
+  let best: { score: number; x: number; y: number; t: Unit; wid: string } | null = null;
+  const equipped = e.weaponId;
+  for (const aw of attackWeapons(b, e)) {
+    e.weaponId = aw.id;
     for (const k of reach.keys()) {
       const x = k % b.width, y = Math.floor(k / b.width);
       for (const t of targets) {
         const d = Math.abs(t.x - x) + Math.abs(t.y - y);
-        if (!inRange(b, w, d)) continue;
+        if (!inRange(b, aw, d)) continue;
         const f = forecast(b, e, t, x, y, ctx.support);
         if (!f.atk.canAttack) continue;
         const exp = f.atk.dmg * f.atk.count * (f.atk.hit / 100);
@@ -400,11 +458,12 @@ export function enemyAct(b: BattleState, ctx: BattleCtx, e: Unit, attackOnly = f
         score -= f.def.canAttack ? f.def.dmg * f.def.count * (f.def.hit / 100) * cautious : 0;
         if (e.side !== 'enemy' && f.def.canAttack && f.def.dmg * f.def.count >= e.hp && f.def.hit > 0 && !kill) score -= 400;
         score += terrainDef(tile(b, x, y)).avo * 0.2;
-        if (!best || score > best.score) best = { score, x, y, t };
+        if (!best || score > best.score) best = { score, x, y, t, wid: aw.id };
       }
     }
   }
-  if (best && (!attackOnly || best.score > (b.turn > 8 ? -2000 : -150))) { e.x = best.x; e.y = best.y; attack(b, ctx, e, best.t); return; }
+  e.weaponId = equipped;
+  if (best && (!attackOnly || best.score > (b.turn > 8 ? -2000 : -150))) { e.x = best.x; e.y = best.y; e.weaponId = best.wid; attack(b, ctx, e, best.t); return; }
   if (e.ai === 'hold' || attackOnly) return;
   // 近づく：一番近い相手へ向かう（移動コストを考えた距離）
   const goal = nearestTarget(b, e, targets);

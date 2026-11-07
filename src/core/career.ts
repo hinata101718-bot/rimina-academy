@@ -94,8 +94,8 @@ export function graduate(s: GameState, rng: Rng, plans: CareerPlan[]): { id: str
       front: kind === 'army' && (country === 'empire' ? rng.chance(0.6) : rng.chance(0.3)),
     };
     st.status = 'graduated'; st.grade = 0;
-    // 一番使った武器を持っていく
-    const fav = Object.entries(st.weaponUse).sort((a, b) => b[1] - a[1])[0];
+    // 一番使った武器を持っていく（魔法は本人のものなので、剣・槍・斧・弓などの武器だけ）
+    const fav = Object.entries(st.weaponUse).filter(([id]) => WEAPONS[id] && !WEAPONS[id].spell).sort((a, b) => b[1] - a[1])[0];
     st.keepsake = fav ? WEAPONS[fav[0]]?.name ?? null : null;
     if (country && kind === 'army') addFriendship(s, country, B.career.friendshipPerGrad);
     if (mood === 'match') addTrust(st, 5);
