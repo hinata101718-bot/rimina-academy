@@ -1,13 +1,11 @@
 # 顔画像の置き場所
 
-ここに `{国}_{性別}_{髪色}_{番号}.png` の名前で顔画像を置き、`index.json` の `files` に
-ファイル名を書き足すと、条件に合う生徒の似顔絵が画像に差し替わります。
+全員おそろいの学校の制服を着た「胸から上」の顔画像を置きます（出身国では分けません）。
 
-- 国：kingdom / empire / alliance（辺境出身は kingdom の画像を使います）
-- 性別：m / f
-- 髪色：black / brown / chestnut / gold / blond / red / silver / blue
-- 例：`kingdom_f_blond_01.png`
-
-```json
-{ "files": ["kingdom_f_blond_01.png", "empire_m_black_01.png"] }
-```
+- ファイル名：`{性別}_{髪色}_{番号}.webp`（例：`f_blond_004.webp`）
+  - 性別：m / f
+  - 髪色：black / brown / chestnut / gold / blond / red / silver / blue（ゲームの髪色と一致すると優先されます）
+  - それ以外の髪色（pink / green / purple / orange など）も使えます。髪色が合わないときは同じ性別の顔から選ばれます
+- 追加したら `index.json` の `files` にファイル名を書き足す
+- 生徒ごとに一度決まった顔は保存され、変わりません。在校生・志願者どうしで同じ顔にならないようにしています
+- 画風の見本：最初の10人の絵（深緑と白の制服、丸屋根のついた門の紋章、クリーム色の背景）

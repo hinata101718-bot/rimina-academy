@@ -11,12 +11,36 @@ export async function loadFaceManifest(): Promise<void> {
   } catch { /* なくてよい */ }
 }
 function hash(s: string): number { let h = 0; for (const c of s) h = (h * 31 + c.charCodeAt(0)) | 0; return Math.abs(h); }
+
+/** ファイル名から性別と髪色を読む。新形式 {性別}_{髪色}_{番号}、旧形式 {国}_{性別}_{髪色}_{番号} の両方に対応 */
+function parseFace(f: string): { g: string; hair: string } | null {
+  const m = f.match(/^(?:(?:kingdom|empire|alliance)_)?([mf])_([a-z]+)_/);
+  return m ? { g: m[1], hair: m[2] } : null;
+}
+
+/**
+ * 顔画像の割り当て。生徒ごとに一度決めたら faceImage に保存して変えない。
+ * 在校生・志願者どうしで同じ顔にならないようにし、同じ性別・同じ髪色の顔を優先する
+ * （顔は全員おそろいの学校の制服なので、出身国では分けない）。
+ */
 export function faceImageFor(st: Student): string | null {
   if (!faceFiles.length) return null;
-  const prefix = `${st.origin === 'frontier' ? 'kingdom' : st.origin}_${st.gender}_${HAIR_NAMES[st.face.hair]}_`;
-  const list = faceFiles.filter((f) => f.startsWith(prefix));
+  if (st.faceImage && faceFiles.includes(st.faceImage)) return `${import.meta.env.BASE_URL}faces/${st.faceImage}`;
+  const g = getGame();
+  const used = new Set<string>();
+  if (g) {
+    for (const o of Object.values(g.students)) if (o.status === 'enrolled' && o.faceImage && o.id !== st.id) used.add(o.faceImage);
+    for (const o of g.applicants ?? []) if (o.faceImage && o.id !== st.id) used.add(o.faceImage);
+  }
+  const hair = HAIR_NAMES[st.face.hair];
+  const all = faceFiles.map((f) => ({ f, p: parseFace(f) })).filter((x) => x.p && x.p.g === st.gender);
+  const free = all.filter((x) => !used.has(x.f));
+  const tiers = [free.filter((x) => x.p!.hair === hair), free, all];
+  const list = tiers.find((t) => t.length) ?? [];
   if (!list.length) return null;
-  return `${import.meta.env.BASE_URL}faces/${list[hash(st.id) % list.length]}`;
+  const pick = list[hash(st.id) % list.length].f;
+  st.faceImage = pick; // 一度決めた顔は保存して固定（次の自動保存で残る）
+  return `${import.meta.env.BASE_URL}faces/${pick}`;
 }
 
 function darken(hex: string, k = 0.75): string {
@@ -107,6 +131,14 @@ export function Portrait({ st, size = 48 }: { st: Student; size?: number }) {
     return <span class="dot-face" style={{ width: size, height: size, background: COUNTRY_COLOR[st.origin], fontSize: size * 0.42, opacity: dead ? 0.5 : 1 }}>{st.given[0]}</span>;
   }
   const img = faceImageFor(st);
-  if (img) return <img src={img} width={size} height={size} style={{ borderRadius: '50%', objectFit: 'cover', flex: 'none', filter: dead ? 'grayscale(1)' : undefined }} alt="" />;
+  if (img) {
+    // 顔画像は胸から上の絵なので、小さい表示ほど顔のあたりを大きく切り抜く
+    const zoom = size <= 64 ? 1.55 : size <= 120 ? 1.3 : 1.0;
+    return (
+      <span style={{ width: size, height: size, borderRadius: size <= 120 ? '22%' : '12px', overflow: 'hidden', flex: 'none', display: 'inline-block', position: 'relative', background: '#f7f0e2', border: '1.5px solid #c9bfa8', boxSizing: 'border-box' }}>
+        <img src={img} alt="" loading="lazy" style={{ position: 'absolute', width: `${zoom * 100}%`, left: `${-(zoom - 1) * 50}%`, top: zoom > 1 ? '-2%' : '0', filter: dead ? 'grayscale(1)' : undefined }} />
+      </span>
+    );
+  }
   return <FaceSvg face={st.face} size={size} dim={!!dead} />;
 }
