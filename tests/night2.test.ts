@@ -152,3 +152,84 @@ describe('戦闘の演出用の記録', () => {
     expect(br && br.type === 'battleResult' && br.growth && br.growth.length > 0).toBe(true);
   });
 });
+
+describe('勝利条件「救出」「突破」', () => {
+  const mkQuest = (objective: 'rescue' | 'escape', template: string) => ({ id: 'qx', kind: objective === 'rescue' ? 'rescue' : 'breakout', title: objective, client: 'x', clientCountry: 'kingdom', enemyCountry: 'empire', objective, template, level: 7, reward: 400, danger: 2, weather: 'clear', real: true }) as never;
+  it('救出：捕虜の隣で「救出」すると勝ち。捕虜は敵に狙われない', async () => {
+    const { canRescue, rescue } = await import('../src/core/battle/engine');
+    const s = newGame({ name: 't', background: 'knight', seed: 31, startGrade: 2 });
+    s.pending = [];
+    s.quests = [mkQuest('rescue', 'mountain_fort')];
+    startBattle(s, 'qx', autoDeploy(s));
+    const b = s.battle!;
+    const cap = b.units.find((u) => u.captive)!;
+    expect(cap).toBeTruthy();
+    const p = b.units.find((u) => u.side === 'player')!;
+    // 隣に置いて救出
+    const spot = [[cap.x, cap.y + 1], [cap.x + 1, cap.y], [cap.x - 1, cap.y], [cap.x, cap.y - 1]].find(([x, y]) => x >= 0 && y >= 0 && x < b.width && y < b.height && !b.units.some((u) => !u.dead && u.x === x && u.y === y))!;
+    p.x = spot[0]; p.y = spot[1];
+    expect(canRescue(b, p)).toBeTruthy();
+    rescue(b, p);
+    expect(b.result).toBe('win');
+  });
+  it('突破：上の端から3人脱出すると勝ち', async () => {
+    const { escape } = await import('../src/core/battle/engine');
+    const s = newGame({ name: 't', background: 'knight', seed: 32, startGrade: 2 });
+    s.pending = [];
+    s.quests = [mkQuest('escape', 'forest_road')];
+    startBattle(s, 'qx', autoDeploy(s));
+    const b = s.battle!;
+    expect(b.escapeNeed).toBe(3);
+    b.units = b.units.filter((u) => u.side !== 'enemy' || u.y > 3);
+    const ps = b.units.filter((u) => u.side === 'player').slice(0, 3);
+    ps.forEach((u, i) => { u.x = i; u.y = 0; escape(b, u); });
+    expect(b.result).toBe('win');
+  });
+  it('オートプレイでも最後まで戦える', () => {
+    for (const [obj, tpl] of [['rescue', 'ruins'], ['escape', 'river_bridge']] as const) {
+      const s = newGame({ name: 't', background: 'merc', seed: 33, startGrade: 2 });
+      s.pending = [];
+      s.quests = [mkQuest(obj, tpl)];
+      startBattle(s, 'qx', autoDeploy(s));
+      autoBattle(s);
+      expect(s.battle).toBeNull();
+    }
+  });
+});
+
+describe('戦況とお金', () => {
+  it('三国それぞれに大使以上の文官の教え子がいて、関係が落ち着いていれば和平の円卓になる', async () => {
+    const { majorEvents } = await import('../src/core/world');
+    const { rng } = await import('../src/core/flow');
+    const s = newGame({ name: 't', background: 'mage', seed: 41 });
+    const [a, b, c] = enrolled(s);
+    for (const [st, country] of [[a, 'kingdom'], [b, 'empire'], [c, 'alliance']] as const) {
+      st.status = 'graduated'; st.grade = 0;
+      st.career = { kind: 'army', country, path: 'civil', rank: 2, rankYears: 0, growthMul: 0, front: false, alive: true, retired: false, injuredYears: 0 };
+    }
+    s.world.relations = { ke: 10, ea: 10, ak: 10 };
+    s.world.tension = 20;
+    s.pending = [];
+    for (let i = 0; i < 40 && !s.world.peaceRoundYear; i++) majorEvents(s, rng(s), false);
+    expect(s.world.peaceRoundYear).toBe(s.year);
+    expect(s.pending.some((p) => p.type === 'event' && p.title === '和平の円卓')).toBe(true);
+  });
+  it('所持金が多いほど三国からの援助金が減る', async () => {
+    const { aidMoney } = await import('../src/core/alumni');
+    const s = newGame({ name: 't', background: 'mage', seed: 42 });
+    s.world.friendship = { kingdom: 60, empire: 60, alliance: 60 };
+    s.money = 1000;
+    const poor = Object.values(aidMoney(s)).reduce((x, y) => x + y, 0);
+    s.money = 20000;
+    const rich = Object.values(aidMoney(s)).reduce((x, y) => x + y, 0);
+    expect(rich).toBeLessThan(poor * 0.5);
+  });
+  it('施設の維持費が毎月かかる', async () => {
+    const { monthlySalaries } = await import('../src/core/teachers');
+    const s = newGame({ name: 't', background: 'mage', seed: 43 });
+    s.facilities.training = 2; s.facilities.chapel = 1;
+    const m0 = s.money;
+    monthlySalaries(s);
+    expect(s.money).toBe(m0 - 3 * 30);
+  });
+});

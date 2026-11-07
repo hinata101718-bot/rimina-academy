@@ -102,8 +102,9 @@ export const B = {
   // ---- 学校 ----
   school: {
     startMoney: 800, startReputation: 10,
-    donationPerRep: 15,
+    donationPerRep: 12,
     aidPerRankPoint: 8, aidPerFriendship: 5,
+    aidRichFrom: 3000, aidRichSpan: 12000, aidRichMin: 0.15, // 所持金が多いほど三国からの援助金は減る
     reputationMax: 100,
     deadlineYear: 3, deadlineRep: 40, independenceRep: 70,
     vassalOtherFriendship: -20, independencePenalty: -30,
@@ -123,7 +124,11 @@ export const B = {
     candidates: [2, 3] as [number, number],
     salary: [150, 400] as [number, number],
     alumniSalaryMul: 0.5,
+    yearlyRaise: 0.05, maxRaise: 1.6, // 毎年の昇給（雇ったときの給料の最大1.6倍まで）
+    max: 6,                           // 雇える講師の上限
   },
+  /** 施設の維持費（段階1つにつき毎月） */
+  upkeepPerLevel: 30,
   reputation: {
     questWin: [1, 3] as [number, number], questWinByDanger: [0, 1.1, 1.5, 2.0], questLose: -2, deathInSchool: -3, dropout: -1,
     exhibition: [2, 4] as [number, number], promotionDiv: 4, promotionMax: 3,
@@ -152,7 +157,7 @@ export const B = {
     enemyPowerRange: [0.9, 1.1] as [number, number],
     enemyPowerBase: 0.5, enemyPowerPerDanger: 0.1, drillPowerMul: 0.85,
     gunDefPierce: 0.5,
-    escortAggro: 25, npcHp: 30, npcDef: 6,
+    escortAggro: 25, npcHp: 30, npcDef: 6, escapeNeed: 3,
   },
   terrain: {
     plain: { name: '平地', avo: 0, def: 0, cost: { infantry: 1, cavalry: 1, armor: 1, flying: 1 } },
@@ -182,8 +187,9 @@ export const B = {
   // ---- 卒業生 ----
   alumni: {
     yearlyExp: { warrior: 120, strategist: 90, civil: 60, stay: 50, home: 20, merc: 110 } as Record<string, number>,
-    deathRate: { peace: 0.01, tension: 0.03, war: 0.07 },
-    empireFrontExtra: 0.03,
+    deathRate: { peace: 0.006, tension: 0.015, war: 0.028 },
+    frontDeathMul: 1.25, rearDeathMul: 0.8, veteranLevel: 60, veteranMin: 0.45,
+    empireFrontExtra: 0.012,
     injuryRate: 0.06,
     retireAge: [48, 55] as [number, number],
     marriageRate: 0.15,
@@ -207,14 +213,14 @@ export const B = {
     startTension: 30,
     peaceBelow: 35, warAbove: 65,
     relWar: -50, relAllied: 50,
-    warriorPowerMul: 0.3, strategistPowerMul: 0.25, civilRelMul: 0.3,
+    warriorPowerMul: 0.3, strategistPowerMul: 0.25, civilRelMul: 0.4,
     empireAmbition: -0.22, allianceBridge: 0.15, warFatigueYears: 4, warFatiguePerYear: 1.2,
     yearRandom: 3, warDecay: -3,
     tensionPerWar: 8, tensionPerFriendly: -5, tensionPowerGapDiv: 10,
     tensionBase: 0, tensionWarPair: 38, tensionTensePair: 12, tensionTenseMul: 0.2, tensionAlliedPair: -6, tensionFriendlyPair: -2,
     monthlyDrift: 1.2,
     powerMeanRevert: 0.08, powerMeanRevertYear: 0.12,
-    pairWarFatigue: 1.5, pairWarFatigueMax: 10, weakSidePower: 30, weakSidePeace: 6, civilRelMax: 5, warriorPowerMax: 4, monthlyWarDrift: -0.1,
+    pairWarFatigue: 1.5, pairWarFatigueMax: 10, weakSidePower: 30, weakSidePeace: 6, civilRelMax: 8, warriorPowerMax: 4, monthlyWarDrift: -0.1,
     gunYears: [3, 6] as [number, number],
     events: {
       borderClashRel: -15, borderClashBelow: -35,
@@ -226,6 +232,14 @@ export const B = {
       heroPower: 15,
       schoolDefenseChance: 0.15,
       peaceRel: 0,
+      peaceTension: 45,             // 関係がすべて0以上で、緊張度がこれ未満なら和平会議が開かれやすい
+      peaceChance: 0.3,
+      diplomatTalksTension: 62,     // 教え子の大使が二国以上にいれば、戦争中でなければ会議を呼びかけられる
+      diplomatTalksChance: 0.02,
+      peaceCooldown: 30,
+      peaceBaseRel: 6, peacePerAmbassador: 3,
+      roundTableRel: 25,            // 和平の円卓での関係の改善
+      diplomatAmbitionDamp: 0.25,   // 帝国の大使の教え子1人ごとに、帝国の野心を弱める割合
     },
     alumniAppear: { peace: 0.08, tension: 0.18, war: 0.3 },
   },

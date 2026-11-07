@@ -27,7 +27,8 @@ export function rollTeacherCandidates(s: GameState, rng: Rng): void {
 
 export function hireTeacher(s: GameState, id: string): boolean {
   const t = s.teacherCandidates.find((x) => x.id === id);
-  if (!t) return false;
+  if (!t || s.teachers.length >= B.teachers.max) return false;
+  t.baseSalary ??= t.salary;
   s.teacherCandidates = s.teacherCandidates.filter((x) => x.id !== id);
   s.teachers.push(t);
   chronicle(s, `講師${t.name}（${SKILL_NAMES[t.skill]}）を雇った`, 'school');
@@ -37,6 +38,13 @@ export function fireTeacher(s: GameState, id: string): void { s.teachers = s.tea
 
 export function monthlySalaries(s: GameState): string[] {
   const out: string[] = [];
+  // 施設の維持費
+  const levels = Object.values(s.facilities).reduce((a, b) => a + (b ?? 0), 0);
+  const upkeep = levels * B.upkeepPerLevel;
+  if (upkeep > 0) {
+    if (s.money < upkeep) { notify(s, `施設の維持費（${upkeep}G）が払いきれなかった`); }
+    s.money = Math.max(0, s.money - upkeep);
+  }
   for (const t of [...s.teachers]) {
     if (s.money >= t.salary) { s.money -= t.salary; }
     else { s.teachers = s.teachers.filter((x) => x !== t); out.push(`給料が払えず、講師の${t.name}が去っていった`); notify(s, `講師の${t.name}が去った（給料不足）`); }
@@ -73,3 +81,12 @@ export function buyItem(s: GameState, kind: 'vulnerary' | 'elixir'): boolean {
   return true;
 }
 export const B_ITEM_PRICE = B.itemPrice;
+
+/** 年度末：講師の昇給 */
+export function yearlyRaises(s: GameState): void {
+  for (const t of s.teachers) {
+    t.baseSalary ??= t.salary;
+    t.salary = Math.min(Math.round(t.baseSalary * B.teachers.maxRaise), Math.round(t.salary * (1 + B.teachers.yearlyRaise)));
+  }
+}
+export function upkeepCost(s: GameState): number { return Object.values(s.facilities).reduce((a, b) => a + (b ?? 0), 0) * B.upkeepPerLevel; }

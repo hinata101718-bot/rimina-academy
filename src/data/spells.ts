@@ -41,6 +41,6 @@ export const SPELL_PLAN = {
   ranks: ['E', 'D', 'C', 'B', 'A', 'S'] as const,
   /** 天才の子は A・S の枠に珍しい魔法が入る */
   geniusRare: true,
-  /** E の枠は必ず入る確率（はじめから1つ使える子が多い） */
-  firstSlotChance: 0.7,
+  /** E の枠が入る確率（はじめから魔法を1つ使える子） */
+  firstSlotChance: 0.35,
 };

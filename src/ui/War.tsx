@@ -1,6 +1,6 @@
 import { useStore } from './store';
 import { COUNTRIES, COUNTRY_NAMES, COUNTRY_SHORT, COUNTRY_COLOR } from '../data/people';
-import { PAIRS, relStage, REL_NAMES, STAGE_NAMES, tensionStage, activeAlumni } from '../core/world';
+import { PAIRS, relStage, REL_NAMES, STAGE_NAMES, tensionStage, activeAlumni, diplomats } from '../core/world';
 import { OBJECTIVE_NAMES, WEATHER_NAMES } from '../core/quests';
 import { Bar, money } from './common';
 import type { GameState } from '../core/state';
@@ -54,6 +54,12 @@ export function WarTab() {
             {COUNTRIES.map((c) => <div class="row between"><span>{COUNTRY_NAMES[c]}{s.world.vassal === c ? '（傘下）' : ''}</span><span>{Math.round(s.world.friendship[c])}　<span class="muted small">卒業生{activeAlumni(s, c).length}人</span></span></div>)}
             {s.world.vassal && <div class="tag red">学校は{COUNTRY_NAMES[s.world.vassal]}の傘下にある（評判70で独立）</div>}
             {s.world.gunUnlocked && <div class="tag">銃が登場している</div>}
+          </div>
+          <div class="card">
+            <h3>和平への道</h3>
+            {COUNTRIES.map((c) => { const n = diplomats(s, c); return <div class="row between"><span>{COUNTRY_SHORT[c]}の大使以上の教え子</span><b style={{ color: n ? 'var(--main)' : 'var(--sub)' }}>{n}人</b></div>; })}
+            <div class="muted small">文官の教え子が大使（文官の3段目）以上になると、和平会議を呼びかけられます。三国すべてに大使以上の教え子がいて、学校が独立していれば、和平会議は「和平の円卓」になります。和平会議はこれまでに{s.world.peaceTalksHeld}回。</div>
+            {s.world.peaceRoundYear && <div class="tag">{s.world.peaceRoundYear}年目に和平の円卓が開かれた</div>}
           </div>
           <div class="card">
             <h3>依頼掲示板（今月末）</h3>

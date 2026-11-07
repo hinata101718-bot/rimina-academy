@@ -46,6 +46,11 @@ export function pathPoints(s: GameState, c: CountryId, path: 'warrior' | 'strate
   return activeAlumni(s, c).filter((st) => st.career!.path === path).reduce((a, st) => a + rankPoints(st), 0);
 }
 
+/** 大使以上（文官の段階2以上）の現役の教え子の数 */
+export function diplomats(s: GameState, c: CountryId): number {
+  return activeAlumni(s, c).filter((st) => st.career!.path === 'civil' && st.career!.rank >= 2).length;
+}
+
 export interface WorldNews { headline: string; lines: string[] }
 
 /** 毎月の小さな変動 */
@@ -60,7 +65,7 @@ export function monthlyWorld(s: GameState, rng: Rng): string[] {
     let d = (rng.next() - 0.52) * 2.2 * speed;
     if (relStage(w.relations[p.key]) === 'war') d += B.world.monthlyWarDrift * speed;
     // 帝国は野心が強い（統一の大義）
-    if (p.a === 'empire' || p.b === 'empire') d += B.world.empireAmbition * speed * (w.warYears >= B.world.warFatigueYears ? 0.3 : 1);
+    if (p.a === 'empire' || p.b === 'empire') d += B.world.empireAmbition * speed * (w.warYears >= B.world.warFatigueYears ? 0.3 : 1) * Math.max(0.25, 1 - diplomats(s, 'empire') * B.world.events.diplomatAmbitionDamp);
     if (p.key === 'ak') d += B.world.allianceBridge;
     addRel(s, p.key, d);
   }
@@ -177,17 +182,32 @@ export function majorEvents(s: GameState, rng: Rng, yearEnd: boolean): string[] 
     ]);
     for (const st of kAlumni.slice(0, 2)) if (st.trust >= 50) s.mail.unshift({ id: `m${s.nextId++}`, year: s.year, month: s.month, from: st.given, title: '最前線より', body: `先生、帝国の軍勢が来ました。今、最前線にいます。でも大丈夫です。先生に教わったことを思い出しながら戦います。—${st.given}`, read: false, studentId: st.id });
   }
-  // 4. 和平会議
-  if (PAIRS.every((p) => w.relations[p.key] >= B.world.events.peaceRel) && w.tension < 40 && cd(s, 'peace') && rng.chance(0.3)) {
-    setCd(s, 'peace', 24);
+  // 4. 和平会議（三国の関係がすべて0以上、または教え子の大使が二国以上にいて戦争中でないとき）
+  const E = B.world.events;
+  const ambassadors = COUNTRIES.filter((c) => diplomats(s, c) > 0);
+  const calm = PAIRS.every((p) => w.relations[p.key] >= E.peaceRel) && w.tension < E.peaceTension;
+  const byDiplomats = ambassadors.length >= 2 && !PAIRS.some((p) => relStage(w.relations[p.key]) === 'war') && w.tension < E.diplomatTalksTension;
+  if ((calm || byDiplomats) && cd(s, 'peace') && rng.chance(calm ? E.peaceChance : E.diplomatTalksChance)) {
+    setCd(s, 'peace', E.peaceCooldown);
     w.peaceTalksHeld += 1;
-    const ambassadors = COUNTRIES.filter((c) => activeAlumni(s, c).some((st) => st.career!.path === 'civil' && st.career!.rank >= 2));
-    for (const p of PAIRS) addRel(s, p.key, 6 + ambassadors.length * 3);
-    fire('和平会議', [
-      '三国の代表が同盟の都に集まり、和平について話し合った。',
-      ambassadors.length === 3 ? '三国すべての席に、リミナ分校の教え子の姿があった！' : `教え子が大使として出席した国：${ambassadors.length ? ambassadors.map((c) => COUNTRY_SHORT[c]).join('・') : 'なし'}。`,
-      '話し合いは一歩前進し、三国の関係が少し良くなった。',
-    ]);
+    const round = ambassadors.length === 3 && !w.vassal && calm && !w.peaceRoundYear;
+    for (const p of PAIRS) addRel(s, p.key, E.peaceBaseRel + ambassadors.length * E.peacePerAmbassador + (round ? E.roundTableRel : 0));
+    const names = ambassadors.map((c) => activeAlumni(s, c).filter((st) => st.career!.path === 'civil' && st.career!.rank >= 2).map((st) => st.given)[0]).filter(Boolean);
+    if (round) {
+      if (!w.peaceRoundYear) w.peaceRoundYear = s.year;
+      fire('和平の円卓', [
+        '三国の代表が同盟の都の円卓を囲み、戦を終わらせる話し合いが開かれた。',
+        `三国すべての席に、リミナ分校の教え子の姿があった！（${names.join('・')}）`,
+        '長い話し合いの末、三国は停戦の約束を交わした。大陸に、久しぶりに穏やかな風が吹いている。',
+        '（「和平の円卓」のエンディングの場面は、次の版で作ります）',
+      ]);
+    } else {
+      fire('和平会議', [
+        calm ? '三国の代表が同盟の都に集まり、和平について話し合った。' : '教え子の大使たちの呼びかけで、三国の代表が話し合いの席についた。',
+        `教え子が大使として出席した国：${ambassadors.length ? ambassadors.map((c) => COUNTRY_SHORT[c]).join('・') : 'なし'}${w.peaceRoundYear ? '' : ambassadors.length < 3 ? '（三国すべてに大使以上の教え子がいれば、和平の円卓になる）' : w.vassal ? '（学校が独立していないため、円卓にはならなかった）' : !calm ? '（三国の関係がまだ落ち着いていないため、円卓にはならなかった）' : ''}。`,
+        '話し合いは一歩前進し、三国の関係が良くなった。',
+      ]);
+    }
     recalcTension(s, 0.3);
   }
   // 5. 同盟の内紛

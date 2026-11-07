@@ -32,6 +32,7 @@ export interface Unit {
   personality?: string;
   supportBonus?: unknown;
   escort?: boolean;        // 護衛対象
+  captive?: boolean;       // 救出する捕虜（敵からは狙われない）
   persuadable?: boolean;   // 敵の卒業生
   expGain: number;
   kills: number;
@@ -51,7 +52,7 @@ export interface BattleState {
   questId: string;
   title: string;
   real: boolean;
-  objective: 'rout' | 'boss' | 'defend' | 'escort' | 'seize';
+  objective: 'rout' | 'boss' | 'defend' | 'escort' | 'seize' | 'rescue' | 'escape';
   defendTurns: number;
   maxTurns: number;
   weather: 'clear' | 'rain' | 'fog';
@@ -80,6 +81,10 @@ export interface BattleState {
   lastAction: LastAction | null;
   hitBy: Record<string, string[]>; // 敵uid→攻撃した味方uid
   visitedChestLog?: string[];
+  /** 救出：捕虜を助けた／突破：脱出した人数と必要な人数 */
+  rescued?: boolean;
+  escaped?: number;
+  escapeNeed?: number;
 }
 
 export interface Strike { by: string; hit: boolean; crit: boolean; dmg: number }

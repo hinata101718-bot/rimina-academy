@@ -9,7 +9,7 @@ import { Portrait } from './Portrait';
 import { SKILL_NAMES, PERSONALITIES } from '../data/people';
 import { B, SKILLS } from '../data/balance';
 import { WEAPONS } from '../data/weapons';
-import { facilityCost, upgradeFacility, hireTeacher, fireTeacher, buyWeapon, buyItem, type FacilityId } from '../core/teachers';
+import { facilityCost, upgradeFacility, hireTeacher, fireTeacher, buyWeapon, buyItem, upkeepCost, type FacilityId } from '../core/teachers';
 import { rankOf } from '../core/util';
 import type { SkillId } from '../core/types';
 import type { GameState, WeekendAction } from '../core/state';
@@ -266,7 +266,7 @@ function Facilities({ s }: { s: GameState }) {
     <div>
       <Back to={() => navigate({ tab: 'school' })} />
       <h2>施設・講師</h2>
-      <div class="muted">所持金 {money(s.money)}</div>
+      <div class="muted">所持金 {money(s.money)}・施設の維持費 毎月{money(upkeepCost(s))}（段階1つにつき{B.upkeepPerLevel}G）</div>
       {ids.map((f) => {
         const lv = s.facilities[f] ?? 0; const cost = facilityCost(s, f); const def = B.facilities[f];
         const eff = f === 'library' ? '魔道の伸び↑・才能が早く分かる' : f === 'chapel' ? '信仰の伸び↑・疲労が回復しやすい' : f === 'dining' ? 'やる気が下がりにくい・交流の会話が増える' : f === 'stable' ? '騎乗・飛行の伸び↑・騎兵/天馬の兵種試験が受けられる' : f === 'range' ? '銃・弓の伸び↑' : '剣・槍・斧の伸び↑';
@@ -278,10 +278,10 @@ function Facilities({ s }: { s: GameState }) {
         );
       })}
       <h3>講師</h3>
-      <div class="muted small">講師がいると、その科目の授業がよく伸びます。給料は毎月払います。</div>
+      <div class="muted small">講師がいると、その科目の授業がよく伸びます。給料は毎月払い、毎年4月に少しずつ上がります（雇えるのは{B.teachers.max}人まで）。</div>
       {s.teachers.map((t) => <div class="card row between"><div class="grow"><b>{t.name}</b>{t.alumniId ? '（卒業生）' : ''} {SKILL_NAMES[t.skill]} {rankOf(t.points)}<div class="muted small">月給 {money(t.salary)}</div></div><button class="btn ghost small" onClick={() => { if (confirm(`${t.name}に辞めてもらいますか？`)) act((g) => fireTeacher(g, t.id)); }}>解雇</button></div>)}
       {s.teacherCandidates.length > 0 && <h3>雇える講師（毎年4月に入れ替わり）</h3>}
-      {s.teacherCandidates.map((t) => <div class="card row between"><div class="grow"><b>{t.name}</b> {SKILL_NAMES[t.skill]} {rankOf(t.points)}<div class="muted small">月給 {money(t.salary)}</div></div><button class="btn small" onClick={() => { sfx('ok'); act((g) => hireTeacher(g, t.id)); }}>雇う</button></div>)}
+      {s.teacherCandidates.map((t) => <div class="card row between"><div class="grow"><b>{t.name}</b> {SKILL_NAMES[t.skill]} {rankOf(t.points)}<div class="muted small">月給 {money(t.salary)}</div></div><button class="btn small" disabled={s.teachers.length >= B.teachers.max} onClick={() => { sfx('ok'); act((g) => hireTeacher(g, t.id)); }}>雇う</button></div>)}
       {s.teacherCandidates.length === 0 && <div class="muted">今は雇える講師がいません（4月に候補が来ます）</div>}
     </div>
   );
@@ -296,7 +296,7 @@ function Armory({ s }: { s: GameState }) {
     <div>
       <Back to={() => navigate({ tab: 'school' })} />
       <h2>武器庫</h2>
-      <div class="muted">武器は学校の共有物です。出撃の前に生徒へ割り当てます。耐久はありません。</div>
+      <div class="muted">武器は学校の共有物です。出撃の前に生徒へ割り当てます。耐久はありません。魔法（魔道・信仰）は買うものではなく、生徒が技能ランクを上げて覚えます。</div>
       <div class="card">
         <table class="stats"><tbody>
           {Object.entries(counts).map(([id, n]) => { const w = WEAPONS[id]; const eng = s.armory.filter((a) => a.weaponId === id && a.engraved).map((a) => a.engraved); return <tr><td>{w.name}{eng.length ? <span class="muted small">（{eng.join('・')}の遺品）</span> : ''}</td><td>{typeName[w.type]}</td><td>威力{w.might} 命中{w.hit}</td><td>×{n}</td></tr>; })}

@@ -17,7 +17,7 @@ import { monthlyWorld, yearlyWorld, questWorldEffect, tensionStage, activeAlumni
 import { simulateAlumni, aidMoney, titleOf } from './alumni';
 import { prepareCareers, graduate, type CareerPlan } from './career';
 import { generateStudent } from './student';
-import { rollTeacherCandidates, monthlySalaries } from './teachers';
+import { rollTeacherCandidates, monthlySalaries, yearlyRaises } from './teachers';
 import { absMonth, MONTH_NAMES } from './util';
 import { TRAITS } from '../data/people';
 import type { BattleCtx } from './battle/engine';
@@ -261,6 +261,7 @@ export function yearEnd(s: GameState, graduated: string[]): void {
   // 6. 教官の加齢
   s.instructor.age += 1;
   pruneArchive(s);
+  yearlyRaises(s);
   // 8. 廃校期限
   const deadline: string[] = [];
   if (s.year === B.school.deadlineYear && !s.world.vassal) {

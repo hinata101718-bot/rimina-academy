@@ -150,6 +150,14 @@ export function createBattle(s: GameState, quest: Quest, deploys: Deploy[], seed
     u.item = d.item;
     b.units.push(u);
   });
+  // 救出する捕虜（ボスの位置か、いちばん上の敵の位置に）
+  if (quest.objective === 'rescue') {
+    const spot = boss ?? [...enemyTiles].sort((p, q) => p[1] - q[1])[0] ?? [3, 0];
+    const st = emptyStats(3); st.hp = B.battle.npcHp; st.def = B.battle.npcDef; st.res = B.battle.npcDef;
+    b.units.push(baseUnit({ uid: 'captive', side: 'npc', name: '捕虜', classId: 'novice', level: 1, stats: st, x: spot[0], y: spot[1], captive: true, moved: true, acted: true }));
+    boss = null;
+  }
+  if (quest.objective === 'escape') b.escapeNeed = Math.min(B.battle.escapeNeed, deploys.length);
   // 守る対象
   if (npc && (quest.objective === 'escort' || quest.objective === 'defend')) {
     const st = emptyStats(3); st.hp = B.battle.npcHp; st.def = B.battle.npcDef; st.res = B.battle.npcDef; st.spd = 5; st.lck = 8;
@@ -160,8 +168,8 @@ export function createBattle(s: GameState, quest: Quest, deploys: Deploy[], seed
   const kind = QUEST_KINDS.find((k) => k.kind === quest.kind);
   const pool = kind?.enemyPool ?? ['fighter', 'swordsman', 'lancer', 'archer', 'mage'];
   const level = Math.max(1, Math.round(quest.level * s.settings.mods.enemy));
-  const nEnemy = Math.min(enemyTiles.length, deploys.length + (quest.danger - 1) + (quest.objective === 'defend' ? 2 : 0) + (quest.real ? 0 : -1));
-  const spots = rng.shuffle([...enemyTiles]).slice(0, Math.max(2, nEnemy));
+  const nEnemy = Math.min(enemyTiles.length, deploys.length + (quest.danger - 1) + (quest.objective === 'defend' ? 2 : quest.objective === 'escape' ? 1 : 0) + (quest.real ? 0 : -1));
+  const spots = rng.shuffle([...enemyTiles].filter(([x, y]) => !b.units.some((u) => u.x === x && u.y === y))).slice(0, Math.max(2, nEnemy));
   const aiFor = (): Unit['ai'] => rng.weighted(['charge', 'ambush', 'hold'] as const, (a) => ({ charge: quest.objective === 'defend' ? 8 : 4, ambush: 4, hold: 1 })[a]);
   let n = 0;
   for (const [x, y] of spots) {
@@ -170,7 +178,7 @@ export function createBattle(s: GameState, quest: Quest, deploys: Deploy[], seed
     u.ai = aiFor();
     b.units.push(u);
   }
-  if (boss || quest.objective === 'boss' || quest.objective === 'seize') {
+  if ((boss || quest.objective === 'boss' || quest.objective === 'seize') && quest.objective !== 'rescue' && quest.objective !== 'escape') {
     const [bx, by] = boss ?? enemyTiles[0];
     const u = enemyUnit(rng, `e${n++}`, rng.pick(pool), level + 2, bx, by, gun, true);
     u.ai = quest.objective === 'boss' || quest.objective === 'seize' ? 'hold' : 'ambush';

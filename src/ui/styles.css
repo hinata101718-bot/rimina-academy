@@ -285,3 +285,5 @@ body { background-attachment: fixed; }
 .flipmonth { font-size: 54px; font-weight: bold; color: #a5493a; animation: monthpop calc(var(--flip, 650ms) * 1.2) ease-out; }
 @keyframes flip { 0% { transform: rotateX(0deg); } 60% { transform: rotateX(-100deg); opacity: 1; } 100% { transform: rotateX(-120deg); opacity: 0; } }
 @keyframes monthpop { 0%, 40% { transform: scale(.6); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
+
+.unit.captive { background: #a77f2e; border-style: dashed; animation: target-flash 1s ease-in-out infinite alternate; }

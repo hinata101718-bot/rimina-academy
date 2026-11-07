@@ -55,7 +55,7 @@ export function rollQuests(s: GameState): Quest[] {
     const objective = r.pick(k.objectives);
     const clientName = client ? `${COUNTRY_SHORT[client]}・${r.pick(k.clients)}` : r.pick(k.clients);
     quests.push(mk({
-      kind: k.kind as Quest['kind'], title: k.title.replace('{enemy}', enemy ? COUNTRY_SHORT[enemy] : '').replace('{client}', client ? COUNTRY_NAMES[client] : ''),
+      kind: k.kind as Quest['kind'], title: k.title.replace('{enemy}', enemy ? COUNTRY_SHORT[enemy] : '').replace('{client}', client ? (k.kind === 'rescue' ? COUNTRY_SHORT[client] : COUNTRY_NAMES[client]) : ''),
       client: clientName, clientCountry: client, enemyCountry: enemy,
       objective, template: r.pick(k.templates), level, reward, danger, weather, real: true,
       defendTurns: objective === 'defend' ? 7 : undefined,
@@ -66,5 +66,6 @@ export function rollQuests(s: GameState): Quest[] {
 
 export const OBJECTIVE_NAMES: Record<Quest['objective'], string> = {
   rout: '敵の全滅', boss: 'ボスの撃破', defend: '指定ターンの防衛', escort: '護衛（目的地まで）', seize: '拠点の制圧',
+  rescue: '捕虜の救出', escape: '包囲の突破（上の端から脱出）',
 };
 export const WEATHER_NAMES = { clear: '晴れ', rain: '雨', fog: '霧' };

@@ -101,7 +101,7 @@ export interface Student {
 
 export interface Support { a: string; b: string; value: number; kind: 'none' | 'friend' | 'rival' | 'love'; seen: string[]; lastRank: '' | 'C' | 'B' | 'A' }
 
-export interface Teacher { id: string; name: string; skill: SkillId; points: number; salary: number; alumniId?: string }
+export interface Teacher { id: string; name: string; skill: SkillId; points: number; salary: number; alumniId?: string; baseSalary?: number }
 
 export interface ArmoryItem { uid: string; weaponId: string; engraved?: string }
 
@@ -129,6 +129,8 @@ export interface WorldState {
   famine: boolean;
   vassal: CountryId | null;
   peaceTalksHeld: number;
+  /** 和平の円卓（三国それぞれに大使以上の教え子がいる和平会議）が開かれた年。エンディングは3夜目 */
+  peaceRoundYear?: number | null;
   schoolDefensePending: boolean;
   eventCooldown: Record<string, number>; // 大事件ごとの再発までの月数
   history: { year: number; tension: number; power: Record<CountryId, number> }[];
@@ -136,12 +138,12 @@ export interface WorldState {
 
 export interface Quest {
   id: string;
-  kind: 'drill' | 'bandit' | 'monster' | 'escort' | 'defend' | 'border' | 'fort' | 'refugee' | 'exhibition' | 'schoolDefense';
+  kind: 'drill' | 'bandit' | 'monster' | 'escort' | 'defend' | 'border' | 'fort' | 'refugee' | 'exhibition' | 'schoolDefense' | 'rescue' | 'breakout';
   title: string;
   client: string;
   clientCountry: CountryId | null;
   enemyCountry: CountryId | null;
-  objective: 'rout' | 'boss' | 'defend' | 'escort' | 'seize';
+  objective: 'rout' | 'boss' | 'defend' | 'escort' | 'seize' | 'rescue' | 'escape';
   template: string;
   level: number;
   reward: number;

@@ -41,7 +41,7 @@ async function closeSheets(p, n = 12) {
       await p.mouse.click(box.x + box.width / 2, box.y + box.height / 2); await p.waitForTimeout(40);
       const mv = await p.$$('.cell.mv');
       if (!mv.length) break;
-      await mv[mv.length - 1].click(); await p.waitForTimeout(500);
+      await mv[Math.floor(mv.length / 2)].click(); await p.waitForTimeout(500);
       const atk = await p.$('.panel button:has-text("攻撃")');
       if (atk) {
         await atk.click(); await p.waitForTimeout(40);

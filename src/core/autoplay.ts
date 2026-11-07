@@ -7,7 +7,11 @@ import { enrolled, available, deployLimit, capacity } from './game';
 import { nextWeek, startBattle, finishBattle, finishCareers, admit, autoAdmitIds, battleCtx, rng, ensureReinforcementFactory } from './flow';
 import { autoPlayerPhase, endPlayerPhase, rewind, canRewind } from './battle/engine';
 import { autoExam } from './exam';
-import { autoRecommend, suitablePath } from './career';
+import { autoRecommend, suitablePath, type CareerChoice, type CareerPlan } from './career';
+import { COUNTRIES } from '../data/people';
+import { activeAlumni } from './world';
+import { effectiveStats } from './game';
+import type { CountryId, Path } from './types';
 import { upgradeFacility, hireTeacher, facilityCost, buyWeapon, type FacilityId } from './teachers';
 import type { Deploy } from './battle/setup';
 import { meetsRank } from './util';
@@ -78,6 +82,37 @@ export function autoBattle(s: GameState): void {
   finishBattle(s);
 }
 
+// ---------- 進路の方針（長期シミュレーション用） ----------
+export type CareerPolicy = 'auto' | 'peace' | 'unify';
+let careerPolicy: CareerPolicy = 'auto';
+export function setCareerPolicy(p: CareerPolicy): void { careerPolicy = p; }
+
+/** 方針に沿って進路を決める。peace＝文官を三国へ均等に、unify＝一番強い国へ武官・参謀を集める */
+export function autoCareerPlans(s: GameState, policy: CareerPolicy = careerPolicy): CareerPlan[] {
+  const third = enrolled(s).filter((x) => x.grade === 3);
+  if (policy === 'auto') return third.map((st) => ({ studentId: st.id, recommend: autoRecommend(s, st), path: suitablePath(st) }));
+  if (policy === 'unify') {
+    const top = [...COUNTRIES].sort((a, b) => s.world.power[b] - s.world.power[a])[0];
+    return third.map((st) => {
+      const rec: CareerChoice = st.offers.includes(top) ? top : autoRecommend(s, st);
+      const path = suitablePath(st) === 'civil' ? 'warrior' : suitablePath(st);
+      return { studentId: st.id, recommend: rec, path };
+    });
+  }
+  // 和平狙い：魅力の高い子から半分ほどを文官にして、文官の少ない国へ
+  const civilCount = (c: CountryId) => activeAlumni(s, c).filter((st) => st.career!.path === 'civil').length;
+  const counts: Record<CountryId, number> = { kingdom: civilCount('kingdom'), empire: civilCount('empire'), alliance: civilCount('alliance') };
+  const byCha = [...third].sort((a, b) => effectiveStats(b).cha + (b.house === 'noble' ? 3 : 0) - effectiveStats(a).cha - (a.house === 'noble' ? 3 : 0));
+  const nCivil = Math.ceil(third.length * 0.55);
+  return byCha.map((st, i) => {
+    if (i >= nCivil) return { studentId: st.id, recommend: autoRecommend(s, st), path: suitablePath(st) };
+    const opts = (st.offers.length ? st.offers : COUNTRIES).slice().sort((a, b) => counts[a] - counts[b]);
+    const c = opts[0];
+    counts[c] += 1;
+    return { studentId: st.id, recommend: st.offers.includes(c) ? c : autoRecommend(s, st), path: 'civil' as Path };
+  });
+}
+
 /** 処理待ちの画面を自動で片付ける */
 export function autoPending(s: GameState): void {
   let guard = 0;
@@ -92,8 +127,7 @@ export function autoPending(s: GameState): void {
       continue;
     }
     if (p.type === 'career') {
-      const plans = enrolled(s).filter((x) => x.grade === 3).map((st) => ({ studentId: st.id, recommend: autoRecommend(s, st), path: suitablePath(st) }));
-      finishCareers(s, plans);
+      finishCareers(s, autoCareerPlans(s));
       continue;
     }
     if (p.type === 'entrance') { admit(s, autoAdmitIds(s)); continue; }
@@ -112,9 +146,14 @@ export function autoManage(s: GameState): void {
     if (c !== null && s.money >= c + 1200) { upgradeFacility(s, f); break; }
   }
   // 講師
-  if (s.teacherCandidates.length && s.money > 3000 && s.teachers.length < 3) {
+  if (s.teacherCandidates.length && s.money > 3000 && s.teachers.length < B.teachers.max - 1) {
     const t = s.teacherCandidates.sort((a, b) => b.points - a.points)[0];
     if (t.salary * 12 < s.money / 2) hireTeacher(s, t.id);
+  }
+  // 上等な武器（お金に余裕があれば、使える子がいるものを）
+  if (s.money > 9000) {
+    const premium = Object.values(WEAPONS).filter((x) => x.price >= 3000 && (x.type !== 'gun' || s.world.gunUnlocked) && !s.armory.some((a) => a.weaponId === x.id) && enrolled(s).some((st) => canEquip(st, x.id)));
+    if (premium.length) { const w = r.pick(premium); buyWeapon(s, w.id, w.price); }
   }
   // 武器
   if (s.money > 2500 && s.armory.length < enrolled(s).length + 4) {

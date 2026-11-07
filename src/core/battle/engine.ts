@@ -310,6 +310,36 @@ export function openChest(b: BattleState, u: Unit): string {
   return text;
 }
 
+/** 救出（捕虜の隣で） */
+export function canRescue(b: BattleState, u: Unit): Unit | null {
+  if (b.objective !== 'rescue' || u.side !== 'player') return null;
+  return b.units.find((o) => !o.dead && o.captive && dist(o, u) === 1) ?? null;
+}
+export function rescue(b: BattleState, u: Unit): string {
+  const c = canRescue(b, u);
+  if (!c) return '';
+  c.dead = true; b.retreated.push(c.uid); b.rescued = true;
+  u.acted = true; u.moved = true; u.expGain += B.battle.exp.kill;
+  const text = `${u.name}が${c.name}を助け出した！`;
+  log(b, text, 'info');
+  checkEnd(b);
+  return text;
+}
+/** 突破（いちばん上の列から脱出） */
+export function canEscape(b: BattleState, u: Unit): boolean {
+  return b.objective === 'escape' && u.side === 'player' && !u.dead && u.y === 0;
+}
+export function escape(b: BattleState, u: Unit): string {
+  if (!canEscape(b, u)) return '';
+  u.dead = true; u.acted = true; u.moved = true; b.retreated.push(u.uid);
+  b.escaped = (b.escaped ?? 0) + 1;
+  u.expGain += B.battle.exp.survive * 2;
+  const text = `${u.name}が包囲を抜けた（${b.escaped}／${b.escapeNeed ?? 3}人）`;
+  log(b, text, 'info');
+  checkEnd(b);
+  return text;
+}
+
 /** 説得（敵の卒業生） */
 export function canPersuade(b: BattleState, u: Unit): Unit | null {
   if (u.side !== 'player') return null;
@@ -418,7 +448,7 @@ function spawnReinforcement(b: BattleState) {
 export function enemyAct(b: BattleState, ctx: BattleCtx, e: Unit, attackOnly = false): void {
   const foe = (u: Unit) => (e.side === 'enemy' ? u.side !== 'enemy' : u.side === 'enemy');
   const friend = (u: Unit) => !foe(u) && u.side !== 'npc';
-  const targets = b.units.filter((u) => !u.dead && foe(u));
+  const targets = b.units.filter((u) => !u.dead && foe(u) && !u.captive);
   if (!targets.length) { e.moved = true; e.acted = true; return; }
   // 回復役
   const staff = staffOf(e);
@@ -492,6 +522,43 @@ export function autoPlayerPhase(b: BattleState, ctx: BattleCtx, careful: Set<str
     if (b.phase !== 'player') return;
     if (u.dead || u.acted) continue;
     if (u.hp <= u.maxHp * 0.5 && u.item) { useItem(b, u); continue; }
+    if (b.objective === 'rescue' && u.side === 'player') {
+      if (canRescue(b, u)) { rescue(b, u); continue; }
+      const cap = b.units.find((x) => x.captive && !x.dead);
+      if (cap && !careful.has(u.uid) && u.hp > u.maxHp * 0.4) {
+        const r = reachable(b, u);
+        const tm = threatMap();
+        let best: { k: number; sc: number } | null = null;
+        for (const k of r.keys()) {
+          const x = k % b.width, y = Math.floor(k / b.width);
+          const d = Math.abs(x - cap.x) + Math.abs(y - cap.y);
+          const sc = d * 3 + (tm.get(k) ?? 0) * (b.turn > 5 ? 1 : 3) - (d === 1 ? 20 : 0);
+          if (!best || sc < best.sc) best = { k, sc };
+        }
+        if (best) {
+          const bx = best.k % b.width, by = Math.floor(best.k / b.width);
+          if (Math.abs(bx - cap.x) + Math.abs(by - cap.y) === 1) { u.x = bx; u.y = by; rescue(b, u); continue; }
+        }
+      }
+    }
+    if (b.objective === 'escape' && u.side === 'player') {
+      if (canEscape(b, u)) { escape(b, u); continue; }
+      const r = reachable(b, u);
+      const tm = threatMap();
+      let best: { k: number; sc: number } | null = null;
+      for (const k of r.keys()) {
+        const x = k % b.width, y = Math.floor(k / b.width);
+        const sc = y * 4 + (tm.get(k) ?? 0) * 3 - (y === 0 ? 30 : 0);
+        if (!best || sc < best.sc) best = { k, sc };
+      }
+      if (best && Math.floor(best.k / b.width) === 0) { u.x = best.k % b.width; u.y = 0; escape(b, u); continue; }
+      if (best && (u.hp > u.maxHp * 0.5) && !(enemies().some((e) => Math.abs(e.x - u.x) + Math.abs(e.y - u.y) <= 2) && b.turn <= 2)) {
+        const before = u.acted;
+        enemyAct(b, ctx, u, true);
+        if (u.acted && !before) continue;
+        u.x = best.k % b.width; u.y = Math.floor(best.k / b.width); u.moved = true; u.acted = true; continue;
+      }
+    }
     if (b.objective === 'seize' && b.goal && !b.units.some((x) => x.boss && !x.dead)) {
       const r = reachable(b, u);
       const gk = b.goal.y * b.width + b.goal.x;
@@ -583,6 +650,8 @@ export function checkEnd(b: BattleState): void {
   const players = b.units.filter((u) => (u.side === 'player') && !u.dead);
   const enemies = b.units.filter((u) => u.side === 'enemy' && !u.dead);
   const npc = b.units.find((u) => u.escort);
+  if (b.objective === 'escape' && (b.escaped ?? 0) >= (b.escapeNeed ?? 3)) return finish(b, 'win');
+  if (b.objective === 'rescue' && b.rescued) return finish(b, 'win');
   if (!players.length) return finish(b, 'lose');
   if (npc && npc.dead) return finish(b, 'lose');
   if (b.objective === 'rout' && !enemies.length) return finish(b, 'win');
@@ -592,12 +661,15 @@ export function checkEnd(b: BattleState): void {
   if (b.objective === 'escort' && !enemies.length && !npc) return finish(b, 'win');
   if (b.objective === 'seize' && b.goal && players.some((u) => u.x === b.goal!.x && u.y === b.goal!.y)) return finish(b, 'win');
   if (b.objective === 'seize' && !enemies.length) return finish(b, 'win');
+  if (b.objective === 'rescue' && !enemies.length) { const c = b.units.find((u) => u.captive && !u.dead); if (c) { c.dead = true; b.rescued = true; } return finish(b, 'win'); }
 }
 
 export function finish(b: BattleState, result: 'win' | 'lose'): void {
   b.phase = 'done'; b.result = result;
   log(b, result === 'win' ? '勝利！' : '敗北……', 'info');
   for (const u of b.units) if (!u.dead && (u.side === 'player') && u.studentId) u.expGain += B.battle.exp.survive;
+  // 脱出・救出の勝利条件では、脱出した味方も無事に戻ったことにする
+  if (result === 'win' && b.objective === 'escape') b.log.push({ text: '包囲を突破した！', kind: 'info' });
 }
 
 export function allActed(b: BattleState): boolean {

@@ -3,7 +3,7 @@ import { useStore, act } from './store';
 import type { BattleState, Unit, LastAction } from '../core/battle/types';
 import {
   reachable, threatTiles, enemyThreat, moveUnit, attack, heal, wait, useItem, endPlayerPhase, rewind, canRewind, canVisit, visit,
-  canOpenChest, openChest, canPersuade, persuade, command, canCommand, commandRate, allActed, findPath, canHealTarget,
+  canOpenChest, openChest, canPersuade, persuade, canRescue, rescue, canEscape, escape, command, canCommand, commandRate, allActed, findPath, canHealTarget,
   type EnemyReplay, type UnitView,
 } from '../core/battle/engine';
 import { forecast, weaponOf, staffOf, staffsOf, inRange, dist, canUseNow, tile, terrainDef, attackWeapons, healAmount, bestStaffFor } from '../core/battle/calc';
@@ -193,7 +193,7 @@ export function BattleView() {
     finishAnim();
   };
 
-  const controllable = (u: Unit) => (u.side === 'player' || u.side === 'ally' || u.side === 'npc') && !u.acted && b.phase === 'player';
+  const controllable = (u: Unit) => (u.side === 'player' || u.side === 'ally' || u.side === 'npc') && !u.captive && !u.acted && b.phase === 'player';
   const sel = 'uid' in mode ? b.units.find((u) => u.uid === mode.uid) : undefined;
   const unitAtXY = (x: number, y: number) => b.units.find((u) => !u.dead && u.x === x && u.y === y);
 
@@ -271,7 +271,7 @@ export function BattleView() {
       <div class="top">
         <b>{b.title}</b>
         <span>ターン{b.turn}{busy === 'enemy' ? '（敵）' : ''}</span>
-        <span>{objective}</span>
+        <span>{objective}{b.objective === 'escape' ? `（${b.escaped ?? 0}／${b.escapeNeed ?? 3}人）` : ''}</span>
         <span>{WEATHER_NAMES[b.weather]}</span>
         <span>敵{enemies}</span>
         {!b.real && <span>演習（死なない）</span>}
@@ -279,7 +279,7 @@ export function BattleView() {
       <div class="board">
         {b.tiles.map((t, k) => {
           const x = k % W, y = Math.floor(k / W);
-          const isGoal = b.goal && b.goal.x === x && b.goal.y === y;
+          const isGoal = (b.goal && b.goal.x === x && b.goal.y === y) || (b.objective === 'escape' && y === 0 && t !== 'wall');
           const chest = b.chests.find((c) => c.x === x && c.y === y && !c.opened);
           return (
             <div class={`cell t-${t}${mv.has(k) ? ' mv' : ''}${atk.has(k) ? ' atk' : ''}${threat.has(k) ? ' threat' : ''}${isGoal ? ' goal' : ''}${!busy && sel && sel.x === x && sel.y === y ? ' sel' : ''}`} onClick={() => void tap(x, y)}>
@@ -352,7 +352,7 @@ function UnitChip({ u, s }: { u: Unit; s: GameState }) {
   const st = u.studentId ? s.students[u.studentId] : null;
   const pct = Math.max(0, (u.hp / u.maxHp) * 100);
   return (
-    <div class={`unit ${u.side}${u.acted && u.side !== 'enemy' ? ' done' : ''}${u.boss ? ' boss' : ''}`}>
+    <div class={`unit ${u.side}${u.acted && u.side !== 'enemy' && !u.captive ? ' done' : ''}${u.boss ? ' boss' : ''}${u.captive ? ' captive' : ''}`}>
       {st && s.settings.portrait === 'face' ? <div style={{ position: 'absolute', inset: 0, opacity: 0.85 }}><Portrait st={st} size={44} /></div> : null}
       <span class="nm" style={{ position: 'relative', textShadow: '0 0 2px #000' }}>{u.name.replace(/（.*）/, '').slice(0, 4)}</span>
       <div class="hp"><span style={{ width: `${pct}%`, background: u.hp / u.maxHp < 0.34 ? '#ff6a5a' : undefined }} /></div>
@@ -433,6 +433,8 @@ function ActionMenu({ b, u, s, onAttack, onHeal, onDone, onBack, snapshot }: { b
         {canVisit(b, u) && <button class="btn small" onClick={() => doAct((bb, uu) => visit(bb, uu))}>訪問</button>}
         {canOpenChest(b, u) && <button class="btn small" onClick={() => doAct((bb, uu) => openChest(bb, uu))}>宝箱</button>}
         {canPersuade(b, u) && <button class="btn small primary" onClick={() => doAct((bb, uu) => persuade(bb, ctx, uu))}>説得</button>}
+        {canRescue(b, u) && <button class="btn small accent" onClick={() => doAct((bb, uu) => rescue(bb, uu))}>救出</button>}
+        {canEscape(b, u) && <button class="btn small accent" onClick={() => doAct((bb, uu) => escape(bb, uu))}>脱出</button>}
         <button class="btn small" onClick={() => doAct((bb, uu) => { wait(bb, uu); })}>待機</button>
         <button class="btn small ghost" onClick={onBack}>戻る</button>
       </div>

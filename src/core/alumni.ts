@@ -74,7 +74,9 @@ export function simulateAlumni(s: GameState, rng: Rng): AlumniNews[] {
     const fighting = c.kind === 'army' || c.kind === 'merc';
     let death = 0;
     if (fighting) {
-      death = B.alumni.deathRate[stage] * (c.path === 'warrior' ? 1 : 0.4) * (c.front ? 1.5 : 0.8);
+      death = B.alumni.deathRate[stage] * (c.path === 'warrior' ? 1 : 0.4) * (c.front ? B.alumni.frontDeathMul : B.alumni.rearDeathMul);
+      // 経験を積んだ卒業生ほど生き残りやすい
+      death *= Math.max(B.alumni.veteranMin, 1 - st.level / B.alumni.veteranLevel);
       if (c.country === 'empire' && c.front) death += B.alumni.empireFrontExtra * (stage === 'peace' ? 0.3 : 1);
       if (c.country && COUNTRIES.every((o) => o === c.country || !atWar(s, c.country!, o))) death *= 0.5;
       death *= s.settings.mods.death;
@@ -157,6 +159,8 @@ export function aidMoney(s: GameState): Record<CountryId, number> {
     if (s.world.friendship[c] <= -20) v = 0;
     if (s.world.vassal === c) v *= B.school.vassalAidMul[c];
     if (s.world.famine) v *= B.world.events.famineAidMul;
+    // 十分に潤っている学校への援助は減らされる
+    if (s.money > B.school.aidRichFrom) v *= Math.max(B.school.aidRichMin, 1 - (s.money - B.school.aidRichFrom) / B.school.aidRichSpan);
     out[c] = Math.max(0, Math.round(v));
   }
   return out;
