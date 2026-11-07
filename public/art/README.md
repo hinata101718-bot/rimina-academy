@@ -4,7 +4,7 @@
 （ブラウザからはフォルダの中身を一覧できないため、ファイル名の一覧が必要です）
 
 ```json
-{ "files": ["school_0.webp", "school_1.webp", "event_graduation.webp"] }
+{ "files": ["season_spring.webp", "event_graduation.webp"] }
 ```
 
 形式は webp・png・jpg のどれでも大丈夫です。横長（たとえば 1200×500 くらい）がきれいに見えます。
@@ -13,7 +13,6 @@
 
 | ファイル名 | 出る場所 |
 |---|---|
-| `school_0` 〜 `school_3` | ホームの一番上の校舎。施設の段階の合計で切り替わります（0〜2＝ボロボロ、3〜7、8〜12、13以上＝立派） |
 | `season_spring` `season_summer` `season_autumn` `season_winter` | ホームのカレンダーの背景（季節ごと） |
 | `event_entrance` | 入学試験・入学式の画面 |
 | `event_camp` | 7月（夏の合宿）のホーム |
@@ -21,5 +20,7 @@
 | `event_festival` | 12月（収穫祭）の週末の交流の画面 |
 | `event_graduation` | 卒業式の画面 |
 | `event_newspaper` | 新聞の上 |
+| `ending_peace` `ending_unify` `ending_ceasefire` `ending_neutral` | エンディングの最初の場面（和平の円卓・統一・疲弊の停戦・学校の中立宣言） |
 
-画像がない名前は、これまでどおり絵なし（校舎はゲームの中で描いた簡単な絵）で表示されます。
+画像がない名前は、これまでどおり絵なしで表示されます。
+（3夜目から、ホームの校舎の絵はなくなりました。`school_*` の画像を置いても表示されません）

@@ -3,6 +3,8 @@ import { COUNTRIES, COUNTRY_NAMES, COUNTRY_SHORT, COUNTRY_COLOR } from '../data/
 import { PAIRS, relStage, REL_NAMES, STAGE_NAMES, tensionStage, activeAlumni, diplomats } from '../core/world';
 import { OBJECTIVE_NAMES, WEATHER_NAMES } from '../core/quests';
 import { Bar, money } from './common';
+import { Icon } from './icons';
+import { countryColor, Stars, OBJECTIVE_ICON, WEATHER_ICON } from './cards';
 import type { GameState } from '../core/state';
 
 const POS: Record<string, [number, number]> = { kingdom: [150, 50], empire: [70, 175], alliance: [240, 165] };
@@ -64,9 +66,14 @@ export function WarTab() {
           <div class="card">
             <h3>依頼掲示板（今月末）</h3>
             {s.quests.map((q) => (
-              <div style={{ borderBottom: '1px dashed var(--line)', padding: '4px 0' }}>
-                <b>{q.title}</b> <span class="muted small">{q.real ? '実戦' : '演習'}・危険度{'★'.repeat(q.danger)}</span>
-                <div class="muted small">依頼主：{q.client}／{OBJECTIVE_NAMES[q.objective]}／推奨Lv{q.level}／{WEATHER_NAMES[q.weather]}{q.reward ? `／報酬${money(q.reward)}` : ''}</div>
+              <div class="pcard" style={{ ['--band' as string]: q.clientCountry ? countryColor(q.clientCountry) : 'var(--main)', margin: '6px 0' }}>
+                <div class="row between nowrap"><span class="ptitle" style={{ fontSize: 15 }}>{q.title}</span><span class={`flag ${q.real ? 'red' : ''}`}>{q.real ? '実戦' : '演習'}</span></div>
+                <div class="infogrid">
+                  <div><Icon name={OBJECTIVE_ICON[q.objective]} size={16} />{OBJECTIVE_NAMES[q.objective]}</div>
+                  <div><Icon name={WEATHER_ICON[q.weather]} size={16} />{WEATHER_NAMES[q.weather]}</div>
+                  <div>危険度 <Stars n={q.danger} /></div>
+                  <div><Icon name="coin" size={16} />{q.reward ? money(q.reward) : 'なし'}・推奨Lv{q.level}</div>
+                </div>
               </div>
             ))}
             <div class="muted small">月の最後の週が終わると、この中から1つを選んで出撃します。</div>

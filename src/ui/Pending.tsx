@@ -20,6 +20,8 @@ import { STATS } from '../data/balance';
 import type { Path } from '../core/types';
 import type { Deploy } from '../core/battle/setup';
 import { sfx } from './sound';
+import { Icon } from './icons';
+import { countryColor, CountryChip, Chip, Stars, Num, LvBadge, MiniCard, NameLine, OBJECTIVE_ICON, WEATHER_ICON } from './cards';
 import { rankOf } from '../core/util';
 import { SKILL_NAMES } from '../data/people';
 import { SKILLS } from '../data/balance';
@@ -43,6 +45,20 @@ export function PendingView() {
   }
 }
 
+/** まとめの1行に合う線画アイコン */
+export function lineIcon(l: string): string {
+  if (l.startsWith('個人指導')) return 'students';
+  if (l.startsWith('面談') || l.startsWith('相談') || l.includes('語り合った')) return 'talk';
+  if (l.startsWith('週末')) return 'heart';
+  if (l.includes('覚えた')) return 'tome';
+  if (l.includes('Lv') || l.includes('に上がった')) return 'star';
+  if (l.includes('体調') || l.includes('けが') || l.includes('去') || l.includes('やる気')) return 'bell';
+  if (l.includes('才能') || l.includes('特徴') || l.includes('傾向')) return 'lantern';
+  if (l.includes('誕生日')) return 'cake';
+  if (l.includes('教官') || l.includes('先生')) return 'lesson';
+  return 'scroll';
+}
+
 function talkCountLabel(talks: TalkLog[]): string {
   const sup = talks.filter((t) => t.kind === 'support' || !t.kind).length;
   const iv = talks.length - sup;
@@ -61,7 +77,7 @@ function WeekSummary({ lines, talks, growth, onDone }: { lines: string[]; talks:
   }
   return (
     <Sheet title="今週のまとめ">
-      <ul class="list">{lines.map((l) => <li class="small">{l}</li>)}</ul>
+      <div class="pcard"><ul class="list sumlist">{lines.map((l) => <li><span class="todoicon"><Icon name={lineIcon(l)} size={16} /></span><span>{l}</span></li>)}</ul></div>
       {talks.length > 0 && i < 0 && <button class="btn accent block" style={{ marginTop: 8 }} onClick={() => setI(0)}>会話を見る（{talkCountLabel(talks)}）</button>}
       {talks.length > 0 && i >= talks.length && <div class="muted small" style={{ marginTop: 6 }}>会話は生徒の個人ページの「会話の記録」で読み返せます。</div>}
       <button class="btn primary block" style={{ marginTop: 8 }} onClick={() => { sfx('ok'); onDone(); }}>閉じる</button>
@@ -75,8 +91,8 @@ function BattleResult({ s, p, onDone }: { s: GameState; p: Extract<GameState['pe
   return (
     <Sheet title={p.win ? '勝利' : '敗北'}>
       <h3>講評</h3>
-      {p.grades.map((g) => { const st = s.students[g.id]; if (!st) return null; return <StuRow st={st} onClick={() => undefined} sub={g.note} right={<b style={{ fontSize: 22, color: g.grade === 'S' ? 'var(--accent)' : undefined }}>{g.grade}</b>} />; })}
-      <ul class="list">{p.lines.map((l) => <li class="small">{l}</li>)}</ul>
+      {p.grades.map((g) => { const st = s.students[g.id]; if (!st) return null; return <MiniCard st={st} onClick={() => undefined} sub={g.note} right={<span class={`grade g${g.grade}`}>{g.grade}</span>} />; })}
+      <div class="pcard"><ul class="list sumlist">{p.lines.map((l) => <li><span class="todoicon"><Icon name={l.startsWith('勝利') ? 'flag' : l.startsWith('敗北') ? 'skull' : l.includes('報酬') ? 'coin' : lineIcon(l)} size={16} /></span><span>{l}</span></li>)}</ul></div>
       <button class="btn primary block" onClick={() => { sfx('ok'); onDone(); }}>閉じる</button>
     </Sheet>
   );
@@ -94,11 +110,17 @@ function QuestBoard({ s }: { s: GameState }) {
         {s.month === 5 && <ArtSlot name="event_exhibition" />}
         {s.settings.guide && s.year === 1 && s.month === 0 && <div class="guide">最初は「演習」を選びましょう。演習では誰も死にません。実戦は報酬と評判がもらえますが、倒れた生徒が戦死することがあります。</div>}
         {s.quests.map((x) => (
-          <div class="card" onClick={() => { sfx('ok'); setQid(x.id); }} style={{ cursor: 'pointer' }}>
-            <div class="row between"><b>{x.title}</b><span class={`tag ${x.real ? 'red' : ''}`}>{x.real ? '実戦' : x.kind === 'exhibition' ? '演武会' : '演習'}</span></div>
-            <div class="small">依頼主：{x.client}</div>
-            <div class="small">勝利条件：{OBJECTIVE_NAMES[x.objective]}{x.defendTurns && x.objective === 'defend' ? `（${x.defendTurns}ターン）` : ''}／推奨Lv{x.level}／天候：{WEATHER_NAMES[x.weather]}</div>
-            <div class="small">危険度：{'★'.repeat(x.danger)}{'☆'.repeat(3 - x.danger)}／報酬：{x.reward ? money(x.reward) : 'なし'}{x.real ? '／戦死あり' : '／死なない'}</div>
+          <div class="pcard tap" style={{ ['--band' as string]: x.clientCountry ? countryColor(x.clientCountry) : 'var(--main)' }} onClick={() => { sfx('ok'); setQid(x.id); }}>
+            <div class="row between nowrap"><span class="ptitle">{x.title}</span><span class={`flag ${x.real ? 'red' : ''}`}>{x.real ? '実戦' : x.kind === 'exhibition' ? '演武会' : '演習'}</span></div>
+            <div class="row nowrap gap6 small" style={{ marginTop: 2 }}>{x.clientCountry && <CountryChip o={x.clientCountry} />}<span class="muted">依頼主：{x.client}</span></div>
+            <div class="infogrid">
+              <div><Icon name={OBJECTIVE_ICON[x.objective]} size={17} />{OBJECTIVE_NAMES[x.objective]}{x.defendTurns && x.objective === 'defend' ? `（${x.defendTurns}ターン）` : ''}</div>
+              <div><Icon name={WEATHER_ICON[x.weather]} size={17} />{WEATHER_NAMES[x.weather]}</div>
+              <div>危険度 <Stars n={x.danger} /></div>
+              <div><Icon name="coin" size={17} />{x.reward ? <Num v={x.reward.toLocaleString()} unit="G" /> : '報酬なし'}</div>
+              <div><Icon name="target" size={17} />推奨 <LvBadge lv={x.level} /></div>
+              <div class={x.real ? '' : 'muted'}>{x.real ? <><Icon name="skull" size={17} />戦死あり</> : '誰も死なない'}</div>
+            </div>
           </div>
         ))}
       </Sheet>
@@ -111,6 +133,7 @@ function QuestBoard({ s }: { s: GameState }) {
   const avail = enrolled(s).filter(available);
   return (
     <Sheet title={`出撃準備：${q.title}`} onClose={s.quests.length > 1 ? () => { setQid(null); setDeploy(null); } : undefined}>
+      <div class="row between nowrap"><span>出撃 <Num v={d.length} unit={`／${limit}人`} /></span><span class="row nowrap gap6 small"><Icon name={WEATHER_ICON[q.weather]} size={18} />{WEATHER_NAMES[q.weather]}　<Icon name={OBJECTIVE_ICON[q.objective]} size={18} />{OBJECTIVE_NAMES[q.objective]}</span></div>
       <div class="small muted">出撃できるのは{limit}人まで。武器は武器庫から割り当てます（技能ランクが足りない武器は使えません）。魔法は本人が覚えたものを使います。</div>
       {q.weather === 'rain' && <div class="tag red">雨：移動−1、銃は使えない</div>}
       {q.weather === 'fog' && <div class="tag red">霧：弓・魔道・銃の射程−1</div>}
@@ -121,11 +144,10 @@ function QuestBoard({ s }: { s: GameState }) {
         const spells = usableSpells(st).map((id) => WEAPONS[id]?.name).filter(Boolean);
         const cls = CLASSES[st.classId];
         return (
-          <div class="card" style={{ opacity: on ? 1 : 0.6 }}>
-            <StuRow st={st} onClick={() => { sfx('move'); if (on) setD(d.filter((x) => x.studentId !== st.id)); else if (d.length < limit) setD([...d, { studentId: st.id, armoryUid: opts[0]?.uid ?? null, item: null, staffUid: null }]); }}
-              sub={`${cls.name} Lv${st.level}・${st.targets.map((k) => `${SKILL_NAMES[k]}${rankOf(st.skills[k])}`).join(' ')}`} right={<span style={{ fontSize: 22 }}>{on ? '☑' : '☐'}</span>} />
+          <MiniCard st={st} dim={!on} onClick={() => { sfx('move'); if (on) setD(d.filter((x) => x.studentId !== st.id)); else if (d.length < limit) setD([...d, { studentId: st.id, armoryUid: opts[0]?.uid ?? null, item: null, staffUid: null }]); }}
+            sub={<span class="row nowrap gap4">HP<Num v={st.stats.hp + (cls.bonus.hp ?? 0)} />{st.targets.map((k) => <Chip>{SKILL_NAMES[k]} {rankOf(st.skills[k])}</Chip>)}</span>} right={<span class={`checkbox${on ? ' on' : ''}`}>{on ? '✓' : ''}</span>}>
             {on && (
-              <div class="row" style={{ marginLeft: 54 }}>
+              <div class="row ruled">
                 <select value={d[i].armoryUid ?? ''} onChange={(e) => { const nd = [...d]; nd[i] = { ...nd[i], armoryUid: (e.target as HTMLSelectElement).value || null }; setD(nd); }}>
                   <option value="">武器なし</option>
                   {opts.map((a) => <option value={a.uid}>{WEAPONS[a.weaponId].name}{a.engraved ? `（${a.engraved}）` : ''}</option>)}
@@ -135,10 +157,10 @@ function QuestBoard({ s }: { s: GameState }) {
                   <option value="vulnerary" disabled={s.items.vulnerary <= d.filter((x, j) => j !== i && x.item === 'vulnerary').length}>傷薬（残{s.items.vulnerary}）</option>
                   <option value="elixir" disabled={s.items.elixir <= d.filter((x, j) => j !== i && x.item === 'elixir').length}>特効薬（残{s.items.elixir}）</option>
                 </select>
-                {spells.length > 0 && <div class="small muted" style={{ width: '100%' }}>使える魔法：{spells.join('・')}</div>}
+                {spells.length > 0 && <div class="small muted" style={{ width: '100%' }}><Icon name="tome" size={14} /> 使える魔法：{spells.join('・')}</div>}
               </div>
             )}
-          </div>
+          </MiniCard>
         );
       })}
       <button class="btn accent block" disabled={!d.length} onClick={() => {
@@ -154,12 +176,20 @@ function QuestBoard({ s }: { s: GameState }) {
 
 function ApplicantCard({ st, on, toggle }: { st: Student; on: boolean; toggle: () => void }) {
   const d = DREAMS.find((x) => x.id === st.dream)!;
+  const color = countryColor(st.origin);
+  const top = SKILLS.filter((k) => st.skills[k] > 0).sort((a, b) => st.skills[b] - st.skills[a]).slice(0, 3);
   return (
-    <div class="card" onClick={toggle} style={{ cursor: 'pointer', borderColor: on ? 'var(--main)' : undefined, borderWidth: on ? 2 : 1 }}>
-      <div class="row"><Portrait st={st} size={44} /><div class="grow"><b>{st.given}</b> <span class="muted">{st.family}</span> {st.parents.length > 0 && <span class="tag">卒業生の子</span>}
-        <div class="muted small">{st.age}歳・{COUNTRY_NAMES[st.origin]}・{HOUSE_NAMES[st.house]}・{PERSONALITIES[st.personality].name}・夢：{d.name}</div></div><span style={{ fontSize: 22 }}>{on ? '☑' : '☐'}</span></div>
-      <div class="small">{STATS.map((k) => `${STAT_NAMES[k]}${st.stats[k]}`).join(' ')}</div>
-      <div class="small muted">{SKILLS.filter((k) => st.skills[k] > 0).map((k) => `${SKILL_NAMES[k]}${rankOf(st.skills[k])}`).join(' ')}　{st.knownTraits.map((t) => TRAITS[t].name).join('・')}</div>
+    <div class={`pcard tap${on ? ' sel' : ''}`} style={{ ['--band' as string]: color }} onClick={toggle}>
+      <div class="row nowrap gap8" style={{ alignItems: 'flex-start' }}>
+        <Portrait st={st} size={64} frame={color} />
+        <div class="grow">
+          <div class="row nowrap between"><NameLine st={st} size={18} /><span class={`checkbox${on ? ' on' : ''}`}>{on ? '✓' : ''}</span></div>
+          <div class="row gap4"><CountryChip o={st.origin} /><Chip>{HOUSE_NAMES[st.house]}</Chip><Chip>{PERSONALITIES[st.personality].name}</Chip><span class="small muted">{st.age}歳</span>{st.parents.length > 0 && <Chip tone="gold">卒業生の子</Chip>}</div>
+          <div class="small muted" style={{ marginTop: 2 }}>夢：{d.name}</div>
+        </div>
+      </div>
+      <div class="appstats">{STATS.map((k) => <div><span>{STAT_NAMES[k]}</span><b>{st.stats[k]}</b></div>)}</div>
+      <div class="row gap4 small">{top.map((k) => <Chip tone="main">{SKILL_NAMES[k]} {rankOf(st.skills[k])}</Chip>)}{st.knownTraits.map((t) => <Chip>{TRAITS[t].name}</Chip>)}</div>
     </div>
   );
 }

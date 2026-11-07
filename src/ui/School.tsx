@@ -15,7 +15,8 @@ import type { SkillId } from '../core/types';
 import type { GameState, WeekendAction } from '../core/state';
 import { sfx } from './sound';
 import { Icon } from './icons';
-import { SchoolArt, MonthCalendar, ArtSlot } from './HomeDeco';
+import { MonthCalendar, ArtSlot } from './HomeDeco';
+import { skillIcon, countryColor, LvBadge, ClassName, MoodDots, FatigueBar, Gauge, NameLine, MiniCard, Num, Chip, studentFlags } from './cards';
 import { supportRank, supportValue } from '../core/support';
 
 const GUIDE = [
@@ -40,26 +41,25 @@ export function SchoolTab() {
 function Home({ s }: { s: GameState }) {
   const list = enrolled(s);
   const slots = tutoringSlots(s);
-  const todo: { text: string; go: () => void; red?: boolean }[] = [];
+  const todo: { text: string; go: () => void; red?: boolean; icon?: string }[] = [];
   const left = slots - s.plan.tutoring.length;
-  if (s.week === 1) todo.push({ text: `今月の重点科目：${[1, 2, 3].filter((g) => list.some((x) => x.grade === g)).map((g) => `${g}年 ${(s.focus[g] ?? []).map((k) => SKILL_NAMES[k]).join('・')}`).join(' ／ ')}`, go: () => navigate({ tab: 'school', page: 'lessons' }) });
-  todo.push({ text: left > 0 ? `個人指導 あと${left}回` : '個人指導 設定済み', go: () => navigate({ tab: 'school', page: 'tutoring' }), red: left > 0 });
-  todo.push({ text: s.plan.weekend.length ? `週末の交流 ${s.plan.weekend.length}件 設定済み` : '週末の交流 未設定', go: () => navigate({ tab: 'school', page: 'weekend' }), red: !s.plan.weekend.length });
-  for (const id of s.consults) { const st = s.students[id]; if (st) todo.push({ text: `相談：${st.given}「先生、少しいいですか」`, go: () => navigate({ tab: 'school', page: 'tutoring' }), red: true }); }
+  if (s.week === 1) todo.push({ text: `今月の重点科目：${[1, 2, 3].filter((g) => list.some((x) => x.grade === g)).map((g) => `${g}年 ${(s.focus[g] ?? []).map((k) => SKILL_NAMES[k]).join('・')}`).join(' ／ ')}`, go: () => navigate({ tab: 'school', page: 'lessons' }), icon: 'lesson' });
+  todo.push({ icon: 'students', text: left > 0 ? `個人指導 あと${left}回` : '個人指導 設定済み', go: () => navigate({ tab: 'school', page: 'tutoring' }), red: left > 0 });
+  todo.push({ icon: 'heart', text: s.plan.weekend.length ? `週末の交流 ${s.plan.weekend.length}件 設定済み` : '週末の交流 未設定', go: () => navigate({ tab: 'school', page: 'weekend' }), red: !s.plan.weekend.length });
+  for (const id of s.consults) { const st = s.students[id]; if (st) todo.push({ icon: 'talk', text: `相談：${st.given}「先生、少しいいですか」`, go: () => navigate({ tab: 'school', page: 'tutoring' }), red: true }); }
   const ex = examCandidates(s);
-  if (ex.length) todo.push({ text: `兵種試験を受けられる生徒が${ex.length}人（${ex.map((x) => x.given).join('・')}）`, go: () => navigate({ tab: 'students', page: 'exam' }), red: true });
+  if (ex.length) todo.push({ icon: 'exam', text: `兵種試験を受けられる生徒が${ex.length}人（${ex.map((x) => x.given).join('・')}）`, go: () => navigate({ tab: 'students', page: 'exam' }), red: true });
   for (const st of list) {
-    if (st.dropoutSign) todo.push({ text: `退学の予兆：${st.given}（面談で話を聞こう）`, go: () => navigate({ tab: 'students', page: 'detail', id: st.id }), red: true });
-    if (st.fatigue >= B.fatigue.warnAt && available(st)) todo.push({ text: `疲れがたまっている：${st.given}（疲労${Math.round(st.fatigue)}）`, go: () => navigate({ tab: 'students', page: 'detail', id: st.id }) });
-    if (st.motivation <= 0) todo.push({ text: `やる気がとても低い：${st.given}`, go: () => navigate({ tab: 'students', page: 'detail', id: st.id }) });
+    if (st.dropoutSign) todo.push({ icon: 'bell', text: `退学の予兆：${st.given}（面談で話を聞こう）`, go: () => navigate({ tab: 'students', page: 'detail', id: st.id }), red: true });
+    if (st.fatigue >= B.fatigue.warnAt && available(st)) todo.push({ icon: 'bell', text: `疲れがたまっている：${st.given}（疲労${Math.round(st.fatigue)}）`, go: () => navigate({ tab: 'students', page: 'detail', id: st.id }) });
+    if (st.motivation <= 0) todo.push({ icon: 'bell', text: `やる気がとても低い：${st.given}`, go: () => navigate({ tab: 'students', page: 'detail', id: st.id }) });
   }
   const unread = s.mail.filter((m) => !m.read).length;
-  if (unread) todo.push({ text: `郵便受けに未読の手紙が${unread}通`, go: () => navigate({ tab: 'school', page: 'mail' }) });
+  if (unread) todo.push({ icon: 'mail', text: `郵便受けに未読の手紙が${unread}通`, go: () => navigate({ tab: 'school', page: 'mail' }) });
   const [spotMsg, setSpotMsg] = useState('');
   const guideOn = s.settings.guide && s.year === 1 && s.month === 0;
   return (
     <div>
-      <SchoolArt s={s} />
       <MonthCalendar s={s} />
       {s.month === 3 && <ArtSlot name="event_camp" />}
       {guideOn && <div class="guide">{GUIDE[Math.min(GUIDE.length - 1, s.week - 1)]}</div>}
@@ -69,11 +69,12 @@ function Home({ s }: { s: GameState }) {
             <div class="card">
               <h3>今月の主役</h3>
               <div class="facecards">
-                {s.spotlight.map((sp) => { const st = s.students[sp.id]; if (!st) return null; return (
-                  <div class="facecard" onClick={() => navigate({ tab: 'students', page: 'detail', id: st.id })}>
-                    <Portrait st={st} size={72} />
+                {s.spotlight.map((sp) => { const st = s.students[sp.id]; if (!st) return null; const c = countryColor(st.origin); return (
+                  <div class="facecard band" style={{ ['--band' as string]: c }} onClick={() => navigate({ tab: 'students', page: 'detail', id: st.id })}>
+                    <div class="mc-face"><Portrait st={st} size={72} frame={c} /><LvBadge lv={st.level} /></div>
                     <div class="grow">
-                      <b>{st.given}</b> <span class="muted small">{st.grade}年</span>
+                      <NameLine st={st} size={18} family={false} />
+                      <div class="row nowrap gap4"><ClassName classId={st.classId} size={13} /><span class="small muted">{st.grade}年</span></div>
                       <div class="small">{sp.text}</div>
                       {!sp.done && st.status === 'enrolled' ? <button class="btn small accent" style={{ marginTop: 4 }} onClick={(e) => { e.stopPropagation(); sfx('ok'); act((g) => setSpotMsg(doSpotlight(g, rng(g), st.id))); }}>声をかける</button> : <span class="tag gray">声をかけた</span>}
                     </div>
@@ -86,7 +87,7 @@ function Home({ s }: { s: GameState }) {
           <div class="card">
             <h3>やること一覧</h3>
             <ul class="list todo">
-              {todo.map((t) => <li onClick={() => { sfx('move'); t.go(); }}><span class="dot" style={{ background: t.red ? undefined : 'var(--line)' }} /><span class="grow">{t.text}</span><span class="muted">›</span></li>)}
+              {todo.map((t) => <li onClick={() => { sfx('move'); t.go(); }}><span class={`todoicon${t.red ? ' red' : ''}`}><Icon name={t.icon ?? 'bell'} size={18} /></span><span class="grow">{t.text}</span><span class="muted">›</span></li>)}
             </ul>
           </div>
         </div>
@@ -95,12 +96,15 @@ function Home({ s }: { s: GameState }) {
             <div class="card">
               <h3>気にかける生徒</h3>
               <div class="facecards small">
-                {s.pinned.map((id) => s.students[id]).filter(Boolean).map((st) => (
-                  <div class="facecard" onClick={() => navigate({ tab: 'students', page: 'detail', id: st.id })}>
-                    <Portrait st={st} size={56} />
-                    <div class="grow"><b>{st.given}</b><div class="small">{moodIcon(st)} やる気{B.motivationLabel[st.motivation]}</div><div class="small muted">疲労{Math.round(st.fatigue)}・信頼{Math.round(st.trust)}</div></div>
+                {s.pinned.map((id) => s.students[id]).filter(Boolean).map((st) => { const c = countryColor(st.origin); const f = studentFlags(s, st)[0]; return (
+                  <div class="facecard band" style={{ ['--band' as string]: c }} onClick={() => navigate({ tab: 'students', page: 'detail', id: st.id })}>
+                    <Portrait st={st} size={60} frame={c} />
+                    <NameLine st={st} size={15} family={false} />
+                    <div class="small row nowrap gap4" style={{ justifyContent: 'center' }}><MoodDots m={st.motivation} /></div>
+                    <div class="small row nowrap gap4" style={{ width: '100%' }}>疲労<FatigueBar f={st.fatigue} /></div>
+                    {f && <span class={`flag ${f.tone}`}>{f.text}</span>}
                   </div>
-                ))}
+                ); })}
               </div>
             </div>
           )}
@@ -260,6 +264,9 @@ function Weekend({ s }: { s: GameState }) {
   );
 }
 
+const FAC_ICON: Record<string, string> = { training: 'sword', library: 'tome', stable: 'run', chapel: 'staff', dining: 'heart', range: 'target' };
+const WICON: Record<string, string> = { sword: 'sword', lance: 'lance', axe: 'axe', bow: 'bow', magic: 'tome', holy: 'staff', staff: 'staff', gun: 'gun' };
+
 function Facilities({ s }: { s: GameState }) {
   const ids = (Object.keys(B.facilities) as FacilityId[]).filter((f) => f !== 'range' || s.world.gunUnlocked);
   return (
@@ -271,17 +278,19 @@ function Facilities({ s }: { s: GameState }) {
         const lv = s.facilities[f] ?? 0; const cost = facilityCost(s, f); const def = B.facilities[f];
         const eff = f === 'library' ? '魔道の伸び↑・才能が早く分かる' : f === 'chapel' ? '信仰の伸び↑・疲労が回復しやすい' : f === 'dining' ? 'やる気が下がりにくい・交流の会話が増える' : f === 'stable' ? '騎乗・飛行の伸び↑・騎兵/天馬の兵種試験が受けられる' : f === 'range' ? '銃・弓の伸び↑' : '剣・槍・斧の伸び↑';
         return (
-          <div class="card row between">
-            <div class="grow"><b>{def.name}</b> 段階{lv}{lv === 0 ? '（ボロボロ）' : ''}<div class="muted small">{eff}</div></div>
-            {cost !== null ? <button class="btn small" disabled={s.money < cost} onClick={() => { sfx('ok'); act((g) => upgradeFacility(g, f)); }}>整備 {money(cost)}</button> : <span class="muted">最大</span>}
+          <div class="pcard" style={{ ['--band' as string]: lv >= 3 ? 'var(--gold)' : lv > 0 ? 'var(--main)' : '#cfc6b2' }}>
+            <div class="row between nowrap">
+              <div class="row nowrap gap8 grow"><span class="todoicon"><Icon name={FAC_ICON[f]} size={18} /></span><div class="grow"><span class="ptitle">{def.name}</span> <span class="pips">{[1, 2, 3].map((i) => <i class={i <= lv ? 'on' : ''} />)}</span>{lv === 0 && <span class="small muted">（ボロボロ）</span>}<div class="muted small">{eff}</div></div></div>
+              {cost !== null ? <button class="btn small" disabled={s.money < cost} onClick={() => { sfx('ok'); act((g) => upgradeFacility(g, f)); }}>整備<br />{money(cost)}</button> : <span class="flag">最大</span>}
+            </div>
           </div>
         );
       })}
       <h3>講師</h3>
       <div class="muted small">講師がいると、その科目の授業がよく伸びます。給料は毎月払い、毎年4月に少しずつ上がります（雇えるのは{B.teachers.max}人まで）。</div>
-      {s.teachers.map((t) => <div class="card row between"><div class="grow"><b>{t.name}</b>{t.alumniId ? '（卒業生）' : ''} {SKILL_NAMES[t.skill]} {rankOf(t.points)}<div class="muted small">月給 {money(t.salary)}</div></div><button class="btn ghost small" onClick={() => { if (confirm(`${t.name}に辞めてもらいますか？`)) act((g) => fireTeacher(g, t.id)); }}>解雇</button></div>)}
+      {s.teachers.map((t) => <div class="pcard row between nowrap" style={{ ['--band' as string]: t.alumniId && s.students[t.alumniId] ? countryColor(s.students[t.alumniId].origin) : 'var(--main)' }}>{t.alumniId && s.students[t.alumniId] && <Portrait st={s.students[t.alumniId]} size={44} />}<div class="grow"><span class="ptitle">{t.name}</span>{t.alumniId ? <Chip tone="gold">卒業生</Chip> : ''}<div class="row nowrap gap6"><Icon name={skillIcon(t.skill)} size={16} />{SKILL_NAMES[t.skill]} <b class="rankbig">{rankOf(t.points)}</b></div><div class="muted small">月給 {money(t.salary)}</div></div><button class="btn ghost small" onClick={() => { if (confirm(`${t.name}に辞めてもらいますか？`)) act((g) => fireTeacher(g, t.id)); }}>解雇</button></div>)}
       {s.teacherCandidates.length > 0 && <h3>雇える講師（毎年4月に入れ替わり）</h3>}
-      {s.teacherCandidates.map((t) => <div class="card row between"><div class="grow"><b>{t.name}</b> {SKILL_NAMES[t.skill]} {rankOf(t.points)}<div class="muted small">月給 {money(t.salary)}</div></div><button class="btn small" disabled={s.teachers.length >= B.teachers.max} onClick={() => { sfx('ok'); act((g) => hireTeacher(g, t.id)); }}>雇う</button></div>)}
+      {s.teacherCandidates.map((t) => <div class="pcard row between nowrap" style={{ ['--band' as string]: '#cfc6b2' }}><div class="grow"><span class="ptitle">{t.name}</span><div class="row nowrap gap6"><Icon name={skillIcon(t.skill)} size={16} />{SKILL_NAMES[t.skill]} <b class="rankbig">{rankOf(t.points)}</b></div><div class="muted small">月給 {money(t.salary)}</div></div><button class="btn small" disabled={s.teachers.length >= B.teachers.max} onClick={() => { sfx('ok'); act((g) => hireTeacher(g, t.id)); }}>雇う</button></div>)}
       {s.teacherCandidates.length === 0 && <div class="muted">今は雇える講師がいません（4月に候補が来ます）</div>}
     </div>
   );
@@ -297,12 +306,16 @@ function Armory({ s }: { s: GameState }) {
       <Back to={() => navigate({ tab: 'school' })} />
       <h2>武器庫</h2>
       <div class="muted">武器は学校の共有物です。出撃の前に生徒へ割り当てます。耐久はありません。魔法（魔道・信仰）は買うものではなく、生徒が技能ランクを上げて覚えます。</div>
-      <div class="card">
-        <table class="stats"><tbody>
-          {Object.entries(counts).map(([id, n]) => { const w = WEAPONS[id]; const eng = s.armory.filter((a) => a.weaponId === id && a.engraved).map((a) => a.engraved); return <tr><td>{w.name}{eng.length ? <span class="muted small">（{eng.join('・')}の遺品）</span> : ''}</td><td>{typeName[w.type]}</td><td>威力{w.might} 命中{w.hit}</td><td>×{n}</td></tr>; })}
-        </tbody></table>
-        <div class="muted small">道具：傷薬×{s.items.vulnerary}　特効薬×{s.items.elixir}</div>
+      <div class="weapongrid">
+        {Object.entries(counts).map(([id, n]) => { const w = WEAPONS[id]; const eng = s.armory.filter((a) => a.weaponId === id && a.engraved).map((a) => a.engraved); return (
+          <div class="pcard wcard" style={{ ['--band' as string]: eng.length ? 'var(--gold)' : 'var(--main)' }}>
+            <div class="row nowrap gap6"><span class="todoicon"><Icon name={WICON[w.type]} size={18} /></span><span class="ptitle grow" style={{ fontSize: 15 }}>{w.name}</span><Num v={`×${n}`} /></div>
+            <div class="small muted">{typeName[w.type]}・{w.rank}・威力{w.might}・命中{w.hit}</div>
+            {eng.length > 0 && <div class="small" style={{ color: 'var(--gold)' }}>{eng.join('・')}の遺品</div>}
+          </div>
+        ); })}
       </div>
+      <div class="muted small">道具：傷薬×{s.items.vulnerary}　特効薬×{s.items.elixir}</div>
       <h3>購入（所持金 {money(s.money)}）</h3>
       <div class="card">
         <div class="row between"><span>傷薬（HP+10）</span><button class="btn small" disabled={s.money < B.itemPrice.vulnerary} onClick={() => act((g) => buyItem(g, 'vulnerary'))}>{money(B.itemPrice.vulnerary)}</button></div>
@@ -326,8 +339,8 @@ function Mailbox({ s }: { s: GameState }) {
       <h2>郵便受け</h2>
       {s.mail.length === 0 && <div class="empty-note">まだ手紙は届いていません</div>}
       {s.mail.map((m) => (
-        <div class="card" onClick={() => { setOpen(open === m.id ? null : m.id); act((g) => { const x = g.mail.find((y) => y.id === m.id); if (x) x.read = true; }); }}>
-          <div class="row between"><b>{m.read ? '' : '● '}{m.title}</b><span class="muted small">{m.year}年目</span></div>
+        <div class="pcard tap" style={{ ['--band' as string]: m.studentId && s.students[m.studentId] ? countryColor(s.students[m.studentId].origin) : '#cfc6b2' }} onClick={() => { setOpen(open === m.id ? null : m.id); act((g) => { const x = g.mail.find((y) => y.id === m.id); if (x) x.read = true; }); }}>
+          <div class="row between nowrap"><span class="row nowrap gap6">{m.studentId && s.students[m.studentId] ? <Portrait st={s.students[m.studentId]} size={36} /> : <Icon name="mail" size={20} />}<b>{m.read ? '' : <span class="flag red">未読</span>} {m.title}</b></span><span class="muted small">{m.year}年目</span></div>
           <div class="muted small">差出人：{m.from}</div>
           {open === m.id && <div class="serif" style={{ marginTop: 6 }}>{m.body}</div>}
         </div>

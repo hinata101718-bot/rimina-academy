@@ -124,21 +124,22 @@ export function FaceSvg({ face, size = 48, dim = false }: { face: FaceParts; siz
   );
 }
 
-export function Portrait({ st, size = 48, game }: { st: Student; size?: number; game?: GameState }) {
+export function Portrait({ st, size = 48, game, frame }: { st: Student; size?: number; game?: GameState; frame?: string }) {
   const g = game ?? getGame();
   const dead = st.status === 'dead' || (st.career && !st.career.alive);
   if (g?.settings.portrait === 'dot') {
-    return <span class="dot-face" style={{ width: size, height: size, background: COUNTRY_COLOR[st.origin], fontSize: size * 0.42, opacity: dead ? 0.5 : 1 }}>{st.given[0]}</span>;
+    return <span class="dot-face" style={{ width: size, height: size, background: COUNTRY_COLOR[st.origin], fontSize: size * 0.42, opacity: dead ? 0.5 : 1, border: frame ? `2px solid ${frame}` : undefined, boxSizing: 'border-box' }}>{st.given[0]}</span>;
   }
   const img = faceImageFor(st, g);
   if (img) {
     // 顔画像は胸から上の絵なので、小さい表示ほど顔のあたりを大きく切り抜く
     const zoom = size <= 64 ? 1.2 : size <= 120 ? 1.08 : 1.0;
     return (
-      <span style={{ width: size, height: size, borderRadius: size <= 120 ? '22%' : '12px', overflow: 'hidden', flex: 'none', display: 'inline-block', position: 'relative', background: '#f7f0e2', border: '1.5px solid #c9bfa8', boxSizing: 'border-box' }}>
+      <span style={{ width: size, height: size, borderRadius: size <= 120 ? '22%' : '12px', overflow: 'hidden', flex: 'none', display: 'inline-block', position: 'relative', background: '#f7f0e2', border: frame ? `${size >= 64 ? 3 : 2}px solid ${frame}` : '1.5px solid #c9bfa8', boxSizing: 'border-box' }}>
         <img src={img} alt="" loading="lazy" style={{ position: 'absolute', width: `${zoom * 100}%`, left: `${-(zoom - 1) * 50}%`, top: zoom > 1 ? '-2%' : '0', filter: dead ? 'grayscale(1)' : undefined }} />
       </span>
     );
   }
+  if (frame) return <span style={{ display: 'inline-block', flex: 'none', lineHeight: 0, border: `${size >= 64 ? 3 : 2}px solid ${frame}`, borderRadius: '22%', overflow: 'hidden', background: '#f7f0e2' }}><FaceSvg face={st.face} size={size - (size >= 64 ? 6 : 4)} dim={!!dead} /></span>;
   return <FaceSvg face={st.face} size={size} dim={!!dead} />;
 }

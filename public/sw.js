@@ -1,5 +1,5 @@
 // サービスワーカー：通信できるときは最新版を取り、できないときは保存しておいたものを使う（オフラインで遊べる）
-const CACHE = 'rimina-v4';
+const CACHE = 'rimina-v5';
 self.addEventListener('install', (e) => { self.skipWaiting(); });
 self.addEventListener('activate', (e) => { e.waitUntil(self.clients.claim()); });
 self.addEventListener('fetch', (e) => {

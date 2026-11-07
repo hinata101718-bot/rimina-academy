@@ -12,7 +12,7 @@ export const COUNTRY_SHORT: Record<Origin, string> = {
 };
 export const COUNTRIES: CountryId[] = ['kingdom', 'empire', 'alliance'];
 export const COUNTRY_COLOR: Record<Origin, string> = {
-  kingdom: '#3d6fa3', empire: '#b8862b', alliance: '#4f8f4a', frontier: '#8a7a66',
+  kingdom: '#3f6fb0', empire: '#b5483a', alliance: '#4f8f4a', frontier: '#8a6f4e', // 王国＝青・帝国＝赤・同盟＝緑・辺境＝茶
 };
 /** 国ごとの得意技能（夢・進路・声かけの判定に使う） */
 export const COUNTRY_FAVOR_SKILLS: Record<CountryId, SkillId[]> = {

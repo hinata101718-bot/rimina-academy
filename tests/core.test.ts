@@ -99,6 +99,7 @@ describe('兵種試験', () => {
     const s = mk(5);
     const st = enrolled(s)[0];
     st.skills.sword = RANK_POINTS.D;
+    st.level = 5;
     expect(meetsReq(st, CLASSES.swordsman)).toBe(true);
     expect(passRate(st, CLASSES.swordsman)).toBe(60);
     st.skills.sword = RANK_POINTS.D + 100;

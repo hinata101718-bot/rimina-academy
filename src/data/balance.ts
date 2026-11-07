@@ -46,7 +46,7 @@ export const B = {
   },
   // ---- 授業 ----
   lesson: {
-    focusPoints: 6, targetPoints: 8, expPerWeek: 5,
+    focusPoints: 6, targetPoints: 8, expPerWeek: 9, // 3夜目：兵種試験にレベル条件が入ったので、授業の経験値を5→9に
     teacherRankMul: { E: 0.6, D: 0.8, C: 1.0, B: 1.2, A: 1.4, S: 1.6 } as Record<string, number>,
     noTeacherMul: 0.5,
     campMul: 1.5,
@@ -57,7 +57,7 @@ export const B = {
     baseSlots: 3, maxSlots: 6,
     skillPoints: 25, subSkillPoints: 15,
     reveal: 15, subReveal: 8,
-    exp: 10, trust: 3,
+    exp: 15, trust: 3,
     talkTrust: 10, talkReveal: 10,
     consultPerWeek: [0, 2] as [number, number],
     consultChance: 0.45,
@@ -135,7 +135,7 @@ export const B = {
     yearlyDecay: 0.08, decayFloor: 40, schoolDefenseWin: 3,
   },
   // ---- 試験 ----
-  exam: { baseRate: 60, perPoints: 5, max: 100 },
+  exam: { baseRate: 60, perPoints: 5, max: 100, levelReq: [0, 5, 10, 20, 30] as number[] }, // 段階ごとの受験レベル（初級5・中級10・上級20・最上級30）
   // ---- 戦闘 ----
   battle: {
     width: 8, height: 12,

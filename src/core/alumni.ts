@@ -42,7 +42,7 @@ export function simulateAlumni(s: GameState, rng: Rng): AlumniNews[] {
     if (st.level >= before + 3 && rng.chance(0.2)) st.history.push({ year: s.year, text: `Lv${st.level}に成長` });
     // 最上級兵種
     const cls = CLASSES[st.classId];
-    if (cls && cls.tier < 4 && st.level >= (cls.tier === 3 ? B.alumni.tier4Level : 10 + cls.tier * 6)) {
+    if (cls && cls.tier < 4 && st.level >= (B.exam.levelReq[cls.tier + 1] ?? B.alumni.tier4Level)) {
       const kids = CLASS_LIST.filter((k) => k.prereq.includes(cls.id) && (!k.needGun || s.world.gunUnlocked) && (!k.hidden || st.talent === 'hero') && (!k.nation || k.nation === c.country));
       if (kids.length && rng.chance(0.5)) {
         const nation = kids.filter((k) => k.nation);

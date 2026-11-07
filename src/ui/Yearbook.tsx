@@ -7,6 +7,8 @@ import { COUNTRY_SHORT, PATH_NAMES, COUNTRIES } from '../data/people';
 import { MONTH_NAMES } from '../core/util';
 import type { GameState, Student } from '../core/state';
 import { NewsView } from './Pending';
+import { MiniCard, CountryChip, countryColor } from './cards';
+import { Icon } from './icons';
 
 export function YearbookTab() {
   const { s } = useStore();
@@ -32,6 +34,7 @@ function Roster({ s }: { s: GameState }) {
   const [path, setPath] = useState('');
   const [alive, setAlive] = useState('');
   const [cohort, setCohort] = useState(0);
+  const [limit, setLimit] = useState(40);
   let list = Object.values(s.students).filter((x) => x.status === 'graduated' || x.status === 'dead' || x.status === 'dropped');
   if (country) list = list.filter((x) => x.career?.country === country);
   if (path) list = list.filter((x) => x.career?.path === path && x.career.kind === 'army');
@@ -48,8 +51,10 @@ function Roster({ s }: { s: GameState }) {
         <select value={alive} onChange={(e) => setAlive((e.target as HTMLSelectElement).value)}><option value="">生死</option><option value="alive">存命</option><option value="dead">故人</option></select>
         <select value={cohort} onChange={(e) => setCohort(Number((e.target as HTMLSelectElement).value))}><option value={0}>全部の期</option>{Array.from({ length: s.cohortCount }, (_, i) => <option value={i + 1}>{i + 1}期生</option>)}</select>
       </div>
-      <div class="card">
-        {list.map((x) => <StuRow st={x} sub={sub(x)} />)}
+      <div class="muted small">{list.length}人</div>
+      <div>
+        {list.slice(0, limit).map((x) => <MiniCard st={x} sub={sub(x)} dim={x.status === 'dead' || (!!x.career && !x.career.alive)} right={x.status === 'dead' || (x.career && !x.career.alive) ? <Icon name="skull" size={18} /> : x.career?.country ? <CountryChip o={x.career.country} /> : undefined} />)}
+        {list.length > limit && <button class="btn block" onClick={() => setLimit(limit + 40)}>もっと見る（あと{list.length - limit}人）</button>}
         {!list.length && <div class="empty-note">まだ卒業生はいません。3月の卒業式で巣立った生徒がここに載ります。</div>}
       </div>
     </div>
@@ -64,7 +69,7 @@ function Photos({ s }: { s: GameState }) {
         <div class="card">
           <h3>{p.cohort}期生（{p.year}年目 卒業）</h3>
           <div class="photo">
-            {p.ids.map((id) => s.students[id]).filter(Boolean).map((st) => <div class="seat" onClick={() => navigate({ tab: 'students', page: 'detail', id: st.id })}><Portrait st={st} size={52} /><div>{st.given}</div></div>)}
+            {p.ids.map((id) => s.students[id]).filter(Boolean).map((st) => <div class="seat" onClick={() => navigate({ tab: 'students', page: 'detail', id: st.id })}><Portrait st={st} size={52} frame={countryColor(st.origin)} /><div>{st.given}</div>{st.career && !st.career.alive && <div class="deadmark">✝</div>}</div>)}
             {p.empty.map((id) => s.students[id]).filter(Boolean).map((st) => <div class="seat"><div class="empty" /><div class="muted">{st.given}</div></div>)}
           </div>
         </div>
@@ -80,7 +85,7 @@ function Chronicle({ s }: { s: GameState }) {
       {years.map((y) => (
         <div class="card">
           <h3>{y}年目</h3>
-          <ul class="list">{s.chronicle.filter((c) => c.year === y).map((c) => <li class="small">{MONTH_NAMES[c.month]}　{c.kind === 'world' ? '🌍' : c.kind === 'student' ? '👤' : '🏫'} {c.text}</li>)}</ul>
+          <ul class="list">{s.chronicle.filter((c) => c.year === y).map((c) => <li class="small row nowrap gap6"><span class="muted" style={{ width: 30 }}>{MONTH_NAMES[c.month]}</span><span class="todoicon" style={{ width: 24, height: 24 }}><Icon name={c.kind === 'world' ? 'war' : c.kind === 'student' ? 'students' : 'school'} size={14} /></span><span style={{ whiteSpace: 'normal' }}>{c.text}</span></li>)}</ul>
         </div>
       ))}
     </div>

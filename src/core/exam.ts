@@ -7,6 +7,8 @@ import { Rng } from './rng';
 import { absMonth } from './util';
 import { available, chronicle, notify } from './game';
 import { addRecent } from './support';
+import { SKILL_NAMES } from '../data/people';
+import { rankOf } from './util';
 
 /** 学校で受けられる段階（設計書：上級まで。1夜目は中級までを主対象にするが、上級もデータ上は受験可） */
 export const SCHOOL_MAX_TIER = 3;
@@ -18,8 +20,28 @@ export function classUnlocked(s: GameState, c: ClassDef): boolean {
   return true;
 }
 
-export function meetsReq(st: Student, c: ClassDef): boolean {
+/** 受験に必要なレベル（段階ごと） */
+export function levelReq(c: ClassDef): number { return B.exam.levelReq[c.tier] ?? 0; }
+
+export function meetsSkillReq(st: Student, c: ClassDef): boolean {
   return Object.entries(c.req).every(([k, r]) => st.skills[k as SkillId] >= RANK_POINTS[r as Rank]);
+}
+/** 技能ランクとレベルの両方を満たすか */
+export function meetsReq(st: Student, c: ClassDef): boolean {
+  return st.level >= levelReq(c) && meetsSkillReq(st, c);
+}
+
+/** 足りない条件を、やさしい文で返す（例「Lv10から受験できます（あと3）」「槍 C が必要（いま D+）」） */
+export function missingReqs(s: GameState, st: Student, c: ClassDef): string[] {
+  const out: string[] = [];
+  const lv = levelReq(c);
+  if (st.level < lv) out.push(`Lv${lv}から受験できます（あと${lv - st.level}）`);
+  for (const [k, r] of Object.entries(c.req)) {
+    if (st.skills[k as SkillId] < RANK_POINTS[r as Rank]) out.push(`${SKILL_NAMES[k as SkillId]} ${r} が必要（いま ${rankOf(st.skills[k as SkillId])}）`);
+  }
+  if (c.needStable && (s.facilities.stable ?? 0) < 1) out.push('厩舎（段階1以上）が必要');
+  if (c.needGun && !s.world.gunUnlocked) out.push('銃が登場してから');
+  return out;
 }
 
 /** 受けられる兵種（前提を満たすもの全部。条件を満たさないものも含めて返す） */

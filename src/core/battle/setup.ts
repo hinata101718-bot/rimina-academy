@@ -48,7 +48,8 @@ export function unitFromStudent(st: Student, side: Unit['side'], uid: string, x:
 
 /** 兵種の段階をレベルに合わせて上げ下げする */
 function classForLevel(rng: Rng, id: string, level: number, gun: boolean): ClassDef {
-  const want = level < 5 ? 1 : level < 12 ? 2 : 3;
+  // 生徒の兵種試験と同じレベルの区切り（中級Lv10・上級Lv20）
+  const want = level < B.exam.levelReq[2] ? 1 : level < B.exam.levelReq[3] ? 2 : 3;
   let c = CLASSES[id] ?? CLASSES.fighter;
   while (c.tier > want && c.prereq.length) c = CLASSES[c.prereq[0]];
   while (c.tier < want) {

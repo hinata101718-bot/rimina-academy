@@ -38,6 +38,8 @@ export interface Student {
   gender: Gender;
   age: number;
   birthYear: number;   // 年（ゲーム内年）
+  /** 誕生日（月 0=4月、週 1..4） */
+  birthday?: { month: number; week: number };
   origin: Origin;
   house: House;
   personality: PersonalityId;
@@ -220,6 +222,8 @@ export interface Settings {
   animSpeed: 1 | 2 | 3;
   /** 週が進むときの日めくりの演出 */
   flip: boolean;
+  /** 名簿の表示：カード／簡易（1行） */
+  rosterView: 'card' | 'compact';
   rewind: boolean;
   guide: boolean;
   sound: boolean;

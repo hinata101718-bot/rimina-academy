@@ -59,7 +59,7 @@ export function SettingsTab() {
           <button class="btn small" onClick={() => act((g) => { const y = g.year; let k = 0; while (g.year === y && k++ < 60) autoWeek(g); })}>1年進める</button>
         </div>
       </details>
-      <div class="muted small" style={{ textAlign: 'center' }}>辺境士官学校 ―戦争が終わる日まで― 2夜目の版</div>
+      <div class="muted small" style={{ textAlign: 'center' }}>辺境士官学校 ―戦争が終わる日まで― 3夜目の版</div>
     </div>
   );
 }
