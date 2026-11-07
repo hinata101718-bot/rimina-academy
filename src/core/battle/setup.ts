@@ -150,7 +150,7 @@ export function createBattle(s: GameState, quest: Quest, deploys: Deploy[], seed
   });
   // 守る対象
   if (npc && (quest.objective === 'escort' || quest.objective === 'defend')) {
-    const st = emptyStats(3); st.hp = 22; st.def = 4; st.spd = 4; st.lck = 5;
+    const st = emptyStats(3); st.hp = B.battle.npcHp; st.def = B.battle.npcDef; st.res = B.battle.npcDef; st.spd = 5; st.lck = 8;
     b.units.push(baseUnit({ uid: 'npc', side: 'npc', name: quest.objective === 'escort' ? '依頼人' : '村人', classId: 'novice', level: 1, stats: st, x: npc[0], y: npc[1], escort: true }));
   }
   // 敵
@@ -178,7 +178,7 @@ export function createBattle(s: GameState, quest: Quest, deploys: Deploy[], seed
   // 戦力の調整
   const players = b.units.filter((u) => u.side === 'player');
   const pPow = players.reduce((a, u) => a + unitPower(u), 0) || 1;
-  const factor = (0.75 + quest.danger * 0.12) * (quest.real ? 1 : 0.85) * s.settings.mods.enemy;
+  const factor = (B.battle.enemyPowerBase + quest.danger * B.battle.enemyPowerPerDanger) * (quest.real ? 1 : B.battle.drillPowerMul) * s.settings.mods.enemy;
   const target = pPow * factor;
   for (let iter = 0; iter < 30; iter++) {
     const enemies = b.units.filter((u) => u.side === 'enemy');

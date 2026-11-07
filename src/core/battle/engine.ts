@@ -358,7 +358,7 @@ function spawnReinforcement(b: BattleState) {
 
 // ---------- 敵AI ----------
 
-export function enemyAct(b: BattleState, ctx: BattleCtx, e: Unit): void {
+export function enemyAct(b: BattleState, ctx: BattleCtx, e: Unit, attackOnly = false): void {
   const foe = (u: Unit) => (e.side === 'enemy' ? u.side !== 'enemy' : u.side === 'enemy');
   const friend = (u: Unit) => !foe(u) && u.side !== 'npc';
   const targets = b.units.filter((u) => !u.dead && foe(u));
@@ -395,15 +395,17 @@ export function enemyAct(b: BattleState, ctx: BattleCtx, e: Unit): void {
         const exp = f.atk.dmg * f.atk.count * (f.atk.hit / 100);
         const kill = f.atk.dmg * f.atk.count >= t.hp && f.atk.hit > 0;
         let score = exp * 3 + (kill ? 1000 + f.atk.hit * 2 : 0) + (staffOf(t) ? 40 : 0) + (100 - (t.hp / t.maxHp) * 100) * 0.3;
-        if (t.escort) score += 60;
-        score -= f.def.canAttack ? f.def.dmg * f.def.count * (f.def.hit / 100) * 0.8 : 0;
+        if (t.escort) score += B.battle.escortAggro;
+        const cautious = e.side !== 'enemy' ? 2.2 : 0.8;
+        score -= f.def.canAttack ? f.def.dmg * f.def.count * (f.def.hit / 100) * cautious : 0;
+        if (e.side !== 'enemy' && f.def.canAttack && f.def.dmg * f.def.count >= e.hp && f.def.hit > 0 && !kill) score -= 400;
         score += terrainDef(tile(b, x, y)).avo * 0.2;
         if (!best || score > best.score) best = { score, x, y, t };
       }
     }
   }
-  if (best) { e.x = best.x; e.y = best.y; attack(b, ctx, e, best.t); return; }
-  if (e.ai === 'hold') return;
+  if (best && (!attackOnly || best.score > (b.turn > 8 ? -2000 : -150))) { e.x = best.x; e.y = best.y; attack(b, ctx, e, best.t); return; }
+  if (e.ai === 'hold' || attackOnly) return;
   // 近づく：一番近い相手へ向かう（移動コストを考えた距離）
   const goal = nearestTarget(b, e, targets);
   if (!goal) return;
@@ -416,28 +418,74 @@ export function enemyAct(b: BattleState, ctx: BattleCtx, e: Unit): void {
   e.moved = true; e.acted = true;
 }
 
-/** オートプレイ用：味方フェーズを自動で行う */
-export function autoPlayerPhase(b: BattleState, ctx: BattleCtx): void {
-  for (const u of b.units.filter((x) => (x.side === 'player' || x.side === 'ally') && !x.dead && !x.acted)) {
+/** オートプレイ用：味方フェーズを自動で行う（慎重な人間の遊び方をまねる） */
+export function autoPlayerPhase(b: BattleState, ctx: BattleCtx, careful: Set<string> = new Set()): void {
+  const enemies = () => b.units.filter((e) => e.side === 'enemy' && !e.dead);
+  const threatMap = () => { const m = new Map<number, number>(); for (const e of enemies()) for (const k of enemyThreat(b, e)) m.set(k, (m.get(k) ?? 0) + 1); return m; };
+  // 瀕死で危ない子は「下がれ」
+  if (canCommand(b) && !b.commandUsed.retreat) {
+    const tm = threatMap();
+    const weak = b.units.find((u) => u.side === 'player' && !u.dead && u.hp <= u.maxHp / 3 && (tm.get(idx(b, u.x, u.y)) ?? 0) >= 2 && !u.item);
+    if (weak) command(b, ctx, 'retreat', weak);
+  }
+  const order = b.units.filter((x) => (x.side === 'player' || x.side === 'ally') && !x.dead && !x.acted).sort((a, c) => (staffOf(a) ? 1 : 0) - (staffOf(c) ? 1 : 0));
+  for (const u of order) {
     if (b.phase !== 'player') return;
-    if (u.hp <= u.maxHp * 0.35 && u.item && !u.acted) { useItem(b, u); continue; }
+    if (u.dead || u.acted) continue;
+    if (u.hp <= u.maxHp * 0.5 && u.item) { useItem(b, u); continue; }
     if (b.objective === 'seize' && b.goal && !b.units.some((x) => x.boss && !x.dead)) {
       const r = reachable(b, u);
       const gk = b.goal.y * b.width + b.goal.x;
       if (r.has(gk)) { u.x = b.goal.x; u.y = b.goal.y; wait(b, u); continue; }
     }
-    enemyAct(b, ctx, u);
+    if ((u.hp <= u.maxHp * 0.5 || careful.has(u.uid)) && !staffOf(u)) {
+      // 弱っている子は、敵の攻撃が届きにくいマスへ下がる（回復役の近く）
+      const tm = threatMap();
+      const r = reachable(b, u);
+      let best: { k: number; sc: number } | null = null;
+      for (const k of r.keys()) {
+        const x = k % b.width, y = Math.floor(k / b.width);
+        const healer = b.units.some((h) => h !== u && !h.dead && h.side === u.side && staffOf(h) && Math.abs(h.x - x) + Math.abs(h.y - y) <= 2);
+        const sc = (tm.get(k) ?? 0) * 10 - (healer ? 3 : 0) - terrainDef(tile(b, x, y)).avo / 10;
+        if (!best || sc < best.sc) best = { k, sc };
+      }
+      if (best) { u.x = best.k % b.width; u.y = Math.floor(best.k / b.width); }
+      wait(b, u); continue;
+    }
+    const beforeAct = u.acted;
+    const ox = u.x, oy = u.y;
+    enemyAct(b, ctx, u, true);
+    if (!u.acted && !beforeAct) {
+      // 攻撃できなかった：敵の攻撃が多く届くマスは避けつつ、仲間と並んで前へ
+      u.x = ox; u.y = oy;
+      const tm = threatMap();
+      const charging = enemies().some((e) => e.ai === 'charge' || e.aiActive);
+      const r = reachable(b, u);
+      const foes = enemies();
+      let best: { k: number; sc: number } | null = null;
+      for (const k of r.keys()) {
+        const x = k % b.width, y = Math.floor(k / b.width);
+        const dmin = Math.min(...foes.map((e) => Math.abs(e.x - x) + Math.abs(e.y - y)));
+        const allies = b.units.filter((a) => a !== u && !a.dead && a.side !== 'enemy' && Math.abs(a.x - x) + Math.abs(a.y - y) <= 1).length;
+        const th = tm.get(k) ?? 0;
+        const hold = charging && b.turn <= 4;
+        const bold = b.turn > 6;
+        const sc = (hold ? 0 : dmin * (bold ? 3 : 1)) + th * (bold ? 1 : th >= 2 ? 6 : 2) - allies * 1.5 - terrainDef(tile(b, x, y)).avo / 15 + (hold ? Math.abs(x - ox) + Math.abs(y - oy) * 0.3 : 0);
+        if (!best || sc < best.sc) best = { k, sc };
+      }
+      if (best) { u.x = best.k % b.width; u.y = Math.floor(best.k / b.width); }
+    }
     u.moved = true; u.acted = true;
     if (canVisit(b, u)) visit(b, u);
   }
   const npc = b.units.find((x) => x.escort && !x.dead);
   if (npc && b.objective === 'escort' && b.goal && b.phase === 'player') {
+    const tm = threatMap();
     const r = reachable(b, npc);
     let best: { k: number; d: number } | null = null;
     for (const k of r.keys()) {
       const x = k % b.width, y = Math.floor(k / b.width);
-      const danger = b.units.filter((e) => e.side === 'enemy' && !e.dead && Math.abs(e.x - x) + Math.abs(e.y - y) <= 3).length;
-      const d = Math.abs(x - b.goal.x) + Math.abs(y - b.goal.y) + danger * 3;
+      const d = Math.abs(x - b.goal.x) + Math.abs(y - b.goal.y) + (tm.get(k) ?? 0) * 8;
       if (!best || d < best.d) best = { k, d };
     }
     if (best) { npc.x = best.k % b.width; npc.y = Math.floor(best.k / b.width); }

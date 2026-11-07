@@ -163,14 +163,14 @@ export function finishBattle(s: GameState): void {
       }
     } else if (q.kind === 'schoolDefense') {
       s.world.schoolDefensePending = false;
-      if (win) { addRep(s, 5); chronicle(s, '学校防衛戦に勝利', 'school'); lines.push('学校を守り抜いた！ 評判+5'); }
+      if (win) { addRep(s, B.reputation.schoolDefenseWin); chronicle(s, '学校防衛戦に勝利', 'school'); lines.push(`学校を守り抜いた！ 評判+${B.reputation.schoolDefenseWin}`); }
       else { addRep(s, -5); s.money = Math.round(s.money * 0.7); chronicle(s, '学校防衛戦に敗れ、校舎が荒らされた', 'school'); lines.push('校舎が荒らされた……（お金−30%、評判−5）'); }
     } else if (q.real) {
       if (win) {
         const bg = BACKGROUNDS.find((x) => x.id === s.instructor.background);
         const reward = Math.round(q.reward * (bg?.realRewardMul ?? 1));
         const before = s.money; addMoney(s, reward);
-        const rep = q.danger;
+        const rep = B.reputation.questWinByDanger[q.danger] ?? 1;
         addRep(s, rep);
         lines.push(`報酬 ${s.money - before}G、評判+${rep}`);
         lines.push(...questWorldEffect(s, q.clientCountry, q.enemyCountry, true));
@@ -250,6 +250,8 @@ export function yearEnd(s: GameState, graduated: string[]): void {
   // 評判：卒業生の昇進
   const promo = news.filter((n) => n.text.includes('昇進')).length;
   if (promo) addRep(s, Math.min(B.reputation.promotionMax, promo));
+  // 評判は放っておくと少しずつ落ち着く（高いほど維持が難しい）
+  if (s.reputation > B.reputation.decayFloor) addRep(s, -(s.reputation - B.reputation.decayFloor) * B.reputation.yearlyDecay);
   // 6. 教官の加齢
   s.instructor.age += 1;
   // 8. 廃校期限

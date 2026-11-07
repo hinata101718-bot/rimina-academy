@@ -60,8 +60,8 @@ export function monthlyWorld(s: GameState, rng: Rng): string[] {
     let d = (rng.next() - 0.52) * 2.2 * speed;
     if (relStage(w.relations[p.key]) === 'war') d -= 0.25 * speed;
     // 帝国は野心が強い（統一の大義）
-    if (p.a === 'empire' || p.b === 'empire') d -= 0.15 * speed;
-    if (p.key === 'ak') d += 0.12;
+    if (p.a === 'empire' || p.b === 'empire') d += B.world.empireAmbition * speed * (w.warYears >= B.world.warFatigueYears ? 0.3 : 1);
+    if (p.key === 'ak') d += B.world.allianceBridge;
     addRel(s, p.key, d);
   }
   recalcTension(s, 0.15);
@@ -72,13 +72,14 @@ export function monthlyWorld(s: GameState, rng: Rng): string[] {
 
 export function recalcTension(s: GameState, weight: number): void {
   const w = s.world;
-  let target = 20;
+  const W = B.world;
+  let target = W.tensionBase;
   for (const p of PAIRS) {
     const st = relStage(w.relations[p.key]);
-    if (st === 'war') target += 26;
-    else if (st === 'tense') target += 12 + (-w.relations[p.key]) * 0.2;
-    else if (st === 'allied') target -= 6;
-    else target -= 2;
+    if (st === 'war') target += W.tensionWarPair;
+    else if (st === 'tense') target += W.tensionTensePair + (-w.relations[p.key]) * W.tensionTenseMul;
+    else if (st === 'allied') target += W.tensionAlliedPair;
+    else target += W.tensionFriendlyPair;
   }
   const pw = COUNTRIES.map((c) => w.power[c]);
   target += (Math.max(...pw) - Math.min(...pw)) / B.world.tensionPowerGapDiv;
@@ -104,7 +105,7 @@ export function yearlyWorld(s: GameState, rng: Rng): string[] {
     let d = civ * B.world.civilRelMul + rng.int(-4, 3) * speed;
     if (relStage(w.relations[p.key]) === 'war') d += B.world.warDecay * speed;
     // 長い戦争は疲れを生み、停戦へ向かう力も働く
-    if (w.warYears >= 4) d += w.warYears * 0.8;
+    if (w.warYears >= B.world.warFatigueYears) d += (w.warYears - B.world.warFatigueYears + 1) * B.world.warFatiguePerYear * 3;
     addRel(s, p.key, d);
   }
   recalcTension(s, 0.6);

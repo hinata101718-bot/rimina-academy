@@ -5,7 +5,7 @@ import type { SkillId } from './types';
 import type { GameState, Student } from './state';
 import { enrolled, available, deployLimit, capacity } from './game';
 import { nextWeek, startBattle, finishBattle, finishCareers, admit, autoAdmitIds, battleCtx, rng, ensureReinforcementFactory } from './flow';
-import { autoPlayerPhase, endPlayerPhase } from './battle/engine';
+import { autoPlayerPhase, endPlayerPhase, rewind, canRewind } from './battle/engine';
 import { autoExam } from './exam';
 import { autoRecommend, suitablePath } from './career';
 import { upgradeFacility, hireTeacher, facilityCost, buyWeapon, type FacilityId } from './teachers';
@@ -57,10 +57,22 @@ export function autoBattle(s: GameState): void {
   ensureReinforcementFactory(s);
   const ctx = battleCtx(s);
   let guard = 0;
-  while (s.battle && s.battle.phase !== 'done' && guard++ < 60) {
-    autoPlayerPhase(s.battle, ctx);
+  const careful = new Set<string>();
+  const carefulUntil = new Map<string, number>();
+  // 人が遊ぶときのように、教え子が戦死したら巻き戻してやり直す
+  const deaths = () => s.battle!.fallen.filter((f) => f.outcome === 'dead').length;
+  while (s.battle && s.battle.phase !== 'done' && guard++ < 80) {
+    const d0 = deaths();
+    const turn = s.battle.turn;
+    for (const [k, until] of carefulUntil) if (s.battle.turn > until) { careful.delete(k); carefulUntil.delete(k); }
+    autoPlayerPhase(s.battle, ctx, careful);
+    if ((s.battle.phase as string) !== 'done') endPlayerPhase(s.battle, ctx);
+    if (deaths() > d0 && s.battle.rewindsLeft > 0) {
+      for (const f of s.battle.fallen.slice(0)) if (f.outcome === 'dead') { const u = s.battle.units.find((x) => x.studentId === f.studentId); if (u) { careful.add(u.uid); carefulUntil.set(u.uid, turn + 1); } }
+      const back = s.battle.turn > turn ? 2 : 1;
+      if (canRewind(s.battle) >= back) { s.battle = rewind(s.battle, back); s.battle.rng = (s.battle.rng + 7919 * guard) | 0; continue; }
+    }
     if ((s.battle.phase as string) === 'done') break;
-    endPlayerPhase(s.battle, ctx);
   }
   if (s.battle && s.battle.phase !== 'done') { s.battle.phase = 'done'; s.battle.result = 'lose'; }
   finishBattle(s);
