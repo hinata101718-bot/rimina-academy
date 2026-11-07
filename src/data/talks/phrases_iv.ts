@@ -3,6 +3,28 @@
 import type { PhraseTable } from '../../core/types';
 
 export const PHRASES_IV: PhraseTable = {
+  // ===== 近況3（先生も学んでいる） =====
+  iv_r3_surprise: {
+    hot: 'えっ、先生が！？ 先生でも勉強するんですか！', calm: '……先生が、ですか。意外です。', timid: 'せ、先生も…勉強するんですか…？',
+    cynic: 'へえ。先生でも、まだ勉強することがあるんだ。', gentle: 'わあ、先生もお勉強してるんですね〜', serious: '先生ほどの方が、まだ学ばれているのですか。',
+    cheerful: 'えーっ、先生も勉強中なの！？', shy: '……せんせいも、べんきょう、するんだ。', competitive: '先生も勉強してるのか……負けていられないな。', whimsical: 'ふうん、先生も勉強するんだ。なんだか面白いね。',
+  },
+  iv_r3_teach: {
+    hot: '俺、教えるのは下手ですけど、やってみます！', calm: '人に教えたことはありませんが……やってみます。', timid: 'わ、わたしなんかが…先生に教えるなんて…',
+    cynic: '僕が先生に教えるの？ 立場が逆じゃないか。', gentle: 'わたしにも、教えられることがあるかなあ。', serious: '私などが先生にお教えするなど、恐れ多いことです。',
+    cheerful: 'わたしが先生の先生！？ やってみたい！', shy: '……わたしに、おしえられること、あるかな。', competitive: '教えるからには、手加減はしませんよ。', whimsical: '教えるのって、なんだか楽しそう。'
+  },
+  iv_r3_teach_talent: {
+    hot: '最近、{myTalentSkill}だけは誰にも負けない気がするんです！ それなら教えられます！', calm: '{myTalentSkill}なら……少しは教えられるかもしれません。', timid: 'あ、あの…{myTalentSkill}なら…ちょっとだけ…',
+    cynic: '{myTalentSkill}なら、まあ、教えてやらないこともないよ。', gentle: '{myTalentSkill}なら、お教えできるかも〜', serious: '{myTalentSkill}でしたら、お役に立てるかもしれません。',
+    cheerful: '{myTalentSkill}なら任せて！ 最近すっごく調子いいの！', shy: '……{myTalentSkill}なら、すこし。', competitive: '{myTalentSkill}なら、先生にだって負けません。', whimsical: '{myTalentSkill}なら、なんとなく教えられる気がする。'
+  },
+  iv_r3_proud: {
+    hot: 'はい！ 任せてください！', calm: '……分かりました。準備しておきます。', timid: 'は、はい…がんばります…',
+    cynic: '……しかたないな。覚悟しておいてよ。', gentle: 'はーい。楽しみにしててくださいね。', serious: '承知いたしました。誠心誠意、お教えします。',
+    cheerful: 'やったー！ 先生の先生だ！', shy: '……うん。がんばる。', competitive: '覚悟してください、先生。', whimsical: 'いいよ。気が向いた日にね。'
+  },
+
   // ===== 近況1 =====
   iv_r_good: {
     hot: '絶好調です！ 毎日体が熱くて仕方ないです！', calm: '悪くありません。順調だと思います。', timid: 'え、えっと…最近は、わりと元気です…たぶん…',

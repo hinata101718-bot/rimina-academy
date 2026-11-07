@@ -54,6 +54,21 @@ export const INTERVIEWS: InterviewDef[] = [
       { by: 't', say: 't_r2_close' },
     ],
   },
+  // ---------- 近況（その3：先生も学んでいる） ----------
+  {
+    id: 'recent3', topic: 'recent', title: '先生の勉強',
+    lines: [
+      { by: 'n', say: 'n_iv_call' },
+      { by: 't', say: 't_r3_open' },
+      { by: 'a', say: 'iv_r3_surprise' },
+      { by: 't', say: 't_r3_learn' },
+      { by: 'a', say: { if: { a: { talent: true } }, then: 'iv_r3_teach_talent', else: 'iv_r3_teach' } },
+      { by: 't', say: 't_r3_ask' },
+      { by: 'a', say: 'iv_r3_proud' },
+      { by: 't', say: 't_r3_close' },
+      { by: 'a', say: 'iv_r_thanks' },
+    ],
+  },
   // ---------- 悩み（やる気が低いとき） ----------
   {
     id: 'worry1', topic: 'worry', title: '悩み',
@@ -228,6 +243,11 @@ export const TEACHER_PHRASES: Record<string, Record<TeacherBg, string>> = {
   t_r2_home: { knight: '{yourHome}の出だったな。どんなところだ。', merc: 'お前、{yourHome}の出だったよな。どんなとこだ？', mage: '{yourHome}の出身でしたね。どんなところなのですか。', wanderer: '{yourHome}の出だっけ。どんなところ？ 行ったことないんだ。' },
   t_r2_listen: { knight: '良い故郷だ。守りたいと思う場所があるのは、強さになる。', merc: 'へえ、いいとこじゃねえか。いつか行ってみたいもんだ。', mage: '目に浮かぶようです。いつか話の続きを聞かせてください。', wanderer: 'いいなあ。旅の行き先に加えておくよ。' },
   t_r2_close: { knight: 'そろそろ戻るか。冷えてきた。', merc: 'さて、戻るか。腹が減った。', mage: 'そろそろ戻りましょうか。良い散歩でした。', wanderer: 'さ、戻ろっか。いい話が聞けたよ。' },
+  // 近況3
+  t_r3_open: { knight: '{you}、実はな、私も今{yourSkill}を学び直しているのだ。', merc: 'なあ{you}。笑うなよ、俺も今{yourSkill}を勉強し直してんだ。', mage: '{you}、実は私も、{yourSkill}をもう一度学び直しているところなのです。', wanderer: '{you}、聞いてよ。最近{yourSkill}を勉強し直してるんだ。' },
+  t_r3_learn: { knight: '教えるというのは、教わるより多くを学ぶものだ。お前たちのおかげで、私の腕も上がっている。', merc: '教えてると、こっちが教わることばっかりでな。おかげで腕が上がってきた。', mage: '人に教えるたびに、自分の理解の浅さに気づかされます。あなたたちが私の先生でもあるのですよ。', wanderer: '教えるたびに、こっちが教わってる気がするんだ。おかげでちょっとずつ上達してる。' },
+  t_r3_ask: { knight: 'そこでだ。お前の得意なことを、今度私に教えてくれないか。', merc: 'でよ、お前の得意なやつ、今度俺にも教えてくれ。', mage: 'ですから、今度はあなたの得意なことを私に教えてくれませんか。', wanderer: 'だからさ、今度{you}の得意なこと、教えてよ。' },
+  t_r3_close: { knight: '楽しみにしている。……ありがとう、{you}。', merc: '約束だぞ。楽しみにしてる。', mage: '楽しみにしていますね。ありがとう、{you}。', wanderer: 'よし、決まり。楽しみにしてるよ。' },
   // 悩み
   t_w_open: { knight: '{you}、元気がないな。何かあったのか。', merc: '浮かねえ顔だな、{you}。何があった？', mage: '{you}、少し元気がないように見えます。何かありましたか。', wanderer: '{you}、最近ちょっと元気ないね。どうしたの？' },
   t_w_wait: { knight: '急がなくてよい。話せることだけで構わない。', merc: '急がなくていい。言えることだけ言え。', mage: '急がなくて大丈夫ですよ。話せることだけで。', wanderer: 'ゆっくりでいいよ。ここには誰も来ないから。' },
