@@ -13,6 +13,7 @@ import { learnSpells, learnedText } from './spells';
 import { buildInterview, consultFlag, specialInterview } from './interview';
 import type { InterviewTopic } from '../data/talks/interviews';
 import { examCandidates } from './exam';
+import { growTeachers, viceOf, viceTargets, viceWeekend, viceTutorPicks } from './instructor';
 
 export type Policy = 'balance' | 'talent' | 'dream' | 'combat';
 
@@ -126,7 +127,11 @@ function addFatigue(s: GameState, st: Student, amount: number): void {
 
 export function autoPlan(s: GameState, rng: Rng): void {
   const list = enrolled(s).filter(available);
-  for (const st of enrolled(s)) if (st.targetsAuto) st.targets = autoTargets(s, st);
+  for (const st of enrolled(s)) {
+    if (!st.targetsAuto) continue;
+    const v = viceOf(s, st.grade);
+    st.targets = v ? viceTargets(s, st, v.v.policy, v.st, autoTargets) : autoTargets(s, st);
+  }
   const slots = tutoringSlots(s);
   if (s.plan.tutoring.length === 0) {
     // 相談 → 退学の予兆 → やる気の低い子 → 注目されていない子
@@ -144,7 +149,14 @@ export function autoPlan(s: GameState, rng: Rng): void {
   if (s.plan.weekend.length === 0) {
     const avgFat = list.reduce((a, st) => a + st.fatigue, 0) / Math.max(1, list.length);
     const n = weekendSlots(s);
-    for (let i = 0; i < n; i++) {
+    // 副教官（担任）が担当学年の週末を組む
+    for (const g of [1, 2, 3]) {
+      const v = viceOf(s, g);
+      if (!v || s.plan.weekend.length >= n) continue;
+      const w = viceWeekend(s, rng, g, v.v.policy, v.st);
+      if (w && !(w.kind === 'rest' && s.plan.weekend.some((x) => x.kind === 'rest'))) s.plan.weekend.push(w);
+    }
+    for (let i = s.plan.weekend.length; i < n; i++) {
       if (avgFat >= 40 && !s.plan.weekend.some((w) => w.kind === 'rest')) { s.plan.weekend.push({ kind: 'rest' }); continue; }
       const roll = rng.int(0, 2);
       if (roll === 0 && list.length >= 2) {
@@ -216,6 +228,21 @@ export function resolveWeek(s: GameState, rng: Rng): WeekResult {
       if (r.talk) talks.push(r.talk);
     }
   }
+  // 副教官（担任）の個人指導（副教官1人につき1回、伸びは教官より小さい）
+  const taken = new Set(s.plan.tutoring.map((x) => x.studentId));
+  for (const p of viceTutorPicks(s, taken)) {
+    const st = p.st, k = p.k;
+    st.lastAttention = s.absWeek;
+    const mul = teacherMul(s, k) * facilityMul(s, k) * B.motivationMul[st.motivation] * fatigueMul(st) * talentMul(st, k) * traitLessonMul(st, true) * B.vice.tutorMul;
+    const g = addSkill(st, k, B.tutoring.skillPoints * mul);
+    revealTalent(s, st, B.tutoring.reveal * B.vice.tutorMul, lines);
+    addFatigue(s, st, B.fatigue.tutoring);
+    gainExp(s, rng, st, B.tutoring.exp * B.vice.tutorMul);
+    tutored.set(st.id, `担任（${p.teacher.name}）の指導`);
+    lines.push(`担任の${p.teacher.name}が${st.given}に${SKILL_NAMES[k]}を指導（+${Math.round(g)}）`);
+  }
+  // 教官・講師の技能は教えるほど上がる
+  growTeachers(s, s.plan.tutoring.filter((x) => x.kind === 'skill').map((x) => x.skill ?? s.students[x.studentId]?.targets[0]).filter(Boolean) as SkillId[], lines);
   s.consults = [];
   // 信頼が深まった子との特別な面談
   const sp = specialInterview(s, rng, enrolled(s).filter(available));

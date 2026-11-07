@@ -16,6 +16,7 @@ import { upgradeFacility, hireTeacher, facilityCost, buyWeapon, type FacilityId 
 import type { Deploy } from './battle/setup';
 import { meetsRank } from './util';
 import { CLASSES } from '../data/classes';
+import { retireInstructor, successorCandidates, askSuccessor, externalSuccessor, viceEligible, setVice } from './instructor';
 
 /** 武器の自動割り当て */
 export function autoDeploy(s: GameState, limit = deployLimit(s)): Deploy[] {
@@ -131,8 +132,34 @@ export function autoPending(s: GameState): void {
       continue;
     }
     if (p.type === 'entrance') { admit(s, autoAdmitIds(s)); continue; }
+    if (p.type === 'retire') {
+      // 人が遊ぶときに近づけて、60歳を過ぎたら引退する（65歳は必ず）
+      if (p.forced || s.instructor.age >= AUTO_RETIRE_AGE) { retireInstructor(s, rng(s)); continue; }
+      s.pending.shift(); continue;
+    }
+    if (p.type === 'successor') { autoSuccessor(s); continue; }
+    if (p.type === 'ending') { autoEnding(s); continue; }
     s.pending.shift();
   }
+}
+
+const AUTO_RETIRE_AGE = 60;
+/** 後継選び：講師→信頼の高い卒業生の順に3人まで頼み、だめなら外部の教官 */
+export function autoSuccessor(s: GameState): void {
+  const r = rng(s);
+  for (let i = 0; i < 3; i++) {
+    const c = successorCandidates(s).filter((x) => !x.recall || i > 0)[0] ?? successorCandidates(s)[0];
+    if (!c) break;
+    if (askSuccessor(s, r, c.st.id).ok) return;
+  }
+  externalSuccessor(s, r);
+}
+let endingHook: ((s: GameState) => void) | null = null;
+/** エンディングのあとの選び方（長期シミュレーション用に差し替えられる） */
+export function setAutoEnding(f: ((s: GameState) => void) | null): void { endingHook = f; }
+function autoEnding(s: GameState): void {
+  if (endingHook) endingHook(s);
+  else s.pending.shift();
 }
 
 /** 学校経営の自動判断（月に1回） */
@@ -159,6 +186,12 @@ export function autoManage(s: GameState): void {
   if (s.money > 2500 && s.armory.length < enrolled(s).length + 4) {
     const w = r.pick(Object.values(WEAPONS).filter((x) => x.price > 0 && x.price <= 800 && (x.type !== 'gun' || s.world.gunUnlocked)));
     buyWeapon(s, w.id, w.price);
+  }
+  // 副教官：なれる講師がいれば、担任のいない学年に（方針はバランス）
+  for (const t of viceEligible(s)) {
+    if ((s.vice ?? []).some((v) => v.teacherId === t.id)) continue;
+    const g = [1, 2, 3].find((x) => !(s.vice ?? []).some((v) => v.grade === x));
+    if (g) setVice(s, t.id, g, 'balance');
   }
   // 重点科目
   for (const g of [1, 2, 3]) {

@@ -141,6 +141,7 @@ export function generateStudent(s: GameState, rng: Rng, opt: GenOptions = {}): S
   };
   st.spellPlan = makeSpellPlan(st);
   learnSpells(null, st);
+  st.birthday = birthdayFor(st.id + st.given);
   return st;
 }
 
@@ -153,3 +154,10 @@ export function hairName(st: Student): string { return HAIR_COLORS[st.face.hair]
 
 export function dreamOf(st: Student) { return DREAMS.find((d) => d.id === st.dream)!; }
 export function hasDream(st: Student): boolean { return st.dream !== 'none'; }
+
+/** 誕生日（名前とidから決める。古いセーブの生徒にも同じ方法で付けられ、ゲームの乱数の流れを変えない） */
+export function birthdayFor(key: string): { month: number; week: number } {
+  let h = 7;
+  for (const c of key) h = (h * 33 + c.charCodeAt(0)) >>> 0;
+  return { month: h % 12, week: 1 + (Math.floor(h / 12) % 4) };
+}

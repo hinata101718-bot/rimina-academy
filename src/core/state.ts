@@ -29,6 +29,8 @@ export interface CareerInfo {
   alive: boolean;
   retired: boolean;
   injuredYears: number;
+  /** 学校の教官になった */
+  instructor?: boolean;
 }
 
 export interface Student {
@@ -103,7 +105,31 @@ export interface Student {
 
 export interface Support { a: string; b: string; value: number; kind: 'none' | 'friend' | 'rival' | 'love'; seen: string[]; lastRank: '' | 'C' | 'B' | 'A' }
 
-export interface Teacher { id: string; name: string; skill: SkillId; points: number; salary: number; alumniId?: string; baseSalary?: number }
+export interface Teacher { id: string; name: string; skill: SkillId; points: number; salary: number; alumniId?: string; baseSalary?: number; /** 学校に来た年 */ since?: number }
+
+/** 副教官（学年の担任）の方針 */
+export type VicePolicy = 'balance' | 'talent' | 'dream' | 'combat';
+export interface ViceInstructor { teacherId: string; grade: number; policy: VicePolicy }
+
+/** 歴代の教官 */
+export interface PastInstructor { name: string; background: string; generation: number; from: number; to: number; age: number; studentId?: string; taught: number }
+
+/** 場面（代替わり・エンディング）の1ページ */
+export interface SceneLine {
+  /** 話す人：生徒id・'teacher'（今の教官）・'narr'（地の文） */
+  by: string;
+  text: string;
+  /** 見出し（大きく出す） */
+  title?: string;
+  /** 顔を並べる（生徒id） */
+  faces?: string[];
+  /** 卒業写真（期） */
+  photo?: number;
+  /** 1枚絵の名前（public/art） */
+  art?: string;
+  /** エンドロール（名前を流す） */
+  roll?: { name: string; dead?: boolean }[];
+}
 
 export interface ArmoryItem { uid: string; weaponId: string; engraved?: string }
 
@@ -115,6 +141,12 @@ export interface Instructor {
   skills: Record<SkillId, number>;
   cha: number;
   generation: number;
+  /** 技能の上限（ポイント）。得意科目はS、それ以外はB */
+  caps?: Record<SkillId, number>;
+  /** 卒業生が教官になったとき、その生徒のid */
+  studentId?: string;
+  /** 着任した年 */
+  since?: number;
 }
 
 export interface WorldState {
@@ -174,7 +206,11 @@ export type Pending =
   | { type: 'graduation'; cohort: number; lines: { id: string; text: string }[] }
   | { type: 'newspaper'; id: string }
   | { type: 'teacherHire' }
-  | { type: 'talk'; talk: TalkLog };
+  | { type: 'talk'; talk: TalkLog }
+  | { type: 'retire'; forced: boolean }
+  | { type: 'successor' }
+  | { type: 'scene'; title: string; lines: SceneLine[]; after?: 'ending' }
+  | { type: 'ending' };
 
 /** 成長の記録（ゲージの演出用）。前と後の値だけを持つ */
 export interface GrowthEntry {
@@ -271,6 +307,12 @@ export interface GameState {
   photos: Photo[];
   cohortCount: number;
   heirs: { a: string; b: string; year: number }[];
+  /** 歴代の教官（今の教官は含まない） */
+  pastInstructors?: PastInstructor[];
+  /** 副教官（学年の担任） */
+  vice?: ViceInstructor[];
+  /** 後継の打診を断った卒業生（その年度の間） */
+  declinedSuccessors?: string[];
   nextId: number;
   settings: Settings;
   guideStep: number;

@@ -33,7 +33,7 @@ export function newGame(opts: { name: string; background: string; seed: number; 
     teachers: [], teacherCandidates: [],
     armory: STARTING_ARMORY.map((w, i) => ({ uid: `w${i}`, weaponId: w })),
     items: { vulnerary: 3, elixir: 0 },
-    instructor: { name: opts.name || '教官', background: bg.id, age: bg.age, experience: 0, skills, cha: bg.cha, generation: 1 },
+    instructor: { name: opts.name || '教官', background: bg.id, age: bg.age, experience: 0, skills, cha: bg.cha, generation: 1, since: 1 },
     students: {}, supports: {}, archive: {}, focus: {}, plan: { tutoring: [], weekend: [] },
     consults: [], pinned: [], spotlight: [], notices: [], pending: [], quests: [], battle: null, applicants: [],
     world: {

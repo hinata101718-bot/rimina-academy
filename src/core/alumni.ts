@@ -14,6 +14,7 @@ export function titleOf(st: Student): string {
   if (!st.career) return '';
   const c = st.career;
   if (!c.alive) return '故人';
+  if (c.instructor) return `リミナ分校の教官（${CLASSES[st.classId]?.name ?? ''}）`;
   if (c.retired) return '退役';
   const cls = CLASSES[st.classId]?.name ?? '';
   if (c.kind === 'stay') return `講師（${cls}）`;
@@ -31,6 +32,7 @@ export function simulateAlumni(s: GameState, rng: Rng): AlumniNews[] {
   const big = (st: Student, text: string) => { news.push({ id: st.id, text: `${st.given}（${st.cohort}期生）${text}`, big: true }); st.history.push({ year: s.year, text }); };
   for (const st of Object.values(s.students)) {
     if (st.status !== 'graduated' || !st.career || !st.career.alive || st.career.retired) continue;
+    if (st.career.instructor) { st.age = s.instructor.age; continue; } // 教官になった教え子は教官として年をとる
     const c = st.career;
     st.age += 1;
     if (c.injuredYears > 0) c.injuredYears -= 1;

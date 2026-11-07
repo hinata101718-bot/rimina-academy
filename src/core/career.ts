@@ -135,7 +135,7 @@ function farewell(s: GameState, rng: Rng, st: Student, choice: CareerChoice, moo
 
 function becomeTeacher(s: GameState, st: Student): void {
   const k: SkillId = bestSkillOf(st);
-  s.teachers.push({ id: `t${s.nextId++}`, name: st.given, skill: k, points: st.skills[k], salary: Math.round(250 * B.teachers.alumniSalaryMul), alumniId: st.id });
+  s.teachers.push({ id: `t${s.nextId++}`, name: st.given, skill: k, points: st.skills[k], salary: Math.round(250 * B.teachers.alumniSalaryMul), alumniId: st.id, since: s.year });
   chronicle(s, `卒業生の${st.given}が講師として学校に残った`, 'school');
 }
 

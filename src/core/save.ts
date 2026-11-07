@@ -4,6 +4,8 @@ import type { GameState } from './state';
 import { defaultSettings } from './game';
 import { WEAPONS } from '../data/weapons';
 import { ensureSpellPlan, learnSpells } from './spells';
+import { ensureTeacherSince, instructorCaps } from './instructor';
+import { birthdayFor } from './student';
 
 export interface SaveFile { app: 'rimina-academy'; version: number; savedAt: number; state: GameState }
 
@@ -24,6 +26,7 @@ export function migrate(s: GameState, from: number): GameState {
   const oldSettings = s.settings ?? {};
   s.settings = { ...defaultSettings(), ...oldSettings };
   if (from < 2) migrateTo2(s, oldSettings as Partial<GameState['settings']>);
+  if (from < 3) migrateTo3(s);
   s.heirs ??= [];
   s.archive ??= {};
   s.notices ??= [];
@@ -72,4 +75,23 @@ function migrateTo2(s: GameState, old: Partial<GameState['settings']>): void {
       '生徒たちは、今の技能ランクまでの魔法をすでに覚えています。個人ページで「覚えた魔法」と「次に覚える魔法」を見られます。',
     ],
   });
+}
+
+/**
+ * 2夜目の版（version 2）→ 3夜目の版（version 3）
+ * - 教官：着任の年・技能の上限（教えるほど上がる）・歴代の教官・副教官を足す
+ * - 講師：学校に来た年（副教官になれるか）を卒業の年から推定
+ * - 生徒：誕生日を付ける（在校生・卒業生・志願者すべて）
+ * - 兵種：条件より低いレベルですでに昇格している子は、そのまま（降格しない）
+ */
+function migrateTo3(s: GameState): void {
+  s.instructor.since ??= 1;
+  s.instructor.generation ??= 1;
+  instructorCaps(s);
+  s.pastInstructors ??= [];
+  s.vice ??= [];
+  s.declinedSuccessors ??= [];
+  ensureTeacherSince(s);
+  for (const st of [...Object.values(s.students ?? {}), ...(s.applicants ?? [])]) st.birthday ??= birthdayFor(st.id + st.given);
+  s.settings.rosterView ??= 'card';
 }

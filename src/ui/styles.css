@@ -425,3 +425,14 @@ body { background-attachment: fixed; }
 .compright { display: flex; flex-direction: column; align-items: flex-end; gap: 3px; flex: none; }
 .compright .flag { font-size: 11px; padding: 0 7px; line-height: 18px; }
 .nowrap .grow, .nowrap .muted.small, .nowrap .small.muted { white-space: normal; }
+/* 場面（代替わり・エンディング） */
+.scene { user-select: none; cursor: pointer; min-height: 360px; display: flex; flex-direction: column; gap: 8px; }
+.scene-title { font-family: var(--mincho); font-size: 26px; font-weight: bold; text-align: center; letter-spacing: .12em; color: var(--main); border-top: 3px double var(--line); border-bottom: 3px double var(--line); padding: 6px 0; animation: banner .7s ease-out; }
+.scene-faces { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; text-align: center; }
+.scene-faces > div { width: 66px; }
+.scene-speaker { display: flex; justify-content: center; animation: fadein .2s; }
+.scene-photo { justify-content: center; }
+.photo-cap { width: 100%; text-align: center; font-family: var(--mincho); font-weight: bold; }
+.roll { display: flex; flex-wrap: wrap; gap: 4px 12px; justify-content: center; font-family: var(--mincho); font-size: 14px; max-height: 300px; overflow: hidden; animation: rollup 6s linear; }
+.roll .dead { color: var(--sub); }
+@keyframes rollup { from { transform: translateY(40px); opacity: 0; } 15% { opacity: 1; } to { transform: translateY(0); } }

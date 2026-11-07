@@ -3,6 +3,11 @@ import { useStore, act, navigate } from './store';
 import { Sheet, StuRow, money } from './common';
 import { Portrait } from './Portrait';
 import { GrowthPlayer } from './Growth';
+import { ScenePlayer } from './Scene';
+import { retireInstructor, successorCandidates, askSuccessor, externalSuccessor } from '../core/instructor';
+import { rng } from '../core/flow';
+import { TeacherFace } from './Talk';
+import { titleOf } from '../core/alumni';
 import { ArtSlot } from './HomeDeco';
 import { TalkPlayer } from './Talk';
 import { chooseReply } from '../core/interview';
@@ -16,7 +21,7 @@ import { hopes, availableChoices, CHOICE_NAMES, acceptRate, suitablePath, autoRe
 import { WEAPONS } from '../data/weapons';
 import { CLASSES } from '../data/classes';
 import { COUNTRY_SHORT, PERSONALITIES, DREAMS, COUNTRY_NAMES, HOUSE_NAMES, TRAITS, PATH_NAMES, STAT_NAMES } from '../data/people';
-import { STATS } from '../data/balance';
+import { STATS, B } from '../data/balance';
 import type { Path } from '../core/types';
 import type { Deploy } from '../core/battle/setup';
 import { sfx } from './sound';
@@ -40,6 +45,9 @@ export function PendingView() {
     case 'entrance': return <Entrance s={s} />;
     case 'career': return <Career s={s} />;
     case 'graduation': return <Graduation s={s} cohort={p.cohort} lines={p.lines} onDone={done} />;
+    case 'retire': return <Retire s={s} forced={p.forced} />;
+    case 'successor': return <Successor s={s} />;
+    case 'scene': return <Sheet title={p.title}><ScenePlayer key={p.title} s={s} lines={p.lines} onDone={done} /></Sheet>;
     case 'newspaper': return <Sheet title="新聞が届いた"><NewsView id={p.id} /><button class="btn primary block" style={{ marginTop: 10 }} onClick={done}>閉じる</button></Sheet>;
     default: return <Sheet title="お知らせ"><button class="btn primary block" onClick={done}>閉じる</button></Sheet>;
   }
@@ -279,5 +287,42 @@ export function NewsView({ id }: { id: string }) {
         {n.alumni.map((a) => <div class="small" style={{ cursor: 'pointer', textDecoration: 'underline' }} onClick={() => { act((g) => { g.pending = g.pending.filter((p) => !(p.type === 'newspaper' && p.id === id)); }); navigate({ tab: 'students', page: 'detail', id: a.id }); }}>・{a.text}</div>)}
       </>}
     </div>
+  );
+}
+
+function Retire({ s, forced }: { s: GameState; forced: boolean }) {
+  const ins = s.instructor;
+  return (
+    <Sheet title={forced ? '引退のとき' : '引退を考える'}>
+      <div class="pcard row nowrap gap8"><TeacherFace s={s} size={72} /><div class="grow"><span class="ptitle">{ins.name}</span>（{ins.generation}代目教官）<div class="small">{ins.age}歳・{s.year - (ins.since ?? 1)}年間・教えた生徒 延べ{ins.experience}人</div></div></div>
+      <div class="paper">
+        {forced
+          ? <p>{ins.name}先生は{ins.age}歳になった。長いあいだ教壇に立ってきたが、ついに引退のときが来た。後継の教官を選ぼう。</p>
+          : <p>{ins.name}先生も{ins.age}歳。そろそろ後進に道をゆずることもできる。引退すると、卒業生（または外部の人）から後継の教官を選び、学校・生徒・お金・年鑑はそのまま引き継がれる。{ins.age >= 56 ? '（近ごろは疲れて、個人指導の回数が減る週もある）' : ''}</p>}
+        <p class="small">後継の候補：講師・副教官はすぐ引き受けます。各国にいる卒業生は、先生への信頼が高いほど引き受けてくれやすくなります。</p>
+      </div>
+      <button class="btn accent block" style={{ marginTop: 8 }} onClick={() => { sfx('ok'); act((g) => retireInstructor(g, rng(g))); }}>引退して、後継を選ぶ</button>
+      {!forced && <button class="btn block" style={{ marginTop: 8 }} onClick={() => { sfx('cancel'); act((g) => { g.pending.shift(); }); }}>まだ続ける（{B.instructor.retireMax}歳まで）</button>}
+    </Sheet>
+  );
+}
+
+function Successor({ s }: { s: GameState }) {
+  const [msg, setMsg] = useState('');
+  const list = successorCandidates(s);
+  const KIND = { teacher: '講師', vice: '副教官', alumni: '卒業生' };
+  return (
+    <Sheet title="後継の教官を選ぶ">
+      <div class="muted small">卒業生なら誰でも教官になれます。新しい教官の得意な授業と三国との縁は、その人の兵種・道・所属していた国で決まり、技能は卒業生のときの値から始まります。</div>
+      {msg && <div class="guide">{msg}</div>}
+      {list.slice(0, 30).map((c) => (
+        <MiniCard st={c.st} onClick={() => undefined} sub={<>{KIND[c.kind]}・{titleOf(c.st)}・{c.st.age}歳・信頼{Math.round(c.st.trust)}</>}
+          right={<button class="btn small primary" onClick={() => { sfx('ok'); act((g) => { const r = askSuccessor(g, rng(g), c.st.id); setMsg(r.text); }); }}>頼む<br />{c.chance}%</button>}>
+          {c.recall && <div class="small" style={{ color: 'var(--accent)' }}>{c.recall}</div>}
+        </MiniCard>
+      ))}
+      {!list.length && <div class="empty-note">頼める卒業生がいません</div>}
+      <button class="btn block" style={{ marginTop: 8 }} onClick={() => { if (!confirm('外部から「流れの旅人」の教官を迎えます。よろしいですか？')) return; sfx('ok'); act((g) => externalSuccessor(g, rng(g))); }}>外部から教官を迎える（流れの旅人）</button>
+    </Sheet>
   );
 }

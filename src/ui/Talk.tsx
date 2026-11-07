@@ -17,8 +17,10 @@ export function talkHeading(s: GameState, t: TalkLog): string {
 
 /** 先生の顔（似顔絵の代わりの印） */
 export function TeacherFace({ s, size }: { s: GameState; size: number }) {
+  const me = s.instructor.studentId ? s.students[s.instructor.studentId] : null;
+  if (me) return <Portrait st={me} size={size} />;
   const bg = BACKGROUNDS.findIndex((b) => b.id === s.instructor.background);
-  const color = ['#3d6fa3', '#b8862b', '#4f8f4a', '#8a7a66'][bg] ?? '#555';
+  const color = ['#3f6fb0', '#b5483a', '#4f8f4a', '#8a6f4e'][bg] ?? '#555';
   return (
     <svg width={size} height={size} viewBox="0 0 100 100" style={{ borderRadius: '50%', background: '#efe6d2', flex: 'none' }}>
       <circle cx="50" cy="50" r="48" fill={color} opacity="0.18" />

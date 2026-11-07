@@ -1,7 +1,7 @@
 // バランス値。ゲームの数値はすべてここに集める（設計書の「ふつう」が初期値）。
 import type { Rank, SkillId, StatId } from '../core/types';
 
-export const SAVE_VERSION = 2;
+export const SAVE_VERSION = 3;
 
 export const RANKS: Rank[] = ['E', 'E+', 'D', 'D+', 'C', 'C+', 'B', 'B+', 'A', 'A+', 'S'];
 export const RANK_POINTS: Record<Rank, number> = {
@@ -244,7 +244,22 @@ export const B = {
     alumniAppear: { peace: 0.08, tension: 0.18, war: 0.3 },
   },
   // ---- 教官 ----
-  instructor: { retireMin: 50, retireMax: 65 },
+  instructor: {
+    retireMin: 50, retireMax: 65,
+    // 教えるほど上がる技能（ポイント。D=50→B=270 は苦手科目を重点にし続けて約10年）
+    growFocus: 0.42,         // その科目がどこかの学年の重点科目だった週
+    growFocusExtraGrade: 0.05, // 2学年め・3学年めも重点にしていれば少し上乗せ
+    growTutor: 0.15,         // 個人指導（技能指導）で教えた1回
+    capGood: 'S' as Rank, capOther: 'B' as Rank, capWanderer: 'A' as Rank,
+    teacherGrow: 0.2, teacherCap: 'A' as Rank, // 講師：教えている科目が重点科目の週
+    // 後継
+    acceptBase: 20, acceptPerTrust: 0.7, acceptMax: 95,
+    recallPower: 3, recallFriendship: -5, recallRank: 2, // 部隊長・参謀長・大使以上を呼び戻すと国力と友好度が下がる
+    newFriendship: 10,       // 新しい教官の所属していた国との縁
+    externalAge: [30, 38] as [number, number],
+  },
+  // ---- 副教官（学年の担任） ----
+  vice: { minYears: 1, max: 3, tutorMul: 0.7, tutorPerVice: 1 },
   // ---- 演出（ミリ秒）。設定の「演出の速さ」「敵ターンの速さ」で倍率がかかる ----
   anim: {
     speedMul: [1, 1.35, 1, 0.6],      // 演出の速さ：ゆっくり／ふつう／はやい

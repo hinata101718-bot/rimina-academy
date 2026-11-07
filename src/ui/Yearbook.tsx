@@ -113,7 +113,8 @@ function Records({ s }: { s: GameState }) {
         {topCountry && <tr><td>最も多く送り出した国</td><td>{COUNTRY_SHORT[topCountry[0] as 'kingdom']}（{topCountry[1]}人）</td></tr>}
         <tr><td>最初の元帥</td><td>{marshal ? marshal.given : '—'}</td></tr>
         <tr><td>最初の宰相</td><td>{chancellor ? chancellor.given : '—'}</td></tr>
-        <tr><td>教官</td><td>{s.instructor.name}（{s.instructor.age}歳・教えた生徒 延べ{s.instructor.experience}人）</td></tr>
+        <tr><td>教官</td><td>{s.instructor.generation}代目 {s.instructor.name}（{s.instructor.age}歳・教えた生徒 延べ{s.instructor.experience}人）</td></tr>
+        {(s.pastInstructors ?? []).map((p) => <tr><td>歴代の教官（{p.generation}代目）</td><td>{p.name}（{p.from}〜{p.to}年目・延べ{p.taught}人）</td></tr>)}
       </tbody></table>
     </div>
   );

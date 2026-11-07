@@ -29,6 +29,7 @@ export function hireTeacher(s: GameState, id: string): boolean {
   const t = s.teacherCandidates.find((x) => x.id === id);
   if (!t || s.teachers.length >= B.teachers.max) return false;
   t.baseSalary ??= t.salary;
+  t.since = s.year;
   s.teacherCandidates = s.teacherCandidates.filter((x) => x.id !== id);
   s.teachers.push(t);
   chronicle(s, `講師${t.name}（${SKILL_NAMES[t.skill]}）を雇った`, 'school');

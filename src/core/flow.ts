@@ -19,6 +19,7 @@ import { prepareCareers, graduate, type CareerPlan } from './career';
 import { generateStudent } from './student';
 import { rollTeacherCandidates, monthlySalaries, yearlyRaises } from './teachers';
 import { absMonth, MONTH_NAMES } from './util';
+import { retireCheck, viceOf, cleanVice } from './instructor';
 import { TRAITS } from '../data/people';
 import type { BattleCtx } from './battle/engine';
 import { supportValue } from './support';
@@ -223,6 +224,18 @@ export function startMonth(s: GameState): void {
   s.quests = rollQuests(s);
   // 月の始めの自動の重点科目（未設定なら前月のまま）
   for (const g of [1, 2, 3]) if (!s.focus[g]) s.focus[g] = ['sword', 'lance'];
+  // 副教官（担任）が担当学年の重点科目を決める（教官はその月の間いつでも変えられる）
+  cleanVice(s);
+  for (const g of [1, 2, 3]) {
+    const v = viceOf(s, g);
+    if (!v) continue;
+    const list = enrolled(s).filter((x) => x.grade === g);
+    const count: Record<string, number> = {};
+    for (const st of list) for (const k of st.targets) count[k] = (count[k] ?? 0) + 1;
+    const top = Object.entries(count).sort((a, b) => b[1] - a[1]).map((x) => x[0] as SkillId);
+    if (top.length >= 2) s.focus[g] = [top[0], top[1]];
+    else if (top.length === 1) s.focus[g] = [top[0], v.t.skill === top[0] ? (s.focus[g]?.[1] ?? 'sword') : v.t.skill];
+  }
   if (s.month === 3) notify(s, '7月は夏の合宿：授業の伸びと疲労が1.5倍');
   if (s.month === 5) notify(s, '9月は公開演武会：月末の戦闘で活躍すると各国から声がかかる');
   if (s.month === 8) notify(s, '12月は冬の収穫祭：週末の交流が1回多く、支援が上がりやすい');
@@ -258,8 +271,10 @@ export function yearEnd(s: GameState, graduated: string[]): void {
   if (promo) addRep(s, Math.min(B.reputation.promotionMax, promo));
   // 評判は放っておくと少しずつ落ち着く（高いほど維持が難しい）
   if (s.reputation > B.reputation.decayFloor) addRep(s, -(s.reputation - B.reputation.decayFloor) * B.reputation.yearlyDecay);
-  // 6. 教官の加齢
+  // 6. 教官の加齢（50歳から年度末に引退を選べる。65歳で必ず引退）
   s.instructor.age += 1;
+  if (s.instructor.studentId && s.students[s.instructor.studentId]) s.students[s.instructor.studentId].age = s.instructor.age;
+  const rc = retireCheck(s);
   pruneArchive(s);
   yearlyRaises(s);
   // 8. 廃校期限
@@ -307,6 +322,7 @@ export function yearEnd(s: GameState, graduated: string[]): void {
   // 9. 新年度
   s.year += 1; s.month = 0; s.week = 1;
   for (const st of Object.values(s.students)) if (st.status === 'enrolled') st.offers = st.grade === 3 ? st.offers : st.offers;
+  if (rc.can) s.pending.push({ type: 'retire', forced: rc.forced });
   prepareEntrance(s);
   rollTeacherCandidates(s, r);
   startMonth(s);
