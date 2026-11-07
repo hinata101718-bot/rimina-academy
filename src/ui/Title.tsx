@@ -5,7 +5,7 @@ import { newGame } from '../core/game';
 import { makeSeed } from '../core/rng';
 import { BACKGROUNDS } from '../data/people';
 import { sfx, unlockAudio } from './sound';
-import { FaceSvg } from './Portrait';
+import { Portrait } from './Portrait';
 import type { GameState } from '../core/state';
 
 function isStandalone(): boolean {
@@ -138,7 +138,7 @@ function Opening({ slot, onCancel }: { slot: number; onCancel: () => void }) {
       <div class="card serif">講堂に集まったのは、たった{studs.length}人の生徒たち。緊張した顔で、新しい教官を見つめている。</div>
       <div class="card">
         {studs.map((st) => (
-          <div class="stu"><FaceSvg face={st.face} size={44} /><div class="grow"><b>{st.given}</b> <span class="muted">{st.family}</span><div class="muted small">{st.age}歳</div></div></div>
+          <div class="stu"><Portrait st={st} size={56} game={game!} /><div class="grow"><b>{st.given}</b> <span class="muted">{st.family}</span><div class="muted small">{st.age}歳</div></div></div>
         ))}
       </div>
       <div class="card serif">管理人「さあ、教官どの。まずは最初の一週間です。やることは『学校』の画面にまとまっておりますぞ」</div>

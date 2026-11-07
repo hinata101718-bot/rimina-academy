@@ -1,6 +1,6 @@
 // パーツ組み合わせの似顔絵（SVG）。public/faces/ に顔画像があれば差し替える
 import { HAIR_COLORS, HAIR_NAMES, SKIN_COLORS, COUNTRY_COLOR } from '../data/people';
-import type { Student, FaceParts } from '../core/state';
+import type { Student, FaceParts, GameState } from '../core/state';
 import { getGame } from './store';
 
 let faceFiles: string[] = [];
@@ -23,10 +23,10 @@ function parseFace(f: string): { g: string; hair: string } | null {
  * 在校生・志願者どうしで同じ顔にならないようにし、同じ性別・同じ髪色の顔を優先する
  * （顔は全員おそろいの学校の制服なので、出身国では分けない）。
  */
-export function faceImageFor(st: Student): string | null {
+export function faceImageFor(st: Student, game?: GameState | null): string | null {
   if (!faceFiles.length) return null;
   if (st.faceImage && faceFiles.includes(st.faceImage)) return `${import.meta.env.BASE_URL}faces/${st.faceImage}`;
-  const g = getGame();
+  const g = game ?? getGame();
   const used = new Set<string>();
   if (g) {
     for (const o of Object.values(g.students)) if (o.status === 'enrolled' && o.faceImage && o.id !== st.id) used.add(o.faceImage);
@@ -124,13 +124,13 @@ export function FaceSvg({ face, size = 48, dim = false }: { face: FaceParts; siz
   );
 }
 
-export function Portrait({ st, size = 48 }: { st: Student; size?: number }) {
-  const g = getGame();
+export function Portrait({ st, size = 48, game }: { st: Student; size?: number; game?: GameState }) {
+  const g = game ?? getGame();
   const dead = st.status === 'dead' || (st.career && !st.career.alive);
   if (g?.settings.portrait === 'dot') {
     return <span class="dot-face" style={{ width: size, height: size, background: COUNTRY_COLOR[st.origin], fontSize: size * 0.42, opacity: dead ? 0.5 : 1 }}>{st.given[0]}</span>;
   }
-  const img = faceImageFor(st);
+  const img = faceImageFor(st, g);
   if (img) {
     // 顔画像は胸から上の絵なので、小さい表示ほど顔のあたりを大きく切り抜く
     const zoom = size <= 64 ? 1.55 : size <= 120 ? 1.3 : 1.0;
