@@ -81,7 +81,7 @@ function report(all: RunResult[]): string {
   const policies = [...new Set(all.map((r) => r.policy))];
   const years = Math.max(...all.map((r) => r.rows.length));
   lines.push('# 長期シミュレーションの結果', '');
-  lines.push(`オートプレイ（画面なし・自動で判断）で **${years}年 × ${all.length / policies.length}回** を、進路の方針ごとに回した結果です。`, `作成：\`npm run sim\`（${new Date().toISOString().slice(0, 10)}）`, '');
+  lines.push(`オートプレイ（画面なし・自動で判断）で **${years}年 × ${all.length / policies.length}回** を、進路の方針ごとに回した結果です。`, `作成：\`npm run sim\`（${new Date().toISOString().slice(0, 10)}）`, '', '戦闘は **自動の戦闘**（5夜目）。作戦の方針・役割は依頼ごとのおすすめ、ここぞの選択は7割がおすすめ・3割がほかのもの（人が遊ぶときに近づけるため）。', '');
   lines.push('進路の方針：', ...policies.map((p) => `- **${POLICY_NAMES[p]}**`), '');
   lines.push('## 方針ごとのまとめ', '');
   lines.push('| 方針 | エラー | 最初のエンディング（回数） | 最初のエンディングの年（平均・最小〜最大） | 教官の代替わり（平均） | 最終年の所持金（平均） | 卒業後の戦死の割合（平均・最大の回） | 在学中の戦死（平均） |');

@@ -350,7 +350,7 @@ function downList(b: BattleState): string[] { return b.fallen.map((f) => f.stude
 function spot(a: AutoState, id: string, v = 1) { a.spot[id] = (a.spot[id] ?? 0) + v; }
 
 function sceneOf(b: BattleState, title: string, lines: AutoLine[], faces: string[]): AutoScene {
-  return { title, lines: lines.filter((l) => l.text).slice(0, 6), faces: [...new Set(faces)].slice(0, 6), momentum: momentum(b), hurt: hurtList(b), down: downList(b) };
+  return { title, lines: lines.filter((l) => l.text).slice(0, 5), faces: [...new Set(faces)].slice(0, 6), momentum: momentum(b), hurt: hurtList(b), down: downList(b) };
 }
 
 // 出来事：発生の条件と効果。条件を満たす候補から、直近に出たものを避けて選ぶ
@@ -474,7 +474,6 @@ function openingScene(s: GameState, b: BattleState, q: Quest): AutoScene {
   lines.push({ by: 'narr', text: [mapT, wT].filter(Boolean).join('') });
   const top = intel.types[0];
   const mk = intel.matchup >= 0.8 ? 'good' : intel.matchup <= -0.8 ? 'bad' : 'even';
-  if (top && mk !== 'even') lines.push({ by: 'narr', text: fill(pickText(s, r, MATCHUP_TEXT[mk]), { foe: `${top.name}${top.type === 'magic' ? 'の使い手' : '兵'}` }) });
   const L = b.auto!.leader;
   if (L) { const l = leaderLine(s, b, r, L.again ? 'again' : 'open'); if (l) lines.push(l); }
   if (b.enemyAlumni && s.students[b.enemyAlumni]) lines.push({ by: 'narr', text: fill(pickText(s, r, CLASH_TEXT.alumniFoe), { a: s.students[b.enemyAlumni].given }) });
@@ -482,6 +481,9 @@ function openingScene(s: GameState, b: BattleState, q: Quest): AutoScene {
   const faces = deployed(s, b).map((x) => x.st.id);
   if (ev.length) lines.push(...ev);
   else { const d = deployed(s, b); if (d.length) { const x = r.pick(d); lines.push(say(s, r, 'open', x.st)); } }
+  // 相性の一言は、場面が長くなりすぎないときだけ（5行まで）
+  if (top && mk !== 'even' && lines.length < 5) lines.splice(2, 0, { by: 'narr', text: fill(pickText(s, r, MATCHUP_TEXT[mk]), { foe: `${top.name}${top.type === 'magic' ? 'の使い手' : '兵'}` }) });
+  while (lines.length > 5) lines.splice(L && lines[2]?.by === 'leader' ? 1 : 2, 1);
   b.rng = r.h.rng;
   return sceneOf(b, '開戦', lines, ev.length ? [ev[1].by, ...faces] : faces);
 }
@@ -886,7 +888,7 @@ export function applyAutoResults(s: GameState, b: BattleState, r: Rng, lines: st
   // 演武会：場面で目立った子は点が上がる
   if (q?.kind === 'exhibition') for (const [id, v] of Object.entries(a.spot)) { const st = s.students[id]; if (st?.status === 'enrolled') st.exhibitionScore += v * AUTO.exhibitionBonus; }
   const mvp = mvpOf(s, b);
-  if (mvp) { const st = s.students[mvp]; lines.unshift(`MVP：${st.given}`); st.history.push({ year: s.year, text: `「${b.title}」でMVP` }); }
+  if (mvp) { const st = s.students[mvp]; st.history.push({ year: s.year, text: `「${b.title}」でMVP` }); }
   // 因縁の敵将
   const L = a.leader;
   if (L && q?.real) {

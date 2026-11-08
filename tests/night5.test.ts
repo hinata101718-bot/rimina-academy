@@ -67,7 +67,7 @@ describe('自動の戦闘', () => {
       if (main.length === 4) expect(a.choicesMade.length).toBeGreaterThanOrEqual(1);
       for (const sc of a.scenes) {
         expect(sc.lines.length).toBeGreaterThan(0);
-        expect(sc.lines.length).toBeLessThanOrEqual(6);
+        expect(sc.lines.length).toBeLessThanOrEqual(5);
         for (const l of sc.lines) { expect(l.text).not.toMatch(/\{\w+\}/); expect(l.text.length).toBeGreaterThan(0); }
         expect(sc.momentum).toBeGreaterThanOrEqual(0); expect(sc.momentum).toBeLessThanOrEqual(1);
       }

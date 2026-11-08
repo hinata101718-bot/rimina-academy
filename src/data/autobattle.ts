@@ -24,12 +24,12 @@ export interface TacticDef {
 }
 
 export const TACTICS: Record<TacticId, TacticDef> = {
-  careful: { id: 'careful', name: '慎重に', desc: '無理をしない。弱った子はすぐ下げる。勝ちにくいが、けがは少ない', fits: [], mod: { avo: 6, hit: -3 }, carefulHp: 0.6, injury: 10, tone: 'calm' },
+  careful: { id: 'careful', name: '慎重に', desc: '無理をしない。弱った子はすぐ下げる。勝ちにくいが、けがは少ない', fits: [], mod: { avo: 6, hit: -3 }, carefulHp: 0.6, injury: 5, tone: 'calm' },
   attack: { id: 'attack', name: '攻めろ', desc: '前へ出て一気に押す。勝ちやすいが、倒れる子も出やすい', fits: ['rout', 'escape'], mod: { hit: 6, dmg: 1, avo: -6 }, carefulHp: 0.3, injury: -5, tone: 'bold' },
-  protect: { id: 'protect', name: '仲間を守れ', desc: '近くの仲間をかばい合う。支援が深まりやすく、重傷で済みやすい', fits: ['escort', 'defend'], mod: { def: 1, dmg: -1 }, carefulHp: 0.5, injury: 15, tone: 'warm' },
+  protect: { id: 'protect', name: '仲間を守れ', desc: '近くの仲間をかばい合う。支援が深まりやすく、重傷で済みやすい', fits: ['escort', 'defend'], mod: { def: 1, dmg: -1 }, carefulHp: 0.5, injury: 10, tone: 'warm' },
   boss: { id: 'boss', name: '速攻で敵将を', desc: '敵将を真っ先に狙う。敵将を倒せば勝ちの戦いに強い', fits: ['boss', 'seize'], mod: { hit: 3, crit: 3 }, carefulHp: 0.4, injury: 0, focusBoss: true, tone: 'sharp' },
   rescue: { id: 'rescue', name: '救出・護衛を優先', desc: '目的の人のもとへまっすぐ向かう。敵を倒すのは後回し', fits: ['rescue', 'escort', 'escape'], mod: { avo: 3 }, carefulHp: 0.35, injury: 0, focusGoal: true, tone: 'warm' },
-  hold: { id: 'hold', name: '守りを固めろ', desc: '陣を固めて迎え撃つ。守る戦いに強い', fits: ['defend'], mod: { def: 2, avo: 3, hit: -2 }, carefulHp: 0.5, injury: 5, tone: 'calm' },
+  hold: { id: 'hold', name: '守りを固めろ', desc: '陣を固めて迎え撃つ。守る戦いに強い', fits: ['defend'], mod: { def: 2, avo: 3, hit: -2 }, carefulHp: 0.5, injury: 0, tone: 'calm' },
 };
 
 /** 勝利条件ごとに選べる方針（3〜4つ） */

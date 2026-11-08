@@ -14,6 +14,9 @@
 | `npm run build` | 公開用のファイルを `dist/` に作る |
 | `npm test` | 自動テスト |
 | `npm run sim -- 40 10` | 長期シミュレーション（40年×10回を、進路の方針「和平狙い・統一狙い・何もしない・中立狙い」ごとに。エンディングのあとは「この学校を続ける」）。結果は `docs/sim-report.md` |
+| `npx tsx scripts/mkshots5.ts <フォルダ>` → `SHOTS_DIR=<フォルダ> node scripts/ui-night5.cjs` | 自動の戦闘の画面の撮影（出撃前・場面・選択・結果・因縁の敵将） |
+| `npx tsx scripts/auto-demo.ts [番号]` | 自動の戦闘を1回、文字だけで流して場面と選択を見る |
+| `npx tsx scripts/auto-compare.ts [セーブ] [回数]` | 4夜目までの戦い方（手動のオートプレイ）と自動の戦闘で、勝率・戦死・重傷を比べる |
 | `npx tsx scripts/mkshots.ts <フォルダ>` → `SHOTS_DIR=<フォルダ> node scripts/ui-night4.cjs` | 画面の撮影（`npx vite` を起動してから。3夜目版のセーブを読み込んで全画面を撮り、横にはみ出した画面を知らせる） |
 | `npx tsx scripts/neutral-diag.ts neutral 6 40` | 学校の中立宣言の届きやすさを方針ごとに調べる |
 | `npx tsx scripts/check-talks.ts` | 会話データの検証（行数・分岐・10性格の文面・差し込み） |
@@ -26,6 +29,7 @@
 - `public/faces/` … 顔画像の差し替え口（`README.md` を参照）
 - `public/art/` … 季節・行事・エンディングの1枚絵の差し替え口（`README.md` を参照）
 - `src/core/instructor.ts` … 教官（技能の成長・引退と後継・副教官） ／ `src/core/ending.ts` … エンディングと殿堂
+- `docs/screenshots/night5/` … 5夜目の自動の戦闘の画面（幅390×高さ844）
 - `docs/screenshots/night4/` … 4夜目の画面の撮影（幅390×高さ844。3夜目は `night3/`）
 - `src/data/talks/` … 支援会話と面談の流れ・文面（`talks.ts`＝支援会話の流れ、`interviews.ts`＝面談の流れと先生のセリフ、`phrases*.ts`＝性格ごとの文面）
 - `src/data/spells.ts` … 魔法（技能ランクで覚える）
