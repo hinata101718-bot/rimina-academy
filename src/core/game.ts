@@ -19,6 +19,7 @@ import { rollQuests } from './quests';
 import { autoTargets } from './week';
 import { fx } from './mentor';
 import { startNewsDesk } from './newspaper';
+import { markYear } from './review';
 
 export function defaultSettings(): Settings {
   return {
@@ -83,6 +84,7 @@ export function newGame(opts: { name: string; background: string; seed: number; 
   if (opts.tutorial) s.tutorial = { tour: 0, seen: [] }; // 14夜目：最初の1時間の案内
   s.quests = rollQuests(s);
   ensureRegions(s); // 13夜目：勢力図
+  markYear(s); // 14夜目：1年の振り返りの控え
   return s;
 }
 

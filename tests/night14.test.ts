@@ -3,8 +3,8 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { deserialize } from '../src/core/save';
 import { newGame, enrolled } from '../src/core/game';
-import { autoYears, autoPending, setAutoChoicePick, humanLikePick, recommendSquads } from '../src/core/autoplay';
-import { battleCtx, finishBattle, chooseLesson, startSortie } from '../src/core/flow';
+import { autoYears, autoPending, setAutoChoicePick, humanLikePick, recommendSquads, autoCareerPlans } from '../src/core/autoplay';
+import { battleCtx, finishBattle, chooseLesson, startSortie, finishCareers } from '../src/core/flow';
 import { skipAuto } from '../src/core/battle/auto';
 import { todayCards, recommendCard } from '../src/core/lessons';
 import { stratSlots } from '../src/core/stratagems';
@@ -93,5 +93,40 @@ describe('最初の1時間の案内', () => {
     expect(s.gameOver).toBe(false);
     expect(s.year).toBe(3);
     expect(enrolled(s).length).toBeGreaterThan(0);
+  });
+});
+
+describe('1年の振り返り', () => {
+  it('年度末に、見出しつきの振り返りができ、年鑑に残る。卒業式のあとに出る', () => {
+    const s = newGame({ name: 'テスト', background: 'knight', seed: 21, startGrade: 3 });
+    let order: string[] = [];
+    for (let g = 0; g < 3000 && s.year === 1; g++) {
+      if (s.pending[0]?.type === 'career') { finishCareers(s, autoCareerPlans(s)); order = s.pending.map((p) => p.type); continue; }
+      if (s.month === 11 && s.pending.some((p) => p.type === 'questBoard') && s.pending[0].type !== 'questBoard') { s.pending.shift(); continue; }
+      if (s.month === 11 && s.pending[0]?.type === 'questBoard') { startSortie(s, recommendSquads(s)); for (let i = 0; i < 5 && s.battle; i++) { skipAuto(s, battleCtx(s)); finishBattle(s); } continue; }
+      if (s.pending.length) { if (s.pending.some((p) => p.type === 'career')) { while (s.pending[0]?.type !== 'career') s.pending.shift(); continue; } autoPending(s); }
+      else { todayCards(s); chooseLesson(s, recommendCard(s)); }
+    }
+    const rv = s.reviews?.find((x) => x.year === 1);
+    expect(rv).toBeTruthy();
+    expect(rv!.title).toMatch(/^第1年 ― .+年$/);
+    expect(rv!.nums.graduated).toBeGreaterThan(0);
+    expect(rv!.nums.battles).toBeGreaterThan(0);
+    expect(rv!.grads.length).toBeGreaterThan(0);
+    expect(rv!.closing.length).toBeGreaterThan(5);
+    expect(order.indexOf('graduation')).toBeLessThan(order.indexOf('yearReview'));
+  });
+  it('長く遊ぶと、年ごとに1つずつ残る（見出しは何種類かに分かれる）', () => {
+    const s = newGame({ name: 'テスト', background: 'knight', seed: 4 });
+    autoYears(s, 8);
+    expect((s.reviews ?? []).map((x) => x.year)).toEqual([1, 2, 3, 4, 5, 6, 7, 8]);
+    expect(new Set(s.reviews!.map((x) => x.title.split('―')[1])).size).toBeGreaterThan(2);
+  });
+  it('古いセーブは、年表から過去の年の分を作る', () => {
+    const s = deserialize(fixture('v13-day.json'));
+    const years = (s.reviews ?? []).map((x) => x.year);
+    expect(years).toEqual([1, 2, 3, 4]);
+    expect(s.reviews!.every((x) => x.rebuilt && x.title.startsWith(`第${x.year}年 ― `))).toBe(true);
+    expect(s.reviews!.find((x) => x.year === 3)!.grads.length).toBeGreaterThan(0);
   });
 });

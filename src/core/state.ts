@@ -406,6 +406,8 @@ export type Pending =
   | { type: 'event'; title: string; lines: string[] }
   /** 14夜目：案内役（管理人）の短い説明。はじめて出たときだけ */
   | { type: 'guide'; key: string; title: string; lines: string[] }
+  /** 14夜目：1年の振り返り（年度末、卒業式のあと） */
+  | { type: 'yearReview'; year: number }
   | { type: 'entrance' }
   | { type: 'career' }
   | { type: 'graduation'; cohort: number; lines: { id: string; text: string }[] }
@@ -542,6 +544,19 @@ export interface Settings {
 
 export interface Applicant { student: Student }
 
+/** 1年の振り返り（14夜目）。年鑑に残る。rebuilt＝古いセーブで年表から作った（数字の一部がない） */
+export interface YearReview {
+  year: number; title: string;
+  nums: { enrolled: number; graduated: number; blooms: number; deaths: number; newClass: number; battles?: number; won?: number; lost?: number };
+  scenes: { text: string; by?: string; kind: string }[];
+  grew?: { id: string; lv0: number; lv1: number };
+  mvp?: { id: string; honors: number };
+  grads: string[]; dead: { id: string; note: string }[]; alumniDead: string[];
+  world: string[]; closing: string; rebuilt?: boolean;
+}
+/** 年のはじめの控え（振り返りの数字の比べに使う） */
+export interface YearMark { year: number; won: number; lost: number; deaths: number; levels: Record<string, number>; honors: Record<string, number>; classes: number }
+
 /** 最初の1時間の案内（14夜目）。tour＝机の案内の進み、seen＝見た説明、off＝案内を飛ばした */
 export interface TutorialState { tour: number; seen: string[]; off?: boolean; talked?: boolean; /** 設定の「案内を見なおす」を押した（机の案内はいつでも） */ replay?: boolean }
 
@@ -614,6 +629,9 @@ export interface GameState {
   sortie?: Sortie | null;
   /** 学校で使える策（9夜目。data/stratagems.ts の id） */
   strats?: string[];
+  /** 14夜目：年ごとの振り返りと、年のはじめの控え */
+  reviews?: YearReview[];
+  yearMark?: YearMark;
   /** 14夜目：最初の1時間の案内（新しく始めたときだけ。古いセーブにはない） */
   tutorial?: TutorialState;
   /** 勢力図を前に見たときのようす（13夜目） */

@@ -40,6 +40,7 @@ import { checkEndings, peaceEraYear, seedHelp } from './ending';
 import { TRAITS } from '../data/people';
 import type { BattleCtx } from './battle/engine';
 import { supportValue, bestFriend } from './support';
+import { closeYear, markYear } from './review';
 import { tip, checkTips, firstTalk as tutorialTalk, tutorialMonth } from './tutorial';
 import { NIGHT_AFTER_DEATH, FRIEND_GRIEF, TEACHER_GRIEF, KEEPSAKE, RECOVERY } from '../data/aftermath_war';
 
@@ -564,6 +565,7 @@ export function finishCareers(s: GameState, plans: CareerPlan[]): void {
 
 export function yearEnd(s: GameState, graduated: string[]): void {
   const r = rng(s);
+  const pendFrom = s.pending.length;
   // 2. 進級
   for (const st of enrolled(s)) { st.grade += 1; st.age += 1; }
   // 3. 卒業生
@@ -632,12 +634,18 @@ export function yearEnd(s: GameState, graduated: string[]): void {
   checkEndings(s, r, 'year');
   // 13夜目：勢力図（戦争中の国境の地域が動く。統一なら大陸が一色に）
   yearlyRegions(s, r);
+  // 14夜目：1年の振り返り（卒業式と新聞のあと。エンディングの年は、エンディングのあとに）
+  const rv = closeYear(s);
+  let at = s.pending.length;
+  for (let i = s.pending.length - 1; i >= pendFrom; i--) if (s.pending[i].type === 'ending') { at = i + 1; break; }
+  s.pending.splice(at, 0, { type: 'yearReview', year: rv.year });
   // 9. 新年度
   s.year += 1; s.month = 0; s.week = 1; s.day = 1; s.today = null;
   for (const st of Object.values(s.students)) if (st.status === 'enrolled') st.offers = st.grade === 3 ? st.offers : st.offers;
   if (rc.can) s.pending.push({ type: 'retire', forced: rc.forced });
   prepareEntrance(s);
   rollTeacherCandidates(s, r);
+  markYear(s);
   startMonth(s);
   void graduated; void MONTH_NAMES; void absMonth; void tensionStage; void titleOf; void mail; void SKILL_NAMES; void getSupport; void available;
 }

@@ -14,19 +14,21 @@ import type { GameState, Student } from '../core/state';
 import { NewsView } from './Pending';
 import { MiniCard, CountryChip, countryColor } from './cards';
 import { Icon } from './icons';
+import { ReviewList } from './Review';
 
 export function YearbookTab() {
   const { s } = useStore();
-  const [tab, setTab] = useState<'roster' | 'photos' | 'chronicle' | 'records' | 'news' | 'hall'>('roster');
+  const [tab, setTab] = useState<'roster' | 'photos' | 'review' | 'chronicle' | 'records' | 'news' | 'hall'>('roster');
   if (!s) return null;
   return (
     <div>
       <h2>年鑑</h2>
       <div class="seg" style={{ marginBottom: 8 }}>
-        {(['roster', 'photos', 'chronicle', 'records', 'news', 'hall'] as const).map((t) => <button class={tab === t ? 'on' : ''} onClick={() => setTab(t)}>{{ roster: '卒業生', photos: '写真', chronicle: '年表', records: '記録', news: '新聞', hall: '殿堂' }[t]}</button>)}
+        {(['roster', 'photos', 'review', 'chronicle', 'records', 'news', 'hall'] as const).map((t) => <button class={tab === t ? 'on' : ''} onClick={() => setTab(t)}>{{ roster: '卒業生', photos: '写真', review: '振り返り', chronicle: '年表', records: '記録', news: '新聞', hall: '殿堂' }[t]}</button>)}
       </div>
       {tab === 'roster' && <Roster s={s} />}
       {tab === 'photos' && <Photos s={s} />}
+      {tab === 'review' && <ReviewList s={s} />}
       {tab === 'chronicle' && <Chronicle s={s} />}
       {tab === 'records' && <Records s={s} />}
       {tab === 'news' && <News s={s} />}

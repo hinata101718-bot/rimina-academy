@@ -21,6 +21,7 @@ import { liftGrowth, talentToApt } from './aptitude';
 import { learnArts } from './arts';
 import { ensureRegions, borderOf, setOwner } from './regions';
 import { RANK_POINTS } from '../data/balance';
+import { rebuildReviews } from './review';
 
 export interface SaveFile { app: 'rimina-academy'; version: number; savedAt: number; state: GameState }
 
@@ -402,9 +403,11 @@ function migrateTo13(s: GameState): void {
  * - 最初の1時間の案内は、新しく始めたときだけ（今のセーブには出さない。設定の「案内を見なおす」で出せる）
  */
 function migrateTo14(s: GameState): void {
+  rebuildReviews(s);
   s.pending ??= [];
   s.pending.push({ type: 'event', title: '14夜目の新しいこと', lines: NIGHT14_LINES });
 }
 const NIGHT14_LINES = [
+  '年度末（卒業式のあと）に「1年の振り返り」が出るようになりました。年鑑の「振り返り」で、これまでの年も読み返せます（前の年の分は、年表から作れるところまで作りました）。',
   'はじめて遊ぶ人のために、最初のひと月を管理人が案内するようになりました（新しく始めたときだけ）。設定の「案内を見なおす」で、はじめて出たものの説明をもう一度見られます。',
 ];
