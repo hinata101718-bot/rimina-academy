@@ -113,7 +113,7 @@ export function WorldMap({ s }: { s: GameState }) {
             const n = alumniIn(s, x.id).length;
             return (
               <button class={`wm-label ${o}${x.kind === 'capital' ? ' cap' : ''}${x.kind === 'school' ? ' school' : ''}`} style={{ left: `${(x.x / MAP_SIZE.w) * 100}%`, top: `${(x.y / MAP_SIZE.h) * 100}%` }} onClick={() => { sfx('move'); setSel(x.id); }}>
-                {x.kind === 'school' ? <span class="wm-star">★</span> : null}{x.kind === 'capital' ? '◆' : ''}{x.name}
+                {x.kind === 'school' ? <span class="wm-star">★</span> : null}{x.kind === 'capital' ? '◆' : ''}{zoom ? x.name : (x.short ?? x.name)}
                 {wars.has(x.id) && <i class="wm-war">⚔</i>}
                 {n > 0 && x.kind !== 'school' && <i class="wm-alum">{n}</i>}
               </button>
@@ -148,19 +148,25 @@ export function MapChangePlayer({ s, onDone }: { s: GameState; onDone: () => voi
   const list = mapChanges(s);
   const [i, setI] = useState(0);
   const [after, setAfter] = useState(false);
+  const frame = useRef<HTMLDivElement>(null);
+  const [box, setBox] = useState({ w: 0, h: 0 });
+  useEffect(() => { const el = frame.current; if (el) setBox({ w: el.clientWidth, h: el.clientHeight }); }, []);
   useEffect(() => { setAfter(false); const t = setTimeout(() => { setAfter(true); sfx('stamp'); }, 700); return () => clearTimeout(t); }, [i]);
   const c = list[i];
   if (!c) { onDone(); return null; }
   const r = REGION_BY_ID[c.id];
   const owners = Object.fromEntries(REGIONS.map((x) => [x.id, x.id === c.id ? (after ? c.to : c.from) : ownerOf(s, x.id)])) as Record<string, Owner>;
   // 寄る：その地域が真ん中に来るように、地図を大きくずらす
-  const tx = 50 - (r.x / MAP_SIZE.w) * 100 * 1.8, ty = 50 - (r.y / MAP_SIZE.h) * 100 * 1.8;
+  // 枠の大きさを測り、地図の上の位置（画素）で合わせる（枠と地図は縦横の比が違うため）
+  const SC = 1.8;
+  const fw = box.w || 360, fh = box.h || 480, mh = fw * (MAP_SIZE.h / MAP_SIZE.w);
+  const tx = fw / 2 - SC * (r.x / MAP_SIZE.w) * fw, ty = fh / 2 - SC * (r.y / MAP_SIZE.h) * mh;
   const next = () => { sfx('ok'); if (i + 1 < list.length) setI(i + 1); else onDone(); };
   return (
     <div class="oc-player wm-player" onClick={next}>
       <div class="oc-phead"><b class="serif">大陸の勢力図</b><span class="oc-pcount">変化 {i + 1}／{list.length}</span></div>
-      <div class="wm-pframe">
-        <div class="wm-pmap" style={{ transform: `translate(${tx}%, ${ty}%) scale(1.8)` }}><MapCanvas owners={owners} highlight={c.id} /></div>
+      <div class="wm-pframe" ref={frame}>
+        <div class="wm-pmap" style={{ transform: `translate(${tx}px, ${ty}px) scale(${SC})` }}><MapCanvas owners={owners} highlight={c.id} /></div>
         <div class={`wm-pname serif ${after ? c.to : c.from}`}>{r.name}</div>
       </div>
       <div class="oc-pwin">

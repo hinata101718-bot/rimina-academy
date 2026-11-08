@@ -80,6 +80,9 @@ function buildNodes(s: GameState, f: FactionId, prev: boolean, changes: OrgChang
 function OrgChart({ s, f, changes, focus, onOpen }: { s: GameState; f: FactionId; changes: OrgChange[]; focus: string | null; onOpen: (id: string) => void }) {
   const [prev, setPrev] = useState(false);
   const [play, setPlay] = useState<number | null>(null);
+  // 最後に引く：場面のあと、木の全体を見せて、変わった席だけを強く光らせる（13夜目）
+  const [finale, setFinale] = useState(false);
+  const endPlay = () => { setPlay(null); setFinale(true); setTimeout(() => treeRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50); setTimeout(() => setFinale(false), 2600); };
   const nodes = buildNodes(s, f, prev, changes);
   const kind = f === 'bandit' ? 'bandit' : 'army';
   const head = nodes.find((n) => n.rank === 0);
@@ -108,7 +111,7 @@ function OrgChart({ s, f, changes, focus, onOpen }: { s: GameState; f: FactionId
           </div>
         </div>
       )}
-      <div class="org-tree" ref={treeRef}>
+      <div class={`org-tree${finale ? ' finale' : ''}`} ref={treeRef}>
         <ul class="org-root">
           <li>
             {head ? <Node n={head} /> : <div class="org-vacant">{RANK_NAMES[kind][0]}の座は空いています</div>}
@@ -140,7 +143,7 @@ function OrgChart({ s, f, changes, focus, onOpen }: { s: GameState; f: FactionId
           ))}
         </div>
       ) : <div class="small muted">まだいません</div>}
-      {play !== null && changes[play] && <ChangePlayer s={s} c={changes[play]} i={play} n={changes.length} onNext={() => setPlay(play + 1 < changes.length ? play + 1 : null)} onClose={() => setPlay(null)} />}
+      {play !== null && changes[play] && <ChangePlayer s={s} c={changes[play]} i={play} n={changes.length} onNext={() => { if (play + 1 < changes.length) setPlay(play + 1); else endPlay(); }} onClose={() => setPlay(null)} />}
     </div>
   );
 }
@@ -190,7 +193,7 @@ function ChangePlayer({ s, c, i, n, onNext, onClose }: { s: GameState; c: OrgCha
   const fl = (x: string) => x.replace(/\{a\}/g, killer?.given ?? '').replace(/\{l\}/g, officerName(o));
   const head = f0(s, o.faction);
   const title = c.kind === 'fell' ? `${officerName(o)}、${killer ? `${killer.given}に` : ''}討たれる` : c.kind === 'raised' ? `${officerName(o)}、${rn(c.to ?? o.rank)}に抜擢` : c.kind === 'promote' ? `${officerName(o)}、${rn(c.to ?? o.rank)}の座に` : c.kind === 'new' ? `${officerName(o)}、新しく${rn(o.rank)}に` : c.kind === 'gone' ? `${officerName(o)}、去る` : c.kind === 'contest' ? `${officerName(o)}、${RANK_NAMES[o.kind === 'army' ? 'army' : 'bandit'][0]}の座をねらう` : c.kind === 'epithet' ? `${o.given}、「${officerName(o)}」と呼ばれる` : c.text;
-  const desc = c.kind === 'fell' ? `${rn(o.rank)}の席が空いた（このあと、だれかが座る）` : c.kind === 'raised' ? `「見込みのある兵」から上がった。${o.deed ?? ''}` : c.kind === 'promote' ? `${o.given}のいた${rn(c.from ?? o.rank + 1)}の席が空く → 次の変化で埋まる` : c.text;
+  const desc = c.kind === 'fell' ? `${rn(o.rank)}の席が空いた（このあと、だれかが座る）` : c.kind === 'raised' ? `「見込みのある兵」から上がった。${o.deed ?? ''}` : c.kind === 'promote' ? `${o.given}のいた${rn(c.from ?? o.rank + 1)}の席が空く → 次の変化で埋まる` : c.kind === 'new' ? `空いていた${rn(o.rank)}の席に、新しい顔が座った。戦場で会うかもしれない` : c.kind === 'gone' ? `${o.endNote ?? '戦場を去った'}。${rn(o.rank)}の席が空いた` : c.text;
   const say = c.kind === 'raised' ? `「この席は、おれが継ぐ」` : c.kind === 'promote' ? '「上の席が空いたなら、座るまでだ」' : c.kind === 'new' ? '「名を覚えておけ。すぐに思い知らせてやる」' : c.kind === 'contest' ? '「頭の座は、力ずくでいただく」' : '';
   return (
     <div class="oc-player" onClick={(e) => { e.stopPropagation(); sfx('move'); onNext(); }}>

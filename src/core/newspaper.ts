@@ -135,7 +135,7 @@ export function publishIssue(s: GameState, kind: 'first' | 'second', input: Issu
   const worldEv = period.filter((e) => e.kind === 'world');
   // 一面の候補：大事件 > 討たれた敵将 > 数字の動き
   const cands: Cand[] = [];
-  for (const e of worldEv) cands.push({ w: 10, head: e.text.replace(/^【[^】]*】/, ''), text: `${e.year}年目${e.month < 9 ? e.month + 4 : e.month - 8}月、${e.text.replace(/^【[^】]*】/, '')}。` });
+  for (const e of worldEv) cands.push({ w: /の手に（/.test(e.text) ? 7 : 10, head: e.text.replace(/^【[^】]*】/, ''), text: `${e.year}年目${e.month < 9 ? e.month + 4 : e.month - 8}月、${e.text.replace(/^【[^】]*】/, '')}。` });
   cands.push(...worldWords(s, r));
   for (const l of input.world ?? []) if (!l.startsWith('大陸は') && !cands.some((c) => c.head === l)) cands.push({ w: 5, head: l, text: `${l}。` });
   const orgs = orgChanges(s, input.officers ?? []);

@@ -13,6 +13,7 @@ import { recommendSquads } from '../core/autoplay';
 import { estimateWin } from '../core/battle/auto';
 import { OBJECTIVE_NAMES, WEATHER_NAMES } from '../core/quests';
 import { STRATS } from '../data/stratagems';
+import { REGION_BY_ID } from '../data/regions';
 import { TACTICS } from '../data/autobattle';
 import { SQUADS } from '../data/stratagems';
 import { enrolled } from '../core/game';
@@ -26,7 +27,7 @@ export function QuestCard({ x, onClick, tag }: { x: Quest; onClick?: () => void;
   return (
     <div class={`pcard${onClick ? ' tap' : ''}`} style={{ ['--band' as string]: x.clientCountry ? countryColor(x.clientCountry) : 'var(--main)' }} onClick={onClick}>
       <div class="row between nowrap"><span class="ptitle">{x.title}</span><span class="row nowrap gap4">{tag && <span class="flag gold">{tag}</span>}<span class={`flag ${x.real ? 'red' : ''}`}>{x.real ? '実戦' : x.kind === 'exhibition' ? '演武会' : '演習'}</span></span></div>
-      <div class="row nowrap gap6 small" style={{ marginTop: 2 }}>{x.clientCountry && <CountryChip o={x.clientCountry} />}<span class="muted">依頼主：{x.client}</span></div>
+      <div class="row gap6 small" style={{ marginTop: 2 }}>{x.clientCountry && <CountryChip o={x.clientCountry} />}<span class="muted">依頼主：{x.client}</span>{x.region && REGION_BY_ID[x.region] && <span class="muted">場所：{REGION_BY_ID[x.region].name}</span>}</div>
       <div class="infogrid">
         <div><Icon name={OBJECTIVE_ICON[x.objective]} size={17} />{OBJECTIVE_NAMES[x.objective]}{x.defendTurns && x.objective === 'defend' ? `（${x.defendTurns}ターン）` : ''}</div>
         <div><Icon name={WEATHER_ICON[x.weather]} size={17} />{WEATHER_NAMES[x.weather]}</div>
@@ -118,7 +119,7 @@ function SquadCard({ s, d, i, n, onOpen, onMove, onRemove, onAway }: { s: GameSt
       </div>
       <div class="tap" onClick={onOpen}>
         <div class="row between nowrap"><b class="serif">{q.title}</b><span class={`flag ${q.real ? 'red' : ''}`}>{q.real ? '実戦' : '演習'}</span></div>
-        <div class="small muted">{OBJECTIVE_NAMES[q.objective]}・{WEATHER_NAMES[q.weather]}・危険度{'★'.repeat(q.danger)}{q.reward ? `・報酬${q.reward}G` : ''}</div>
+        <div class="small muted">{OBJECTIVE_NAMES[q.objective]}・{WEATHER_NAMES[q.weather]}・危険度{'★'.repeat(q.danger)}{q.reward ? `・報酬${q.reward}G` : ''}{q.region && REGION_BY_ID[q.region] ? `・${REGION_BY_ID[q.region].name}` : ''}</div>
         <div class="sq-faces">{d.deploy.map((x) => { const st = s.students[x.studentId]; return st ? <span class="sq-face"><Portrait st={st} size={34} frame={countryColor(st.origin)} />{plan.captain === st.id && <i class="sq-captmark">長</i>}</span> : null; })}</div>
         <div class="small">部隊長：<b>{cap?.given ?? '—'}</b>　方針：{TACTICS[plan.tactic].name}　{d.manual ? '先生が指揮' : ''}</div>
         <div class="small">策：{(plan.strats ?? []).length ? (plan.strats ?? []).map((x) => <span class="st-chip">{STRATS[x].mark} {STRATS[x].name}</span>) : <span class="muted">なし</span>}</div>

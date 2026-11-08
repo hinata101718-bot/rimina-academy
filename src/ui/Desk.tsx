@@ -10,6 +10,7 @@ import { teacherSick } from '../core/lessons';
 import { mentorXp, abilityCost, abilityState } from '../core/mentor';
 import { MENTOR_ABILITIES } from '../data/mentor';
 import { COUNTRY_NAMES, COUNTRY_SHORT, SKILL_NAMES } from '../data/people';
+import { regionShare, mapChanges } from '../core/regions';
 import { budKnown } from '../core/aptitude';
 import { DAY_NAMES } from '../core/lessons';
 import { MONTH_NAMES } from '../core/util';
@@ -55,6 +56,9 @@ export function WarMap({ s }: { s: GameState }) {
     if (!label) label = `${COUNTRY_SHORT[atk]}の兵 ${DIRWORD[`${atk}>${def}`] ?? '進軍中'}`;
   }
   const stage = stageOf(s);
+  // 13夜目：勢力図とつなぐ（地方の数と、前に見たときからの変化）
+  const share = regionShare(s);
+  const changed = mapChanges(s).length;
   return (
     <button class={`deskmap st-${stage}`} onClick={() => { sfx('move'); navigate({ tab: 'war' }); }} aria-label="作戦地図。押すと戦況を開きます">
       <span class="pin l" /><span class="pin r" />
@@ -83,6 +87,8 @@ export function WarMap({ s }: { s: GameState }) {
       {label && <span class="maplabel">{label}</span>}
       <span class="mapnorth">北</span>
       <span class="stamp mapstamp">軍事機密</span>
+      <span class="mapshare">地方　<b class="k">王{share.kingdom}</b>・<b class="e">帝{share.empire}</b>・<b class="a">同{share.alliance}</b></span>
+      {changed > 0 && <span class="mapchanged">勢力図に変化 {changed}</span>}
     </button>
   );
 }

@@ -1607,7 +1607,7 @@ i.apt { font-style: normal; display: inline-flex; align-items: center; justify-c
 .wm-wrap.zoom .wm-map { width: 190%; }
 .wm-canvas { display: block; width: 100%; height: 100%; }
 .wm-year { position: absolute; top: 2%; left: 50%; transform: translateX(-50%); background: #f3e7cf; color: #3a2a1a; padding: 2px 14px; border-radius: 4px; font-size: 13px; pointer-events: none; box-shadow: 0 1px 4px rgba(0,0,0,.5); }
-.wm-label { position: absolute; transform: translate(-50%, -50%); font-size: 11px; line-height: 1.2; padding: 2px 5px; border-radius: 3px; color: #fff; border: 1px solid rgba(255,255,255,.6); white-space: nowrap; cursor: pointer; min-height: 22px; }
+.wm-label { position: absolute; transform: translate(-50%, -50%); font-size: 10.5px; line-height: 1.2; padding: 2px 4px; border-radius: 3px; color: #fff; border: 1px solid rgba(255,255,255,.6); white-space: nowrap; cursor: pointer; min-height: 22px; }
 .wm-wrap.zoom .wm-label { font-size: 13px; }
 .wm-label.kingdom { background: rgba(50, 85, 160, .9); }
 .wm-label.empire { background: rgba(160, 45, 38, .9); }
@@ -1634,7 +1634,7 @@ i.apt { font-style: normal; display: inline-flex; align-items: center; justify-c
 .oc-pbtns { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .oc-pbtns .btn { min-height: 48px; }
 .wm-pframe { position: relative; flex: 1; min-height: 0; overflow: hidden; border-radius: 12px; border: 2px solid #8a6a3a; background: #2a1d14; }
-.wm-pmap { position: absolute; inset: 0; transform-origin: 0 0; transition: transform .6s; }
+.wm-pmap { position: absolute; left: 0; top: 0; width: 100%; transform-origin: 0 0; transition: transform .6s; }
 .wm-pmap .wm-canvas { width: 100%; height: auto; }
 .wm-pname { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); padding: 4px 12px; border-radius: 4px; color: #fff; font-size: 18px; font-weight: bold; transition: background .5s; box-shadow: 0 0 12px rgba(0,0,0,.6); }
 .wm-pname.kingdom { background: rgba(50, 85, 160, .95); } .wm-pname.empire { background: rgba(160, 45, 38, .95); } .wm-pname.alliance { background: rgba(60, 120, 55, .95); } .wm-pname.wild { background: rgba(110, 104, 92, .95); }
@@ -1666,3 +1666,15 @@ i.apt { font-style: normal; display: inline-flex; align-items: center; justify-c
 .oc-pros { width: 100%; border-top: 2px dashed #d6ae4f; padding-top: 6px; display: flex; flex-direction: column; align-items: center; gap: 4px; }
 .oc-killer { display: flex; align-items: center; gap: 6px; width: 100%; justify-content: center; }
 .oc-x { color: #b4432f; font-size: 26px; }
+
+/* 13夜目：作戦地図と勢力図のつながり */
+.mapshare { position: absolute; left: 6px; bottom: 6px; z-index: 1; font-size: 11px; background: rgba(240, 225, 190, .85); color: #2a1608; padding: 1px 6px; border-radius: 3px; pointer-events: none; }
+.mapshare .k { color: #34558a; } .mapshare .e { color: #9a3a26; } .mapshare .a { color: #3f6e34; }
+.mapchanged { position: absolute; right: 6px; bottom: 6px; z-index: 1; font-size: 11px; font-weight: bold; background: #b8352a; color: #fff; padding: 1px 7px; border-radius: 9px; pointer-events: none; animation: wmPulse 1.6s ease-in-out infinite; }
+@keyframes wmPulse { 0%, 100% { opacity: 1; } 50% { opacity: .65; } }
+.wm-card .sheet, .wm-card .sheet h3 { color: var(--ink); }
+.wm-card .sheet .muted { color: var(--sub); }
+
+/* 13夜目：組織図の変化の最後に、木の全体へ引く */
+.org-tree.finale .org-node:not(.lit) { opacity: .45; transition: opacity .4s; }
+.org-tree.finale .org-node.lit .org-face { box-shadow: 0 0 0 4px #f6dc8c, 0 0 26px 10px rgba(245, 205, 95, .95); }
