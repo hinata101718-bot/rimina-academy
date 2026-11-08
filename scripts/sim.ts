@@ -4,11 +4,14 @@
 //   並べて回すとき：npx tsx scripts/sim.ts 30 10 peace --json=/tmp/peace.json  → 最後に --merge=a.json,b.json,c.json
 import { writeFileSync, readFileSync } from 'node:fs';
 import { newGame, enrolled } from '../src/core/game';
-import { autoYears, setCareerPolicy, setAutoEnding, type CareerPolicy } from '../src/core/autoplay';
+import { autoYears, setCareerPolicy, setAutoEnding, setAutoChoicePick, humanLikePick, setManualInSim, type CareerPolicy } from '../src/core/autoplay';
 import { continueSchool, endingTitle, ENDING_NAMES } from '../src/core/ending';
 import type { EndingKind } from '../src/core/state';
 // エンディングのあとは「この学校を続ける」を選ぶ（平和な時代）
 setAutoEnding((s) => continueSchool(s));
+// 戦闘は自動の戦闘（5夜目）。ここぞの選択は7割おすすめ・3割ほかのもの。--manual で4夜目までの戦い方
+setAutoChoicePick(humanLikePick(20261108));
+if (process.argv.includes('--manual')) setManualInSim(true);
 import { tensionStage, STAGE_NAMES, PAIRS, relStage, REL_NAMES } from '../src/core/world';
 import type { GameState } from '../src/core/state';
 import { BACKGROUNDS } from '../src/data/people';

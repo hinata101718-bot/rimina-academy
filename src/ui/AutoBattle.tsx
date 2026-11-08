@@ -44,7 +44,7 @@ export function AutoPrep({ s, q, onBack }: { s: GameState; q: Quest; onBack?: ()
     const t = setTimeout(() => setEst({ key, label: estimateWin(s, q, deploy, plan, battleCtx(s)).label }), 350);
     return () => clearTimeout(t);
   }, [key]);
-  const avail = enrolled(s).filter(available);
+  const avail = enrolled(s).filter(available).sort((x, y) => Number(ids.includes(y.id)) - Number(ids.includes(x.id)) || y.level - x.level);
   const toggle = (st: Student) => {
     sfx('move');
     if (ids.includes(st.id)) setDeploy(deploy.filter((d) => d.studentId !== st.id));
@@ -138,7 +138,7 @@ export function AutoPrep({ s, q, onBack }: { s: GameState; q: Quest; onBack?: ()
               <Portrait st={st} size={36} />
               <div class="grow" style={{ minWidth: 0 }}>
                 <NameLine st={st} size={15} family={false} />
-                <div class="small row nowrap gap4"><ClassName classId={st.classId} size={12} /><span class="muted ab-weapon" onClick={() => setGearOpen(gearOpen === st.id ? null : st.id)}>{d.armoryUid ? WEAPONS[s.armory.find((a) => a.uid === d.armoryUid)!.weaponId].name : spells[0] ?? '武器なし'} ▾</span></div>
+                <div class="small row nowrap gap4"><ClassName classId={st.classId} size={12} /><span class={`ab-weapon ${!d.armoryUid && !spells.length ? 'none' : 'muted'}`} onClick={() => setGearOpen(gearOpen === st.id ? null : st.id)}>{d.armoryUid ? WEAPONS[s.armory.find((a) => a.uid === d.armoryUid)!.weaponId].name : spells[0] ?? '武器なし'} ▾</span></div>
               </div>
             </div>
             <div class="seg ab-roleseg">

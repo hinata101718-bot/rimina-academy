@@ -368,7 +368,7 @@ export const LEADER_TEXT: Record<LeaderPersonality, LeaderText> = {
 // ---------- ここぞの選択 ----------
 export const CHOICE_TEXT = {
   help: { prompt: '{a}が敵に囲まれている！', go: '{a}を助けに行く', plan: '作戦を優先する', order: '{a}に「下がれ」と指示する', goNote: '仲間が割って入る。作戦は少し乱れる', planNote: '全体の勢いは増すが、{a}は危ない', orderNote: '信頼が高いほど届きやすい（{rate}%）' },
-  push: { prompt: '敵の勢いが強い。このままでは押し切られる……', retreat: '撤退する', push: '押し切る', aim: '{a}に「狙え」と指示して突破口を開く', retreatNote: '負けになるが、これ以上誰も傷つかない', pushNote: '全員で攻めに出る。倒れる子も出やすい', aimNote: '{a}の命中が大きく上がる' },
+  push: { prompt: '敵の勢いが強い。このままでは押し切られる……', retreat: '撤退する', push: '押し切る', aim: '{a}に「狙え」と指示して突破口を開く', again: '{a}に「もう一度動け」と指示する', againNote: 'すぐにもう一度攻撃できる（信頼が高いほど届きやすい）', retreatNote: '負けになるが、これ以上誰も傷つかない', pushNote: '全員で攻めに出る。倒れる子も出やすい', aimNote: '{a}の命中が大きく上がる' },
   duel: { prompt: '{leader}が一騎打ちを申しこんできた！', accept: '{a}が受ける', refuse: '断る', acceptNote: '勝ち目：{chance}', refuseNote: '敵の勢いが少し増す' },
   persuade: { prompt: '敵の中に、教え子の{a}がいる……', talk: '先生が呼びかける（説得）', fight: '戦う', talkNote: '信頼{trust}。高いほど届きやすい', fightNote: 'かつての教え子と刃を交える' },
   route: { prompt: '物見から「この先、伏兵の気配あり」と知らせが入った。', detour: '回り道をする', frontal: '正面から突っこむ', aim: '{a}に「狙え」と指示して伏兵を先に叩く', detourNote: '慎重に進む。守りが固くなる', frontalNote: '勢いで押しきる。攻めが強くなる', aimNote: '{a}の命中が大きく上がる' },
@@ -383,6 +383,9 @@ export const CHOICE_RESULT = {
   push: ['「押し切れ！」——教官の声に、全員が前へ出た！', '全員が一斉に攻めに転じた！'],
   aimOk: ['「{a}、狙え！」——{a}の目が、敵の急所をとらえた。'],
   aimNg: ['指示は{a}に届かなかった……'],
+  againOk: ['「{a}、もう一度だ！」——{a}が息つく間もなく踏みこんだ！', '{a}が教官の声に応え、すぐさま次の一撃を放った！'],
+  againMiss: ['{a}は動き出したが、届く敵がいなかった。'],
+  againNg: ['「もう一度動け」——指示は{a}に届かなかった……'],
   duelRefuse: ['教官は首を横に振った。「乗る必要はない」', '一騎打ちは断った。敵は鼻で笑う。'],
   duelWin: ['{a}の一撃が、{leader}をとらえた！ 一騎打ちは{a}の勝ちだ！'],
   duelLose: ['{leader}の刃に、{a}が膝をついた……一騎打ちは敵の勝ちだ。'],

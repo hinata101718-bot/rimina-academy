@@ -523,3 +523,4 @@ body { background-attachment: fixed; }
 .ab-mvp .ab-mvpl { display: inline-block; font-family: var(--mincho); font-weight: bold; color: #fff; background: var(--gold); border-radius: 4px; padding: 0 8px; font-size: 13px; letter-spacing: .1em; }
 @keyframes abIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
 @keyframes abBlink { 50% { opacity: .35; } }
+.ab-weapon.none { color: var(--accent); font-weight: bold; }

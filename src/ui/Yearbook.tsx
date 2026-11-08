@@ -5,7 +5,8 @@ import type { EndingKind } from '../core/state';
 import { ClassName } from './cards';
 import { useStore, navigate } from './store';
 import { StuRow } from './common';
-import { Portrait } from './Portrait';
+import { Portrait, FaceSvg } from './Portrait';
+import { LEADER_NAMES } from '../data/autobattle';
 import { titleOf } from '../core/alumni';
 import { COUNTRY_SHORT, PATH_NAMES, COUNTRIES } from '../data/people';
 import { MONTH_NAMES } from '../core/util';
@@ -121,7 +122,32 @@ function Records({ s }: { s: GameState }) {
         <tr><td>教官</td><td>{s.instructor.generation}代目 {s.instructor.name}（{s.instructor.age}歳・教えた生徒 延べ{s.instructor.experience}人）</td></tr>
         {(s.pastInstructors ?? []).map((p) => <tr><td>歴代の教官（{p.generation}代目）</td><td>{p.name}（{p.from}〜{p.to}年目・延べ{p.taught}人）</td></tr>)}
       </tbody></table>
+      <Nemeses s={s} />
     </div>
+  );
+}
+
+const MEET_NAMES = { win: '勝ったが取り逃がす', lose: '敗れる', fled: '取り逃がす', fell: '討ち取る' };
+/** 因縁の敵将（逃した敵将。また戦場で会うことがある） */
+function Nemeses({ s }: { s: GameState }) {
+  const list = [...(s.nemeses ?? [])].reverse();
+  return (
+    <>
+      <h3>因縁の敵将</h3>
+      {!list.length && <div class="muted small">まだいません。戦場で取り逃がした敵将は、ここに記録されます。</div>}
+      {list.map((n) => (
+        <div class="pcard" style={{ ['--band' as string]: n.country ? countryColor(n.country) : '#7a6a55' }}>
+          <div class="row nowrap gap8">
+            <span style={{ lineHeight: 0, borderRadius: '22%', overflow: 'hidden', border: '2px solid var(--accent)', flex: 'none', filter: n.status === 'defeated' ? 'grayscale(1)' : undefined }}><FaceSvg face={n.face} size={48} /></span>
+            <div class="grow">
+              <div class="row nowrap gap6"><b class="serif">{n.name}</b><span class={`flag ${n.status === 'active' ? 'red' : ''}`}>{n.status === 'active' ? '健在' : '決着'}</span></div>
+              <div class="small muted">{n.country ? COUNTRY_SHORT[n.country] : n.kind === 'monster' ? '魔物' : '盗賊'}・{LEADER_NAMES[n.personality as keyof typeof LEADER_NAMES] ?? ''}・<ClassName classId={n.classId} size={12} /> Lv{n.level}</div>
+            </div>
+          </div>
+          <ul class="list small" style={{ margin: '4px 0 0' }}>{n.meets.map((m) => <li>{m.year}年目 {MONTH_NAMES[m.month]}「{m.title}」：{MEET_NAMES[m.result]}</li>)}</ul>
+        </div>
+      ))}
+    </>
   );
 }
 

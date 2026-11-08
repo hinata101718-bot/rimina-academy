@@ -343,7 +343,7 @@ export interface GameState {
   /** 因縁の敵将（逃した敵将。5夜目） */
   nemeses?: Nemesis[];
   /** 自動の戦闘で直近に使った文・出来事（同じ並びを避ける） */
-  autoMemory?: { lines: string[]; events: string[] };
+  autoMemory?: { lines: string[]; events: string[]; n?: number };
   nextId: number;
   settings: Settings;
   guideStep: number;

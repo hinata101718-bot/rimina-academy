@@ -97,6 +97,11 @@ export function finishAuto(s: GameState, pick?: (c: AutoChoice) => number): void
   finishBattle(s);
 }
 let autoChoicePick: ((c: AutoChoice) => number) | undefined;
+/** シミュレーション用の選び方：たいていはおすすめ、ときどき別のもの（人が遊ぶときに近づける） */
+export function humanLikePick(seed = 1): (c: AutoChoice) => number {
+  let h = seed | 0;
+  return (c) => { h = (Math.imul(h ^ (h >>> 13), 1103515245) + 12345) | 0; const v = ((h >>> 8) & 0xffff) / 0xffff; return v < 0.7 ? c.recommended : Math.floor(v * 1000) % c.options.length; };
+}
 /** シミュレーション用：選択の選び方を差し替える */
 export function setAutoChoicePick(f: ((c: AutoChoice) => number) | undefined): void { autoChoicePick = f; }
 let manualInSim = false;

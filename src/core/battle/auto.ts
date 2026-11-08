@@ -12,7 +12,7 @@ import type { BattleState, Unit, FeedEntry } from './types';
 import type { PersonalityId } from '../types';
 import { Rng } from '../rng';
 import { createBattle, enemyUnit, type Deploy } from './setup';
-import { autoPlayerPhase, endPlayerPhase, startPlayerPhase, rewind, canRewind, commandRate, finish, checkEnd, type BattleCtx } from './engine';
+import { autoPlayerPhase, endPlayerPhase, startPlayerPhase, rewind, canRewind, commandRate, finish, checkEnd, enemyAct, type BattleCtx } from './engine';
 import { forecast, weaponOf, staffOf, dist } from './calc';
 import { generateFace } from '../student';
 import { getSupport, supportValue } from '../support';
@@ -70,11 +70,14 @@ function addMod(u: Unit, m: UnitMod, k = 1): void {
 function pickText(s: GameState, r: Rng, list: readonly string[] | undefined): string {
   if (!list || !list.length) return '';
   const mem = (s.autoMemory ??= { lines: [], events: [] });
-  const t = r.weighted(list, (x) => (mem.lines.includes(String(hash(x))) ? AUTO.recentPenalty : 1));
+  const salt = mem.n ?? 0;
+  const t = r.weighted(list, (x) => (mem.lines.includes(String(hash(x))) ? AUTO.recentPenalty : 1) * jitter(x, salt));
   mem.lines.push(String(hash(t)));
   if (mem.lines.length > AUTO.recentLines) mem.lines.splice(0, mem.lines.length - AUTO.recentLines);
   return t;
 }
+/** 戦闘ごとに変わる小さなゆらぎ（同じ戦いの流れでも、文の選ばれ方が変わる） */
+function jitter(x: string, salt: number): number { return 0.35 + (((hash(x) ^ Math.imul(salt + 1, 0x9e3779b1)) >>> 0) % 1000) / 770; }
 function say(s: GameState, r: Rng, key: string, st: Student, v: Record<string, string> = {}): AutoLine {
   return { by: st.id, text: fill(pickText(s, r, SAY[key]?.[st.personality]), { a: st.given, ...v }) };
 }
@@ -207,7 +210,10 @@ function makeLeader(s: GameState, q: Quest, b: BattleState, r: Rng): void {
     const origin = q.enemyCountry ?? 'frontier';
     const g = r.chance(0.3) ? 'f' : 'm';
     const nl = NAMES[origin];
-    const given = r.pick(g === 'f' ? nl.female : nl.male);
+    // 生徒・卒業生と同じ名前は避ける
+    const taken = new Set(Object.values(s.students).map((x) => x.given));
+    let given = r.pick(g === 'f' ? nl.female : nl.male);
+    for (let k = 0; k < 8 && taken.has(given); k++) given = r.pick(g === 'f' ? nl.female : nl.male);
     name = kind === 'bandit' ? `${r.pick(BANDIT_EPITHETS)}${given}` : `${given}・${r.pick(nl.family)}`;
     pers = r.pick(kind === 'bandit' ? ['arrogant', 'cunning', 'young', 'veteran'] as const : ['arrogant', 'veteran', 'cunning', 'proud', 'young', 'cold'] as const);
     face = generateFace(r, origin, g);
@@ -399,7 +405,7 @@ function takeEvent(s: GameState, b: BattleState, r: Rng, phase: 'open' | 'mid'):
   const cands = eventCandidates(s, b, phase);
   if (!cands.length) return [];
   const mem = (s.autoMemory ??= { lines: [], events: [] });
-  const c = r.weighted(cands, (x) => x.weight * (mem.events.includes(x.id) ? AUTO.recentPenalty * 2 : 1));
+  const c = r.weighted(cands, (x) => x.weight * (mem.events.includes(x.id) ? AUTO.recentPenalty * 2 : 1) * jitter(x.id + x.a.id, mem.n ?? 0));
   c.apply();
   a.events.push(`${c.id}:${c.a.id}`);
   mem.events.push(c.id);
@@ -575,6 +581,8 @@ function makeChoice(s: GameState, b: BattleState, ctx: BattleCtx, second: boolea
       { id: 'retreat', label: T.retreat, note: T.retreatNote },
     ];
     if (best) opts.push({ id: `aim:${best.u.uid}`, actor: best.st.id, label: fill(T.aim, v), note: T.aimNote });
+    const strong = [...mine].filter((x) => weaponOf(x.u) && x.u !== best?.u).sort((p, q) => q.u.stats.str + q.u.stats.mag - p.u.stats.str - p.u.stats.mag)[0];
+    if (strong) opts.push({ id: `again:${strong.u.uid}`, actor: strong.st.id, label: fill(T.again, { a: strong.st.given }), note: T.againNote });
     cands.push({ w: 6 + (0.45 - m) * 20, c: { kind: 'push', prompt: T.prompt, recommended: m < 0.3 ? 1 : 0, options: opts } });
   }
   // 伏兵の気配（どの戦いでも出せる予備の選択）
@@ -686,7 +694,8 @@ export function chooseAuto(s: GameState, idx: number, ctx: BattleCtx): void {
       a.careful = [];
       lines.push({ by: 'narr', text: pickText(s, r, CHOICE_RESULT.push) });
       if (mine.length) lines.push(say(s, r, 'open', r.pick(mine).st));
-    } else aimLines(s, b, r, ctx, o.id.slice(4), lines, faces);
+    } else if (o.id.startsWith('again:')) againLines(s, b, r, ctx, o.id.slice(6), lines, faces);
+    else aimLines(s, b, r, ctx, o.id.slice(4), lines, faces);
   } else if (c.kind === 'route') {
     if (o.id === 'detour') { for (const x of mine) addMod(x.u, AUTO.detourMod); lines.push({ by: 'narr', text: pickText(s, r, CHOICE_RESULT.detour) }); }
     else if (o.id === 'frontal') { for (const x of mine) addMod(x.u, AUTO.frontalMod); lines.push({ by: 'narr', text: pickText(s, r, CHOICE_RESULT.frontal) }); if (mine.length) lines.push(say(s, r, 'open', r.pick(mine).st)); }
@@ -743,6 +752,30 @@ export function chooseAuto(s: GameState, idx: number, ctx: BattleCtx): void {
   advanceAuto(s, ctx);
 }
 
+/** 指示「もう一度動け」：その子がすぐにもう一度攻撃する（このターンの行動は別に残る） */
+function againLines(s: GameState, b: BattleState, r: Rng, ctx: BattleCtx, uid: string, lines: AutoLine[], faces: string[]) {
+  const u = b.units.find((x) => x.uid === uid);
+  const st = u?.studentId ? s.students[u.studentId] : null;
+  if (!u || !st) return;
+  faces.push(st.id);
+  b.rng = r.h.rng;
+  const ok = r.next() * 100 < commandRate(ctx, u);
+  if (!ok) { lines.push({ by: 'narr', text: fill(CHOICE_RESULT.againNg[0], { a: st.given }) }); return; }
+  const kills = u.kills;
+  b.rng = r.h.rng;
+  u.acted = false; u.moved = false;
+  const ox = u.x, oy = u.y;
+  enemyAct(b, autoCtx(ctx, b), u, true);
+  const acted = u.acted;
+  u.acted = false; u.moved = false;
+  r.h.rng = b.rng;
+  lines.push({ by: 'narr', text: fill(pickText(s, r, acted ? CHOICE_RESULT.againOk : CHOICE_RESULT.againMiss), { a: st.given }) });
+  if (u.kills > kills) lines.push(say(s, r, 'kill', st));
+  if (!acted) { u.x = ox; u.y = oy; }
+  spot(b.auto!, st.id, 1);
+  checkEnd(b);
+}
+
 function aimLines(s: GameState, b: BattleState, r: Rng, ctx: BattleCtx, uid: string, lines: AutoLine[], faces: string[]) {
   const u = b.units.find((x) => x.uid === uid);
   const st = u?.studentId ? s.students[u.studentId] : null;
@@ -759,6 +792,8 @@ export function startAutoBattle(s: GameState, q: Quest, deploys: Deploy[], plan:
   const b = buildBattle(s, q, deploys, plan, seed);
   startPlayerPhase(b);
   s.battle = b;
+  const mem = (s.autoMemory ??= { lines: [], events: [] });
+  mem.n = ((mem.n ?? 0) + 1) % 100000;
   b.auto!.scenes.push(openingScene(s, b, q));
   advanceAuto(s, ctx);
 }
