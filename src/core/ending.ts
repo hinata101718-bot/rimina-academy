@@ -42,7 +42,8 @@ export function yearlyUnifyCount(s: GameState): void {
 export function endingReady(s: GameState, when: 'year' | 'month'): { kind: EndingKind; country?: CountryId } | null {
   const w = s.world;
   if (w.era === 'peace') return null;
-  const done = new Set((s.endings ?? []).filter((e) => e.year >= (lastRelapse(s) ?? 0)).map((e) => e.kind));
+  // 同じエンディングは一度だけ（再び戦の気配が漂ったあとは、まだ届いていないエンディングだけ）
+  const done = new Set((s.endings ?? []).map((e) => e.kind));
   const E = B.ending;
   // 和平の円卓（和平会議の月にも）
   if (w.peaceRoundYear && !done.has('peace') && !(s.endings ?? []).some((e) => e.kind === 'peace')) return { kind: 'peace' };
@@ -73,10 +74,6 @@ export function neutralRevealed(s: GameState): boolean {
   return s.reputation >= B.ending.neutralRevealRep || (s.endings ?? []).some((e) => e.kind === 'neutral');
 }
 
-function lastRelapse(s: GameState): number | null {
-  const r = [...s.chronicle].reverse().find((c) => c.text.startsWith('再び戦の気配'));
-  return r ? r.year : null;
-}
 
 /** 判定して、エンディングの場面を処理待ちに積む */
 export function checkEndings(s: GameState, rng: Rng, when: 'year' | 'month'): EndingKind | null {

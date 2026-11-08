@@ -124,3 +124,14 @@ describe('3夜目の版のセーブ', () => {
     expect(s.gameOver).toBe(false);
   });
 });
+
+describe('エンディングは一度だけ', () => {
+  it('再び戦の気配が漂っても、届いたことのあるエンディングには二度届かない', () => {
+    const s = deserialize(fixture('v3-save.json'));
+    s.endings = [{ kind: 'unify', year: s.year - 2, country: 'empire' }];
+    s.chronicle.push({ year: s.year - 1, text: '再び戦の気配が大陸に漂いはじめた', kind: 'world' } as never);
+    s.world.era = null; s.world.peaceRoundYear = null;
+    s.world.unifyYears = { empire: 5 };
+    expect(endingReady(s, 'year')?.kind).not.toBe('unify');
+  });
+});
