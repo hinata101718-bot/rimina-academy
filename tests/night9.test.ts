@@ -215,7 +215,8 @@ describe('策（作戦カード）と陣形', () => {
       expect((s.battle!.auto!.strats ?? []).some((x) => x.id === 'withdraw' && x.early)).toBe(true);
     } else {
       advanceAuto(s, battleCtx(s));
-      expect((s.battle!.auto!.strats ?? []).some((x) => x.id === 'withdraw')).toBe(true);
+      // 14夜目：はじめのぶつかり合いで決着したときは、残した策を切る前に終わる（日時によってまれに起きる）
+      expect((s.battle!.auto!.strats ?? []).some((x) => x.id === 'withdraw') || s.battle!.phase === 'done').toBe(true);
     }
     skipAuto(s, battleCtx(s)); finishBattle(s);
     const p = s.pending.find((x) => x.type === 'battleResult');

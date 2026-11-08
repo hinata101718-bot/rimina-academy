@@ -1,5 +1,6 @@
 // 進路（声かけ・希望・推薦の三者）と卒業式
 import { favoriteItem, itemName, graduateWith } from './rarity';
+import { gradWord } from './senpai';
 import { ARM_SKILLS } from '../data/balance';
 import { B } from '../data/balance';
 import { careerTitleOnly } from './discovery';
@@ -132,6 +133,8 @@ export function graduate(s: GameState, rng: Rng, plans: CareerPlan[]): { id: str
       addTrust(kohai, 2);
     }
     if (favItem && st.keepsake) graduateWith(s, st, favItem);
+    // 14夜目：卒業式の一言に、いちばん親しい後輩の名前
+    if (st.trust >= 20) { const gw = gradWord(s, rng, st); if (gw) { st.farewell = `${st.farewell}　${gw}`; const ln = lines.find((x) => x.id === st.id); if (ln) ln.text = st.farewell; } }
     // 10夜目：気づかずに卒業した芽（年鑑と個人ページに「実は〇〇の芽があった」）
     if (st.bud && !st.bud.done) st.history.push({ year: s.year, text: st.bud.gold ? '実は、金の芽（英雄の器）を持っていた' : `実は、${SKILL_NAMES[st.bud.skill!]}に眠った芽があった` });
     s.stats.graduates += 1;

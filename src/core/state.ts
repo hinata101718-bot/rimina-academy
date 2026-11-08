@@ -63,6 +63,8 @@ export interface Student {
   archive?: string[];
   /** 12夜目：覚えた戦技・心得、付けているもの（おまかせ。手で選んだら artsManual） */
   arts?: string[]; artsOn?: string[]; artsManual?: boolean;
+  /** 14夜目：卒業生の講師に手ほどきを受けた技（1つ前のランクで覚える） */
+  taught?: string[];
   /** 10夜目：この子と見た面談・相談の題（同じ会話を二度出さない） */
   seenTalks?: string[];
   /** 信頼40・70・90の特別な面談のうち、済んだもの */

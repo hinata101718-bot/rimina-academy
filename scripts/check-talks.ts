@@ -61,7 +61,7 @@ for (const d of INTERVIEWS) {
   }
 }
 for (const [k, e] of Object.entries(TEACHER_PHRASES)) for (const bg of ['knight', 'merc', 'mage', 'wanderer'] as const) {
-  if (!e[bg]) errors.push(`TEACHER_PHRASES.${k}: ${bg} がない`); else checkText(`TEACHER_PHRASES.${k}.${bg}`, e[bg]);
+  if (!e[bg]) errors.push(`TEACHER_PHRASES.${k}: ${bg} がない`); else for (const x of [e[bg]].flat()) checkText(`TEACHER_PHRASES.${k}.${bg}`, x);
 }
 
 for (const [key, entry] of Object.entries(PHRASES)) {

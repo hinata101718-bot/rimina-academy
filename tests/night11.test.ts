@@ -59,7 +59,9 @@ describe('先輩と後輩', () => {
   it('先輩と後輩の支援会話がある（C・B・A）。言葉の差し込みが見つかる', () => {
     const ts = TALKS.filter((t) => t.topic === 'rel_senpai');
     expect(new Set(ts.map((t) => t.rank))).toEqual(new Set(['C', 'B', 'A']));
-    for (const t of ts) for (const l of t.lines) expect(PHRASES[l.say as string]).toBeTruthy();
+    // 14夜目：分岐の中の文面も
+    const keys = (x: unknown): string[] => (typeof x === 'string' ? [x] : [...keys((x as { then: unknown }).then), ...keys((x as { else: unknown }).else)]);
+    for (const t of ts) for (const l of t.lines) for (const k of keys(l.say)) expect(PHRASES[k]).toBeTruthy();
   });
   it('数年遊ぶと、先輩と後輩の組ができ、卒業する先輩が後輩に何かを託す', () => {
     let pair = false, handed = false;

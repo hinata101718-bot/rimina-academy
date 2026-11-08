@@ -24,7 +24,7 @@ function renderIv(s: GameState, rng: Rng, lines: TalkLine[], st: Student): TalkL
     const key = resolve(l.say);
     if (!key) continue;
     if (l.by === 'n') out.push({ by: 'narr', text: fillText(IV_NARR[key] ?? phrase(rng, key, 'default'), s, st, null, '') });
-    else if (l.by === 't') out.push({ by: 'teacher', text: fillText(TEACHER_PHRASES[key]?.[bg] ?? `（${key}）`, s, null, st, '') });
+    else if (l.by === 't') { const v = TEACHER_PHRASES[key]?.[bg]; const t = Array.isArray(v) ? v[(rng.int(0, 999)) % v.length] : v; out.push({ by: 'teacher', text: fillText(t ?? `（${key}）`, s, null, st, '') }); } // 14夜目：締めの言葉はいくつかから
     else out.push({ by: st.id, text: fillText(phrase(rng, key, st.personality), s, st, null, '') });
   }
   return out;

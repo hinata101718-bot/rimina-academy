@@ -196,3 +196,51 @@ describe('引き継ぎの文字', () => {
     await expect(decodeTransfer('こんにちは')).rejects.toThrow();
   });
 });
+
+import { TALKS } from '../src/data/talks';
+import { alumniTeach, canLearn } from '../src/core/arts';
+import { ARTS } from '../src/data/arts';
+import { execSync } from 'node:child_process';
+describe('先輩と後輩の続き・台詞・卒業生の講師', () => {
+  it('先輩と後輩の支援会話は7本、ほかの支援会話と同じ長さで、どれも分岐が2つ以上', () => {
+    const sp = TALKS.filter((t) => t.topic === 'rel_senpai');
+    expect(sp.length).toBeGreaterThanOrEqual(7);
+    const R: Record<string, number> = { C: 8, B: 10, A: 14 };
+    for (const t of sp) {
+      expect(t.lines.filter((l) => l.by !== 'n').length).toBeGreaterThanOrEqual(R[t.rank]);
+      expect(t.lines.filter((l) => typeof l.say !== 'string').length).toBeGreaterThanOrEqual(2);
+    }
+  });
+  it('長く遊ぶと、卒業した先輩から後輩へ手紙が届き、卒業式の一言に後輩の名前が入る', { timeout: 120000 }, () => {
+    let letter = false, word = false;
+    for (const seed of [3, 4, 5, 6]) {
+      const s = newGame({ name: 'テスト', background: 'knight', seed });
+      autoYears(s, 8);
+      letter ||= Object.values(s.students).some((x) => x.history.some((h) => h.text.includes('先輩から手紙が届いた')));
+      word ||= Object.values(s.students).some((x) => (x.farewell ?? '').includes('　'));
+      if (letter && word) break;
+    }
+    expect(letter).toBe(true);
+    expect(word).toBe(true);
+  });
+  it('卒業生の講師は、目標の技能が合う子に自分の技の手ほどきをし、1つ前のランクで覚えられるようになる', () => {
+    const s = newGame({ name: 'テスト', background: 'knight', seed: 9 });
+    const st = enrolled(s)[0];
+    const alum = enrolled(s)[1];
+    const art = Object.values(ARTS).find((a) => a.skill === 'sword' && a.rank === 'C' && !a.bloom)!;
+    alum.arts = [art.id];
+    s.teachers.push({ id: 't1', name: alum.given, skill: 'sword', points: 300, salary: 100, alumniId: alum.id });
+    st.targets = ['sword', 'lance']; st.apt = { good: [], bad: [] }; st.arts = [];
+    st.skills.sword = 100; // D+ （Cの1つ前のDは越えている）
+    expect(canLearn(st, art)).toBe(false);
+    const lines: string[] = [];
+    alumniTeach(s, ['sword'], [st], lines);
+    expect(st.taught).toContain(art.id);
+    expect(st.arts).toContain(art.id);
+    expect(lines[0]).toContain(alum.given);
+  });
+  it('ぎこちない読点の点検で、残りは20か所より少ない', () => {
+    const out = execSync('npx tsx scripts/check-awkward.ts', { encoding: 'utf8' });
+    expect(Number(out.match(/(\d+)か所/)![1])).toBeLessThan(20);
+  });
+});

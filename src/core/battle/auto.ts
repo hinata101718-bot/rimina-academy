@@ -1,5 +1,6 @@
 // 自動の戦闘（5夜目）：今の戦闘の計算を裏で手早く回し、その記録から場面と出来事を拾う。
 import { legendOfOfficer, legendModOf } from '../rarity';
+import { reunionLine } from '../senpai';
 // 出撃前の作戦の方針・役割、ここぞの選択（1〜2回）、敵将の口上と因縁、結果の講評。
 import { rollLoot } from '../loot';
 import { officerArts } from '../arts';
@@ -644,7 +645,10 @@ function openingScene(s: GameState, b: BattleState, q: Quest): AutoScene {
     if (alum) {
       const al = alumniLines(s, alum, r);
       lines.push({ by: 'leader', text: al[0] });
-      if (al[1]) special.push({ by: 'leader', text: al[1] });
+      // 14夜目：敵として向かい合った先輩が、後輩の名前を呼ぶ
+      const ru = reunionLine(s, r, alum, ids, 'foe');
+      if (ru) { special.push({ by: 'leader', text: ru.text }); faces.unshift(ru.kohai); }
+      else if (al[1]) special.push({ by: 'leader', text: al[1] });
     } else if (o && o.meets.length && o.kind !== 'monster') {
       if (o.scars) lines.push({ by: 'narr', text: fill(r.pick(SCAR_RETURN), { leader: L.name, scar: SCAR_TEXT[Math.min(4, o.scars)] }) });
       const mem = memoryLine(s, o, ids, r);
@@ -705,7 +709,12 @@ function midScene(s: GameState, b: BattleState, title: string, q: Quest): AutoSc
   lines.push(...ev);
   // 援軍
   const ally = b.units.find((u) => u.side === 'ally' && u.studentId && !(b.auto!.events.includes('reinforce')));
-  if (ally && s.students[ally.studentId!]) { lines.push({ by: 'narr', text: fill(pickText(s, r, CLASH_TEXT.reinforce), { a: s.students[ally.studentId!].given }) }); b.auto!.events.push('reinforce'); }
+  if (ally && s.students[ally.studentId!]) {
+    lines.push({ by: 'narr', text: fill(pickText(s, r, CLASH_TEXT.reinforce), { a: s.students[ally.studentId!].given }) }); b.auto!.events.push('reinforce');
+    // 14夜目：援軍に来た先輩が、後輩の名前を呼ぶ
+    const ru = reunionLine(s, r, s.students[ally.studentId!], deployed(s, b).map((x) => x.st.id), 'ally');
+    if (ru) lines.push({ by: ally.studentId!, text: ru.text });
+  }
   if (title === '山場' && momentum(b) >= 0.62) { const l = leaderLine(s, b, r, 'cornered'); if (l && b.units.some((u) => u.uid === b.auto!.leader?.uid && !u.dead)) lines.push(l); }
   if (lines.length < 3) lines.push(momentumLine(s, b, r));
   const raise = raiseGrunts(s, b, r, q, false);

@@ -1,5 +1,6 @@
 // 日ごとの授業カード（7夜目）：全学年いっしょ・1日1回。毎日5種類＋休講から1つ選ぶ。DOMに依存しない
 import { firstLessonDay } from './tutorial';
+import { alumniTeach } from './arts';
 import { STRAT } from '../data/stratagems';
 import { isGood, budKnown, checkBloom } from './aptitude';
 import { B, SKILLS, STATS } from '../data/balance';
@@ -329,6 +330,8 @@ export function resolveLesson(s: GameState, r: Rng, idx: number, talkWith?: stri
 
   // 雇った講師・卒業生講師は、自分の科目の授業の日に自動で少しずつ上がる（教官は8夜目から経験ポイントで上げる）
   for (const k of Object.keys(l.skills ?? {}) as SkillId[]) growTeacherSkill(s, k, D.teacherGrow, lines);
+  // 14夜目：卒業生の講師が、自分の技を教える
+  if (l.skills && !sickRest) alumniTeach(s, Object.keys(l.skills) as SkillId[], list, lines);
 
   // 一日の終わり：先生の体力（授業で減り、休講で回復。0になると数日寝込む）
   const T = B.teacher;

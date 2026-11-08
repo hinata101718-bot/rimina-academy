@@ -16,8 +16,31 @@ export function canLearn(st: Student, a: ArtDef): boolean {
   // 節目（E+・D・C・B・A・S）を1つ前に
   const L: Rank[] = ['E', 'E+', 'D', 'C', 'B', 'A', 'S'];
   const i = L.indexOf(a.rank);
-  const need: Rank = st.apt?.good.includes(a.skill) && i > 0 ? L[i - 1] : a.rank;
+  // 14夜目：卒業生の講師に手ほどきを受けた技も、1つ前のランクで覚える（得意と重なれば2つ前）
+  const step = (st.apt?.good.includes(a.skill) ? 1 : 0) + ((st.taught ?? []).includes(a.id) ? 1 : 0);
+  const need: Rank = L[Math.max(0, i - step)] ?? a.rank;
   return (st.skills[a.skill] ?? 0) >= RANK_POINTS[need];
+}
+/**
+ * 14夜目：卒業生の講師が、自分の覚えた戦技・心得を授業で教える。
+ * その科目の授業の日、目標の技能が合う子は、講師の技の手ほどきを受け、1つ前のランクで覚えられるようになる
+ */
+export function alumniTeach(s: GameState, skills: SkillId[], list: Student[], lines: string[]): void {
+  for (const t of s.teachers) {
+    if (!t.alumniId || !skills.includes(t.skill)) continue;
+    const me = s.students[t.alumniId];
+    if (!me) continue;
+    const mine = artsOf(me).map((id) => ARTS[id]).filter((a) => a && a.skill === t.skill && !a.bloom);
+    if (!mine.length) continue;
+    for (const st of list) {
+      if (!st.targets.includes(t.skill)) continue;
+      const a = mine.find((x) => !artsOf(st).includes(x.id) && !(st.taught ?? []).includes(x.id));
+      if (!a) continue;
+      (st.taught ??= []).push(a.id);
+      const got = learnArts(s, st);
+      lines.push(got.includes(a.id) ? `講師の${t.name}から「${a.name}」の手ほどきを受け、${st.given}がその場で覚えた` : `講師の${t.name}が、${st.given}に「${a.name}」の手ほどきをした（覚えやすくなった）`);
+    }
+  }
 }
 /** 覚えた技（戦技と心得） */
 export function artsOf(st: Student): string[] { return st.arts ?? []; }

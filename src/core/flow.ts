@@ -41,6 +41,7 @@ import { TRAITS } from '../data/people';
 import type { BattleCtx } from './battle/engine';
 import { supportValue, bestFriend } from './support';
 import { closeYear, markYear } from './review';
+import { senpaiLetters } from './senpai';
 import { yearlyLegends, unclaimedLegend, legendLoot } from './rarity';
 import { tip, checkTips, firstTalk as tutorialTalk, tutorialMonth } from './tutorial';
 import { NIGHT_AFTER_DEATH, FRIEND_GRIEF, TEACHER_GRIEF, KEEPSAKE, RECOVERY } from '../data/aftermath_war';
@@ -550,6 +551,7 @@ export function startMonth(s: GameState): void {
     else if (top.length === 1) s.focus[g] = [top[0], v.t.skill === top[0] ? (s.focus[g]?.[1] ?? 'sword') : v.t.skill];
   }
   todayCards(s);
+  if (s.month === 6) senpaiLetters(s, r); // 14夜目：卒業した先輩から後輩への手紙
   if (s.month === 3) notify(s, '7月は夏の合宿：授業の伸びと体力の減りが1.5倍');
   if (s.month === 5) notify(s, '9月は公開演武会：月末の戦闘で活躍すると各国から声がかかる');
   if (s.month === 8) notify(s, '12月は冬の収穫祭：交流の授業が出やすく、支援が上がりやすい');
