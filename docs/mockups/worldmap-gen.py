@@ -65,7 +65,7 @@ for x,y in seeds:
     elif a>=100 or a<=-140: f='K'
     else: f='A'
     fac.append(f)
-col={'E':(190,60,50),'K':(60,100,180),'A':(80,150,70),'N':(160,150,130)}
+col={'K':(190,60,50),'E':(60,100,180),'A':(80,150,70),'N':(160,150,130)}
 tint=np.zeros((H,W,3),np.float32)
 for i,f in enumerate(fac): tint[lab==i]=col[f]
 alpha=0.32
