@@ -452,7 +452,7 @@ export function yearlyOfficers(s: GameState, r: Rng): string[] {
     const c = st.career;
     if (st.status !== 'graduated' || !c?.alive || c.retired || c.kind !== 'army' || !c.country || c.path === 'civil' || c.rank < OFFICER.alumniRank) continue;
     if (officers(s).some((o) => o.alumniId === st.id)) continue;
-    if (activeOf(s, c.country).filter((o) => o.alumniId).length >= OFFICER.alumniMax || !r.chance(OFFICER.alumniChance)) continue;
+    if (activeOf(s, c.country).filter((o) => o.alumniId).length >= OFFICER.alumniMax || activeOf(s, c.country).length >= OFFICER.rosterMax || !r.chance(OFFICER.alumniChance)) continue;
     const o = alumniOfficer(s, st, c.country, c.rank >= 3 ? 1 : 2);
     officers(s).push(o);
     const t = fill(OFFICER_NEWS.alumni, { a: `${st.given}（${st.cohort}期生）`, faction: FACTION_NAMES[c.country], rank: rankName(o) });
