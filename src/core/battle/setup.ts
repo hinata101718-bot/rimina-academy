@@ -1,4 +1,5 @@
 // 依頼から戦闘を組み立てる（マップの型の組み替え・敵の生成・戦力の調整）
+import { armoryItem } from '../loot';
 import { B, STATS } from '../../data/balance';
 import { MAPS } from '../../data/maps';
 import { CLASSES, CLASS_LIST } from '../../data/classes';
@@ -144,9 +145,11 @@ export function createBattle(s: GameState, quest: Quest, deploys: Deploy[], seed
     const pos = deployTiles[i] ?? deployTiles[0];
     if (!st) return;
     const ws: string[] = [];
-    const item = d.armoryUid ? s.armory.find((a) => a.uid === d.armoryUid) : null;
+    const item = armoryItem(s, d.armoryUid);
     if (item) ws.push(item.weaponId);
     const u = unitFromStudent(st, 'player', `p${i}`, pos[0], pos[1], ws);
+    // 銘入りの武器（10夜目）は少し強い
+    if (item?.named) u.mod = { ...(u.mod ?? {}), dmg: (u.mod?.dmg ?? 0) + item.named.might, hit: (u.mod?.hit ?? 0) + item.named.hit, crit: (u.mod?.crit ?? 0) + item.named.crit };
     u.armoryUid = d.armoryUid ?? undefined;
     u.item = d.item;
     b.units.push(u);

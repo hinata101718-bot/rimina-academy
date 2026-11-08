@@ -93,6 +93,8 @@ export interface BattleState {
   lastAction: LastAction | null;
   hitBy: Record<string, string[]>; // 敵uid→攻撃した味方uid
   visitedChestLog?: string[];
+  /** 戦利品（10夜目：戦いの終わりに決まる。結果で武器庫へ） */
+  loot?: import('../state').LootItem[];
   /** 救出：捕虜を助けた／突破：脱出した人数と必要な人数 */
   rescued?: boolean;
   escaped?: number;

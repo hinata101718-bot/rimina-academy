@@ -81,7 +81,14 @@ export function gainExp(s: GameState, rng: Rng, st: Student, amount: number, mul
   return ups;
 }
 
+/** シミュレーション用：在学中のレベルアップの回数と、上がった能力の数の合計（10夜目：平均3〜4つが目標） */
+export const growthCount = { ups: 0, stats: 0, pinned: 0 };
 export function levelUp(rng: Rng, st: Student): Partial<Stats> {
+  const out = levelUpMain(rng, st);
+  if (st.status === 'enrolled') { growthCount.ups += 1; growthCount.stats += Object.keys(out).length; }
+  return out;
+}
+function levelUpMain(rng: Rng, st: Student): Partial<Stats> {
   const g = growthRates(st);
   const school = st.status === 'enrolled';
   const gains: Partial<Stats> = {};
@@ -99,6 +106,7 @@ export function levelUp(rng: Rng, st: Student): Partial<Stats> {
     if (!cands.length) break;
     const k = rng.weighted(cands, (x) => Math.max(5, g[x]));
     st.stats[k] += 1; gains[k] = 1;
+    if (st.status === 'enrolled') growthCount.pinned += 1;
   }
   return gains;
 }

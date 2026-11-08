@@ -8,7 +8,8 @@ import { countryColor, ClassName } from './cards';
 import { GrowthPlayer } from './Growth';
 import { AutoResultHead } from './AutoBattle';
 import { navigate } from './store';
-import type { GameState, BattleReport, StudentEval, Pending } from '../core/state';
+import type { GameState, BattleReport, StudentEval, Pending, LootItem } from '../core/state';
+import { WEAPONS } from '../data/weapons';
 import { BADGES } from '../data/evaluation';
 import { STRATS } from '../data/stratagems';
 import { FACTION_COLOR } from '../data/officers';
@@ -114,13 +115,41 @@ export function ReportBody({ s, p, compact }: { s: GameState; p: BattleReport; c
   );
 }
 
+/** 戦利品の頁（10夜目）：光る札で1つずつ、タップで次へ */
+export function LootView({ s, items, onDone }: { s: GameState; items: LootItem[]; onDone: () => void }) {
+  const [i, setI] = useState(0);
+  const [lit, setLit] = useState(false);
+  useEffect(() => { setLit(false); const t = setTimeout(() => { setLit(true); sfx('pass'); }, 350); return () => clearTimeout(t); }, [i]);
+  const x = items[i];
+  if (!x) { onDone(); return null; }
+  const w = WEAPONS[x.weaponId];
+  const by = x.named?.by ? s.students[x.named.by] : null;
+  const next = () => { sfx('ok'); if (i + 1 < items.length) setI(i + 1); else onDone(); };
+  return (
+    <div class="dc-wrap stage3 lt-wrap" onClick={() => { if (!lit) setLit(true); else next(); }}>
+      <div class="dc-title">戦利品{items.length > 1 ? `（${i + 1}／${items.length}）` : ''}</div>
+      <div class={`lt-card${lit ? ' lit' : ''}${x.named ? ' named' : ''}`} key={i}>
+        <span class="lt-icon"><Icon name={({ sword: 'sword', lance: 'lance', axe: 'axe', bow: 'bow', gun: 'gun' } as Record<string, string>)[w?.type ?? ''] ?? 'sword'} size={44} /></span>
+        <b class="serif">{x.named?.name ?? w?.name}</b>
+        {x.named && <small>銘入り・{w?.name}</small>}
+        <small class="muted">{w ? `威力${w.might + (x.named?.might ?? 0)}・命中${w.hit + (x.named?.hit ?? 0)}・必要な技能${w.rank}` : ''}</small>
+      </div>
+      <div class={`dc-text${lit ? ' show' : ''}`}><p>{x.from}</p>{x.named && <p class="small">{x.named.story}</p>}</div>
+      {by && <div class="row nowrap gap6 ns-by"><Portrait st={by} size={40} frame={countryColor(by.origin)} /><span class="small">{by.given}が手に入れた</span></div>}
+      <div class="small muted" style={{ marginTop: 6 }}>武器庫に入りました。出撃のとき、合う子に自動で持たせます</div>
+      <button class="btn primary block" style={{ marginTop: 10 }} onClick={(e) => { e.stopPropagation(); next(); }}>{i + 1 < items.length ? '次へ' : '閉じる'}</button>
+    </div>
+  );
+}
+
 export function BattleResult({ s, p, onDone }: { s: GameState; p: BattleReport; onDone: () => void }) {
   const [step, setStep] = useState(p.growth?.length ? 0 : 1);
+  if (step === 2) return <LootView s={s} items={p.loot ?? []} onDone={onDone} />;
   if (step === 0) return <Sheet title={p.win ? '勝利 ― 成長の記録' : '敗北 ― 成長の記録'}><GrowthPlayer s={s} entries={p.growth ?? []} title="出撃した生徒" onDone={() => setStep(1)} /></Sheet>;
   return (
     <Sheet title={`${p.win ? '勝利' : '敗北'}${p.title ? `：${p.title}` : ''}`}>
       <ReportBody s={s} p={p} />
-      <button class="btn primary block" onClick={() => { sfx('ok'); onDone(); }}>閉じる</button>
+      <button class="btn primary block" onClick={() => { sfx('ok'); if ((p.loot ?? []).length) setStep(2); else onDone(); }}>{(p.loot ?? []).length ? '戦利品を見る' : '閉じる'}</button>
     </Sheet>
   );
 }
@@ -128,7 +157,10 @@ export function BattleResult({ s, p, onDone }: { s: GameState; p: BattleReport; 
 /** 2部隊以上の結果：まとめて1枚（勝敗・称号・名場面・けが人）→ 成長（タップで1人ずつ）→ 部隊ごとのくわしい評価 */
 export function SortieResult({ s, reports, onDone }: { s: GameState; reports: BattleReport[]; onDone: () => void }) {
   const growth = reports.flatMap((r) => r.growth ?? []);
-  const [step, setStep] = useState<'sum' | 'grow' | number>('sum');
+  const [step, setStep] = useState<'sum' | 'grow' | 'loot' | number>('sum');
+  const loot = reports.flatMap((r) => r.loot ?? []);
+  const close = () => { sfx('ok'); if (loot.length) setStep('loot'); else onDone(); };
+  if (step === 'loot') return <LootView s={s} items={loot} onDone={onDone} />;
   if (step === 'grow') return <Sheet title="成長の記録"><GrowthPlayer s={s} entries={growth} title="出撃した生徒" onDone={() => setStep(0)} /></Sheet>;
   if (typeof step === 'number') {
     const p = reports[step];
@@ -136,7 +168,7 @@ export function SortieResult({ s, reports, onDone }: { s: GameState; reports: Ba
       <Sheet title={`${SQUAD_NAMES[p.squad ?? step]}：${p.win ? '勝利' : '敗北'}`}>
         <div class="seg sq-tabs">{reports.map((r, i) => <button class={i === step ? 'on' : ''} onClick={() => { sfx('move'); setStep(i); }}>{SQUAD_NAMES[r.squad ?? i]}</button>)}</div>
         <ReportBody s={s} p={p} />
-        <button class="btn primary block" onClick={() => { sfx('ok'); onDone(); }}>閉じる</button>
+        <button class="btn primary block" onClick={close}>{loot.length ? '戦利品を見る' : '閉じる'}</button>
       </Sheet>
     );
   }

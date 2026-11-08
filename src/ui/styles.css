@@ -1478,3 +1478,13 @@ html, body { overflow-x: hidden; max-width: 100%; }
 .ab-role .ruled { flex-wrap: wrap; }
 /* iPhone Safari は16pxより小さい入力欄を選ぶと画面を拡大し、そのあと横にずれる。入力欄は16pxに */
 select, input[type="text"], input[type="number"], textarea { font-size: 16px; }
+.rb-line.loot { color: #6a4a08; font-weight: bold; }
+.rb-tag.loot { background: #c9a24a; color: #2a1a04; }
+.rb-lootmark { color: #f1d38a; filter: drop-shadow(0 0 12px rgba(240, 200, 90, .8)); animation: rankup .4s; }
+.q-rw { color: #8a6a1a; font-weight: bold; grid-column: 1 / -1; }
+.lt-card { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 18px 22px; margin: 14px auto; min-width: 210px; border-radius: 12px; background: #f6ecd6; color: #3a2a1a; border: 2px solid #b89a62; opacity: .4; transform: scale(.9); transition: all .45s cubic-bezier(.2, 1.4, .4, 1); }
+.lt-card.lit { opacity: 1; transform: scale(1); box-shadow: 0 0 0 3px #e8c45a, 0 0 26px 8px rgba(240, 200, 90, .75); }
+.lt-card.named.lit { background: linear-gradient(#fff6dc, #f1dca2); }
+.lt-card b { font-size: 22px; }
+.lt-icon { color: #8a6a1a; line-height: 0; }
+.wcard.named { margin: 6px 0; }

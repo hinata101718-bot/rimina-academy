@@ -20,6 +20,14 @@ import { tensionStage, STAGE_NAMES, PAIRS, relStage, REL_NAMES } from '../src/co
 import { knownStrats } from '../src/core/stratagems';
 import type { GameState } from '../src/core/state';
 import { BACKGROUNDS } from '../src/data/people';
+import { growthCount } from '../src/core/growth';
+/** 同じ子（同じ組）に同じ会話が出た回数（10夜目：0が目標） */
+function talkRepeatCount(s: GameState): number {
+  const seen = new Map<string, number>();
+  for (const t of Object.values(s.archive ?? {})) { if (!t.id) continue; const k = `${t.a}|${t.b}|${t.id}`; seen.set(k, (seen.get(k) ?? 0) + 1); }
+  let n = 0; for (const v of seen.values()) if (v > 1) n += v - 1;
+  return n + ((s as { talkRepeats?: number }).talkRepeats ?? 0);
+}
 
 const argv = process.argv.slice(2);
 const flag = (k: string) => argv.find((a) => a.startsWith(`--${k}=`))?.split('=')[1];
@@ -32,7 +40,8 @@ const POLICY_NAMES: Record<CareerPolicy, string> = { none: '何もしない（�
 interface YearRow { year: number; tension: number; stage: string; money: number; rep: number; students: number; grads: number; aliveGrads: number; deaths: number; alumniDead: number; power: string; rels: string; events: string[] }
 interface GrowthRow { grade: number; level: number; battles: number; top: number; second: number; other: number; talent: number | null; hp: number; best: number; worst: number; train: number }
 interface Night9 { strats: Record<number, number>; prospects: number; raised: number; contests: number; squadsPerYear: number[] }
-interface RunResult { n9?: Night9; mentor?: { year: number; gen: number; abilities: number; xp: number; skills: number }[]; news?: number[]; growth?: GrowthRow[]; ops?: { lesson: number; pending: number; battle: number }; warNos?: number; seedOutbreaks?: number; policy: CareerPolicy; seed: number; bg: string; rows: YearRow[]; error: string | null; zeroMoneyYears: number; vassal: string | null; everVassal: boolean; gunYear: number | null; bigEvents: Record<string, number>; wins: number; losses: number; alumniDeaths: number; graduates: number; peaceTalks: number; roundYear: number | null; ms: number; endings: { kind: EndingKind; year: number; country?: string; n?: number }[]; generations: number; instructorAges: number[]; officers?: OfficerStats }
+interface Night10 { lvUps: number; lvStats: number; pinned: number; away: { w: number; l: number; dead: number; good: number; calls: number }; loot: Record<string, number>; paths: Record<string, number>; blooms: number; cohorts: number; buds: number; gradStats: number[]; talkRepeats: number; money: number[] }
+interface RunResult { n10?: Night10; n9?: Night9; mentor?: { year: number; gen: number; abilities: number; xp: number; skills: number }[]; news?: number[]; growth?: GrowthRow[]; ops?: { lesson: number; pending: number; battle: number }; warNos?: number; seedOutbreaks?: number; policy: CareerPolicy; seed: number; bg: string; rows: YearRow[]; error: string | null; zeroMoneyYears: number; vassal: string | null; everVassal: boolean; gunYear: number | null; bigEvents: Record<string, number>; wins: number; losses: number; alumniDeaths: number; graduates: number; peaceTalks: number; roundYear: number | null; ms: number; endings: { kind: EndingKind; year: number; country?: string; n?: number }[]; generations: number; instructorAges: number[]; officers?: OfficerStats }
 /** 宿敵の仕組み（6夜目）の数 */
 interface OfficerStats { met: number; epithets: number; promotions: number; heads: number; rival1: number; rival2: number; rival3: number; vows: number; settles: Record<string, number>; alumni: number; scarred: number; years: number }
 function officerStats(s: GameState, years: number): OfficerStats {
@@ -66,7 +75,8 @@ function snapshot(s: GameState, events: string[]): YearRow {
 function runAll(policy: CareerPolicy): RunResult[] {
   setCareerPolicy(policy);
   const results: RunResult[] = [];
-  for (let r = 0; r < RUNS; r++) {
+  const START = Number(flag('start') ?? 0);
+  for (let r = START; r < START + RUNS; r++) {
     const seed = 1000 + r * 7919;
     const bg = BACKGROUNDS[r % BACKGROUNDS.length].id;
     const t0 = Date.now();
@@ -78,10 +88,14 @@ function runAll(policy: CareerPolicy): RunResult[] {
         const pts = SKILLS.filter((k) => k !== 'gun').map((k) => st.skills[k]).sort((a, b) => b - a);
         const tk = st.talent ? TALENTS[st.talent].skill : undefined;
         const vals = STATS.filter((k) => k !== 'hp' && k !== 'cha' && k !== 'lck').map((k) => st.stats[k]).sort((a, b) => b - a);
+        if (st.grade === 3) gradStats.push(STATS.filter((k) => k !== 'hp').reduce((a, k) => a + st.stats[k], 0));
         growth.push({ grade: st.grade, level: st.level, battles: st.battles, top: pts[0], second: pts[1], other: med(pts.slice(2)), talent: tk ? st.skills[tk as SkillId] : null, hp: st.stats.hp, best: vals[0], worst: vals[vals.length - 1], train: Object.values(st.trainGain ?? {}).reduce((a, b) => a + (b ?? 0), 0) });
       }
     });
-    opCount.lesson = 0; opCount.pending = 0; opCount.battle = 0; opCount.squads = 0; opCount.cards = 0; opCount.sq = { w: [0, 0, 0], l: [0, 0, 0], dead: [0, 0, 0], inj: [0, 0, 0] };
+    opCount.lesson = 0; opCount.pending = 0; opCount.battle = 0; opCount.squads = 0; opCount.cards = 0; opCount.sq = { w: [0, 0, 0], l: [0, 0, 0], dead: [0, 0, 0], inj: [0, 0, 0] }; opCount.away = { w: 0, l: 0, dead: 0, good: 0, calls: 0 };
+    growthCount.ups = 0; growthCount.stats = 0; growthCount.pinned = 0;
+    const gradStats: number[] = [];
+    const moneyByYear: number[] = [];
     const n9: Night9 = { strats: {}, prospects: 0, raised: 0, contests: 0, squadsPerYear: [] };
     const seenPro = new Set<string>();
     let sq0 = 0;
@@ -103,6 +117,7 @@ function runAll(policy: CareerPolicy): RunResult[] {
         for (const e of ev) { const k = e.replace(/：.*/, '').replace(/^(王国|帝国|同盟)と(王国|帝国|同盟)の/, ''); bigEvents[k] = (bigEvents[k] ?? 0) + 1; }
         if (g.world.gunUnlocked && gunYear === null) gunYear = g.year - 1;
         if (g.money <= 0) zero++;
+        moneyByYear.push(g.money);
         rows.push(snapshot(g, ev));
         for (const st of Object.values(g.students)) if (!Number.isFinite(st.level) || !Number.isFinite(st.stats.hp)) throw new Error(`数値が壊れた生徒 ${st.id}`);
         if (!Number.isFinite(g.money) || !Number.isFinite(g.world.tension)) throw new Error('お金か緊張度が壊れた');
@@ -112,7 +127,14 @@ function runAll(policy: CareerPolicy): RunResult[] {
     const alumniDeaths = grads.filter((x) => x.career && !x.career.alive).length;
     n9.raised = s.chronicle.filter((c) => c.text.includes('抜擢された')).length;
     n9.contests = s.chronicle.filter((c) => c.text.includes('の座をねらっている')).length;
-    results.push({ n9, mentor, news: [...Array(rows.length)].map((_, i) => s.news.filter((n) => n.year === i + 1 && (n.kind === 'first' || n.kind === 'second')).length), growth, ops: JSON.parse(JSON.stringify(opCount)), warNos: s.world.warNo ?? 1, seedOutbreaks: s.chronicle.filter((c) => c.text.includes('大陸戦争が始まった')).length, policy, seed, bg, rows, error, zeroMoneyYears: zero, vassal: s.world.vassal, everVassal: s.chronicle.some((c) => c.text.includes('傘下に入る')), gunYear, bigEvents, wins: s.stats.battlesWon, losses: s.stats.battlesLost, alumniDeaths, graduates: grads.length, peaceTalks: s.world.peaceTalksHeld, roundYear: s.world.peaceRoundYear ?? null, ms: Date.now() - t0, endings: (s.endings ?? []).map((e) => ({ ...e })), generations: s.instructor.generation, instructorAges: (s.pastInstructors ?? []).map((p) => p.age), officers: officerStats(s, rows.length) });
+    const loot: Record<string, number> = {};
+    for (const a of s.armory) { const k = a.named ? 'named' : a.got?.kind ?? 'old'; loot[k] = (loot[k] ?? 0) + 1; }
+    const paths: Record<string, number> = {};
+    for (const st of grads) { const k = st.career?.path ?? 'none'; paths[k] = (paths[k] ?? 0) + 1; }
+    const all = Object.values(s.students);
+    const n10: Night10 = { lvUps: growthCount.ups, lvStats: growthCount.stats, pinned: growthCount.pinned, away: { ...opCount.away! }, loot, paths,
+      blooms: all.filter((x) => (x as { bloom?: { done?: boolean } }).bloom?.done).length, buds: all.filter((x) => (x as { bloom?: unknown }).bloom).length, cohorts: s.cohortCount, gradStats, talkRepeats: talkRepeatCount(s), money: moneyByYear };
+    results.push({ n10, n9, mentor, news: [...Array(rows.length)].map((_, i) => s.news.filter((n) => n.year === i + 1 && (n.kind === 'first' || n.kind === 'second')).length), growth, ops: JSON.parse(JSON.stringify(opCount)), warNos: s.world.warNo ?? 1, seedOutbreaks: s.chronicle.filter((c) => c.text.includes('大陸戦争が始まった')).length, policy, seed, bg, rows, error, zeroMoneyYears: zero, vassal: s.world.vassal, everVassal: s.chronicle.some((c) => c.text.includes('傘下に入る')), gunYear, bigEvents, wins: s.stats.battlesWon, losses: s.stats.battlesLost, alumniDeaths, graduates: grads.length, peaceTalks: s.world.peaceTalksHeld, roundYear: s.world.peaceRoundYear ?? null, ms: Date.now() - t0, endings: (s.endings ?? []).map((e) => ({ ...e })), generations: s.instructor.generation, instructorAges: (s.pastInstructors ?? []).map((p) => p.age), officers: officerStats(s, rows.length) });
     console.log(`[${policy}] run ${r + 1}/${RUNS} 戦争${s.world.warNo ?? 1}度目まで seed=${seed} ${bg} money=${s.money} rep=${Math.round(s.reputation)} grads=${grads.length} 卒業後の戦死=${alumniDeaths}（${Math.round((alumniDeaths / Math.max(1, grads.length)) * 100)}%） 和平会議=${s.world.peaceTalksHeld} エンディング=${(s.endings ?? []).map((e) => `${endingTitle(e.kind, e.country as never)}${e.year}年目`).join('・') || 'なし'} 教官${s.instructor.generation}代 ${error ? 'ERROR' : 'ok'} (${Date.now() - t0}ms)`);
     if (error) console.log(error);
   }

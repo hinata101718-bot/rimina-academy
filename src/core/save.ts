@@ -16,6 +16,7 @@ import { startSeed } from './ending';
 import { round5 } from './growth';
 import { startNewsDesk } from './newspaper';
 import { STATS } from '../data/balance';
+import { STOCK_IDS, stockUid } from './loot';
 
 export interface SaveFile { app: 'rimina-academy'; version: number; savedAt: number; state: GameState }
 
@@ -283,6 +284,11 @@ function migrateTo9(s: GameState): void {
  */
 function migrateTo10(s: GameState): void {
   if (s.sortie) for (const sq of s.sortie.squads) sq.away ??= false;
+  // 武器は戦利品で：鉄の武器は学校の備え（数の制限なし）になったので、武器庫の鉄の武器（遺品でないもの）は備えに戻す
+  const gone = new Map<string, string>();
+  s.armory = (s.armory ?? []).filter((a) => { if (STOCK_IDS.has(a.weaponId) && !a.engraved && !a.named) { gone.set(a.uid, a.weaponId); return false; } return true; });
+  const remap = (d: { armoryUid: string | null }) => { if (d.armoryUid && gone.has(d.armoryUid)) d.armoryUid = stockUid(gone.get(d.armoryUid)!); };
+  for (const sq of s.sortie?.squads ?? []) sq.deploy.forEach(remap);
 }
 
 /** 10夜目の形をそろえる（作業の途中で公開した版のセーブにも効くよう、何度呼んでも同じになる） */

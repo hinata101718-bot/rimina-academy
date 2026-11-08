@@ -6,11 +6,14 @@ import { CLASSES } from '../data/classes';
 import type { GameState, Student, Settings } from './state';
 import type { Rank, SkillId, Stats, CountryId } from './types';
 import { Rng } from './rng';
+import { WEAPONS } from '../data/weapons';
 import { generateStudent } from './student';
 import { emptySkills, clamp } from './util';
 import { ensureRosters } from './officers';
 import { START_STRATS } from './stratagems';
 import { reputationRankUp } from './discovery';
+import { repTier } from '../data/discovery';
+import { repGift, takeLoot, STOCK_IDS } from './loot';
 import { rollQuests } from './quests';
 import { autoTargets } from './week';
 import { fx } from './mentor';
@@ -38,7 +41,7 @@ export function newGame(opts: { name: string; background: string; seed: number; 
     money: opts.start ? st0.money : B.school.startMoney, reputation: opts.start ? st0.rep : B.school.startReputation,
     facilities: { training: st0.facility, library: st0.facility, stable: st0.facility, chapel: st0.facility, dining: st0.facility, range: 0 },
     teachers: [], teacherCandidates: [],
-    armory: STARTING_ARMORY.map((w, i) => ({ uid: `w${i}`, weaponId: w })),
+    armory: STARTING_ARMORY.filter((w) => !STOCK_IDS.has(w)).map((w, i) => ({ uid: `w${i}`, weaponId: w })), // 10夜目：鉄の武器は学校の備え（数の制限なし）
     items: { vulnerary: 3, elixir: 0 },
     instructor: { name: opts.name || '教官', background: bg.id, age: bg.age, experience: 0, skills, cha: bg.cha, generation: 1, since: 1 },
     students: {}, supports: {}, archive: {}, focus: {}, plan: { tutoring: [], weekend: [] },
@@ -128,7 +131,15 @@ export function addMoney(s: GameState, amount: number): void {
 export function addRep(s: GameState, d: number): void {
   const before = s.reputation;
   addRepRaw(s, d > 0 ? d * (1 + fx(s, 'repMul')) : d);
-  if (s.reputation > before) reputationRankUp(s, before, s.reputation);
+  if (s.reputation > before) {
+    reputationRankUp(s, before, s.reputation);
+    // 10夜目：評判の段階が上がると、国から武器が届くことがある
+    const t0 = repTier(before), t1 = repTier(s.reputation);
+    if (t1 > t0) {
+      const g = repGift(s, t1, new Rng(s));
+      if (g) { takeLoot(s, [g]); notify(s, `学校の評判を聞いて、${WEAPONS[g.weaponId]?.name}が届いた。武器庫に飾っています`); }
+    }
+  }
 }
 function addRepRaw(s: GameState, d: number): void {
   s.reputation = clamp(Math.round((s.reputation + d) * 10) / 10, 0, B.school.reputationMax);

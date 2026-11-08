@@ -19,7 +19,8 @@ import { COUNTRIES } from '../data/people';
 import { activeAlumni } from './world';
 import { effectiveStats } from './game';
 import type { CountryId, Path } from './types';
-import { upgradeFacility, hireTeacher, facilityCost, buyWeapon, type FacilityId } from './teachers';
+import { isStock, stockList, armScore } from './loot';
+import { upgradeFacility, hireTeacher, facilityCost, buyItem, type FacilityId } from './teachers';
 import type { Deploy } from './battle/setup';
 import { meetsRank } from './util';
 import { CLASSES } from '../data/classes';
@@ -37,7 +38,7 @@ export function deployFor(s: GameState, ids: string[], usedArms?: Set<string>, i
   let items = Math.max(0, s.items.vulnerary - itemsUsed);
   return list.map((st) => {
     const w = bestArmoryWeapon(s, st, used, false);
-    if (w) used.add(w);
+    if (w && !isStock(w)) used.add(w);
     const staff = bestArmoryWeapon(s, st, used, true);
     if (staff) used.add(staff);
     const item = items > 0 ? (items--, 'vulnerary' as const) : null;
@@ -56,12 +57,12 @@ export function canEquip(st: Student, weaponId: string): boolean {
 
 export function bestArmoryWeapon(s: GameState, st: Student, used: Set<string>, staff: boolean): string | null {
   let best: { uid: string; score: number } | null = null;
-  for (const a of s.armory) {
+  // 10夜目：鉄の武器は学校の備え（数の制限なし）。戦利品の武器のほうが合えば、そちらを
+  for (const a of [...s.armory, ...(staff ? [] : stockList(s))]) {
     if (used.has(a.uid)) continue;
     const w = WEAPONS[a.weaponId];
     if (!w || (w.type === 'staff') !== staff || !canEquip(st, a.weaponId)) continue;
-    const skill = (w.type === 'holy' || w.type === 'staff' ? 'faith' : w.type) as SkillId;
-    const score = (st.skills[skill] ?? 0) + w.might * 5;
+    const score = armScore(st, a);
     if (!best || score > best.score) best = { uid: a.uid, score };
   }
   return best?.uid ?? null;
@@ -231,6 +232,7 @@ export function autoPending(s: GameState): void {
       // 部隊ごとの勝ち負け（シミュレーションの集計用）
       const res = s.pending.find((x) => x.type === 'sortieResult' || x.type === 'battleResult');
       const reps = res?.type === 'sortieResult' ? res.reports : res?.type === 'battleResult' ? [res] : [];
+      for (const rp of reps) if (rp.away) { const A = (opCount.away ??= { w: 0, l: 0, dead: 0, good: 0, calls: 0 }); A[rp.win ? 'w' : 'l'] += 1; A.dead += (rp.fallen ?? []).filter((f) => f.outcome === 'dead').length; A.calls += (rp.calls ?? []).length; A.good += (rp.calls ?? []).filter((c) => c.good).length; }
       for (const rp of reps) { const i = rp.squad ?? 0; const k = rp.win ? 'w' : 'l'; (opCount.sq ??= { w: [0, 0, 0], l: [0, 0, 0], dead: [0, 0, 0], inj: [0, 0, 0] })[k][i] += 1; opCount.sq.dead[i] += (rp.fallen ?? []).filter((f) => f.outcome === 'dead').length; opCount.sq.inj[i] += (rp.fallen ?? []).filter((f) => f.outcome === 'injured').length; }
       continue;
     }
@@ -285,16 +287,8 @@ export function autoManage(s: GameState): void {
     const t = s.teacherCandidates.sort((a, b) => b.points - a.points)[0];
     if (t.salary * 12 < s.money / 2) hireTeacher(s, t.id);
   }
-  // 上等な武器（お金に余裕があれば、使える子がいるものを）
-  if (s.money > 9000) {
-    const premium = Object.values(WEAPONS).filter((x) => x.price >= 3000 && (x.type !== 'gun' || s.world.gunUnlocked) && !s.armory.some((a) => a.weaponId === x.id) && enrolled(s).some((st) => canEquip(st, x.id)));
-    if (premium.length) { const w = r.pick(premium); buyWeapon(s, w.id, w.price); }
-  }
-  // 武器
-  if (s.money > 2500 && s.armory.length < enrolled(s).length + 4) {
-    const w = r.pick(Object.values(WEAPONS).filter((x) => x.price > 0 && x.price <= 800 && (x.type !== 'gun' || s.world.gunUnlocked)));
-    buyWeapon(s, w.id, w.price);
-  }
+  // 10夜目：武器は買わない（戦利品）。道具は少し買い足す
+  if (s.money > 1500 && s.items.vulnerary < 6) buyItem(s, 'vulnerary');
   // 副教官：なれる講師がいれば、担任のいない学年に（方針はバランス）
   for (const t of viceEligible(s)) {
     if ((s.vice ?? []).some((v) => v.teacherId === t.id)) continue;
@@ -310,7 +304,7 @@ let gradeHook: ((s: GameState) => void) | null = null;
 /** シミュレーション用：学年の終わり（3月の第4週の月曜）に呼ぶ */
 export function setGradeHook(f: ((s: GameState) => void) | null): void { gradeHook = f; }
 /** シミュレーション用：画面の操作の回数の目安（授業カード1回＋結果を閉じる1回など） */
-export const opCount: { lesson: number; pending: number; battle: number; squads?: number; cards?: number; sq?: { w: number[]; l: number[]; dead: number[]; inj: number[] } } = { lesson: 0, pending: 0, battle: 0, squads: 0, cards: 0 };
+export const opCount: { lesson: number; pending: number; battle: number; squads?: number; cards?: number; sq?: { w: number[]; l: number[]; dead: number[]; inj: number[] }; away?: { w: number; l: number; dead: number; good: number; calls: number }; escorted?: number } = { lesson: 0, pending: 0, battle: 0, squads: 0, cards: 0 };
 
 /** 1日ぶん自動で進める（7夜目：おすすめの授業カードを選ぶ） */
 export function autoDay(s: GameState): void {

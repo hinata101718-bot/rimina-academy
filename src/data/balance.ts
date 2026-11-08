@@ -13,6 +13,20 @@ export const SKILLS: SkillId[] = ['sword', 'lance', 'axe', 'bow', 'magic', 'fait
 export const STATS: StatId[] = ['hp', 'str', 'mag', 'skl', 'spd', 'lck', 'def', 'res', 'cha'];
 
 export const B = {
+  // ---- 戦利品（10夜目：武器は買わずに戦いで手に入れる） ----
+  loot: {
+    /** 倒した雑兵が武器を落とす確率と、1つの戦いで落ちる数の上限 */
+    dropChance: 0.03, maxDrops: 1,
+    /** 落とし物が銀になる敵のレベル、名匠になる敵のレベルと確率 */
+    silverLv: 18, silverChance: 0.35, masterLv: 30, masterChance: 0.08,
+    /** 敵将の銘入りの武器：敵将のレベルで鋼→銀→名匠。銘入りは少し強い */
+    namedSteelLv: 18, namedSilverLv: 32,
+    named: { might: 1, hit: 5, crit: 3 },
+    /** 依頼の報酬に武器がつく確率（実戦・危険度2以上） */
+    questChance: 0.18,
+    /** 評判の段階が上がったとき、国から届く武器 */
+    giftOnRank: true,
+  },
   // ---- 生徒 ----
   student: {
     firstYearCount: [6, 8] as [number, number],

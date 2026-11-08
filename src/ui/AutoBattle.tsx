@@ -31,6 +31,7 @@ import { WEAPONS } from '../data/weapons';
 import { CLASSES } from '../data/classes';
 import { B } from '../data/balance';
 import { usableSpells } from '../core/spells';
+import { armoryItem, armoryName, isStock, stockList } from '../core/loot';
 
 const FIT_MARK = ['△', '○', '◎'];
 const SQUAD_LABEL = ['第一部隊', '第二部隊', '第三部隊'];
@@ -229,7 +230,7 @@ export function SquadEditor({ s, draft, setDraft, limit, exclude, usedArms, ques
         const st = s.students[d.studentId];
         const role = roles[st.id];
         const row = plan.rows![st.id];
-        const arms = s.armory.filter((a) => canEquip(st, a.weaponId) && WEAPONS[a.weaponId].type !== 'staff' && (!usedHere.has(a.uid) || d.armoryUid === a.uid));
+        const arms = [...s.armory, ...stockList(s)].filter((a) => canEquip(st, a.weaponId) && WEAPONS[a.weaponId].type !== 'staff' && (isStock(a.uid) || !usedHere.has(a.uid) || d.armoryUid === a.uid));
         const spells = usableSpells(st).map((id) => WEAPONS[id]?.name).filter(Boolean);
         return (
           <div class="ab-role">
@@ -237,7 +238,7 @@ export function SquadEditor({ s, draft, setDraft, limit, exclude, usedArms, ques
               <Portrait st={st} size={36} />
               <div class="grow" style={{ minWidth: 0 }}>
                 <NameLine st={st} size={15} family={false} />
-                <div class="small row nowrap gap4"><ClassName classId={st.classId} size={12} /><span class={`ab-weapon ${!d.armoryUid && !spells.length ? 'none' : 'muted'}`} onClick={() => setGearOpen(gearOpen === st.id ? null : st.id)}>{d.armoryUid ? WEAPONS[s.armory.find((a) => a.uid === d.armoryUid)!.weaponId].name : spells[0] ?? '武器なし'} ▾</span></div>
+                <div class="small row nowrap gap4"><ClassName classId={st.classId} size={12} /><span class={`ab-weapon ${!d.armoryUid && !spells.length ? 'none' : 'muted'}`} onClick={() => setGearOpen(gearOpen === st.id ? null : st.id)}>{d.armoryUid ? armoryName(armoryItem(s, d.armoryUid)) : spells[0] ?? '武器なし'} ▾</span></div>
               </div>
               <button class={`sq-row ${row}`} onClick={() => { sfx('move'); setDraft({ ...draft, rows: { ...draft.rows, [st.id]: row === 'front' ? 'back' : 'front' } }); }}>{ROW_NAMES[row]}</button>
             </div>
@@ -248,7 +249,7 @@ export function SquadEditor({ s, draft, setDraft, limit, exclude, usedArms, ques
               <div class="row ruled">
                 <select value={d.armoryUid ?? ''} onChange={(e) => setDeploy(deploy.map((x) => x.studentId === st.id ? { ...x, armoryUid: (e.target as HTMLSelectElement).value || null } : x))}>
                   <option value="">武器なし</option>
-                  {arms.map((a) => <option value={a.uid}>{WEAPONS[a.weaponId].name}{a.engraved ? `（${a.engraved}）` : ''}</option>)}
+                  {arms.map((a) => <option value={a.uid}>{armoryName(a)}{isStock(a.uid) ? '（学校の備え）' : a.engraved ? `（${a.engraved}の遺品）` : a.named ? '（銘入り）' : ''}</option>)}
                 </select>
                 <select value={d.item ?? ''} onChange={(e) => setDeploy(deploy.map((x) => x.studentId === st.id ? { ...x, item: ((e.target as HTMLSelectElement).value || null) as Deploy['item'] } : x))}>
                   <option value="">道具なし</option>
@@ -590,6 +591,7 @@ function Stage({ s, b, it, Face, nameOf, leader, fx }: { s: GameState; b: Battle
     if (l.by === 'leader' && leader) return <div class="rb-duo"><div class="rb-card foe"><Face uid={leader.uid} size={110} /><b>{leader.name}</b></div></div>;
     if (st) { const u = b.units.find((x) => x.studentId === st.id); return <div class="rb-duo"><div class="rb-card ally">{u ? <Face uid={u.uid} size={110} /> : <Portrait st={st} size={110} />}<b>{st.given}</b></div></div>; }
     if (l.by === 'strat' || l.by === 'stratng') return <div class={`rb-stratmark ${l.by}`}><span class="serif">策</span></div>;
+    if (l.by === 'loot') return <div class="rb-lootmark"><Icon name="sword" size={56} /></div>;
     if (l.by.startsWith('raise:')) { const g = b.auto?.raised?.[Number(l.by.slice(6))]; return g ? <div class="rb-duo"><div class="rb-card foe"><OfficerFace o={{ faceImage: g.faceImage, face: g.face, scars: 0 }} size={110} frame="#8f2a20" s={s} /><b>{g.given}</b></div></div> : null; }
     return <div class="rb-empty serif">⚡</div>;
   }
@@ -608,6 +610,7 @@ function sentences(s: GameState, b: BattleState, it: BItem, nameOf: (uid: string
     if (l.by === 'strat') return [{ cls: 'strat', tag: '策', text: l.text.replace(/^策「[^」]+」：/, '') }];
     if (l.by === 'stratng') return [{ cls: 'stratng', tag: '策', text: l.text.replace(/^策「[^」]+」：/, '') }];
     if (l.by.startsWith('raise:')) return [{ cls: 'leader', text: l.text }];
+    if (l.by === 'loot') return [{ cls: 'loot', tag: '戦利品', text: l.text.replace(/^戦利品：/, '') }];
     return [{ cls: 'narr', text: l.text }];
   }
   if (it.k === 'group') {
@@ -657,6 +660,7 @@ function LogItem({ it, s, nameOf, sideOf, Face, leader, leaderColor, fx, fresh, 
     if (l.by === 'strat') return <div class="bl-band strat">✦ {l.text}</div>;
     if (l.by === 'stratng') return <div class="bl-band stratng">✕ {l.text}</div>;
     if (l.by.startsWith('raise:')) return <RaiseBand s={s} l={l} />;
+    if (l.by === 'loot') return <div class="bl-band strat">⚔ {l.text}</div>;
     return <div class="bl-band">⚡ {l.text}</div>;
   }
   if (it.k === 'sync') return null;

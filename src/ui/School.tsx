@@ -10,8 +10,9 @@ import { Portrait } from './Portrait';
 import { SKILL_NAMES, PERSONALITIES, COUNTRY_SHORT } from '../data/people';
 import { REP_TIERS, repTier } from '../data/discovery';
 import { B, SKILLS } from '../data/balance';
+import { stockList } from '../core/loot';
 import { WEAPONS } from '../data/weapons';
-import { facilityCost, upgradeFacility, hireTeacher, fireTeacher, buyWeapon, buyItem, upkeepCost, type FacilityId } from '../core/teachers';
+import { facilityCost, upgradeFacility, hireTeacher, fireTeacher, buyItem, upkeepCost, type FacilityId } from '../core/teachers';
 import { rankOf } from '../core/util';
 import { instructorCaps, goodSkillsOf, viceEligible, viceOf, setVice, removeVice, VICE_POLICY_NAMES } from '../core/instructor';
 import { TeacherFace } from './Talk';
@@ -186,35 +187,44 @@ function Facilities({ s }: { s: GameState }) {
 }
 
 function Armory({ s }: { s: GameState }) {
-  const counts: Record<string, number> = {};
-  for (const a of s.armory) counts[a.weaponId] = (counts[a.weaponId] ?? 0) + 1;
-  const shop = Object.values(WEAPONS).filter((w) => w.price > 0 && (w.type !== 'gun' || s.world.gunUnlocked));
   const typeName: Record<string, string> = { sword: '剣', lance: '槍', axe: '斧', bow: '弓', magic: '魔道', holy: '信仰', staff: '杖', gun: '銃' };
+  const named = s.armory.filter((a) => a.named);
+  const keep = s.armory.filter((a) => !a.named && a.engraved);
+  const counts: Record<string, number> = {};
+  for (const a of s.armory) if (!a.named && !a.engraved) counts[a.weaponId] = (counts[a.weaponId] ?? 0) + 1;
+  const stock = stockList(s);
   return (
     <div>
       <Back to={() => navigate({ tab: 'school' })} />
       <h2>武器庫</h2>
-      <div class="muted">武器は学校の共有物です。出撃の前に生徒へ割り当てます。耐久はありません。魔法（魔道・信仰）は買うものではなく、生徒が技能ランクを上げて覚えます。</div>
+      <div class="muted">戦いで手に入れた武器が並んでいます。出撃のとき、その子にいちばん合う武器を自動で持たせます（出撃前の画面で変えられます）。</div>
+      <h3>銘入りの武器 <span class="muted small">{named.length}振り</span></h3>
+      {named.length === 0 && <div class="empty-note">敵将を討ち取ると、その敵将の武器が手に入ります</div>}
+      {named.map((a) => { const w = WEAPONS[a.weaponId]; const by = a.named!.by ? s.students[a.named!.by] : null; return (
+        <div class="pcard wcard named" style={{ ['--band' as string]: 'var(--gold)' }}>
+          <div class="row nowrap gap6"><span class="todoicon"><Icon name={WICON[w.type]} size={20} /></span><b class="serif grow">{a.named!.name}</b>{by && <Portrait st={by} size={28} />}</div>
+          <div class="small muted">{w.name}・威力{w.might + a.named!.might}・命中{w.hit + a.named!.hit}・{w.rank}</div>
+          <div class="small">{a.named!.story}</div>
+        </div>
+      ); })}
+      <h3>戦利品・報酬の武器</h3>
+      {Object.keys(counts).length === 0 && <div class="empty-note">雑兵が落とした武器や、依頼の報酬の武器がここに入ります</div>}
       <div class="weapongrid">
-        {Object.entries(counts).map(([id, n]) => { const w = WEAPONS[id]; const eng = s.armory.filter((a) => a.weaponId === id && a.engraved).map((a) => a.engraved); return (
-          <div class="pcard wcard" style={{ ['--band' as string]: eng.length ? 'var(--gold)' : 'var(--main)' }}>
+        {Object.entries(counts).map(([id, n]) => { const w = WEAPONS[id]; return (
+          <div class="pcard wcard" style={{ ['--band' as string]: 'var(--main)' }}>
             <div class="row nowrap gap6"><span class="todoicon"><Icon name={WICON[w.type]} size={18} /></span><span class="ptitle grow" style={{ fontSize: 15 }}>{w.name}</span><Num v={`×${n}`} /></div>
             <div class="small muted">{typeName[w.type]}・{w.rank}・威力{w.might}・命中{w.hit}</div>
-            {eng.length > 0 && <div class="small" style={{ color: 'var(--gold)' }}>{eng.join('・')}の遺品</div>}
           </div>
         ); })}
       </div>
-      <div class="muted small">道具：傷薬×{s.items.vulnerary}　特効薬×{s.items.elixir}</div>
-      <h3>購入（所持金 {money(s.money)}）</h3>
+      {keep.length > 0 && <><h3>卒業生の遺品</h3><div class="weapongrid">{keep.map((a) => <div class="pcard wcard" style={{ ['--band' as string]: 'var(--gold)' }}><b class="small">{WEAPONS[a.weaponId]?.name}</b><div class="small" style={{ color: 'var(--gold)' }}>{a.engraved}の遺品</div></div>)}</div></>}
+      <h3>学校の備え</h3>
+      <div class="small muted">鉄の武器は、学校にいつでも数の制限なくそろっています：{stock.map((a) => WEAPONS[a.weaponId].name).join('・')}</div>
+      <h3>道具（所持金 {money(s.money)}）</h3>
       <div class="card">
-        <div class="row between"><span>傷薬（HP+10）</span><button class="btn small" disabled={s.money < B.itemPrice.vulnerary} onClick={() => act((g) => buyItem(g, 'vulnerary'))}>{money(B.itemPrice.vulnerary)}</button></div>
-        <div class="row between"><span>特効薬（HP全回復）</span><button class="btn small" disabled={s.money < B.itemPrice.elixir} onClick={() => act((g) => buyItem(g, 'elixir'))}>{money(B.itemPrice.elixir)}</button></div>
-        {shop.map((w) => (
-          <div class="row between" style={{ borderTop: '1px dashed var(--line)', paddingTop: 4 }}>
-            <span class="grow">{w.name} <span class="muted small">{typeName[w.type]}・{w.rank}・威力{w.might}・命中{w.hit}・射程{w.minRange === w.maxRange ? w.minRange : `${w.minRange}-${w.maxRange}`}</span></span>
-            <button class="btn small" disabled={s.money < w.price} onClick={() => { sfx('ok'); act((g) => buyWeapon(g, w.id, w.price)); }}>{money(w.price)}</button>
-          </div>
-        ))}
+        <div class="muted small">傷薬×{s.items.vulnerary}　特効薬×{s.items.elixir}</div>
+        <div class="row between"><span>傷薬（HP+10）</span><button class="btn small" disabled={s.money < B.itemPrice.vulnerary} onClick={() => act((g) => buyItem(g, 'vulnerary'))}>{money(B.itemPrice.vulnerary)}で買う</button></div>
+        <div class="row between"><span>特効薬（HP全回復）</span><button class="btn small" disabled={s.money < B.itemPrice.elixir} onClick={() => act((g) => buyItem(g, 'elixir'))}>{money(B.itemPrice.elixir)}で買う</button></div>
       </div>
     </div>
   );

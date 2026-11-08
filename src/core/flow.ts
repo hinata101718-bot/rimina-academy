@@ -7,6 +7,7 @@ import type { GameState, Quest, Student, GrowthEntry, BattleFinding, TalkLog, Sq
 import { SQUADS, STRAT } from '../data/stratagems';
 import { checkStratUnlocks, addStrat, awayJudgeRate } from './stratagems';
 import { evaluateBattle } from './evaluate';
+import { rollLoot, takeLoot, repGift } from './loot';
 import { rivalryOf } from './officers';
 import { LESSON_BY_ID } from '../data/lessons';
 import { specialInterview } from './interview';
@@ -318,7 +319,10 @@ export function finishBattle(s: GameState): void {
     if (ids.length >= 2) { addRecent(s, s.students[ids[0]], 'ev_samekill', e.name, ids[1]); addRecent(s, s.students[ids[1]], 'ev_samekill', e.name, ids[0]); }
   }
   // 手に入れた武器
-  for (const w of b.visitedChestLog ?? []) { s.armory.push({ uid: `w${s.nextId++}`, weaponId: w }); lines.push(`武器庫に「${WEAPONS[w].name}」が加わった`); }
+  for (const w of b.visitedChestLog ?? []) { s.armory.push({ uid: `w${s.nextId++}`, weaponId: w, got: { kind: 'drop', year: s.year, text: '宝箱から' } }); lines.push(`武器庫に「${WEAPONS[w].name}」が加わった`); }
+  // 10夜目：戦利品（自動の戦闘は決着の場面で決まっている）
+  const loot = takeLoot(s, rollLoot(s, b, q, (uid) => b.units.find((u) => u.uid === uid)?.name ?? '敵兵'));
+  for (const x of loot) lines.push(`戦利品：${x.named?.name ?? WEAPONS[x.weaponId]?.name}（${x.from}）`);
   // 報酬・評判・戦況
   if (q) {
     if (q.kind === 'exhibition') {
@@ -371,6 +375,7 @@ export function finishBattle(s: GameState): void {
   const firstTalk = s.pending.findIndex((p, i) => i >= talkFrom && p.type === 'talk');
   const findings = [...battleFindings(s, growth, lines, s.pending.slice(firstTalk >= 0 ? firstTalk : s.pending.length)), ...officerFind];
   const report: BattleReport = { lines, grades, win, growth, mvp: auto.mvp ?? undefined, review: auto.review, title: b.title, findings, officerId: (b.auto?.leader ?? b.leader)?.officerId,
+    loot: loot.length ? loot : undefined,
     away: b.auto?.away ? true : undefined, calls: b.auto?.away?.calls, moments: b.auto?.away ? awayMoments(b) : undefined,
     evals, stratReview: auto.stratReview.length ? auto.stratReview : undefined, captain: b.auto?.plan?.captain, fallen: b.fallen.filter((f) => f.outcome !== 'out' && s.students[f.studentId] && evalIds.includes(f.studentId)).map((f) => ({ id: f.studentId, outcome: f.outcome as 'dead' | 'injured' })) };
   s.battle = null;

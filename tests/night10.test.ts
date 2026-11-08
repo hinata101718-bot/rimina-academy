@@ -94,3 +94,33 @@ describe('9夜目版のセーブ（形式9）', () => {
     expect(s.gameOver).toBe(false);
   });
 });
+
+describe('② 武器は戦利品で', () => {
+  it('鉄の武器は学校の備え（数の制限なし）：新しい学校の武器庫に鉄の武器はなく、出撃では全員が持てる', async () => {
+    const { STOCK_IDS, isStock } = await import('../src/core/loot');
+    const s = mk(3);
+    expect(s.armory.some((a) => STOCK_IDS.has(a.weaponId))).toBe(false);
+    autoYears(s, 1); toBoard(s);
+    const sq = recommendSquads(s);
+    const ds = sq.flatMap((x) => x.deploy);
+    expect(ds.filter((d) => isStock(d.armoryUid)).length).toBeGreaterThan(0);
+  });
+  it('敵将を討ち取ると、銘入りの武器を必ず手に入れる。1年遊ぶと戦利品が武器庫に入る', () => {
+    const s = mk(5);
+    autoYears(s, 3);
+    const named = s.armory.filter((a) => a.named);
+    const fell = (s.officers ?? []).filter((o) => o.kind !== 'monster' && o.meets.some((m) => m.result === 'fell')).length;
+    expect(fell).toBeGreaterThan(0);
+    expect(named.length).toBeGreaterThan(0);
+    for (const a of named) { expect(a.named!.name).toMatch(/の(剣|槍|大斧|弓|銃)$/); expect(a.named!.story.length).toBeGreaterThan(5); }
+    expect(s.armory.some((a) => a.got)).toBe(true);
+  });
+  it('9夜目のセーブ：鉄の武器は備えに戻り、ほかの武器はそのまま。途中の部隊の割り当ても備えに付けかえる', () => {
+    const raw = JSON.parse(fixture('v9-squad.json')).state;
+    const before = raw.armory.filter((a: { weaponId: string; engraved?: string }) => !a.weaponId.startsWith('iron_') && a.weaponId !== 'matchlock').length;
+    const s = deserialize(fixture('v9-squad.json'));
+    expect(s.armory.filter((a) => a.weaponId.startsWith('iron_') && !a.engraved).length).toBe(0);
+    expect(s.armory.length).toBeGreaterThanOrEqual(before);
+    for (const sq of s.sortie?.squads ?? []) for (const d of sq.deploy) if (d.armoryUid) expect(d.armoryUid.startsWith('stock:') || s.armory.some((a) => a.uid === d.armoryUid)).toBe(true);
+  });
+});

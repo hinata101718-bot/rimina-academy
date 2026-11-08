@@ -1,5 +1,6 @@
 // 自動の戦闘（5夜目）：今の戦闘の計算を裏で手早く回し、その記録から場面と出来事を拾う。
 // 出撃前の作戦の方針・役割、ここぞの選択（1〜2回）、敵将の口上と因縁、結果の講評。
+import { rollLoot } from '../loot';
 import { B } from '../../data/balance';
 import { AUTO, TACTICS, TACTIC_OPTIONS, ROLES, LEADER_DUEL, LEADER_FLEE, BANDIT_EPITHETS, MONSTER_LEADERS, type TacticId, type RoleId, type UnitMod, type LeaderPersonality } from '../../data/autobattle';
 import { OPEN_KIND, MAP_TEXT, WEATHER_TEXT, MATCHUP_TEXT, CLASH_TEXT, CLIMAX_TEXT, END_TEXT, SAY, EVENT_TEXT, LEADER_TEXT, CHOICE_TEXT, CHOICE_RESULT, RESULT_TEXT, REVIEW_TEXT } from '../../data/autobattle_text';
@@ -784,6 +785,9 @@ function endScene(s: GameState, b: BattleState): AutoScene {
   if (alive.length) { const x = alive.sort((p, q2) => (a.spot[q2.st.id] ?? 0) - (a.spot[p.st.id] ?? 0))[0]; lines.push(say(s, r, win ? 'win' : 'lose', x.st)); h.faces.push(x.st.id); }
   const q = s.quests.find((x) => x.id === b.questId);
   const raise = q ? raiseGrunts(s, b, r, q, true) : [];
+  // 10夜目：戦利品（雑兵の落とし物・敵将の銘入りの武器・依頼の報酬）
+  const loot = rollLoot(s, b, q, (uid) => (q ? gruntLabel(s, b, q, uid) : '敵兵'));
+  for (const x of loot) raise.push({ by: 'loot', text: `戦利品：${x.named?.name ?? WEAPONS[x.weaponId]?.name ?? ''}（${x.from}）` });
   b.feed = [];
   b.rng = r.h.rng;
   const sc = sceneOf(b, '決着', lines, h.faces);

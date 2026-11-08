@@ -16,6 +16,7 @@ import { STRATS } from '../data/stratagems';
 import { TACTICS } from '../data/autobattle';
 import { SQUADS } from '../data/stratagems';
 import { enrolled } from '../core/game';
+import { WEAPONS } from '../data/weapons';
 import { SquadEditor, newDraft, draftFromSquad, planOf, squadOf, type SquadDraft } from './AutoBattle';
 
 const SQUAD_NAMES = ['第一部隊', '第二部隊', '第三部隊'];
@@ -31,6 +32,7 @@ export function QuestCard({ x, onClick, tag }: { x: Quest; onClick?: () => void;
         <div><Icon name={WEATHER_ICON[x.weather]} size={17} />{WEATHER_NAMES[x.weather]}</div>
         <div>危険度 <Stars n={x.danger} /></div>
         <div><Icon name="coin" size={17} />{x.reward ? <Num v={x.reward.toLocaleString()} unit="G" /> : '報酬なし'}</div>
+        {x.rewardWeapon && WEAPONS[x.rewardWeapon] && <div class="q-rw"><Icon name="sword" size={17} />報酬：{WEAPONS[x.rewardWeapon].name}</div>}
         <div><Icon name="target" size={17} />推奨 <LvBadge lv={x.level} /></div>
         <div class={x.real ? '' : 'muted'}>{x.real ? <><Icon name="skull" size={17} />戦死あり</> : '誰も死なない'}</div>
       </div>

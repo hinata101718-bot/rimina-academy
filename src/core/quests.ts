@@ -1,4 +1,5 @@
 // 月末の依頼掲示板
+import { questRewardWeapon } from './loot';
 import { B } from '../data/balance';
 import { COUNTRY_NAMES, COUNTRY_SHORT, COUNTRIES } from '../data/people';
 import { QUEST_KINDS } from '../data/quests';
@@ -79,6 +80,8 @@ export function rollQuests(s: GameState): Quest[] {
       defendTurns: objective === 'defend' ? 7 : undefined,
     }));
   }
+  // 10夜目：依頼の報酬に武器がつくことがある（掲示板の札に「報酬：銀の弓」）
+  for (const q of quests) { const w = questRewardWeapon(s, q, r); if (w) q.rewardWeapon = w; }
   return quests;
 }
 

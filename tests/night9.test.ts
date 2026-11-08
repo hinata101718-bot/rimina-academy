@@ -112,7 +112,7 @@ describe('月末に最大3部隊', () => {
     expect(new Set(sq.map((x) => x.questId)).size).toBe(sq.length);
     const ids = sq.flatMap((x) => x.deploy.map((d) => d.studentId));
     expect(new Set(ids).size).toBe(ids.length);
-    const arms = sq.flatMap((x) => x.deploy.flatMap((d) => [d.armoryUid, d.staffUid]).filter(Boolean));
+    const arms = sq.flatMap((x) => x.deploy.flatMap((d) => [d.armoryUid, d.staffUid]).filter(Boolean)).filter((u) => !String(u).startsWith('stock:')); // 10夜目：学校の備え（鉄の武器）は重なってよい
     expect(new Set(arms).size).toBe(arms.length);
     sq.forEach((x, i) => {
       expect(x.deploy.length).toBeLessThanOrEqual(squadLimit(s, i));

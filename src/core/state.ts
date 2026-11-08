@@ -172,7 +172,12 @@ export interface SceneLine {
   roll?: { name: string; dead?: boolean }[];
 }
 
-export interface ArmoryItem { uid: string; weaponId: string; engraved?: string }
+export interface ArmoryItem { uid: string; weaponId: string; engraved?: string;
+  /** 銘入りの武器（10夜目：討ち取った敵将の武器）：名前・由来・少し強い */
+  named?: { name: string; story: string; officerId?: string; by?: string; year: number; might: number; hit: number; crit: number };
+  /** 手に入れたわけ（雑兵の落とし物・依頼の報酬・国から） */
+  got?: { kind: LootItem['kind']; year: number; text: string };
+}
 
 export interface Instructor {
   name: string;
@@ -248,6 +253,8 @@ export interface Quest {
   weather: 'clear' | 'rain' | 'fog';
   real: boolean;
   defendTurns?: number;
+  /** 依頼の報酬の武器（10夜目） */
+  rewardWeapon?: string;
   /** 2つ目・3つ目の部隊向けの小さな依頼（9夜目）：報酬・評判は少なめ、戦況は動かない */
   small?: boolean;
   /** 偵察を出した（6夜目）。scoutFree は斥候がいて出撃の人数が減らないとき */
@@ -410,7 +417,7 @@ export interface BattleReport {
   loot?: LootItem[];
 }
 /** 戦利品（10夜目） */
-export interface LootItem { uid: string; weaponId: string; engraved?: string; from: string; kind: 'drop' | 'named' | 'reward' | 'gift' }
+export interface LootItem { uid?: string; weaponId: string; from: string; kind: 'drop' | 'named' | 'reward' | 'gift'; named?: ArmoryItem['named'] }
 /** 戦闘後の生徒ごとの評価（9夜目） */
 export interface StudentEval {
   id: string; grade: string;
