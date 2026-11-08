@@ -1,6 +1,7 @@
 // 依頼から戦闘を組み立てる（マップの型の組み替え・敵の生成・戦力の調整）
 import { armoryItem } from '../loot';
 import { equippedOf } from '../arts';
+import { ART_LIST } from '../../data/arts';
 import { B, STATS } from '../../data/balance';
 import { MAPS } from '../../data/maps';
 import { CLASSES, CLASS_LIST } from '../../data/classes';
@@ -98,6 +99,13 @@ export function enemyUnit(rng: Rng, uid: string, classId: string, level: number,
   u.weapons = weapons;
   u.weaponId = weapons.find((w) => WEAPONS[w]?.type !== 'staff') ?? null;
   u.abilities = c.ability ? [c.ability] : [];
+  // 12夜目：敵の兵も戦技を使う（レベルが上がるほど、使い手が増える）
+  if (level >= B.enemy.artLv && rng.chance(Math.min(B.enemy.artMax, B.enemy.artBase + (level - B.enemy.artLv) * B.enemy.artPerLv))) {
+    const wt = u.weaponId ? WEAPONS[u.weaponId]?.type : undefined;
+    const sk = wt === 'holy' ? 'faith' : wt;
+    const list = ART_LIST.filter((a) => a.kind === 'art' && !a.bloom && a.skill === sk && (a.rank === 'D' || (level >= 24 && a.rank === 'C') || (level >= 32 && a.rank === 'B')));
+    if (list.length) u.arts = [rng.pick(list).id];
+  }
   return u;
 }
 

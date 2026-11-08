@@ -330,6 +330,8 @@ function ensure10(s: GameState): void {
     // 同じ会話を二度出さない：これまでの会話の記録から、見た面談の題を拾う
     if (!st.seenTalks) { const l = [...new Set((st.archive ?? []).map((id) => s.archive?.[id]).filter((t) => t && t.b === 'teacher').map((t) => t!.title))]; if (l.length) st.seenTalks = l; }
   }
+  // 先生の技能の上限：軍略・統率がまだない古いセーブだけ、Bまで（読みこむたびに書きかえない）
+  if (s.instructor?.caps && s.instructor.caps.tactics === undefined) { s.instructor.caps.tactics = RANK_POINTS.B; s.instructor.caps.command = RANK_POINTS.B; }
   fill(s.instructor?.skills); fill(s.instructor?.caps);
   // 敵将の型（勇士型・将型）：今いる敵将にも1つ（名前から決める）
   for (const o of s.officers ?? []) {
@@ -338,7 +340,6 @@ function ensure10(s: GameState): void {
     const st = h % 10 < (o.rank === 0 ? 4 : o.rank === 1 ? 5 : 6) ? 'valor' : 'marshal';
     o.traits.push(st); o.knownTraits.push(st);
   }
-  if (s.instructor?.caps) { s.instructor.caps.tactics = Math.max(s.instructor.caps.tactics, RANK_POINTS.B); s.instructor.caps.command = Math.max(s.instructor.caps.command, RANK_POINTS.B); }
   if (s.instructor?.skills && !s.instructor.skills.tactics && !s.instructor.skills.command) { s.instructor.skills.tactics = RANK_POINTS.D; s.instructor.skills.command = RANK_POINTS.D; }
 }
 
