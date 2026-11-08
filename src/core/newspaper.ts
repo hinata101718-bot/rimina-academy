@@ -82,9 +82,9 @@ function orgChanges(s: GameState, extraLines: string[]): NonNullable<NewsPaper['
     const was = d.officers[o.id];
     const who = `${factionName(o.faction)}・${rankName(o)}`;
     const name = officerName(o);
-    if (!was) { if (o.status === 'active' && o.rank <= 2) out.push({ tag: ORG_TAGS.rise, name, text: `${who}に名を連ねる`, officerId: o.id }); continue; }
-    if (was.st === 'active' && o.status === 'dead') { const v = o.meets[o.meets.length - 1]; out.push({ tag: ORG_TAGS.dead, name, text: `（${who}）${v ? `${v.title}にて、リミナ分校の生徒に討たれる` : o.endNote ?? '戦場に散る'}`, officerId: o.id }); continue; }
-    if (was.st === 'active' && (o.status === 'retired' || o.status === 'defeated')) { out.push({ tag: ORG_TAGS.retire, name, text: `（${who}）${o.endNote ?? '戦場を去る'}`, officerId: o.id }); continue; }
+    if (!was) { if (o.status === 'active' && o.rank <= 2) out.push({ tag: ORG_TAGS.rise, name, text: `、${who}に名を連ねる`, officerId: o.id }); continue; }
+    if (was.st === 'active' && o.status === 'dead') { const v = o.meets[o.meets.length - 1]; out.push({ tag: ORG_TAGS.dead, name, text: `（${who}）、${v ? `${v.title}にて、リミナ分校の生徒に討たれる` : o.endNote ?? '戦場に散る'}`, officerId: o.id }); continue; }
+    if (was.st === 'active' && (o.status === 'retired' || o.status === 'defeated')) { out.push({ tag: ORG_TAGS.retire, name, text: `（${who}）、${o.endNote ?? '戦場を去る'}`, officerId: o.id }); continue; }
     if (o.status !== 'active') continue;
     if (o.rank < was.rk) out.push({ tag: ORG_TAGS.promote, name, text: `${rankName({ ...o, rank: was.rk })}→${rankName(o)}。${factionName(o.faction)}の要に`, officerId: o.id });
     if (o.epithet && o.epithet !== was.ep) out.push({ tag: ORG_TAGS.epithet, name: `${o.given}`, text: `${factionName(o.faction)}の${o.given}、「${o.epithet}${o.given}」と呼ばれはじめる`, officerId: o.id });
@@ -98,6 +98,7 @@ function orgChanges(s: GameState, extraLines: string[]): NonNullable<NewsPaper['
 
 /** 政治の動き：三国の方針と出来事 */
 function politics(s: GameState, r: Rng, events: ChronicleEntry[]): NonNullable<NewsPaper['politics']> {
+  const used = new Set<string>();
   return COUNTRIES.map((c) => {
     const st = stanceOf(s, c);
     const parts: string[] = [];
@@ -106,7 +107,10 @@ function politics(s: GameState, r: Rng, events: ChronicleEntry[]): NonNullable<N
     if (c === 'kingdom' && s.world.kingDied && events.some((e) => e.text.includes('王'))) parts.push(EVENT_TEXT.kingDied);
     if (s.world.famine) parts.push(EVENT_TEXT.famine);
     if (s.world.epidemic && !parts.length) parts.push(EVENT_TEXT.epidemic);
-    parts.push(r.pick(STANCE_TEXT[st]));
+    const pool = STANCE_TEXT[st][c].filter((x) => !used.has(x));
+    const t = r.pick(pool.length ? pool : STANCE_TEXT[st][c]);
+    used.add(t);
+    parts.push(t);
     return { country: c, stance: STANCE_NAMES[st], text: parts.slice(0, 2).join('。') };
   });
 }
@@ -145,13 +149,14 @@ export function publishIssue(s: GameState, kind: 'first' | 'second', input: Issu
   const pol = politics(s, r, worldEv);
   // 卒業生の消息
   let alumni = (input.alumni ?? []).slice(0, 6);
-  if (!alumni.length) {
-    const act = Object.values(s.students).filter((x) => x.status === 'graduated' && x.career?.alive && !x.career.retired);
-    alumni = r.shuffle(act).slice(0, 3).map((x) => ({ id: x.id, text: `${x.given}（${x.cohort}期生）${titleOf(x)}として務める` }));
-    for (const e of period.filter((x) => x.kind === 'student').slice(-3)) alumni.push({ id: '', text: e.text });
-  }
   // 学校の話題
   const school: string[] = [];
+  if (!alumni.length) {
+    const act = Object.values(s.students).filter((x) => x.status === 'graduated' && x.career?.alive && !x.career.retired);
+    alumni = r.shuffle(act).slice(0, 3).map((x) => ({ id: x.id, text: `${x.given}（${x.cohort}期生）、${titleOf(x)}として務める` }));
+    // 在校生の出来事（兵種の昇格・才能の判明など）は学校の話題へ
+    for (const e of period.filter((x) => x.kind === 'student').slice(-3)) school.push(e.text);
+  }
   const dr = Math.round(s.reputation - d.reputation);
   school.push(`評判 ${Math.round(d.reputation)} → ${Math.round(s.reputation)}${dr > 0 ? '（名が広まりつつある）' : dr < 0 ? '（少し陰りが見える）' : ''}`);
   for (const e of period.filter((x) => x.kind === 'school').slice(-4)) school.push(e.text);

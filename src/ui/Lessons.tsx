@@ -71,8 +71,9 @@ export function LessonBoard({ s }: { s: GameState }) {
   const whoSt = who ? s.students[who] : null;
   return (
     <div class="lessonboard">
+      <div class="lb-sheet">
       <div class="row between nowrap">
-        <h2 class="serif" style={{ margin: '6px 0 0' }}>今日の授業</h2>
+        <h2 class="serif" style={{ margin: '6px 0 0' }}>本日の授業 <small class="muted">一つを選び、命ず</small></h2>
         <span class="lb-day">{DAY_NAMES[(s.day ?? 1) - 1]}曜日{day.rain ? '・雨' : ''}</span>
       </div>
       <div class="muted small">1つ選ぶ。全員が伸びて、顔が出ている子は特に伸びる。授業は先生の体力を使い、休講で回復する。</div>
@@ -82,6 +83,7 @@ export function LessonBoard({ s }: { s: GameState }) {
         <span class="small"><span class="fmark t inline">目</span> の子は自分の目標の授業でさらに伸びる（タップで見る・変える）</span>
       </div>
       {teacherSick(s) && <div class="guide">{s.instructor.name}先生が寝込んでいます。今日は自動で休講になります（あと{s.instructor.sickDays}日）。</div>}
+      </div>
       <div class="lcards">
         {day.cards.map((c, i) => <LessonCardView s={s} c={c} on={sel === i} rec={i === rec} onPick={() => { sfx('move'); setSel(sel === i ? null : i); setWho(null); }} onFace={(id) => setWho(who === id ? null : id)} />)}
       </div>
@@ -92,7 +94,7 @@ export function LessonBoard({ s }: { s: GameState }) {
           <button class="btn ghost small" onClick={(e) => { e.stopPropagation(); navigate({ tab: 'students', page: 'detail', id: whoSt.id }); }}>個人ページ</button>
         </div>
       )}
-      <div class="muted small" style={{ marginTop: 4 }}>・顔が出る子は毎日変わります（得意な技能・夢・性格に合う授業に出やすい）<br />・顔が2人以上（仲の良い組・恋人・ライバル）重なると友情タッグ✦</div>
+      <div class="muted small lb-notes" style={{ marginTop: 4 }}>・顔が出る子は毎日変わります（得意な技能・夢・性格に合う授業に出やすい）<br />・顔が2人以上（仲の良い組・恋人・ライバル）重なると友情タッグ✦</div>
       <div style={{ height: 64 }} />
       <div class="lessonbar">
         {teacherSick(s) ? (

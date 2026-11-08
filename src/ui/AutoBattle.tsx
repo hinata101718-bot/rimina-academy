@@ -307,7 +307,7 @@ export function AutoBattleView() {
   return (
     <div class="ab-view bl-view">
       <div class="ab-head bl-head">
-        <div class="bl-title"><b class="serif">{b.title}</b>{q && <span class="small">{WEATHER_NAMES[q.weather]}・{OBJECTIVE_NAMES[q.objective]}{leader ? `（敵将${leader.name}）` : ''}</span>}</div>
+        <div class="bl-title"><span class="stamp bl-stamp">戦闘報告</span><b class="serif">{b.title}</b>{q && <span class="small">{WEATHER_NAMES[q.weather]}・{OBJECTIVE_NAMES[q.objective]}{leader ? `（敵将${leader.name}）` : ''}</span>}</div>
         <div class="bl-hp">
           <div class="bl-side"><div class="bl-sidet ally">味方</div>{allies.slice(0, 10).map((u) => <HpRow name={nameOf(u.uid)} v={hp[u.uid] ?? u.maxHp} max={u.maxHp} down={gone.has(u.uid) || (hp[u.uid] ?? 1) <= 0} ally />)}</div>
           <div class="bl-side"><div class="bl-sidet foe">敵</div>{foes.slice(0, 10).map((u) => <HpRow name={nameOf(u.uid)} v={hp[u.uid] ?? u.maxHp} max={u.maxHp} down={gone.has(u.uid) || (hp[u.uid] ?? 1) <= 0} />)}{foes.length > 10 && <div class="small muted">ほか{foes.length - 10}人</div>}</div>

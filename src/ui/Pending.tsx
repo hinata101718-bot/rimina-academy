@@ -63,7 +63,7 @@ export function PendingView() {
     case 'scene': return <Sheet title={p.title}><ScenePlayer key={p.title} s={s} lines={p.lines} onDone={done} /></Sheet>;
     case 'rankup': return <Sheet><RankUpPlayer key={s.pending.length} s={s} items={p.items} onDone={done} /></Sheet>;
     case 'discovery': return <Sheet><DiscoveryView key={`${p.studentId}${p.stage}${s.pending.length}`} s={s} p={p} onDone={done} /></Sheet>;
-    case 'newspaper': return <Sheet title="新聞が届いた"><NewsView id={p.id} /><button class="btn primary block" style={{ marginTop: 10 }} onClick={done}>閉じる</button></Sheet>;
+    case 'newspaper': return <Sheet title={s.news.find((n) => n.id === p.id)?.kind === 'extra' ? '号外が出た' : '新聞が届いた'}><NewsView id={p.id} /><button class="btn primary block" style={{ marginTop: 10 }} onClick={done}>閉じる</button></Sheet>;
     default: return <Sheet title="お知らせ"><button class="btn primary block" onClick={done}>閉じる</button></Sheet>;
   }
 }
@@ -316,23 +316,8 @@ function Graduation({ s, cohort, lines, onDone }: { s: GameState; cohort: number
   );
 }
 
-export function NewsView({ id }: { id: string }) {
-  const { s } = useStore();
-  const n = s?.news.find((x) => x.id === id);
-  if (!s || !n) return null;
-  return (
-    <div class="paper" style={n.tension > 65 ? { background: '#cfc8bb' } : undefined}>
-      <ArtSlot name="event_newspaper" height={110} />
-      <div class="head">リンデルガ新報　{n.year}年目</div>
-      <h2 style={{ marginTop: 4 }}>{n.headline}</h2>
-      {n.body.map((l) => <p style={{ margin: '4px 0' }}>{l}</p>)}
-      {n.alumni.length > 0 && <>
-        <h3 style={{ borderTop: '1px solid var(--ink)', paddingTop: 6 }}>卒業生の消息</h3>
-        {n.alumni.map((a) => <div class="small" style={{ cursor: 'pointer', textDecoration: 'underline' }} onClick={() => { act((g) => { g.pending = g.pending.filter((p) => !(p.type === 'newspaper' && p.id === id)); }); navigate({ tab: 'students', page: 'detail', id: a.id }); }}>・{a.text}</div>)}
-      </>}
-    </div>
-  );
-}
+import { NewsView } from './Newspaper';
+export { NewsView };
 
 function Retire({ s, forced }: { s: GameState; forced: boolean }) {
   const ins = s.instructor;

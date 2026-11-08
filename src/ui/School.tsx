@@ -21,6 +21,10 @@ import { sfx } from './sound';
 import { Icon } from './icons';
 import { MonthCalendar, ArtSlot } from './HomeDeco';
 import { InstructorPage } from './Mentor';
+import { Desk } from './Desk';
+import { NewsPage } from './Newspaper';
+import { MONTH_NAMES } from '../core/util';
+const MONTH_NAMES_SHORT = (m: number) => MONTH_NAMES[m];
 import { SkillBox, skillIcon, countryColor, LvBadge, ClassName, MoodDots, FatigueBar, Gauge, NameLine, MiniCard, Num, Chip, studentFlags } from './cards';
 import { supportRank, supportValue } from '../core/support';
 
@@ -39,10 +43,29 @@ export function SchoolTab() {
   if (route.page === 'armory') return <Armory s={s} />;
   if (route.page === 'mail') return <Mailbox s={s} />;
   if (route.page === 'instructor') return <InstructorPage s={s} />;
-  return <Home s={s} />;
+  if (route.page === 'today') return <TodayPage s={s} />;
+  if (route.page === 'notebook') return <Notebook s={s} />;
+  if (route.page === 'news') return <NewsPage s={s} />;
+  return <Desk s={s} />;
 }
 
-function Home({ s }: { s: GameState }) {
+/** 今日の授業（8夜目：ホームの「本日の授業を命ず」から。授業の札を机の上に並べる） */
+function TodayPage({ s }: { s: GameState }) {
+  const guideOn = s.settings.guide && s.year === 1 && s.month === 0;
+  return (
+    <div class="todaypage">
+      <Back to={() => navigate({ tab: 'school' })} />
+      <MonthCalendar s={s} />
+      {s.month === 3 && <ArtSlot name="event_camp" />}
+      {s.month === 8 && <ArtSlot name="event_festival" />}
+      {guideOn && <div class="guide">{GUIDE[Math.min(GUIDE.length - 1, s.week - 1)]}</div>}
+      {!s.pending.length && !s.battle && <LessonBoard s={s} />}
+    </div>
+  );
+}
+
+/** 教官手帳（8夜目：机の手帳を開いた頁。今月の主役・やること・お知らせ・学校のこと） */
+function Notebook({ s }: { s: GameState }) {
   const list = enrolled(s);
   const todo: { text: string; go: () => void; red?: boolean; icon?: string }[] = [];
   if (s.week === 1 && (s.day ?? 1) === 1) todo.push({ text: '今月の目標技能を決めよう（自動の子は決まっています）', go: () => navigate({ tab: 'school', page: 'targets' }), icon: 'lesson', red: true });
@@ -57,14 +80,10 @@ function Home({ s }: { s: GameState }) {
   const unread = s.mail.filter((m) => !m.read).length;
   if (unread) todo.push({ icon: 'mail', text: `郵便受けに未読の手紙が${unread}通`, go: () => navigate({ tab: 'school', page: 'mail' }) });
   const [spotMsg, setSpotMsg] = useState('');
-  const guideOn = s.settings.guide && s.year === 1 && s.month === 0;
   return (
-    <div>
-      <MonthCalendar s={s} />
-      {s.month === 3 && <ArtSlot name="event_camp" />}
-      {s.month === 8 && <ArtSlot name="event_festival" />}
-      {guideOn && <div class="guide">{GUIDE[Math.min(GUIDE.length - 1, s.week - 1)]}</div>}
-      {!s.pending.length && !s.battle && <LessonBoard s={s} />}
+    <div class="deskpage">
+      <Back to={() => navigate({ tab: 'school' })} />
+      <div class="ledger"><div class="row between nowrap"><h2 class="ledger-title" style={{ margin: 0 }}>教官手帳</h2><span class="stamp">{MONTH_NAMES_SHORT(s.month)}</span></div><div class="small muted">{s.year}年目 {MONTH_NAMES_SHORT(s.month)} 第{s.week}週。やること・お知らせ・学校のこと。</div></div>
       <div class="two">
         <div>
           {s.spotlight.length > 0 && (
