@@ -30,7 +30,7 @@ describe('7夜目版のセーブ（形式7）', () => {
     const skills0 = { ...raw.state.instructor.skills };
     const s = deserialize(fixture('v7-day.json'));
     expect(s.version).toBe(SAVE_VERSION);
-    expect(SAVE_VERSION).toBe(8);
+    expect(SAVE_VERSION).toBeGreaterThanOrEqual(8);
     expect(s.instructor.skills).toEqual(skills0);
     expect(s.instructor.xp).toBe(0);
     expect(s.instructor.abilities).toEqual([]);

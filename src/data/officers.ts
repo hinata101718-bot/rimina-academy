@@ -66,6 +66,10 @@ export const OFFICER = {
   scarStats: { spd: -1, def: 1 },
   /** 二つ名のつく条件：倒した数（戦死は1、重傷は0.5） */
   epithetAt: 1,
+  /** 見込みのある兵（9夜目）：陣営ごとの人数、隊長の席が空いたとき抜擢される確率、戦いで名を得る確率（倒した・必殺・粘った・撤退を生き延びた） */
+  prospectMax: 4, raiseChance: 0.6, raiseOdds: { victim: 0.45, crit: 0.12, last: 0.15, retreat: 0.1 },
+  /** 権力争い：年度末に始まる確率、翌年に頭の座を奪う確率 */
+  contestChance: 0.15, contestWin: 0.5,
   /** 弱点を知っていて突いたときの上乗せ */
   exploitMod: { hit: 5, dmg: 1 },
 };

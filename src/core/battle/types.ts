@@ -47,6 +47,8 @@ export interface Unit {
   foeMods?: { types?: string[]; moveTypes?: string[]; hit?: number; dmg?: number }[];
   /** この敵将が狙う相手（味方のuid。6夜目：執着） */
   grudge?: string;
+  /** 陣形（9夜目）：前列は狙われやすく、後列は守られる */
+  row?: 'front' | 'back';
 }
 
 export interface BattleLogEntry { text: string; kind?: 'crit' | 'kill' | 'miss' | 'hit' | 'heal' | 'info' | 'level' }

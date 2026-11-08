@@ -53,8 +53,8 @@ export function App() {
   const season = s ? seasonOf(s.month) : 'spring';
   useEffect(() => { document.body.dataset.season = season; }, [season]);
   if (!s) return <Title />;
-  if (s.battle?.auto) return <AutoBattleView />;
-  if (s.battle) return <BattleView />;
+  if (s.battle?.auto) return <AutoBattleView key={`${s.battle.questId}${s.sortie?.idx ?? ''}`} />;
+  if (s.battle) return <BattleView key={`${s.battle.questId}${s.sortie?.idx ?? ''}`} />;
   const unread = s.mail.filter((m) => !m.read).length;
   const stamina = Math.round(teacherStamina(s));
   // 8夜目：机の世界。ホームと机の上の頁は木の上に、ほかの画面は紙の頁（名簿＝綴じた名簿、個人ページ＝機密の書類、戦況＝作戦書）

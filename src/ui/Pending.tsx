@@ -33,7 +33,9 @@ import { STATS, B } from '../data/balance';
 import type { Path } from '../core/types';
 import type { Deploy } from '../core/battle/setup';
 import { sfx } from './sound';
-import { AutoPrep, AutoResultHead } from './AutoBattle';
+import { AutoResultHead } from './AutoBattle';
+import { SortiePrep } from './Sortie';
+import { BattleResult, SortieResult, NewStratView } from './Results';
 import { RankUpPlayer, DiscoveryView } from './RankUp';
 import { LessonResultView } from './Lessons';
 import { Icon } from './icons';
@@ -52,7 +54,9 @@ export function PendingView() {
     case 'lessonResult': return <Sheet><LessonResultView key={`${p.day}${p.lesson}${s.absWeek}`} s={s} p={p} onDone={done} /></Sheet>;
     case 'talk': return <Sheet title={p.talk.kind === 'support' || !p.talk.kind ? '支援会話' : '面談'}><TalkPlayer s={s} t={p.talk} onDone={done} onChoice={(k) => act((g) => chooseReply(g, p.talk, k))} /></Sheet>;
     case 'event': return <Sheet title={p.title}><div class="paper">{p.lines.map((l) => <p>{l}</p>)}</div><button class="btn primary block" style={{ marginTop: 10 }} onClick={done}>閉じる</button></Sheet>;
-    case 'battleResult': return <BattleResult s={s} p={p} onDone={done} />;
+    case 'battleResult': return <BattleResult key={`${p.title}${s.pending.length}`} s={s} p={p} onDone={done} />;
+    case 'sortieResult': return <SortieResult key={`sr${s.pending.length}`} s={s} reports={p.reports} onDone={done} />;
+    case 'newStrat': return <Sheet><NewStratView key={p.id} s={s} p={p} onDone={done} /></Sheet>;
     case 'questBoard': return <QuestBoard s={s} />;
     case 'entrance': return <Entrance s={s} />;
     case 'career': return <Career s={s} />;
@@ -115,122 +119,10 @@ function WeekSummary({ lines, talks, growth, onDone }: { lines: string[]; talks:
   );
 }
 
-const RESULT_MEET: Record<string, string> = { win: '取り逃がした', lose: 'に敗れた', fled: 'は傷を負って逃げのびた', fell: 'を討ち取った', spared: 'を見逃した', persuaded: 'を説き伏せた', yielded: 'を一騎打ちで破った' };
-/** 結果の画面：この戦いの敵将（顔と、どうなったか） */
-function ResultOfficer({ s, id }: { s: GameState; id: string }) {
-  const o = officerById(s, id);
-  const m = o?.meets[o.meets.length - 1];
-  if (!o || !m) return null;
-  return (
-    <div class="pcard" style={{ ['--band' as string]: FACTION_COLOR[o.faction] }}>
-      <div class="row nowrap gap8">
-        <OfficerFace o={o} size={52} frame={FACTION_COLOR[o.faction]} s={s} />
-        <div class="grow" style={{ minWidth: 0 }}>
-          <div class="small muted">この戦いの敵将</div>
-          <b class="serif">{officerName(o)}</b>
-          <div class="small">{m.result === 'fled' ? `${officerName(o)}${RESULT_MEET.fled}` : m.result === 'lose' ? `${officerName(o)}${RESULT_MEET.lose}` : `${officerName(o)}${RESULT_MEET[m.result] ?? ''}`}{o.status === 'active' && o.meets.length > 1 ? `（会うのは${o.meets.length}回目）` : ''}</div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function BattleResult({ s, p, onDone }: { s: GameState; p: Extract<GameState['pending'][number], { type: 'battleResult' }>; onDone: () => void }) {
-  const [step, setStep] = useState(p.growth?.length ? 0 : 1);
-  if (step === 0) return <Sheet title={p.win ? '勝利 ― 成長の記録' : '敗北 ― 成長の記録'}><GrowthPlayer s={s} entries={p.growth ?? []} title="出撃した生徒" onDone={() => setStep(1)} /></Sheet>;
-  return (
-    <Sheet title={`${p.win ? '勝利' : '敗北'}${p.title ? `：${p.title}` : ''}`}>
-      <AutoResultHead s={s} mvp={p.mvp} review={p.review} />
-      {p.officerId && <ResultOfficer s={s} id={p.officerId} />}
-      {p.findings && p.findings.length > 0 && (
-        <div class="pcard" style={{ ['--band' as string]: 'var(--gold)' }}>
-          <h3 style={{ marginTop: 0 }}>この戦いで伸びた・分かったこと</h3>
-          <ul class="list sumlist">{p.findings.map((f) => <li><span class="todoicon"><Icon name={f.icon} size={16} /></span><span>{f.text}</span></li>)}</ul>
-        </div>
-      )}
-      <h3>生徒ごとの評価</h3>
-      {p.grades.map((g) => { const st = s.students[g.id]; if (!st) return null; return <MiniCard st={st} onClick={() => undefined} sub={g.note} right={<span class={`grade g${g.grade}`}>{g.grade}</span>} />; })}
-      <div class="pcard"><ul class="list sumlist">{p.lines.map((l) => <li><span class="todoicon"><Icon name={l.startsWith('勝利') ? 'flag' : l.startsWith('敗北') ? 'skull' : l.includes('報酬') ? 'coin' : lineIcon(l)} size={16} /></span><span>{l}</span></li>)}</ul></div>
-      <button class="btn primary block" onClick={() => { sfx('ok'); onDone(); }}>閉じる</button>
-    </Sheet>
-  );
-}
-
 const TYPE_SKILL: Record<string, string> = { sword: 'sword', lance: 'lance', axe: 'axe', bow: 'bow', magic: 'magic', holy: 'faith', staff: 'faith', gun: 'gun' };
 
 function QuestBoard({ s }: { s: GameState }) {
-  const [qid, setQid] = useState<string | null>(s.quests.length === 1 ? s.quests[0].id : null);
-  const [deploy, setDeploy] = useState<Deploy[] | null>(null);
-  const q = s.quests.find((x) => x.id === qid);
-  if (!q) {
-    return (
-      <Sheet title="月末の依頼掲示板">
-        {s.month === 5 && <ArtSlot name="event_exhibition" />}
-        {s.settings.guide && s.year === 1 && s.month === 0 && <div class="guide">最初は「演習」を選びましょう。演習では誰も死にません。実戦は報酬と評判がもらえますが、倒れた生徒が戦死することがあります。</div>}
-        {s.quests.map((x) => (
-          <div class="pcard tap" style={{ ['--band' as string]: x.clientCountry ? countryColor(x.clientCountry) : 'var(--main)' }} onClick={() => { sfx('ok'); setQid(x.id); }}>
-            <div class="row between nowrap"><span class="ptitle">{x.title}</span><span class={`flag ${x.real ? 'red' : ''}`}>{x.real ? '実戦' : x.kind === 'exhibition' ? '演武会' : '演習'}</span></div>
-            <div class="row nowrap gap6 small" style={{ marginTop: 2 }}>{x.clientCountry && <CountryChip o={x.clientCountry} />}<span class="muted">依頼主：{x.client}</span></div>
-            <div class="infogrid">
-              <div><Icon name={OBJECTIVE_ICON[x.objective]} size={17} />{OBJECTIVE_NAMES[x.objective]}{x.defendTurns && x.objective === 'defend' ? `（${x.defendTurns}ターン）` : ''}</div>
-              <div><Icon name={WEATHER_ICON[x.weather]} size={17} />{WEATHER_NAMES[x.weather]}</div>
-              <div>危険度 <Stars n={x.danger} /></div>
-              <div><Icon name="coin" size={17} />{x.reward ? <Num v={x.reward.toLocaleString()} unit="G" /> : '報酬なし'}</div>
-              <div><Icon name="target" size={17} />推奨 <LvBadge lv={x.level} /></div>
-              <div class={x.real ? '' : 'muted'}>{x.real ? <><Icon name="skull" size={17} />戦死あり</> : '誰も死なない'}</div>
-            </div>
-          </div>
-        ))}
-      </Sheet>
-    );
-  }
-  if (!s.settings.manualBattle) return <AutoPrep key={q.id} s={s} q={q} onBack={s.quests.length > 1 ? () => { setQid(null); setDeploy(null); } : undefined} />;
-  const limit = deployLimit(s);
-  const d = deploy ?? autoDeploy(s, limit);
-  const setD = (nd: Deploy[]) => setDeploy(nd);
-  const used = new Set(d.flatMap((x) => [x.armoryUid, x.staffUid]).filter(Boolean) as string[]);
-  const avail = enrolled(s).filter(available);
-  return (
-    <Sheet title={`出撃準備：${q.title}`} onClose={s.quests.length > 1 ? () => { setQid(null); setDeploy(null); } : undefined}>
-      <div class="row between nowrap"><span>出撃 <Num v={d.length} unit={`／${limit}人`} /></span><span class="row nowrap gap6 small"><Icon name={WEATHER_ICON[q.weather]} size={18} />{WEATHER_NAMES[q.weather]}　<Icon name={OBJECTIVE_ICON[q.objective]} size={18} />{OBJECTIVE_NAMES[q.objective]}</span></div>
-      <div class="small muted">出撃できるのは{limit}人まで。武器は武器庫から割り当てます（技能ランクが足りない武器は使えません）。魔法は本人が覚えたものを使います。</div>
-      {q.weather === 'rain' && <div class="tag red">雨：移動−1、銃は使えない</div>}
-      {q.weather === 'fog' && <div class="tag red">霧：弓・魔道・銃の射程−1</div>}
-      {avail.map((st) => {
-        const i = d.findIndex((x) => x.studentId === st.id);
-        const on = i >= 0;
-        const opts = s.armory.filter((a) => canEquip(st, a.weaponId) && WEAPONS[a.weaponId].type !== 'staff' && (!used.has(a.uid) || d[i]?.armoryUid === a.uid));
-        const spells = usableSpells(st).map((id) => WEAPONS[id]?.name).filter(Boolean);
-        const cls = CLASSES[st.classId];
-        return (
-          <MiniCard st={st} dim={!on} onClick={() => { sfx('move'); if (on) setD(d.filter((x) => x.studentId !== st.id)); else if (d.length < limit) setD([...d, { studentId: st.id, armoryUid: opts[0]?.uid ?? null, item: null, staffUid: null }]); }}
-            sub={<span class="row nowrap gap4">HP<Num v={st.stats.hp + (cls.bonus.hp ?? 0)} />{st.targets.map((k) => <Chip>{SKILL_NAMES[k]} {rankOf(st.skills[k])}</Chip>)}</span>} right={<span class={`checkbox${on ? ' on' : ''}`}>{on ? '✓' : ''}</span>}>
-            {on && (
-              <div class="row ruled">
-                <select value={d[i].armoryUid ?? ''} onChange={(e) => { const nd = [...d]; nd[i] = { ...nd[i], armoryUid: (e.target as HTMLSelectElement).value || null }; setD(nd); }}>
-                  <option value="">武器なし</option>
-                  {opts.map((a) => <option value={a.uid}>{WEAPONS[a.weaponId].name}{a.engraved ? `（${a.engraved}）` : ''}</option>)}
-                </select>
-                <select value={d[i].item ?? ''} onChange={(e) => { const nd = [...d]; nd[i] = { ...nd[i], item: ((e.target as HTMLSelectElement).value || null) as Deploy['item'] }; setD(nd); }}>
-                  <option value="">道具なし</option>
-                  <option value="vulnerary" disabled={s.items.vulnerary <= d.filter((x, j) => j !== i && x.item === 'vulnerary').length}>傷薬（残{s.items.vulnerary}）</option>
-                  <option value="elixir" disabled={s.items.elixir <= d.filter((x, j) => j !== i && x.item === 'elixir').length}>特効薬（残{s.items.elixir}）</option>
-                </select>
-                {spells.length > 0 && <div class="small muted" style={{ width: '100%' }}><Icon name="tome" size={14} /> 使える魔法：{spells.join('・')}</div>}
-              </div>
-            )}
-          </MiniCard>
-        );
-      })}
-      <button class="btn accent block" disabled={!d.length} onClick={() => {
-        sfx('ok');
-        act((g) => {
-          for (const x of d) if (x.item) g.items[x.item] = Math.max(0, g.items[x.item] - 1);
-          startBattle(g, q.id, d);
-        });
-      }}>出撃する（{d.length}人）</button>
-    </Sheet>
-  );
+  return <SortiePrep key={`${s.year}-${s.month}`} s={s} />;
 }
 
 function ApplicantCard({ st, on, toggle }: { st: Student; on: boolean; toggle: () => void }) {

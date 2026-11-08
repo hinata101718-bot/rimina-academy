@@ -78,11 +78,11 @@ function orgChanges(s: GameState, extraLines: string[]): NonNullable<NewsPaper['
   const d = s.newsDesk!;
   const out: NonNullable<NewsPaper['orgs']> = [];
   for (const o of s.officers ?? []) {
-    if (o.kind === 'monster') continue;
+    if (o.kind === 'monster' || o.prospect) continue;
     const was = d.officers[o.id];
     const who = `${factionName(o.faction)}・${rankName(o)}`;
     const name = officerName(o);
-    if (!was) { if (o.status === 'active' && o.rank <= 2) out.push({ tag: ORG_TAGS.rise, name, text: `、${who}に名を連ねる`, officerId: o.id }); continue; }
+    if (!was || (was.rk >= 3 && o.status === 'active' && o.rank <= 2)) { if (o.status === 'active' && o.rank <= 2) out.push({ tag: ORG_TAGS.rise, name, text: o.raisedYear ? `、一兵卒から${who}に抜擢される` : `、${who}に名を連ねる`, officerId: o.id }); continue; }
     if (was.st === 'active' && o.status === 'dead') { const v = o.meets[o.meets.length - 1]; out.push({ tag: ORG_TAGS.dead, name, text: `（${who}）、${v ? `${v.title}にて、リミナ分校の生徒に討たれる` : o.endNote ?? '戦場に散る'}`, officerId: o.id }); continue; }
     if (was.st === 'active' && (o.status === 'retired' || o.status === 'defeated')) { out.push({ tag: ORG_TAGS.retire, name, text: `（${who}）、${o.endNote ?? '戦場を去る'}`, officerId: o.id }); continue; }
     if (o.status !== 'active') continue;

@@ -1,4 +1,6 @@
 // 日ごとの授業カード（7夜目）：全学年いっしょ・1日1回。毎日5種類＋休講から1つ選ぶ。DOMに依存しない
+import { STRAT } from '../data/stratagems';
+import { addStrat } from './stratagems';
 import { B, SKILLS, STATS } from '../data/balance';
 import { LESSONS, REST, LESSON_BY_ID, PRACTICE_EVENTS, type LessonDef } from '../data/lessons';
 import { TALENTS, DREAMS, SKILL_NAMES, STAT_NAMES, PERSONALITIES } from '../data/people';
@@ -247,6 +249,9 @@ export function resolveLesson(s: GameState, r: Rng, idx: number, talkWith?: stri
     // 才能の判明
     const rev = ((l.reveal ?? (l.group === 'social' || l.group === 'rest' ? 0.4 : 1)) * D.reveal * faceM + (B.talent.libraryReveal[s.facilities.library ?? 0] + expBonusOf(s)) / 5) * (1 + fx(s, 'reveal'));
     revealTalent(s, st, rev, lines);
+    // 軍略（9夜目）：戦術論・兵法の歴史で身につく
+    const sg = STRAT.lessonGain[l.id];
+    if (sg) addStrat(st, sg * (b.face ? STRAT.faceMul : 1));
     if (b.face) st.lastAttention = s.absWeek;
   }
 

@@ -1,5 +1,6 @@
 // 戦闘の進行：移動・攻撃・回復・待機・指示・敵AI・勝敗・巻き戻し
 import { B } from '../../data/balance';
+import { FORMATION } from '../../data/stratagems';
 import { WEAPONS } from '../../data/weapons';
 import type { BattleState, Unit, Strike, Terrain, LastAction } from './types';
 import { Rng } from '../rng';
@@ -518,6 +519,7 @@ export function enemyAct(b: BattleState, ctx: BattleCtx, e: Unit, attackOnly = f
         if (t.escort) score += B.battle.escortAggro;
         if (e.side !== 'enemy' && b.focus && t.uid === b.focus) score += B.battle.focusAggro;
         if (e.grudge && t.uid === e.grudge) score += B.battle.focusAggro;
+        if (e.side === 'enemy' && t.row) score += t.row === 'front' ? FORMATION.frontAggro : FORMATION.backAggro;
         const cautious = e.side !== 'enemy' ? 2.2 : 0.8;
         score -= f.def.canAttack ? f.def.dmg * f.def.count * (f.def.hit / 100) * cautious : 0;
         if (e.side !== 'enemy' && f.def.canAttack && f.def.dmg * f.def.count >= e.hp && f.def.hit > 0 && !kill) score -= 400;

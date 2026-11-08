@@ -118,6 +118,8 @@ export const TALENTS: Record<string, TalentDef> = {
   genius_riding: genius('riding', '騎乗', { spd: 15, def: 15 }),
   genius_heavy: genius('heavy', '重装', { def: 15, hp: 15 }),
   genius_flying: genius('flying', '飛行', { spd: 15, res: 15 }),
+  /** 9夜目：策を立てるのがうまい（策の成功率+、軍略がたまりやすい） */
+  strategist: { id: 'strategist', name: '軍師の才', hint1: '物事の先を読むのがうまい気がする', hint2: '戦の駆け引きに向いているかもしれない', stats: { skl: 10, cha: 15 }, weight: 6 },
   leader: { id: 'leader', name: '隠れた統率者', hint1: '人を惹きつけるところがある気がする', hint2: '人の上に立つ才能があるかもしれない', stats: { cha: 20 }, weight: 8 },
   hero: { id: 'hero', name: '英雄の器', hint1: '何をやらせても伸びる気がする', hint2: 'とてつもない器かもしれない', hero: true, stats: { hp: 10, str: 10, mag: 10, skl: 10, spd: 10, lck: 10, def: 10, res: 10, cha: 10 }, weight: 0 },
 };

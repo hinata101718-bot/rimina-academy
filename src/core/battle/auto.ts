@@ -16,7 +16,7 @@ import { fx } from '../mentor';
 import { autoPlayerPhase, endPlayerPhase, startPlayerPhase, rewind, canRewind, commandRate, finish, checkEnd, enemyAct, type BattleCtx } from './engine';
 import { forecast, weaponOf, staffOf, dist } from './calc';
 import { generateFace } from '../student';
-import { revealOne, survives, pickOfficerForQuest, officerById, officerName, officerLevel, applyOfficerTraits, memoryLine, rivalryOf, voice, headOf, headEffect, factionOfQuest, afterOfficerBattle, rankName, fullName, isScout, type TraitHit } from '../officers';
+import { addProspect, pickFace, parseEnemyFace, revealOne, survives, pickOfficerForQuest, officerById, officerName, officerLevel, applyOfficerTraits, memoryLine, rivalryOf, voice, headOf, headEffect, factionOfQuest, afterOfficerBattle, rankName, fullName, isScout, type TraitHit } from '../officers';
 import { OFFICER, OFFICER_TRAITS, FACTION_NAMES } from '../../data/officers';
 import { SCAR_TEXT, SCAR_RETURN, VOW_SAY, VOW_NARR, RIVAL_SAY, RIVAL_LEADER, SETTLE_TEXT, SETTLE_RESULT, SETTLE_LEADER, SETTLE_SAY, ALUMNI_LEADER, HEAD_TEXT, GRUDGE_CHOICE, GRUDGE_RESULT } from '../../data/officers_text';
 import { unitFromStudent, defaultWeaponFor } from './setup';
@@ -24,6 +24,8 @@ import { bestFriend } from '../support';
 import type { BattleFinding } from '../state';
 import { getSupport, supportValue } from '../support';
 import { enrolled, available, chronicle } from '../game';
+import { STRATS, type StratId } from '../../data/stratagems';
+import { fireStrat, stratReview, captainMod, defaultRow, formationMod, oddsLabel, stratOdds, defaultCaptain, defaultPlanner, knownStrats, stratSlots, type StratRec } from '../stratagems';
 
 // ---------- 型 ----------
 export interface AutoLine { by: string; text: string }
@@ -31,7 +33,7 @@ export interface AutoScene { title: string; lines: AutoLine[]; faces: string[]; 
   /** 戦いの記録（7夜目）：この場面までの攻撃ごとの記録と、場面の終わりの両軍のHP・倒れた（退いた）者 */
   log?: BLog[]; hp?: Record<string, number>; gone?: string[] }
 export interface AutoChoiceOpt { id: string; label: string; note: string; actor?: string }
-export interface AutoChoice { kind: 'help' | 'push' | 'duel' | 'persuade' | 'route' | 'settle' | 'grudge'; prompt: string; actor?: string; options: AutoChoiceOpt[]; recommended: number; /** 二人だけの特別な場面（宿敵の決着） */ duo?: boolean }
+export interface AutoChoice { kind: 'help' | 'push' | 'duel' | 'persuade' | 'route' | 'settle' | 'grudge' | 'wait'; prompt: string; actor?: string; options: AutoChoiceOpt[]; recommended: number; /** 二人だけの特別な場面（宿敵の決着） */ duo?: boolean }
 export interface LeaderInfo {
   uid: string; name: string; personality: LeaderPersonality; face: FaceParts; classId: string; nemesisId?: string; again: boolean; fled?: boolean;
   /** 6夜目：名簿の敵将 */
@@ -78,9 +80,23 @@ export interface AutoState {
   review: string[];
   /** 戦いのはじめの両軍のHP（uid→[今, 最大]。7夜目） */
   hp0?: Record<string, [number, number]>;
+  /** 9夜目：出撃前の計画（策・策を立てる子・部隊長・陣形） */
+  plan?: { planner?: string; captain?: string };
+  /** 切った策の記録、まだ切っていない策（ぶつかり合いのあと） */
+  strats?: StratRec[]; held?: StratId[];
+  /** 策の効き目：重傷で済む確率+、一騎打ちを申し込ませる、戦いのあと特徴が分かる */
+  injury?: number; duelOffer?: boolean; reveal?: boolean;
+  /** 戦いで目立った一般兵（9夜目：名前と顔を得て「見込みのある兵」に） */
+  raised?: RaisedGrunt[];
 }
+/** 戦いで目立った一般兵 */
+export interface RaisedGrunt { uid: string; label: string; given: string; family: string; gender: 'm' | 'f'; face: FaceParts; faceImage: string | null; classId: string; level: number; deed: string; victim?: string; dead?: boolean; weapon?: string | null }
 
-export interface AutoPlan { tactic: TacticId; roles: Record<string, RoleId> }
+export interface AutoPlan {
+  tactic: TacticId; roles: Record<string, RoleId>;
+  /** 9夜目：策（1〜2枚）・策を立てる子・部隊長・前列／後列 */
+  strats?: StratId[]; planner?: string; captain?: string; rows?: Record<string, 'front' | 'back'>;
+}
 /** 卒業生の思い出（口上に使う） */
 function alumniLines(s: GameState, st: Student, r: Rng): string[] {
   const out: string[] = [];
@@ -148,7 +164,20 @@ export function defaultRole(classId: string, st?: Student): RoleId {
 export function defaultPlan(s: GameState, q: Quest, deploys: Deploy[]): AutoPlan {
   const roles: Record<string, RoleId> = {};
   for (const d of deploys) { const st = s.students[d.studentId]; if (st) roles[st.id] = defaultRole(st.classId, st); }
-  return { tactic: TACTIC_OPTIONS[q.objective][0], roles };
+  const ids = deploys.map((d) => d.studentId);
+  const captain = defaultCaptain(s, ids);
+  const planner = defaultPlanner(s, ids);
+  return { tactic: TACTIC_OPTIONS[q.objective][0], roles, captain, planner, strats: recommendStrats(s, q, ids, planner, captain) };
+}
+/** おすすめの策：分かっている情報で見込みの高いものから（9夜目） */
+export function recommendStrats(s: GameState, q: Quest, ids: string[], planner?: string, captain?: string, n = stratSlots(s)): StratId[] {
+  const o = q.real ? officerForQuest(s, q) : null;
+  const members = ids.map((id) => s.students[id]).filter(Boolean);
+  const known = o?.knownTraits ?? [];
+  const list = knownStrats(s).map((id) => ({ id, od: stratOdds(id, { q, planner: planner ? s.students[planner] : null, captain: captain ? s.students[captain] : null, members, traits: known, known }) }))
+    .filter((x) => !x.od.dud && x.od.bad.length === 0)
+    .sort((a, c) => c.od.rate + (c.od.weak ? 30 : 0) + c.od.good.length * 5 - a.od.rate - (a.od.weak ? 30 : 0) - a.od.good.length * 5);
+  return list.slice(0, n).map((x) => x.id);
 }
 export function tacticFits(t: TacticId, q: Quest): boolean { return TACTICS[t].fits.includes(q.objective); }
 
@@ -169,6 +198,12 @@ function applyPlan(s: GameState, b: BattleState, q: Quest, plan: AutoPlan): void
       const m = (st.motivation - 2) * AUTO.motivationStep;
       addMod(u, { hit: m, avo: m });
     }
+    // 陣形（9夜目）：前列は狙われやすく、後列は守られる
+    const row = plan.rows?.[u.studentId] ?? defaultRow(role);
+    u.row = row;
+    addMod(u, formationMod(row));
+    // 部隊長の腕前
+    if (plan.captain) addMod(u, captainMod(s.students[plan.captain]));
   }
 }
 
@@ -282,6 +317,7 @@ function makeLeader(s: GameState, q: Quest, b: BattleState, r: Rng, tactic: stri
 
 /** この依頼の敵将（名簿から。編成によらず同じ） */
 export function officerForQuest(s: GameState, q: Quest): EnemyOfficer | null {
+  if (q.small && ((questSeed(s, q) >>> 3) % 100) >= B.quests.smallOfficer * 100) return null;
   const ids = Object.values(s.students).filter((x) => x.status === 'enrolled').map((x) => x.id);
   return pickOfficerForQuest(s, q, new Rng({ rng: questSeed(s, q) ^ 0x2f6b5a }), ids);
 }
@@ -339,6 +375,15 @@ function buildBattle(s: GameState, q: Quest, deploys: Deploy[], plan: AutoPlan, 
   applyPlan(s, b, q, plan);
   if (TACTICS[plan.tactic].focusBoss && b.auto.leader) b.focus = b.auto.leader.uid;
   b.auto.hp0 = Object.fromEntries(b.units.map((u) => [u.uid, [u.hp, u.maxHp] as [number, number]]));
+  // 策（9夜目）：開戦で切るものはここで、ぶつかり合いのあとのものは手元に残す
+  b.auto.plan = { planner: plan.planner, captain: plan.captain };
+  b.auto.held = [];
+  const o = officerById(s, b.auto.leader?.officerId);
+  for (const id of plan.strats ?? []) {
+    if (!STRATS[id]) continue;
+    if (STRATS[id].when === 'open') fireStrat(s, b, q, id, o);
+    else b.auto.held.push(id);
+  }
   b.auto.startHp = {
     ally: b.units.filter((u) => u.side === 'player').reduce((a, u) => a + u.maxHp, 0) || 1,
     enemy: b.units.filter((u) => u.side === 'enemy').reduce((a, u) => a + u.maxHp, 0) || 1,
@@ -348,7 +393,7 @@ function buildBattle(s: GameState, q: Quest, deploys: Deploy[], plan: AutoPlan, 
 
 /** 自動の戦闘の計算に使う ctx（作戦の「重傷で済む」補正を足す） */
 function autoCtx(base: BattleCtx, b: BattleState): BattleCtx {
-  const inj = TACTICS[b.auto?.tactic ?? 'careful'].injury;
+  const inj = TACTICS[b.auto?.tactic ?? 'careful'].injury + (b.auto?.injury ?? 0);
   return { ...base, luckInjury: (id) => base.luckInjury(id) + inj };
 }
 
@@ -399,8 +444,8 @@ export function estimateWin(s: GameState, q: Quest, deploys: Deploy[], plan: Aut
 }
 
 /** おすすめの編成：レベルと、敵の兵種との相性、回復役を考えて選ぶ */
-export function recommendDeploy(s: GameState, q: Quest, limit: number, base: (ids: string[]) => Deploy[]): Deploy[] {
-  const list = enrolled(s).filter(available);
+export function recommendDeploy(s: GameState, q: Quest, limit: number, base: (ids: string[]) => Deploy[], exclude?: Set<string>): Deploy[] {
+  const list = enrolled(s).filter(available).filter((x) => !exclude?.has(x.id));
   const pool = q.kind ? (q.kind === 'monster' ? ['axe'] : q.enemyCountry ? ['lance', 'sword', 'axe'] : ['axe', 'sword']) : [];
   const score = (st: Student) => {
     const c = CLASSES[st.classId] ?? CLASSES.novice;
@@ -628,7 +673,10 @@ function openingScene(s: GameState, b: BattleState, q: Quest): AutoScene {
   if (lines.length > 5) lines.splice(1, 1);
   while (lines.length > 5) lines.splice(lines[0].by === 'narr' && lines.length > 5 ? 0 : 2, 1);
   b.rng = r.h.rng;
-  return sceneOf(b, '開戦', lines, ev.length ? [ev[1].by, ...faces] : faces, false);
+  const sc = sceneOf(b, '開戦', lines, ev.length ? [ev[1].by, ...faces] : faces, false);
+  // 策の黄色い帯（9夜目）
+  for (const x of b.auto!.strats ?? []) sc.lines.push({ by: x.ok ? 'strat' : 'stratng', text: `策「${STRATS[x.id].name}」：${x.text}` });
+  return sc;
 }
 
 function midScene(s: GameState, b: BattleState, title: string, q: Quest): AutoScene {
@@ -645,9 +693,69 @@ function midScene(s: GameState, b: BattleState, title: string, q: Quest): AutoSc
   if (ally && s.students[ally.studentId!]) { lines.push({ by: 'narr', text: fill(pickText(s, r, CLASH_TEXT.reinforce), { a: s.students[ally.studentId!].given }) }); b.auto!.events.push('reinforce'); }
   if (title === '山場' && momentum(b) >= 0.62) { const l = leaderLine(s, b, r, 'cornered'); if (l && b.units.some((u) => u.uid === b.auto!.leader?.uid && !u.dead)) lines.push(l); }
   if (lines.length < 3) lines.push(momentumLine(s, b, r));
+  const raise = raiseGrunts(s, b, r, q, false);
   b.feed = [];
   b.rng = r.h.rng;
-  return sceneOf(b, title, lines, [...h.faces, ...(ev[1] ? [ev[1].by] : [])]);
+  const sc = sceneOf(b, title, lines, [...h.faces, ...(ev[1] ? [ev[1].by] : [])]);
+  sc.lines.push(...raise);
+  return sc;
+}
+
+/**
+ * 戦いで目立った一般兵が、その場で名前と顔を得る（9夜目）：生徒を倒した・重傷にした、必殺を出した、
+ * 敵将が倒れたあとも最後まで粘った、撤退を生き延びた。戦いのあと「見込みのある兵」として名簿に入る
+ */
+function raiseGrunts(s: GameState, b: BattleState, r: Rng, q: Quest, end: boolean): AutoLine[] {
+  const a = b.auto!;
+  const f = factionOfQuest(q);
+  if (!b.real || !f || f === 'monster' || (a.raised ?? []).length >= 1) return [];
+  const L = a.leader;
+  const grunt = (uid: string) => { const u = b.units.find((x) => x.uid === uid); return u && u.side === 'enemy' && !u.boss && u.uid !== L?.uid && !u.studentId && !(a.raised ?? []).some((g) => g.uid === uid) ? u : null; };
+  const cands: { u: Unit; deed: string; victim?: string; dead?: boolean; p: number }[] = [];
+  for (const e of b.feed ?? []) {
+    if (e.t === 'fallen') {
+      const u = grunt(e.d); const st = stOf(s, b, e.a);
+      const fl = b.fallen.find((x) => x.studentId === st?.id);
+      if (u && st && fl && fl.outcome !== 'out') cands.push({ u, deed: `${st.given}を${fl.outcome === 'dead' ? '討った' : '重傷にした'}`, victim: st.id, dead: fl.outcome === 'dead', p: OFFICER.raiseOdds.victim });
+    } else if (e.t === 'crit') {
+      const u = grunt(e.a); const st = stOf(s, b, e.d);
+      if (u && st) cands.push({ u, deed: `${st.given}に必殺の一撃を放った`, p: OFFICER.raiseOdds.crit });
+    }
+  }
+  if (end) {
+    const lu = L ? b.units.find((x) => x.uid === L.uid) : null;
+    for (const u of b.units) {
+      if (!grunt(u.uid)) continue;
+      if (lu?.dead && !L!.fled && !u.dead) cands.push({ u, deed: '敵将が倒れたあとも最後まで粘った', p: OFFICER.raiseOdds.last });
+      else if (b.result === 'win' && b.retreated.includes(u.uid)) cands.push({ u, deed: '撤退を生き延びた', p: OFFICER.raiseOdds.retreat });
+    }
+  }
+  const out: AutoLine[] = [];
+  for (const c of cands) {
+    if ((a.raised ?? []).length >= 1 || !r.chance(c.p)) continue;
+    const origin = f === 'bandit' ? 'frontier' : f;
+    const nl = NAMES[origin as keyof typeof NAMES];
+    const gender: 'm' | 'f' = r.chance(0.25) ? 'f' : 'm';
+    const faceImage = pickFace(s, f, gender, 'young', r, c.u.uid + s.nextId);
+    const pf = faceImage ? parseEnemyFace(faceImage) : null;
+    const g2 = pf?.gender ?? gender;
+    const given = r.pick(g2 === 'f' ? nl.female : nl.male);
+    const label = gruntLabel(s, b, q, c.u.uid);
+    const w = weaponOf(c.u);
+    const kind = w ? (TYPE_NAMES[w.type] ?? '') + (w.type === 'magic' || w.type === 'holy' ? 'の使い手' : '兵') : '兵';
+    const i = (a.raised ??= []).length;
+    a.raised.push({ uid: c.u.uid, label, given, family: r.pick(nl.family), gender: g2, face: generateFace(r, origin as 'frontier', g2), faceImage, classId: c.u.classId, level: c.u.level, deed: c.deed, victim: c.victim, dead: c.dead, weapon: w?.type ?? null });
+    out.push({ by: `raise:${i}`, text: `${label}……あの${kind}、名は？　――「${given}」。${c.deed}` });
+  }
+  return out;
+}
+/** 雑兵の呼び名（戦いの記録と同じ「盗賊A」） */
+function gruntLabel(s: GameState, b: BattleState, q: Quest, uid: string): string {
+  const L = b.auto?.leader;
+  const foe = q.kind === 'monster' ? '魔物' : q.enemyCountry ? `${COUNTRY_SHORT[q.enemyCountry]}兵` : q && !q.real ? '演習の相手' : '盗賊';
+  const grunts = b.units.filter((x) => x.side === 'enemy' && !x.boss && x.uid !== L?.uid && !x.studentId);
+  const i = grunts.findIndex((x) => x.uid === uid);
+  return i >= 0 ? `${foe}${String.fromCharCode(65 + (i % 26))}` : '敵兵';
 }
 
 function endScene(s: GameState, b: BattleState): AutoScene {
@@ -670,9 +778,13 @@ function endScene(s: GameState, b: BattleState): AutoScene {
   }
   const alive = deployed(s, b).filter((x) => !b.fallen.some((f) => f.studentId === x.st.id));
   if (alive.length) { const x = alive.sort((p, q2) => (a.spot[q2.st.id] ?? 0) - (a.spot[p.st.id] ?? 0))[0]; lines.push(say(s, r, win ? 'win' : 'lose', x.st)); h.faces.push(x.st.id); }
+  const q = s.quests.find((x) => x.id === b.questId);
+  const raise = q ? raiseGrunts(s, b, r, q, true) : [];
   b.feed = [];
   b.rng = r.h.rng;
-  return sceneOf(b, '決着', lines, h.faces);
+  const sc = sceneOf(b, '決着', lines, h.faces);
+  sc.lines.push(...raise);
+  return sc;
 }
 
 // ---------- ここぞの選択 ----------
@@ -729,7 +841,7 @@ function makeChoice(s: GameState, b: BattleState, ctx: BattleCtx, second: boolea
       { id: 'bait', label: fill(T.bait, v), note: fill(T.baitNote, v) },
     ] } });
   }
-  const duelP = !L ? 0 : o?.traits.includes('duel_bound') ? 1 : LEADER_DUEL[L.personality] + (L.personality === 'beast' ? 0 : headEffect(s, o?.faction ?? null).duel);
+  const duelP = !L ? 0 : o?.traits.includes('duel_bound') || a.duelOffer ? 1 : LEADER_DUEL[L.personality] + (L.personality === 'beast' ? 0 : headEffect(s, o?.faction ?? null).duel);
   if (L && lu && !done('duel') && !done('settle') && L.personality !== 'beast' && r.chance(duelP) && mine.length) {
     const T = CHOICE_TEXT.duel;
     const champs = mine.filter((x) => weaponOf(x.u) && x.u.hp > x.u.maxHp * 0.5).map((x) => ({ ...x, p: duelOdds(b, ctx, x.u, lu) })).sort((p, q) => q.p - p.p).slice(0, 2);
@@ -778,8 +890,22 @@ function makeChoice(s: GameState, b: BattleState, ctx: BattleCtx, second: boolea
     cands.push({ w: 1.5, c: { kind: 'route', prompt: T.prompt, recommended: a.tactic === 'attack' || a.tactic === 'boss' ? 1 : 0, options: opts } });
   }
   b.rng = r.h.rng;
-  if (!cands.length) return null;
-  return r.weighted(cands, (x) => x.w).c;
+  // 手元の策（9夜目）：ここぞの判断で早めに切れる
+  const held = (a.held ?? []).filter((id) => STRATS[id]);
+  const q = s.quests.find((x) => x.id === b.questId) ?? ({ template: 'training', weather: b.weather, objective: b.objective } as Quest);
+  const members = mine.map((x) => x.st);
+  const plan = a.plan ?? {};
+  const stratOpts: AutoChoiceOpt[] = held.slice(0, 2).map((id) => {
+    const od = stratOdds(id, { q, planner: plan.planner ? s.students[plan.planner] : null, captain: plan.captain ? s.students[plan.captain] : null, members, traits: o?.traits ?? [], known: o?.knownTraits ?? [], early: true });
+    return { id: `strat:${id}`, actor: plan.planner, label: `策「${STRATS[id].name}」を今切る`, note: `成功の見込み：${oddsLabel(od.rate)}（${od.rate}%）。切らなければ山場の前に切る` };
+  });
+  if (!cands.length) {
+    if (!stratOpts.length) return null;
+    return { kind: 'wait', prompt: '敵の陣が揺れている。手元の策を切る好機だ', recommended: 0, options: [...stratOpts, { id: 'wait', label: '様子を見る', note: '策は山場の前に切る' }] };
+  }
+  const c = r.weighted(cands, (x) => x.w).c;
+  if (stratOpts.length && !c.duo) c.options.push(...stratOpts);
+  return c;
 }
 
 /** 一騎打ちの勝ち目（期待値で） */
@@ -843,7 +969,14 @@ export function chooseAuto(s: GameState, idx: number, ctx: BattleCtx): void {
   const mine = deployed(s, b).filter((x) => !x.u.dead);
   const E = AUTO.ev;
   a.choicesMade.push({ kind: c.kind, id: o.id, label: o.label });
-  if (c.kind === 'help' && actorSt && actorU) {
+  if (o.id.startsWith('strat:')) {
+    // 策を今切る（9夜目）：成功しやすくなる
+    const q = s.quests.find((x) => x.id === b.questId) ?? ({ template: 'training', weather: b.weather, objective: b.objective } as Quest);
+    for (const x of fireHeld(s, b, q, o.id.slice(6) as StratId, true)) lines.push({ by: x.ok ? 'strat' : 'stratng', text: `策「${STRATS[x.id].name}」：${x.text}` });
+    if (c.actor && s.students[c.actor]) faces.push(c.actor);
+  } else if (c.kind === 'wait') {
+    lines.push({ by: 'narr', text: '策は山場の前に切ることにした。まずは様子を見る' });
+  } else if (c.kind === 'help' && actorSt && actorU) {
     faces.push(actorSt.id);
     if (o.id === 'go') {
       const helper = mine.filter((x) => x.u !== actorU).sort((p, q) => supportValue(s, actorSt.id, q.st.id) - supportValue(s, actorSt.id, p.st.id) || dist(p.u, actorU) - dist(q.u, actorU))[0];
@@ -905,6 +1038,7 @@ export function chooseAuto(s: GameState, idx: number, ctx: BattleCtx): void {
         const rest = b.units.filter((e) => e.side === 'enemy' && !e.dead && !e.persuadable);
         for (const e of rest.slice(0, Math.floor(rest.length * AUTO.duelRout))) { e.dead = true; b.retreated.push(e.uid); }
         spot(a, st.id, 4);
+        a.events.push(`duelwin:${st.id}`);
         a.effects.push({ kind: 'trust', id: st.id, v: 2 }, { kind: 'motivation', id: st.id, v: 1 });
         checkEnd(b);
       } else if (res === 'lose') {
@@ -1094,6 +1228,7 @@ export function advanceAuto(s: GameState, ctx: BattleCtx): void {
       a.scenes.push(endScene(s, b));
       break;
     }
+    if (a.seg >= 1 && (a.held ?? []).length) fireHeld(s, b, q);
     const until = a.seg === 0 ? AUTO.segmentTurns[0] : a.seg === 1 ? AUTO.segmentTurns[1] : 99;
     b = runUntil(b, ctx, until);
     s.battle = b;
@@ -1126,6 +1261,24 @@ export function advanceAuto(s: GameState, ctx: BattleCtx): void {
   }
 }
 
+/** 手元に残した策を切る（ぶつかり合いのあと）。帯だけの場面にする */
+function fireHeld(s: GameState, b: BattleState, q: Quest, only?: StratId, early = false): StratRec[] {
+  const a = b.auto!;
+  const o = officerById(s, a.leader?.officerId);
+  const out: StratRec[] = [];
+  for (const id of [...(a.held ?? [])]) {
+    if (only && id !== only) continue;
+    const rec = fireStrat(s, b, q, id, o, early);
+    if (rec) out.push(rec);
+  }
+  if (out.length && !only) {
+    const sc = sceneOf(b, '策', out.map((x) => ({ by: x.ok ? 'strat' : 'stratng', text: `策「${STRATS[x.id].name}」：${x.text}` })), [], false);
+    a.scenes.push(sc);
+    if (b.snapshots.length) b.snapshots[b.snapshots.length - 1] = JSON.stringify({ ...b, snapshots: [] });
+  }
+  return out;
+}
+
 /** 「結果だけ見る」：残りの選択はおすすめのものを選んで最後まで */
 export function skipAuto(s: GameState, ctx: BattleCtx, pick?: (c: AutoChoice) => number): void {
   let guard = 0;
@@ -1154,9 +1307,9 @@ export function mvpOf(s: GameState, b: BattleState): string | null {
 /** 戦闘のあと：出来事・選択の効果、因縁の敵将、講評（finishBattle から呼ぶ） */
 export function applyAutoResults(s: GameState, b: BattleState, r: Rng, lines: string[], helpers: {
   addSupport: (a: string, c: string, v: number) => void; reveal: (st: Student, v: number) => void; motivation: (st: Student, d: number) => void;
-}): { mvp: string | null; review: string[] } {
+}): { mvp: string | null; review: string[]; stratReview: string[] } {
   const a = b.auto;
-  if (!a) return { mvp: null, review: [] };
+  if (!a) return { mvp: null, review: [], stratReview: [] };
   const q = s.quests.find((x) => x.id === b.questId);
   for (const e of a.effects) {
     if (e.kind === 'support') { if (s.students[e.a]?.status === 'enrolled' && s.students[e.b]?.status === 'enrolled') helpers.addSupport(e.a, e.b, e.v); continue; }
@@ -1181,7 +1334,7 @@ export function applyAutoResults(s: GameState, b: BattleState, r: Rng, lines: st
   if (intel.matchup >= 0.8) review.push(pk(REVIEW_TEXT.triangleGood)); else if (intel.matchup <= -0.8) review.push(pk(REVIEW_TEXT.triangleBad));
   if (a.events.some((x) => x.startsWith('combo') || x.startsWith('lovers'))) review.push(REVIEW_TEXT.support[0]);
   if (dep.some((x) => x.st.motivation <= 0)) review.push(REVIEW_TEXT.lowMotivation[0]);
-  return { mvp, review: review.slice(0, 3) };
+  return { mvp, review: review.slice(0, 3), stratReview: stratReview(a.strats ?? []) };
 }
 
 function traitName(t: string): string { return TRAITS[t]?.name ?? t; }
@@ -1190,15 +1343,26 @@ function traitName(t: string): string { return TRAITS[t]?.name ?? t; }
 export function officerAfterBattle(s: GameState, b: BattleState, r: Rng, lines: string[]): BattleFinding[] {
   const L = leaderOf(b);
   const q = s.quests.find((x) => x.id === b.questId);
-  if (!L || !q?.real) return [];
+  // 戦いで名を得た一般兵を「見込みのある兵」に（9夜目）
+  const raisedOut: BattleFinding[] = [];
+  const f = q ? factionOfQuest(q) : null;
+  if (q?.real && f && f !== 'monster') for (const g of b.auto?.raised ?? []) {
+    const o = addProspect(s, f, g, b.title);
+    const t = `${FACTION_NAMES[f]}の一兵卒「${officerName(o)}」が見込みのある兵として名を上げた（${g.deed}）`;
+    lines.push(t); raisedOut.push({ id: g.victim, icon: 'skull', text: t });
+  }
+  if (!L || !q?.real) return raisedOut;
+  return [...raisedOut, ...officerAfterBattleMain(s, b, r, lines, L, q)];
+}
+function officerAfterBattleMain(s: GameState, b: BattleState, r: Rng, lines: string[], L: LeaderInfo, q: Quest): BattleFinding[] {
   if (!b.auto) leaderEscape(s, b);
   const lu = b.units.find((u) => u.uid === L.uid);
   if (!lu) return [];
   const fell = !!lu.dead && !L.fled && !b.retreated.includes(lu.uid);
   let o = officerById(s, L.officerId ?? L.nemesisId);
   if (!o) {
-    // 名もない敵将・魔物の頭：取り逃がしたら因縁の敵将として残す（5夜目と同じ）
-    if (fell) return [];
+    // 名もない敵将・魔物の頭：取り逃がしたら因縁の敵将として残す（5夜目と同じ。小さな依頼の名もない敵将は残さない）
+    if (fell || q.small) return [];
     const kind = leaderKind(q);
     const faction = kind === 'monster' ? 'monster' : kind === 'bandit' ? 'bandit' : (q.enemyCountry ?? 'kingdom');
     let given = L.name, family = '';
@@ -1217,6 +1381,11 @@ export function officerAfterBattle(s: GameState, b: BattleState, r: Rng, lines: 
     return [];
   }
   const out = afterOfficerBattle(s, b, o, L, r, lines);
+  // 策「物見」：特徴が1つ分かる（9夜目）
+  if (b.auto?.reveal && (o.status === 'active' || o.status === 'dead')) {
+    const id = revealOne(o, r);
+    if (id) out.push({ icon: 'scout', text: `物見の報告：${officerName(o)}の特徴「${OFFICER_TRAITS[id].name}」が分かった` });
+  }
   if (fell && had) lines.push(fill(RESULT_TEXT.nemesisEnd[0], { leader: L.name }));
   else if (!fell && o.status === 'active' && (b.result === 'win' || L.fled)) lines.push(fill(RESULT_TEXT.nemesisNew[0], { leader: officerName(o) }));
   return out;

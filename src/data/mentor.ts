@@ -34,6 +34,8 @@ export interface MentorEffect {
   scout?: number;
   /** 自動の戦闘の2回目の「ここぞの判断」が必ず来る（1＝来る） */
   judgments?: number;
+  /** 出撃前に選べる策の数+（9夜目） */
+  stratSlots?: number;
   /** 教官の指示の成功率（%） */
   command?: number;
   /** 倒れた子が重傷で済む確率（%） */
@@ -96,7 +98,7 @@ export const MENTOR_ABILITIES: MentorAbility[] = [
   { id: 'keeper', name: '引き止め上手', mark: '留', branch: 'bond', cost: 'S', pre: 'listener', desc: '退学の予兆を面談1回で解ける', effect: { retainOne: 1 }, cheap: { mage: K } },
   // ---- 戦い ----
   { id: 'scout', name: '斥候の心得', mark: '斥', branch: 'battle', cost: 'S', desc: '出撃前に敵将の特徴が1つ見える', effect: { scout: 1 }, cheap: { knight: K } },
-  { id: 'tactician', name: '軍師の眼', mark: '軍', branch: 'battle', cost: 'L', pre: 'scout', desc: '自動の戦闘で、2回目の「ここぞの判断」が必ず来る（策を立てる場面が増える）', effect: { judgments: 1 }, cheap: { knight: K } },
+  { id: 'tactician', name: '軍師の眼', mark: '軍', branch: 'battle', cost: 'L', pre: 'scout', desc: '出撃前に選べる策（作戦カード）が1枚多くなる', effect: { stratSlots: 1 }, cheap: { knight: K } },
   { id: 'voice', name: '声が届く', mark: '声', branch: 'battle', cost: 'M', desc: '教官の指示の成功率+15%', effect: { command: 15 }, cheap: { knight: KK } },
   { id: 'retreat', name: '退き際の判断', mark: '退', branch: 'battle', cost: 'M', desc: '倒れた子が重傷で済みやすい（+10%）', effect: { injury: 10 }, cheap: { knight: K, merc: K } },
   { id: 'sparring', name: '紅白戦の鬼', mark: '紅', branch: 'battle', cost: 'S', desc: '紅白戦の経験値×1.5', effect: { sparExp: 0.5 }, cheap: { knight: K, merc: K } },

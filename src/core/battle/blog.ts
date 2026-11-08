@@ -69,7 +69,7 @@ export function battleItems(b: BattleState): BItem[] {
   a.scenes.forEach((sc: AutoScene, i: number) => {
     const bands: BItem[] = sc.lines.map((line) => ({ k: 'band', line, scene: i }));
     const log = sc.log ? compact(sc.log, b.units, leaderUid) : [];
-    if (sc.title !== '開戦' && sc.title !== '指示' && i > 0 && sc.log) out.push({ k: 'title', text: sc.duo ? '宿命の対決' : sc.title, scene: i });
+    if (sc.title !== '開戦' && sc.title !== '指示' && sc.title !== '策' && i > 0 && sc.log) out.push({ k: 'title', text: sc.duo ? '宿命の対決' : sc.title, scene: i });
     if (i === 0 || !sc.log) out.push(...bands, ...log);
     else out.push(...log, ...bands);
     if (sc.hp) out.push({ k: 'sync', scene: i, hp: sc.hp, gone: sc.gone ?? [] });

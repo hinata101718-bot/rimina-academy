@@ -9,6 +9,7 @@ import { Rng } from './rng';
 import { generateStudent } from './student';
 import { emptySkills, clamp } from './util';
 import { ensureRosters } from './officers';
+import { START_STRATS } from './stratagems';
 import { reputationRankUp } from './discovery';
 import { rollQuests } from './quests';
 import { autoTargets } from './week';
@@ -18,7 +19,7 @@ import { startNewsDesk } from './newspaper';
 export function defaultSettings(): Settings {
   return {
     difficulty: 'normal', mods: { ...DIFFICULTY.normal }, portrait: 'face', cutin: 'important',
-    enemySpeed: 1, animSpeed: 2, flip: true, rosterView: 'card', manualBattle: false, battleLog: 'tap', rewind: true, guide: true, sound: true, volume: 0.6,
+    enemySpeed: 1, animSpeed: 2, flip: true, rosterView: 'card', manualBattle: false, battleLog: 'tap', battleFx: 'big', rewind: true, guide: true, sound: true, volume: 0.6,
   };
 }
 
@@ -72,6 +73,7 @@ export function newGame(opts: { name: string; background: string; seed: number; 
   for (let g = 1; g <= 3; g++) s.focus[g] = ['sword', 'lance'];
   // 敵将の名簿（6夜目）
   s.officers = []; s.rivalries = {};
+  s.strats = [...START_STRATS];
   ensureRosters(s, r);
   startNewsDesk(s);
   s.quests = rollQuests(s);

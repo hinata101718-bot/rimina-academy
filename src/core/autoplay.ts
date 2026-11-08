@@ -8,7 +8,10 @@ import { enrolled, available, deployLimit, capacity } from './game';
 import { autoSpend } from './mentor';
 import { instructorCaps, goodSkillsOf } from './instructor';
 import { chooseLesson, startBattle, finishBattle, finishCareers, admit, autoAdmitIds, battleCtx, rng, ensureReinforcementFactory, startAutoQuest } from './flow';
-import { defaultPlan, skipAuto, type AutoChoice } from './battle/auto';
+import { defaultPlan, skipAuto, recommendDeploy, type AutoChoice } from './battle/auto';
+import { squadCount, squadLimit, startSortie } from './flow';
+import { battleItems } from './battle/blog';
+import type { SquadPlan } from './state';
 import { autoPlayerPhase, endPlayerPhase, rewind, canRewind } from './battle/engine';
 import { autoExam } from './exam';
 import { autoRecommend, suitablePath, availableChoices as availableChoicesOf, type CareerChoice, type CareerPlan } from './career';
@@ -28,10 +31,10 @@ export function autoDeploy(s: GameState, limit = deployLimit(s)): Deploy[] {
 }
 
 /** 決めたメンバーに、武器庫の武器・杖と傷薬を割り当てる */
-export function deployFor(s: GameState, ids: string[]): Deploy[] {
+export function deployFor(s: GameState, ids: string[], usedArms?: Set<string>, itemsUsed = 0): Deploy[] {
   const list = ids.map((id) => s.students[id]).filter(Boolean);
-  const used = new Set<string>();
-  let items = s.items.vulnerary;
+  const used = usedArms ?? new Set<string>();
+  let items = Math.max(0, s.items.vulnerary - itemsUsed);
   return list.map((st) => {
     const w = bestArmoryWeapon(s, st, used, false);
     if (w) used.add(w);
@@ -90,6 +93,50 @@ export function autoBattle(s: GameState): void {
   }
   if (s.battle && s.battle.phase !== 'done') { s.battle.phase = 'done'; s.battle.result = 'lose'; }
   finishBattle(s);
+}
+
+/**
+ * おすすめの編成（9夜目：全部隊ぶん一度に）。fixed＝部隊ごとに決めてある依頼。
+ * pool を渡すと、その順でメンバーを選ぶ（シミュレーションはレベル順）。ふだんはおすすめの編成（相性・回復役）
+ */
+export function recommendSquads(s: GameState, fixed: (string | null | undefined)[] = [], pool?: (used: Set<string>) => Student[]): SquadPlan[] {
+  const n = squadCount(s);
+  const list = enrolled(s);
+  const lv = list.reduce((a, x) => a + x.level, 0) / Math.max(1, list.length);
+  const used = new Set<string>(), usedQ = new Set<string>(), arms = new Set<string>();
+  let items = 0;
+  const out: SquadPlan[] = [];
+  for (let i = 0; i < n; i++) {
+    let qid = fixed[i] && !usedQ.has(fixed[i]!) && s.quests.some((q) => q.id === fixed[i]) ? fixed[i]! : null;
+    if (!qid) {
+      // この部隊に入りそうな子のレベル（残りの子の上から）に合う依頼
+      const rest = list.filter((x) => available(x) && !used.has(x.id)).map((x) => x.level).sort((a, c) => c - a).slice(0, squadLimit(s, i));
+      const slv = rest.length ? rest.reduce((a, c) => a + c, 0) / rest.length : lv;
+      const maxDanger = i === 0 ? (lv > 8 ? 3 : 2) : 2;
+      const cands = s.quests.filter((q) => !usedQ.has(q.id));
+      const real = cands.filter((q) => q.real && q.danger <= maxDanger && (i === 0 || q.level <= slv + 1)).sort((a, c) => (i === 0 ? 0 : c.level - a.level) || c.reward - a.reward);
+      qid = (real[0] ?? cands.find((q) => !q.real) ?? cands[0])?.id ?? null;
+    }
+    if (!qid) break;
+    const q = s.quests.find((x) => x.id === qid)!;
+    const limit = squadLimit(s, i);
+    const ids = pool ? pool(used).slice(0, limit).map((x) => x.id) : recommendDeploy(s, q, limit, (x) => x.map((id) => ({ studentId: id, armoryUid: null, item: null, staffUid: null })), used).map((d) => d.studentId);
+    if (!ids.length) break;
+    usedQ.add(qid);
+    ids.forEach((id) => used.add(id));
+    const d = deployFor(s, ids, arms, items);
+    items += d.filter((x) => x.item).length;
+    out.push({ questId: qid, deploy: d, plan: defaultPlan(s, q, d), manual: s.settings.manualBattle || undefined });
+  }
+  return out;
+}
+
+/** 戦いの記録のカードの数（タップで進めるときの回数の目安。9夜目） */
+function battleCards(s: GameState): number {
+  const b = s.battle;
+  if (!b?.auto) return 0;
+  skipAuto(s, battleCtx(s), autoChoicePick);
+  return battleItems(s.battle!).filter((x) => x.k !== 'sync' && x.k !== 'turn' && x.k !== 'title').length;
 }
 
 /** 自動の戦闘を最後まで（選択はおすすめのもの）進めて、結果を反映する */
@@ -171,10 +218,20 @@ export function autoPending(s: GameState): void {
       const pick = (careerPolicy === 'neutral' ? [...ok].sort((a, b) => questFriend(s, a.clientCountry) - questFriend(s, b.clientCountry) || b.reward - a.reward)[0] : undefined)
         ?? ok.sort((a, b) => b.reward - a.reward)[0] ?? s.quests[0];
       if (manualInSim) { startBattle(s, pick.id, autoDeploy(s)); autoBattle(s); continue; }
-      const d = autoDeploy(s);
-      startAutoQuest(s, pick.id, d, defaultPlan(s, pick, d));
-      opCount.battle += 1 + (s.battle?.auto?.choice ? 1 : 0);
-      finishAuto(s);
+      // 9夜目：部隊の数だけ依頼を選ぶ（1つ目は今まで通り。2つ目からは危険の少ない依頼か演習）
+      const squads = recommendSquads(s, [pick.id], (ids) => enrolled(s).filter(available).filter((x) => ids.has(x.id) === false).sort((a, b) => b.level - a.level));
+      opCount.squads = (opCount.squads ?? 0) + squads.length;
+      startSortie(s, squads);
+      let g2 = 0;
+      while (s.battle?.auto && g2++ < 5) {
+        opCount.battle += 1 + (s.battle.auto.choice ? 1 : 0);
+        opCount.cards = (opCount.cards ?? 0) + battleCards(s);
+        finishAuto(s);
+      }
+      // 部隊ごとの勝ち負け（シミュレーションの集計用）
+      const res = s.pending.find((x) => x.type === 'sortieResult' || x.type === 'battleResult');
+      const reps = res?.type === 'sortieResult' ? res.reports : res?.type === 'battleResult' ? [res] : [];
+      for (const rp of reps) { const i = rp.squad ?? 0; const k = rp.win ? 'w' : 'l'; (opCount.sq ??= { w: [0, 0, 0], l: [0, 0, 0], dead: [0, 0, 0], inj: [0, 0, 0] })[k][i] += 1; opCount.sq.dead[i] += (rp.fallen ?? []).filter((f) => f.outcome === 'dead').length; opCount.sq.inj[i] += (rp.fallen ?? []).filter((f) => f.outcome === 'injured').length; }
       continue;
     }
     if (p.type === 'career') {
@@ -253,7 +310,7 @@ let gradeHook: ((s: GameState) => void) | null = null;
 /** シミュレーション用：学年の終わり（3月の第4週の月曜）に呼ぶ */
 export function setGradeHook(f: ((s: GameState) => void) | null): void { gradeHook = f; }
 /** シミュレーション用：画面の操作の回数の目安（授業カード1回＋結果を閉じる1回など） */
-export const opCount = { lesson: 0, pending: 0, battle: 0 };
+export const opCount: { lesson: number; pending: number; battle: number; squads?: number; cards?: number; sq?: { w: number[]; l: number[]; dead: number[]; inj: number[] } } = { lesson: 0, pending: 0, battle: 0, squads: 0, cards: 0 };
 
 /** 1日ぶん自動で進める（7夜目：おすすめの授業カードを選ぶ） */
 export function autoDay(s: GameState): void {

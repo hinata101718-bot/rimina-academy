@@ -169,7 +169,9 @@ export function createBattle(s: GameState, quest: Quest, deploys: Deploy[], seed
   const gun = s.world.gunUnlocked;
   const kind = QUEST_KINDS.find((k) => k.kind === quest.kind);
   const pool = kind?.enemyPool ?? ['fighter', 'swordsman', 'lancer', 'archer', 'mage'];
-  const level = Math.max(1, Math.round(quest.level * s.settings.mods.enemy));
+  // 9夜目：演習の相手は、出撃した子たちのレベルに合わせる（2つ目・3つ目の部隊が演習に出ても、ちょうどよい手合わせに）
+  const drillLv = quest.kind === 'drill' && deploys.length ? Math.round(deploys.reduce((a, d) => a + (s.students[d.studentId]?.level ?? 1), 0) / deploys.length) : 0;
+  const level = Math.max(1, Math.round((drillLv ? Math.min(quest.level, drillLv) : quest.level) * s.settings.mods.enemy));
   const nEnemy = Math.min(enemyTiles.length, deploys.length + (quest.danger - 1) + (quest.objective === 'defend' ? 2 : quest.objective === 'escape' ? 1 : 0) + (quest.real ? 0 : -1));
   // 7夜目：頭目の場所とは重ねない。防衛戦では、守る村人のすぐそばから敵を出さない（1ターン目に倒されて負けることがあったため）
   const needBoss = (boss || quest.objective === 'boss' || quest.objective === 'seize') && quest.objective !== 'rescue' && quest.objective !== 'escape';

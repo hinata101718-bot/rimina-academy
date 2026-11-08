@@ -1055,3 +1055,89 @@ body[data-season="winter"] { --tint: rgba(190, 210, 235, .14); }
 .flag.gray-flag { background: #9a8f7c; }
 .stucard .sc-body .row.nowrap { overflow: hidden; }
 @media (max-width: 380px) { .page-paper { padding-left: 10px; padding-right: 10px; } .page-paper.binder { padding-left: 28px; } .page-paper.binder::before { left: 5px; } .content { padding: 10px 8px; } }
+
+/* ===================== 9夜目：最大3部隊・策・陣形・評価 ===================== */
+.sq-head { display: flex; flex-direction: column; gap: 4px; margin-bottom: 6px; }
+.sq-head .btn { align-self: flex-start; min-height: 44px; }
+.sq-card { position: relative; }
+.sq-card .tap { cursor: pointer; }
+.sq-no { display: inline-block; font-family: var(--mincho); font-weight: bold; color: #fff; background: var(--accent); border-radius: 4px; padding: 1px 8px; font-size: 13px; letter-spacing: .1em; }
+.sq-mv { min-width: 44px; min-height: 44px; padding: 0; }
+.sq-faces { display: flex; flex-wrap: wrap; gap: 3px; margin: 4px 0; }
+.sq-face { position: relative; line-height: 0; }
+.sq-captmark, .ab-mem .ab-capt { position: absolute; bottom: -2px; right: -2px; background: var(--gold); color: #fff; font-style: normal; font-size: 11px; line-height: 16px; width: 16px; height: 16px; border-radius: 50%; text-align: center; }
+.ab-mem .ab-capt { bottom: auto; top: 3px; left: 4px; right: auto; width: 20px; height: 20px; line-height: 20px; font-size: 12px; }
+.sq-add { border: 1.5px dashed var(--line); border-radius: 10px; padding: 6px; margin: 8px 0; }
+.sq-quests { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 4px; margin-bottom: 6px; }
+.sq-q { flex: none; min-height: 44px; max-width: 160px; text-align: left; border: 1.5px solid var(--line); border-radius: 8px; background: #fffdf7; padding: 4px 8px; display: flex; flex-direction: column; cursor: pointer; }
+.sq-q b { font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sq-q small { font-size: 12px; color: var(--sub); }
+.sq-q.on { border-color: var(--accent); background: var(--accent2); }
+.sq-leads { background: #fffdf7; border: 1px solid #e2d8c2; border-radius: 10px; padding: 6px 8px; margin: 8px 0; display: flex; flex-direction: column; gap: 4px; }
+.sq-lead { display: flex; align-items: center; gap: 6px; font-size: 13px; }
+.sq-lead > span { flex: none; width: 7.5em; display: flex; align-items: center; gap: 3px; font-weight: bold; }
+.sq-lead select { flex: 1; min-width: 0; min-height: 44px; }
+.sq-row { flex: none; min-width: 52px; min-height: 44px; border-radius: 8px; border: 1.5px solid var(--line); font-weight: bold; font-family: var(--mincho); cursor: pointer; }
+.sq-row.front { background: #f6e1dc; border-color: #c97a68; color: #7a2a1e; }
+.sq-row.back { background: #e2ecf4; border-color: #8aa6c2; color: #23415e; }
+.sq-tabs { margin-bottom: 6px; }
+.sq-tabs button { min-height: 44px; }
+.bl-squad { background: rgba(255,255,255,.5); border-radius: 6px; padding: 2px 6px; margin-top: 2px; }
+/* 策のカード */
+.st-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.st-card { position: relative; display: flex; gap: 6px; text-align: left; min-height: 72px; padding: 6px; border: 1.5px solid var(--line); border-radius: 10px; background: linear-gradient(#fffdf6, #f6ecd4); cursor: pointer; }
+.st-card.on { border-color: #c9a035; box-shadow: 0 0 0 2px #f3d98a; background: linear-gradient(#fff8dc, #f7e3a8); }
+.st-card.hot:not(.on) { border-color: #d7b55a; }
+.st-card.dud { opacity: .55; }
+.st-mark { flex: none; width: 30px; height: 30px; border-radius: 50%; background: #6b4e12; color: #fff3cf; font-family: var(--mincho); font-weight: bold; display: flex; align-items: center; justify-content: center; font-size: 16px; }
+.st-card.on .st-mark { background: #a8321f; }
+.st-body { display: flex; flex-direction: column; gap: 1px; min-width: 0; font-size: 12px; line-height: 1.35; }
+.st-body b { font-family: var(--mincho); font-size: 15px; }
+.st-when { color: var(--sub); font-size: 12px; }
+.st-odds b { font-size: 13px; }
+.st-good { color: var(--good, #3f7a4a); }
+.st-bad { color: var(--accent); }
+.st-hint { color: #8a5d00; font-weight: bold; }
+.st-check { position: absolute; top: 4px; right: 5px; background: #a8321f; color: #fff; border-radius: 50%; width: 20px; height: 20px; font-size: 13px; line-height: 20px; text-align: center; }
+.st-chip { display: inline-block; background: #fff1c6; border: 1px solid #e3c470; border-radius: 4px; padding: 0 4px; margin: 1px 3px 1px 0; font-size: 12px; }
+.st-review { margin: 8px 0; background: #fff6dc; border-left: 4px solid #e2b64a; }
+.bl-band.strat { background: linear-gradient(90deg, #fff1b8, #fff9e3); border-color: #e2b64a; border-left: 5px solid #d39b1c; color: #5c4108; font-weight: bold; }
+.bl-band.stratng { background: #ece7dc; border-color: #b9ad97; border-left: 5px solid #8d8170; color: #4c4436; }
+.bl-band.raise { background: #f3e6e1; border-color: #c48f80; border-left: 5px solid #8f3a2a; color: #4d1d12; }
+/* 生徒ごとの評価 */
+.ev-card { background: #fffdf7; border: 1px solid #e2d8c2; border-radius: 10px; padding: 8px; margin: 6px 0; cursor: pointer; }
+.ev-card.hurt { background: #f6efe9; }
+.ev-card.dead { background: #d9d6d0; filter: grayscale(1); cursor: default; }
+.ev-name { font-size: 16px; }
+.ev-grade { font-family: var(--mincho); font-weight: bold; font-size: 12px; color: var(--sub); border: 1px solid var(--line); border-radius: 4px; padding: 0 4px; }
+.ev-grade.gS { color: #a47b2c; border-color: #d9b968; }
+.ev-badges { display: flex; flex-wrap: wrap; gap: 4px; margin: 3px 0; }
+.ev-badge { display: inline-block; font-size: 12px; font-weight: bold; border-radius: 12px; padding: 1px 8px; border: 1.5px solid; font-family: var(--mincho); }
+.ev-badge.gold { color: #6b4e12; background: #fff1c6; border-color: #d7b55a; }
+.ev-badge.red { color: #7a2a1e; background: #f8e3dd; border-color: #d39484; }
+.ev-badge.blue { color: #23415e; background: #e2ecf4; border-color: #8aa6c2; }
+.ev-badge.gray { color: #4c4436; background: #ece7dc; border-color: #b9ad97; }
+.ev-scene { font-size: 13px; color: #5c4108; }
+.ev-say { font-family: var(--mincho); font-size: 14px; margin: 4px 0 2px; padding-left: 8px; border-left: 3px solid var(--line); }
+.ev-rec { display: flex; flex-wrap: wrap; gap: 4px 10px; font-size: 12px; color: var(--sub); }
+.ev-rec b { color: var(--ink); margin-left: 2px; }
+.ev-grow { font-size: 12px; color: var(--good, #3f7a4a); }
+.ev-rival { font-size: 12px; color: var(--accent); }
+.sr-head { text-align: center; font-size: 17px; margin-bottom: 6px; }
+.sr-card { cursor: pointer; display: flex; flex-direction: column; gap: 3px; }
+.sr-card.lose { background: #efe9df; }
+.sr-res { font-family: var(--mincho); font-weight: bold; font-size: 15px; padding: 0 10px; border-radius: 4px; color: #fff; }
+.sr-res.win { background: #a8321f; }
+.sr-res.lose { background: #5d5548; }
+.sr-who { display: inline-flex; align-items: center; gap: 3px; font-size: 12px; }
+.sr-fall { color: var(--accent); }
+/* 新しい策 */
+.ns-card { margin: 14px auto 8px; width: 150px; height: 190px; border-radius: 12px; border: 3px solid #c9a035; background: linear-gradient(#fff8dc, #f1d48a); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; transform: rotateY(90deg) scale(.8); transition: transform .6s cubic-bezier(.2,1.4,.4,1), box-shadow .6s; }
+.ns-card.lit { transform: none; box-shadow: 0 0 26px 6px rgba(236, 211, 150, .8); }
+.ns-card b { font-size: 20px; }
+.ns-mark { width: 64px; height: 64px; border-radius: 50%; background: #a8321f; color: #fff3cf; font-family: var(--mincho); font-size: 32px; font-weight: bold; display: flex; align-items: center; justify-content: center; }
+.ns-by { justify-content: center; margin-top: 6px; }
+@media (max-width: 380px) {
+  .st-cards { grid-template-columns: 1fr; }
+  .sq-lead > span { width: 6.5em; }
+}

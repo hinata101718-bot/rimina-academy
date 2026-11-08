@@ -117,6 +117,10 @@ export interface Student {
   growthSeen?: boolean;
   /** 体調を崩して休む残りの日数（7夜目。週単位の sickWeeks は古いセーブ用） */
   sickDays?: number;
+  /** 軍略（9夜目）：戦術論・兵法の歴史の授業でたまる。策の成功率・部隊長の腕前に効く（0〜100） */
+  strat?: number;
+  /** 前の戦いの戦績（9夜目：評価の「前より伸びた」に使う） */
+  lastRec?: { hitRate: number; dealt: number; kills: number };
 }
 
 /** 日ごとの授業カード（7夜目） */
@@ -239,6 +243,8 @@ export interface Quest {
   weather: 'clear' | 'rain' | 'fog';
   real: boolean;
   defendTurns?: number;
+  /** 2つ目・3つ目の部隊向けの小さな依頼（9夜目）：報酬・評判は少なめ、戦況は動かない */
+  small?: boolean;
   /** 偵察を出した（6夜目）。scoutFree は斥候がいて出撃の人数が減らないとき */
   scouted?: boolean; scoutFree?: boolean;
 }
@@ -329,7 +335,19 @@ export interface EnemyOfficer {
   endYear?: number; endNote?: string;
   /** 魔物の頭（名簿の外） */
   title?: string;
+  /** 組織図の上の人（9夜目：隊長→幹部、幹部→将軍） */
+  parent?: string;
+  /** 見込みのある兵（9夜目：戦いで目立った一般兵。隊長の席が空くと抜擢される） */
+  prospect?: boolean;
+  /** 見込みのある兵になったわけ（「イヴを重傷にした」など）と、抜擢された年 */
+  deed?: string; raisedYear?: number;
+  /** 見込みのある兵が使っていた武器の種類（二つ名に使う） */
+  raiseWeapon?: string;
+  /** 権力争い中（9夜目：組織図の⚔） */
+  contest?: number;
 }
+/** 組織図の印（前に見たときのようす） */
+export interface OrgMark { rank: number; status: string; ep?: string; parent?: string; prospect?: boolean }
 /** 生徒と敵将の因縁（宿敵）。段階：1=因縁 2=宿敵 3=生涯の宿敵 */
 export interface Rivalry {
   sid: string; oid: string;
@@ -353,7 +371,11 @@ export type Pending =
   /** 授業の結果（7夜目）。others＝顔が出ていない子の人数 */
   | { type: 'lessonResult'; lesson: string; day: number; faces: string[]; tags: [string, string][]; rows: LessonRow[]; events: LessonEvent[]; growth: GrowthEntry[]; lines: string[]; talks: TalkLog[]; others: number; /** 先生の経験ポイント（8夜目） */ xp?: number }
   | { type: 'questBoard' }
-  | { type: 'battleResult'; lines: string[]; grades: { id: string; grade: string; note: string }[]; win: boolean; growth?: GrowthEntry[]; mvp?: string; review?: string[]; title?: string; findings?: BattleFinding[]; officerId?: string }
+  | ({ type: 'battleResult' } & BattleReport)
+  /** 月末に2部隊以上を出したときの、まとめた結果（9夜目） */
+  | { type: 'sortieResult'; reports: BattleReport[] }
+  /** 新しい策を覚えた（9夜目：発見の演出） */
+  | { type: 'newStrat'; id: string; by?: string; why: string }
   | { type: 'event'; title: string; lines: string[] }
   | { type: 'entrance' }
   | { type: 'career' }
@@ -371,6 +393,39 @@ export type Pending =
   | { type: 'rankup'; items: RankUpItem[] }
   /** 発見の演出（隠れた才能のヒント1→ヒント2→判明、意外な一面） */
   | { type: 'discovery'; studentId: string; stage: 1 | 2 | 3 | 4; title: string; text: string; name?: string };
+
+/** 戦闘の結果（1つの戦い）。9夜目：部隊の番号・部隊長・生徒ごとの評価・策の講評 */
+export interface BattleReport {
+  lines: string[]; grades: { id: string; grade: string; note: string }[]; win: boolean; growth?: GrowthEntry[]; mvp?: string; review?: string[]; title?: string; findings?: BattleFinding[]; officerId?: string;
+  /** 9夜目 */
+  squad?: number; captain?: string; evals?: StudentEval[]; stratReview?: string[]; fallen?: { id: string; outcome: 'dead' | 'injured' }[];
+}
+/** 戦闘後の生徒ごとの評価（9夜目） */
+export interface StudentEval {
+  id: string; grade: string;
+  /** 称号（StratBadge の id）1〜2個 */
+  badges: string[];
+  /** 名場面（戦いの記録から1行） */
+  scene: string | null;
+  /** 本人のひとこと */
+  say: string;
+  /** 戦績 */
+  rec: { kills: number; dealt: number; taken: number; healed: number; hits: number; swings: number };
+  /** 前の戦いからの伸び（文） */
+  growth: string[];
+  /** 宿敵・誓いの進み具合 */
+  rivals: string[];
+  outcome?: 'dead' | 'injured';
+}
+/** 月末の出撃（9夜目：最大3部隊）。部隊の順番に1つずつ戦う */
+export interface SquadPlan {
+  questId: string;
+  deploy: import('./battle/setup').Deploy[];
+  plan: import('./battle/auto').AutoPlan;
+  /** 自分で指揮する（マスを動かす戦闘） */
+  manual?: boolean;
+}
+export interface Sortie { squads: SquadPlan[]; idx: number; reports: BattleReport[]; pendFrom: number }
 
 /** 戦闘で伸びた・分かったこと（結果の画面にまとめて出す） */
 export interface BattleFinding { id?: string; icon: string; text: string }
@@ -429,6 +484,8 @@ export interface Settings {
   manualBattle: boolean;
   /** 戦いの記録の進め方（8夜目：はじめは「タップで進む」） */
   battleLog?: 'tap' | 'normal' | 'fast';
+  /** 戦闘の演出（9夜目）：派手／ふつう／控えめ */
+  battleFx?: 'big' | 'normal' | 'low';
   rewind: boolean;
   guide: boolean;
   sound: boolean;
@@ -502,6 +559,12 @@ export interface GameState {
   officers?: EnemyOfficer[];
   /** 生徒と敵将の因縁（キーは 生徒id|敵将id） */
   rivalries?: Record<string, Rivalry>;
+  /** 月末の出撃（9夜目：最大3部隊） */
+  sortie?: Sortie | null;
+  /** 学校で使える策（9夜目。data/stratagems.ts の id） */
+  strats?: string[];
+  /** 組織図を前に見たときのようす（9夜目：陣営→敵将id→階級・状態・二つ名・上の人） */
+  orgSeen?: Record<string, { at: number; o: Record<string, OrgMark> }>;
   /** 自動の戦闘で直近に使った文・出来事（同じ並びを避ける） */
   autoMemory?: { lines: string[]; events: string[]; n?: number };
   nextId: number;

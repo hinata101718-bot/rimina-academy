@@ -1,0 +1,160 @@
+// 策（作戦カード）・陣形・部隊長（9夜目）。DOMに依存しない
+import { STRATS, STRAT, STRAT_IDS, MAP_TAGS, SQUADS, FORMATION, type StratId, type StratDef, type StratEffect } from '../data/stratagems';
+import { OFFICER_TRAITS } from '../data/officers';
+import { CLASSES } from '../data/classes';
+import type { UnitMod, RoleId } from '../data/autobattle';
+import type { GameState, Quest, Student, EnemyOfficer } from './state';
+import type { BattleState, Unit } from './battle/types';
+import type { MoveType } from './types';
+import { Rng } from './rng';
+import { fx } from './mentor';
+import { enrolled, effectiveStats } from './game';
+
+export const START_STRATS: StratId[] = STRAT_IDS.filter((id) => STRATS[id].unlock.start);
+
+/** 学校で使える策 */
+export function knownStrats(s: GameState): StratId[] {
+  return (s.strats ?? START_STRATS).filter((x): x is StratId => !!STRATS[x as StratId]);
+}
+/** 出撃前に選べる策の枚数（先生の「軍師の眼」で+1） */
+export function stratSlots(s: GameState): number { return STRAT.slots + fx(s, 'stratSlots'); }
+
+export function stratOf(st: Student | null | undefined): number { return Math.round(st?.strat ?? 0); }
+export function addStrat(st: Student, v: number): void {
+  const mul = st.talent === 'strategist' ? STRAT.talentMul : 1;
+  st.strat = Math.min(STRAT.stratMax, Math.round(((st.strat ?? 0) + v * mul) * 10) / 10);
+}
+/** 部隊長の腕前（魅力＋軍略） */
+export function captainScore(st: Student): number { return effectiveStats(st).cha + stratOf(st); }
+/** 策を立てる腕前（軍略・魅力・軍師の才） */
+export function plannerScore(st: Student): number {
+  return stratOf(st) * STRAT.plannerStrat + effectiveStats(st).cha * STRAT.plannerCha + (st.talent === 'strategist' && st.talentReveal >= 100 ? STRAT.talent : 0);
+}
+export function defaultCaptain(s: GameState, ids: string[]): string | undefined {
+  return ids.map((id) => s.students[id]).filter(Boolean).sort((a, b) => b.grade * 6 + captainScore(b) - a.grade * 6 - captainScore(a))[0]?.id;
+}
+export function defaultPlanner(s: GameState, ids: string[]): string | undefined {
+  return ids.map((id) => s.students[id]).filter(Boolean).sort((a, b) => plannerScore(b) - plannerScore(a))[0]?.id;
+}
+/** 部隊長の腕前による補正（命中+） */
+export function captainMod(st: Student | null | undefined): UnitMod {
+  if (!st) return {};
+  return { hit: Math.min(SQUADS.captainMax, Math.floor(captainScore(st) / 10) * SQUADS.captainPer10) };
+}
+/** 役割から前列・後列 */
+export function defaultRow(role: RoleId): 'front' | 'back' { return role === 'back' || role === 'heal' ? 'back' : 'front'; }
+export function formationMod(row: 'front' | 'back'): UnitMod { return row === 'front' ? FORMATION.front : FORMATION.back; }
+
+// ---------- 成功の見込み ----------
+export interface StratOdds {
+  rate: number;
+  /** 出撃前に見せる「効きそう」「向かない」の理由（分かっていることだけ） */
+  good: string[]; bad: string[];
+  /** 雨の火計など、必ず不発 */
+  dud: boolean;
+  /** 敵将の弱点を突く（分かっている特徴で） */
+  weak: boolean;
+}
+interface OddsIn { q: Pick<Quest, 'template' | 'weather' | 'objective'>; planner?: Student | null; captain?: Student | null; members: Student[]; traits: string[]; known: string[]; early?: boolean }
+/** 成功の見込み。traits＝敵将の本当の特徴、known＝分かっている特徴（理由の文にだけ使う） */
+export function stratOdds(id: StratId, x: OddsIn): StratOdds {
+  const d = STRATS[id];
+  let rate = d.base;
+  const good: string[] = [], bad: string[] = [];
+  if (x.planner) rate += plannerScore(x.planner);
+  if (d.captainCha && x.captain) rate += effectiveStats(x.captain).cha * STRAT.captainCha;
+  const tags = MAP_TAGS[x.q.template] ?? [];
+  if (d.terrain) { if (d.terrain.some((t) => tags.includes(t))) { rate += STRAT.terrainFit; good.push('地形が合う'); } }
+  if (d.weather?.includes(x.q.weather)) { rate += STRAT.weatherFit; good.push(x.q.weather === 'fog' ? '霧の日' : x.q.weather === 'rain' ? '雨の日' : '晴れの日'); }
+  if (d.objectives?.includes(x.q.objective)) { rate += STRAT.objectiveFit; good.push('この依頼に合う'); }
+  const dud = !!d.fizzle?.includes(x.q.weather);
+  if (dud) bad.push(x.q.weather === 'rain' ? '雨で不発' : '天候が合わない');
+  let weak = false;
+  for (const t of d.weak ?? []) if (x.traits.includes(t)) { rate += STRAT.weakHit; if (x.known.includes(t)) { weak = true; good.push(`敵将は「${OFFICER_TRAITS[t]?.name}」`); } }
+  for (const t of d.bad ?? []) if (x.traits.includes(t)) { rate += STRAT.badHit; if (x.known.includes(t)) bad.push(`敵将は「${OFFICER_TRAITS[t]?.name}」`); }
+  if (d.needMove && !x.members.some((st) => d.needMove!.includes((CLASSES[st.classId] ?? CLASSES.novice).moveType as MoveType))) { rate += STRAT.missingNeed; bad.push('騎馬・飛行の子がいない'); }
+  if (d.minMembers && x.members.length < d.minMembers) { rate += STRAT.missingNeed; bad.push(`${d.minMembers}人以上が要る`); }
+  if (x.early) rate += STRAT.early;
+  return { rate: dud ? 0 : Math.max(STRAT.min, Math.min(STRAT.max, Math.round(rate))), good, bad, dud, weak };
+}
+export function oddsLabel(rate: number): string { return rate >= 75 ? '高い' : rate >= 55 ? 'まずまず' : rate >= 35 ? '五分' : '低い'; }
+
+// ---------- 戦場で使う ----------
+export interface StratRec { id: StratId; ok: boolean; dud?: boolean; weak?: boolean; rate: number; early?: boolean; text: string }
+
+function addMod(u: Unit, m: UnitMod | undefined, k = 1): void {
+  if (!m) return;
+  u.mod ??= {};
+  for (const key of ['hit', 'avo', 'dmg', 'def', 'crit'] as const) if (m[key]) u.mod[key] = (u.mod[key] ?? 0) + Math.round((m[key] as number) * k);
+}
+function fill(t: string, v: Record<string, string>): string { return t.replace(/\{(\w+)\}/g, (m, k) => v[k] ?? m); }
+
+/** 策を切る：成功の判定、効き目、黄色い帯の文。記録を b.auto.strats に残す */
+export function fireStrat(s: GameState, b: BattleState, q: Pick<Quest, 'template' | 'weather' | 'objective'>, id: StratId, o: EnemyOfficer | null, early = false): StratRec | null {
+  const a = b.auto;
+  if (!a || !STRATS[id]) return null;
+  const d: StratDef = STRATS[id];
+  const r = new Rng(b as unknown as { rng: number });
+  const plan = a.plan ?? {};
+  const members = b.units.filter((u) => u.side === 'player' && u.studentId && !u.dead).map((u) => s.students[u.studentId!]).filter(Boolean);
+  const planner = plan.planner ? s.students[plan.planner] : null;
+  const captain = plan.captain ? s.students[plan.captain] : null;
+  const odds = stratOdds(id, { q, planner, captain, members, traits: o?.traits ?? [], known: o?.knownTraits ?? [], early });
+  const ok = !odds.dud && r.next() * 100 < odds.rate;
+  const weakHit = !!o && (d.weak ?? []).some((t) => o.traits.includes(t));
+  const mul = ok && weakHit ? STRAT.weakMul : 1;
+  const eff: StratEffect = ok ? d.win : d.lose;
+  const allies = b.units.filter((u) => (u.side === 'player' || u.side === 'ally') && !u.dead);
+  const foes = b.units.filter((u) => u.side === 'enemy' && !u.dead && !u.captive);
+  const L = a.leader;
+  const lu = L ? b.units.find((u) => u.uid === L.uid) : null;
+  for (const u of allies) addMod(u, eff.ally, mul);
+  for (const u of foes) addMod(u, eff.foe, mul);
+  if (lu) addMod(lu, eff.leaderFoe, mul);
+  if (eff.foeHpPct) for (const u of foes) u.hp = Math.max(1, u.hp - Math.max(1, Math.round(u.maxHp * eff.foeHpPct * mul)));
+  if (eff.injury) a.injury = (a.injury ?? 0) + eff.injury;
+  if (eff.duel) a.duelOffer = true;
+  if (eff.noFlee && L) L.noFlee = true;
+  if (eff.reveal) a.reveal = true;
+  const v = { leader: L?.name ?? '敵将', a: planner?.given ?? '策を立てた子', c: captain?.given ?? '部隊長' };
+  const text = fill(r.pick(odds.dud ? d.dud ?? d.ng : ok ? d.ok : d.ng), v);
+  const rec: StratRec = { id, ok, dud: odds.dud || undefined, weak: weakHit || undefined, rate: odds.rate, early: early || undefined, text };
+  (a.strats ??= []).push(rec);
+  a.held = (a.held ?? []).filter((x) => x !== id);
+  b.rng = r.h.rng;
+  return rec;
+}
+
+/** 策の講評（結果の画面） */
+export function stratReview(recs: StratRec[]): string[] {
+  return recs.map((x) => {
+    const n = STRATS[x.id].name;
+    if (x.dud) return `「${n}」は不発。天候が合わなかった`;
+    if (x.ok && x.weak) return `「${n}」が敵将の弱点を突いた。大きな効き目があった`;
+    if (x.ok) return `「${n}」は成功（見込み${x.rate}%）${x.early ? '。早めに切ったのが効いた' : ''}`;
+    return `「${n}」は外れた（見込み${x.rate}%）。${x.rate < 40 ? '条件が合っていなかったかもしれない' : '運が悪かった'}`;
+  });
+}
+
+// ---------- 覚える ----------
+/** 新しく覚えられる策を調べて、覚える（発見の演出を処理待ちに）。覚えた策を返す */
+export function checkStratUnlocks(s: GameState): StratId[] {
+  const known = new Set(knownStrats(s));
+  const list = enrolled(s);
+  const got: StratId[] = [];
+  for (const id of STRAT_IDS) {
+    if (known.has(id)) continue;
+    const u = STRATS[id].unlock;
+    let by: Student | undefined; let why = '';
+    if (u.strat !== undefined && u.cha === undefined) { by = list.find((st) => stratOf(st) >= u.strat!); if (by) why = `${by.given}の軍略が身についてきた`; }
+    if (!by && u.cha !== undefined) { by = list.find((st) => effectiveStats(st).cha >= u.cha! && (u.strat === undefined || stratOf(st) >= u.strat)); if (by) why = `${by.given}の人を動かす力が育った`; }
+    if (!by && u.move) { by = list.find((st) => u.move!.types.includes((CLASSES[st.classId] ?? CLASSES.novice).moveType as MoveType) && stratOf(st) >= u.move!.strat); if (by) why = `${by.given}が騎馬・飛行の戦い方を覚えた`; }
+    if (!by && u.talent) { by = list.find((st) => st.talent && u.talent!.includes(st.talent) && st.talentReveal >= 100); if (by) why = `${by.given}の才能が策を思いついた`; }
+    if (!by) continue;
+    (s.strats ??= [...START_STRATS]).push(id);
+    known.add(id);
+    got.push(id);
+    s.pending.push({ type: 'newStrat', id, by: by.id, why });
+  }
+  return got;
+}

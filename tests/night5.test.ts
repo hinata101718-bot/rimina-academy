@@ -61,7 +61,7 @@ describe('自動の戦闘', () => {
       expect(b0.auto!.scenes[0].title).toBe('開戦');
       skipAuto(s, battleCtx(s));
       const a = s.battle!.auto!;
-      const main = a.scenes.filter((x) => x.title !== '指示');
+      const main = a.scenes.filter((x) => x.title !== '指示' && x.title !== '策');
       expect(main.length).toBeGreaterThanOrEqual(3);
       expect(main.length).toBeLessThanOrEqual(4);
       expect(main[main.length - 1].title).toBe('決着');
@@ -69,7 +69,7 @@ describe('自動の戦闘', () => {
       if (main.length === 4) expect(a.choicesMade.length).toBeGreaterThanOrEqual(1);
       for (const sc of a.scenes) {
         expect(sc.lines.length).toBeGreaterThan(0);
-        expect(sc.lines.length).toBeLessThanOrEqual(5);
+        expect(sc.lines.filter((l) => !l.by.startsWith('strat')).length).toBeLessThanOrEqual(5);
         for (const l of sc.lines) { expect(l.text).not.toMatch(/\{\w+\}/); expect(l.text.length).toBeGreaterThan(0); }
         expect(sc.momentum).toBeGreaterThanOrEqual(0); expect(sc.momentum).toBeLessThanOrEqual(1);
       }

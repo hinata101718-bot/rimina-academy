@@ -7,7 +7,8 @@ import { WEAPONS } from '../data/weapons';
 import { ensureSpellPlan, learnSpells } from './spells';
 import { ensureTeacherSince, instructorCaps } from './instructor';
 import { birthdayFor } from './student';
-import { ensureRosters, nemesisToOfficer } from './officers';
+import { ensureRosters, nemesisToOfficer, linkOrg, markOrgSeen } from './officers';
+import { START_STRATS } from './stratagems';
 import { careerTitleOnly } from './discovery';
 import { titleOf } from './alumni';
 import { Rng } from './rng';
@@ -41,6 +42,7 @@ export function migrate(s: GameState, from: number): GameState {
   if (from < 6) migrateTo6(s);
   if (from < 7) migrateTo7(s);
   if (from < 8) migrateTo8(s);
+  if (from < 9) migrateTo9(s);
   s.heirs ??= [];
   s.archive ??= {};
   s.notices ??= [];
@@ -243,6 +245,32 @@ function migrateTo8(s: GameState): void {
       '先生も授業で経験ポイントを得るようになりました。教官手帳の「教官」から、先生の技能と特殊能力（20種）を上げられます。今の技能はそのままで、ポイントは0からです。',
       '個人ページに成長率の内わけ（本人＋兵種＋才能・特徴＝合計）が出ます。生徒本人の成長率は5%きざみになりました（近い数に丸めています）。名簿の「図鑑」から兵種図鑑が見られます。',
       '新聞は半年に一回（9月の終わりの前期号・3月の後期号）になりました。大事件の月は号外が出ます。',
+    ],
+  });
+}
+
+/**
+ * 8夜目の版（version 8）→ 9夜目の版（version 9）：戦い
+ * - 策（作戦カード）：はじめの4種から。生徒の軍略は0から（戦術論・兵法の歴史の授業でたまる）
+ * - 敵将の組織図：隊長→幹部→将軍の線をつなぐ。今の組織図を「前に見たとき」として覚える（変化の印は次から）
+ * - 戦闘の演出は「派手」から（設定で変えられる）
+ * - 途中の戦いは、そのまま最後まで遊べる（1部隊として終わる）
+ */
+function migrateTo9(s: GameState): void {
+  s.strats ??= [...START_STRATS];
+  s.sortie ??= null;
+  s.settings.battleFx ??= 'big';
+  linkOrg(s);
+  markOrgSeen(s);
+  s.pending ??= [];
+  s.pending.push({
+    type: 'event', title: '9夜目の新しいこと',
+    lines: [
+      '在籍が20人を超えると、月末に2部隊（30人で3部隊）を別々の依頼へ出せます。教官はすべての部隊に同行し、順番に1つずつ戦います。',
+      '出撃前に「策（作戦カード）」を選べます。はじめは4種。戦術論・兵法の歴史の授業や、魅力の高い子・軍師の才のある子がいると、新しい策を覚えます。部隊長と、策を立てる子も選べます。',
+      '戦いのあとの評価が、一人ずつの称号・名場面・ひとことになりました。',
+      '戦況の「敵将の名簿」が、家系図のような組織図になりました。前に見たときからの変化に印がつきます。戦いで目立った敵の一般兵が、名前を得て「見込みのある兵」になることもあります。',
+      '戦いの記録の演出が派手になりました（設定の「戦闘」で、派手／ふつう／控えめを選べます）。',
     ],
   });
 }

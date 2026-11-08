@@ -3,12 +3,16 @@ import { B } from '../data/balance';
 import { BACKGROUNDS, COUNTRIES, COUNTRY_SHORT, COUNTRY_NAMES, SKILL_NAMES } from '../data/people';
 import { WEAPONS } from '../data/weapons';
 import type { CountryId, SkillId } from './types';
-import type { GameState, Quest, Student, GrowthEntry, BattleFinding, TalkLog } from './state';
+import type { GameState, Quest, Student, GrowthEntry, BattleFinding, TalkLog, SquadPlan, BattleReport } from './state';
+import { SQUADS, STRAT } from '../data/stratagems';
+import { checkStratUnlocks, addStrat } from './stratagems';
+import { evaluateBattle } from './evaluate';
+import { rivalryOf } from './officers';
 import { LESSON_BY_ID } from '../data/lessons';
 import { specialInterview } from './interview';
 const LESSON_NAME: Record<string, string> = Object.fromEntries(Object.values(LESSON_BY_ID).map((l) => [l.id, l.name]));
 import { Rng } from './rng';
-import { enrolled, addMoney, addRep, chronicle, notify, enrollCohort, capacity, mail, available } from './game';
+import { enrolled, addMoney, addRep, chronicle, notify, enrollCohort, capacity, mail, available, deployLimit } from './game';
 import { startMonthStudents, changeMotivation, revealTalent, addSkill, autoMonthTargets } from './week';
 import { resolveLesson, advanceDay, recommendCard, todayCards, type DayOutcome } from './lessons';
 import { rollQuests } from './quests';
@@ -71,6 +75,7 @@ export function chooseLesson(s: GameState, idx: number, talkWith?: string): void
   const res = resolveLesson(s, r, idx, talkWith);
   const ended = afterDay(s, r, res);
   s.pending.splice(from, 0, { type: 'lessonResult', lesson: res.lesson, day, faces: res.faces, tags: res.tags, rows: res.rows, events: res.events, growth: res.growth, lines: res.lines, talks: res.talks, others: res.others, xp: res.xp });
+  checkStratUnlocks(s);
   deferShows(s, from);
   if (ended.monthEnd) { freshQuests(s); s.pending.push({ type: 'questBoard' }); }
   else todayCards(s);
@@ -119,6 +124,7 @@ export function weekAuto(s: GameState): void {
   }
   const names = picked.map((id) => LESSON_NAME[id] ?? id);
   s.pending.splice(from, 0, { type: 'weekSummary', lines: [`今週の授業：${names.join('・')}`, ...lines], talks, growth });
+  checkStratUnlocks(s);
   deferShows(s, from);
   if (ended.monthEnd) { freshQuests(s); s.pending.push({ type: 'questBoard' }); }
   else todayCards(s);
@@ -126,6 +132,33 @@ export function weekAuto(s: GameState): void {
 
 /** 「次の週へ」（6夜目までの呼び名。今は「今週はおまかせ」と同じ） */
 export function nextWeek(s: GameState): void { weekAuto(s); }
+
+// ---------- 月末の出撃：最大3部隊（9夜目） ----------
+/** 今月出せる部隊の数（在籍20人を超えると2、30人で3。依頼の数まで） */
+export function squadCount(s: GameState): number {
+  const n = enrolled(s).length;
+  const k = n >= SQUADS.three ? 3 : n > SQUADS.two ? 2 : 1;
+  return Math.max(1, Math.min(k, s.quests.length));
+}
+/** 部隊ごとの人数の上限（2つ目からは少なめ） */
+export function squadLimit(s: GameState, i: number): number { return i === 0 ? deployLimit(s) : Math.min(deployLimit(s), SQUADS.extraLimit); }
+
+/** 部隊の順番に1つずつ戦う。教官はすべての部隊に同行する */
+export function startSortie(s: GameState, squads: SquadPlan[]): void {
+  const list = squads.filter((x) => x.deploy.length && s.quests.some((q) => q.id === x.questId));
+  if (!list.length || s.battle) return;
+  s.pending = s.pending.filter((p) => p.type !== 'questBoard');
+  for (const sq of list) for (const x of sq.deploy) if (x.item) s.items[x.item] = Math.max(0, s.items[x.item] - 1);
+  s.sortie = { squads: list, idx: 0, reports: [], pendFrom: s.pending.length };
+  startSquad(s);
+}
+function startSquad(s: GameState): void {
+  const so = s.sortie;
+  if (!so) return;
+  const sq = so.squads[so.idx];
+  if (sq.manual) startBattle(s, sq.questId, sq.deploy);
+  else startAutoQuest(s, sq.questId, sq.deploy, sq.plan);
+}
 
 /** 戦闘を始める */
 export function startBattle(s: GameState, questId: string, deploys: Deploy[]): void {
@@ -184,6 +217,16 @@ export function finishBattle(s: GameState): void {
   // 自動の戦闘：初陣などの出来事で増える経験値
   for (const e of b.auto?.effects ?? []) if (e.kind === 'exp') { const u = b.units.find((x) => x.studentId === e.id && x.side === 'player'); if (u) u.expGain += e.v; }
 
+  // 評価のための控え（9夜目）：戦う前の宿敵の段階・出撃の回数
+  const L0 = (b.auto?.leader ?? b.leader);
+  const rivalsBefore: Record<string, number> = {};
+  const battlesBefore: Record<string, number> = {};
+  const evalIds: string[] = [];
+  for (const u of b.units) if (u.side === 'player' && u.studentId && s.students[u.studentId]?.status === 'enrolled') {
+    evalIds.push(u.studentId);
+    battlesBefore[u.studentId] = s.students[u.studentId].battles;
+    if (L0?.officerId) rivalsBefore[u.studentId] = rivalryOf(s, u.studentId, L0.officerId)?.stage ?? 0;
+  }
   for (const u of b.units) {
     if (!u.studentId || u.side === 'enemy' && !u.persuadable) continue;
     const st = s.students[u.studentId];
@@ -269,12 +312,12 @@ export function finishBattle(s: GameState): void {
         const bg = BACKGROUNDS.find((x) => x.id === s.instructor.background);
         const reward = Math.round(q.reward * (bg?.realRewardMul ?? 1));
         const before = s.money; addMoney(s, reward);
-        const rep = B.reputation.questWinByDanger[q.danger] ?? 1;
+        const rep = q.small ? 1 : B.reputation.questWinByDanger[q.danger] ?? 1;
         addRep(s, rep);
         lines.push(`報酬 ${s.money - before}G、評判+${rep}`);
-        seedHelp(s, q.clientCountry);
-        lines.push(...questWorldEffect(s, q.clientCountry, q.enemyCountry, true));
-      } else { addRep(s, B.reputation.questLose); lines.push(`依頼は失敗。評判${B.reputation.questLose}`); }
+        // 小さな依頼（9夜目）は戦況を動かさない
+        if (!q.small) { seedHelp(s, q.clientCountry); lines.push(...questWorldEffect(s, q.clientCountry, q.enemyCountry, true)); }
+      } else { const lose = q.small ? Math.round(B.reputation.questLose / 2) : B.reputation.questLose; addRep(s, lose); lines.push(`依頼は失敗。評判${lose}`); }
     }
   }
   const auto = applyAutoResults(s, b, r, lines, {
@@ -283,12 +326,34 @@ export function finishBattle(s: GameState): void {
     motivation: (st, d) => changeMotivation(st, d),
   });
   const officerFind = officerAfterBattle(s, b, r, lines);
-  const firstTalk = s.pending.findIndex((p) => p.type === 'talk');
+  // 策を立てた子は軍略が少し身につく（9夜目）
+  const planner = b.auto?.plan?.planner;
+  if (planner && s.students[planner]?.status === 'enrolled' && (b.auto?.strats ?? []).length) addStrat(s.students[planner], STRAT.plannerGain);
+  const evals = evaluateBattle(s, b, q, evalIds, auto.mvp ?? null, rivalsBefore, battlesBefore);
+  const sortie = s.sortie;
+  const talkFrom = sortie ? Math.min(sortie.pendFrom, s.pending.length) : 0;
+  const firstTalk = s.pending.findIndex((p, i) => i >= talkFrom && p.type === 'talk');
   const findings = [...battleFindings(s, growth, lines, s.pending.slice(firstTalk >= 0 ? firstTalk : s.pending.length)), ...officerFind];
-  s.pending.splice(firstTalk >= 0 ? firstTalk : s.pending.length, 0, { type: 'battleResult', lines, grades, win, growth, mvp: auto.mvp ?? undefined, review: auto.review, title: b.title, findings, officerId: (b.auto?.leader ?? b.leader)?.officerId });
+  const report: BattleReport = { lines, grades, win, growth, mvp: auto.mvp ?? undefined, review: auto.review, title: b.title, findings, officerId: (b.auto?.leader ?? b.leader)?.officerId,
+    evals, stratReview: auto.stratReview.length ? auto.stratReview : undefined, captain: b.auto?.plan?.captain, fallen: b.fallen.filter((f) => f.outcome !== 'out' && s.students[f.studentId] && evalIds.includes(f.studentId)).map((f) => ({ id: f.studentId, outcome: f.outcome as 'dead' | 'injured' })) };
   s.battle = null;
-  deferShows(s, pendFrom);
   if (q?.kind === 'schoolDefense' && win) checkEndings(s, r, 'month');
+  checkStratUnlocks(s);
+  if (sortie) {
+    // 部隊の順番に次の戦いへ。最後の部隊のあと、結果をまとめて1枚に（9夜目）
+    report.squad = sortie.idx;
+    sortie.reports.push(report);
+    sortie.idx += 1;
+    if (sortie.idx < sortie.squads.length && !s.gameOver) { startSquad(s); return; }
+    const from = Math.min(sortie.pendFrom, s.pending.length);
+    s.pending.splice(from, 0, sortie.reports.length > 1 ? { type: 'sortieResult', reports: sortie.reports } : { type: 'battleResult', ...sortie.reports[0] });
+    s.sortie = null;
+    deferShows(s, from);
+    endMonth(s);
+    return;
+  }
+  s.pending.splice(firstTalk >= 0 ? firstTalk : s.pending.length, 0, { type: 'battleResult', ...report });
+  deferShows(s, pendFrom);
   endMonth(s);
 }
 

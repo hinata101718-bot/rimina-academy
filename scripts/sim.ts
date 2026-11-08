@@ -79,7 +79,7 @@ function runAll(policy: CareerPolicy): RunResult[] {
         growth.push({ grade: st.grade, level: st.level, battles: st.battles, top: pts[0], second: pts[1], other: med(pts.slice(2)), talent: tk ? st.skills[tk as SkillId] : null, hp: st.stats.hp, best: vals[0], worst: vals[vals.length - 1], train: Object.values(st.trainGain ?? {}).reduce((a, b) => a + (b ?? 0), 0) });
       }
     });
-    opCount.lesson = 0; opCount.pending = 0; opCount.battle = 0;
+    opCount.lesson = 0; opCount.pending = 0; opCount.battle = 0; opCount.squads = 0; opCount.cards = 0;
     const rows: YearRow[] = [];
     let error: string | null = null;
     let zero = 0;

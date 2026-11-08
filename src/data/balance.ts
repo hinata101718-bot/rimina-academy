@@ -1,7 +1,7 @@
 // バランス値。ゲームの数値はすべてここに集める（設計書の「ふつう」が初期値）。
 import type { Rank, SkillId, StatId } from '../core/types';
 
-export const SAVE_VERSION = 8;
+export const SAVE_VERSION = 9;
 
 export const RANKS: Rank[] = ['E', 'E+', 'D', 'D+', 'C', 'C+', 'B', 'B+', 'A', 'A+', 'S'];
 export const RANK_POINTS: Record<Rank, number> = {
@@ -228,6 +228,10 @@ export const B = {
   // ---- 依頼 ----
   quests: {
     realCount: [2, 3] as [number, number],
+    /** 9夜目：2つ目・3つ目の部隊向けの小さな依頼の報酬の倍率 */
+    smallRewardMul: 0.15,
+    /** 小さな依頼に名簿の敵将が出てくる割合（ほかは名もない敵将） */
+    smallOfficer: 0.4,
     reward: [200, 1500] as [number, number],
     friendshipUp: 3, powerUp: 1, enemyFriendshipDown: 2,
     mercBonus: 0.2,

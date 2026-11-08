@@ -7,7 +7,7 @@ import { COUNTRY_SHORT, RANK_TITLES } from '../data/people';
 import { CLASSES } from '../data/classes';
 import { WEAPONS } from '../data/weapons';
 import { B } from '../data/balance';
-import type { GameState, EnemyOfficer, Rivalry, Nemesis, Quest, Student, BattleFinding, OfficerMeet } from './state';
+import type { GameState, EnemyOfficer, Rivalry, Nemesis, Quest, Student, BattleFinding, OfficerMeet, OrgMark } from './state';
 import type { BattleState, Unit } from './battle/types';
 import type { CountryId, Gender } from './types';
 import { Rng } from './rng';
@@ -22,7 +22,9 @@ function fill(t: string, v: Record<string, string>): string { return t.replace(/
 
 export function officers(s: GameState): EnemyOfficer[] { return (s.officers ??= []); }
 export function officerById(s: GameState, id: string | undefined | null): EnemyOfficer | null { return id ? officers(s).find((o) => o.id === id) ?? null : null; }
-export function activeOf(s: GameState, f: FactionId): EnemyOfficer[] { return officers(s).filter((o) => o.faction === f && o.status === 'active'); }
+export function activeOf(s: GameState, f: FactionId): EnemyOfficer[] { return officers(s).filter((o) => o.faction === f && o.status === 'active' && !o.prospect); }
+/** 見込みのある兵（9夜目）：戦いで目立った一般兵。隊長の席が空くと抜擢される */
+export function prospectsOf(s: GameState, f: FactionId): EnemyOfficer[] { return officers(s).filter((o) => o.faction === f && o.status === 'active' && o.prospect); }
 
 /** 表示する名前（二つ名つき）。軍は「ヴォルグ・ハイン」→二つ名がつくと「ハンナ殺しのヴォルグ」 */
 export function officerName(o: Pick<EnemyOfficer, 'given' | 'family' | 'epithet' | 'kind' | 'title'>): string {
@@ -113,6 +115,111 @@ export function newOfficer(s: GameState, r: Rng, faction: FactionId, rank: numbe
 /** 名簿を満たす（ゲーム開始・読み込み・月の初め・年度末）。上が空いていれば下から昇格させる */
 export function ensureRosters(s: GameState, r: Rng, report?: string[]): void {
   for (const f of ROSTER_FACTIONS) fillFaction(s, f, r, report);
+  linkOrg(s);
+}
+
+// ---------- 組織図（9夜目） ----------
+/** 組織図の線をつなぐ：幹部→将軍、隊長→幹部（子の少ない幹部へ） */
+export function linkOrg(s: GameState): void {
+  for (const f of ROSTER_FACTIONS) {
+    const list = activeOf(s, f);
+    const head = list.find((o) => o.rank === 0);
+    const mids = list.filter((o) => o.rank === 1);
+    for (const o of list) {
+      if (o.rank === 0) { o.parent = undefined; continue; }
+      if (o.rank === 1) { o.parent = head?.id; continue; }
+      if (o.parent && mids.some((m) => m.id === o.parent)) continue;
+      const kids = (m: EnemyOfficer) => list.filter((x) => x.rank === 2 && x.parent === m.id).length;
+      o.parent = [...mids].sort((a, c) => kids(a) - kids(c))[0]?.id;
+    }
+  }
+}
+/** 組織図を見たときのようすを覚える（次に見たとき、変化に印をつける） */
+export function markOrgSeen(s: GameState, only?: FactionId): void {
+  const seen = (s.orgSeen ??= {});
+  for (const f of only ? [only] : ROSTER_FACTIONS) {
+    const o: Record<string, OrgMark> = {};
+    for (const x of officers(s)) if (x.faction === f && (x.status === 'active' || seen[f]?.o[x.id]?.status === 'active')) o[x.id] = { rank: x.rank, status: x.status, ep: x.epithet, parent: x.parent, prospect: x.prospect || undefined };
+    seen[f] = { at: s.absWeek, o };
+  }
+}
+export type OrgChangeKind = 'new' | 'promote' | 'fell' | 'gone' | 'contest' | 'epithet' | 'raised' | 'prospect';
+export interface OrgChange { kind: OrgChangeKind; id: string; text: string; from?: number; to?: number }
+/** 前に見たときからの変化 */
+export function orgChanges(s: GameState, f: FactionId): OrgChange[] {
+  const was = s.orgSeen?.[f]?.o;
+  if (!was) return [];
+  const out: OrgChange[] = [];
+  const rn = (o: EnemyOfficer, rank = o.rank) => (rank >= 3 ? '一兵卒' : rankName({ ...o, rank }));
+  for (const o of officers(s).filter((x) => x.faction === f)) {
+    const w = was[o.id];
+    const nm = officerName(o);
+    if (!w) {
+      if (o.status !== 'active') continue;
+      if (o.prospect) out.push({ kind: 'prospect', id: o.id, text: `${nm}が見込みのある兵に（${o.deed ?? '戦場で目立った'}）` });
+      else if (o.raisedYear) out.push({ kind: 'raised', id: o.id, text: `${nm}が一兵卒から${rn(o)}に抜擢された` });
+      else out.push({ kind: 'new', id: o.id, text: `${nm}が新しく${rn(o)}に` });
+      continue;
+    }
+    if (w.status === 'active' && o.status !== 'active') {
+      const m = o.meets[o.meets.length - 1];
+      const by = m?.foes?.map((id) => s.students[id]?.given).filter(Boolean)[0];
+      if (o.status === 'dead') out.push({ kind: 'fell', id: o.id, text: `${nm}が討ち取られた${by ? `（${by}）` : ''}` });
+      else out.push({ kind: 'gone', id: o.id, text: `${nm}が去った（${o.endNote ?? '戦場を去った'}）` });
+      continue;
+    }
+    if (o.status !== 'active') continue;
+    if (w.prospect && !o.prospect) out.push({ kind: 'raised', id: o.id, text: `${nm}が一兵卒から${rn(o)}に抜擢された`, from: 3, to: o.rank });
+    else if (o.rank < w.rank) {
+      const gone = Object.entries(was).map(([id, x]) => ({ x, o: officerById(s, id) })).find((v) => v.x.rank === o.rank && v.x.status === 'active' && v.o && v.o.status !== 'active');
+      const why = gone?.o ? `（${officerName(gone.o)}が抜けた空きを埋めた）` : '';
+      out.push({ kind: 'promote', id: o.id, text: `${nm}が${rn(o, w.rank)}→${rn(o)}に昇進${why}`, from: w.rank, to: o.rank });
+    }
+    if (o.epithet && o.epithet !== w.ep && o.kind === 'army') out.push({ kind: 'epithet', id: o.id, text: `${o.given}が「${nm}」と呼ばれるようになった` });
+    if (o.contest) out.push({ kind: 'contest', id: o.id, text: `${nm}が${RANK_NAMES[o.kind === 'army' ? 'army' : 'bandit'][0]}の座をねらっている` });
+  }
+  const order: OrgChangeKind[] = ['fell', 'promote', 'raised', 'contest', 'new', 'epithet', 'gone', 'prospect'];
+  return out.sort((a, c) => order.indexOf(a.kind) - order.indexOf(c.kind));
+}
+
+// ---------- 見込みのある兵（9夜目） ----------
+const RAISE_VERB: Record<string, string> = { bow: '射ちの', magic: '焼きの', holy: '焼きの', lance: '突きの', axe: '割りの', sword: '斬りの', gun: '撃ちの' };
+/** 戦いで目立った一般兵を、見込みのある兵として名簿に入れる */
+export function addProspect(s: GameState, f: FactionId, g: { given: string; family: string; gender: Gender; face: EnemyOfficer['face']; faceImage: string | null; classId: string; level: number; deed: string; victim?: string; dead?: boolean; weapon?: string | null }, title: string): EnemyOfficer {
+  const kind: 'army' | 'bandit' = f === 'bandit' ? 'bandit' : 'army';
+  const o: EnemyOfficer = {
+    id: `of${s.nextId++}`, given: g.given, family: kind === 'army' ? g.family : '', faction: f, kind, country: kind === 'army' ? f as CountryId : null,
+    rank: 3, gender: g.gender, age: 20 + (hash(g.given) % 9), personality: (['young', 'arrogant', 'cold', 'cunning'] as const)[hash(g.given + title) % 4], face: g.face, faceImage: g.faceImage,
+    classId: g.classId, level: g.level, scars: 0, traits: new Rng({ rng: hash(g.given + f) }).shuffle([...TRAIT_IDS]).slice(0, OFFICER.traitCount), knownTraits: [], meets: [{ year: s.year, month: s.month, title, result: 'win', foes: g.victim ? [g.victim] : [] }],
+    status: 'active', grudge: null, victims: g.victim && s.students[g.victim] ? [{ id: g.victim, name: s.students[g.victim].given, year: s.year, dead: !!g.dead }] : [], joined: s.year,
+    prospect: true, deed: g.deed,
+  };
+  if (g.weapon) o.raiseWeapon = g.weapon;
+  officers(s).push(o);
+  // 多すぎるときは古い順に去る
+  const list = prospectsOf(s, f);
+  if (list.length > OFFICER.prospectMax) for (const x of list.slice(0, list.length - OFFICER.prospectMax)) { x.status = 'retired'; x.endYear = s.year; x.endNote = '名を上げる前に戦場を去った'; }
+  // 生徒の側も覚えている：重傷にされた子は因縁、倒された子の仲間は仇討ちの誓い
+  if (g.victim && s.students[g.victim]) {
+    if (!g.dead && s.students[g.victim].status === 'enrolled') { const rv = ensureRivalry(s, g.victim, o.id); rv.battles += 1; rv.stage = Math.max(1, rv.stage); rv.log.push({ year: s.year, month: s.month, text: `${title}で重傷を負わされた` }); }
+    if (g.dead) {
+      const fr = Object.values(s.students).filter((y) => y.status === 'enrolled' && y.id !== g.victim && (getSupport(s, y.id, g.victim!).kind === 'love' || supportValue(s, y.id, g.victim!) >= B.support.B)).sort((a, c) => supportValue(s, c.id, g.victim!) - supportValue(s, a.id, g.victim!))[0];
+      if (fr) { const rv = ensureRivalry(s, fr.id, o.id); rv.vow = g.victim; rv.stage = Math.max(1, rv.stage); rv.log.push({ year: s.year, month: s.month, text: `${s.students[g.victim].given}の仇` }); }
+    }
+  }
+  return o;
+}
+/** 隊長の席が空いたとき、見込みのある兵を抜擢する（生徒を倒した兵は二つ名つき） */
+function raiseProspect(s: GameState, f: FactionId, r: Rng, report?: string[]): boolean {
+  const list = prospectsOf(s, f);
+  if (!list.length || !r.chance(OFFICER.raiseChance)) return false;
+  const p = r.weighted(list, (o) => 1 + o.victims.length * 2 + o.level / 10);
+  p.prospect = false; p.rank = 2; p.raisedYear = s.year; p.level += 1;
+  const v = p.victims[p.victims.length - 1];
+  if (v && !p.epithet) p.epithet = `${v.name}${RAISE_VERB[p.raiseWeapon ?? ''] ?? '討ちの'}`;
+  const t = fill(OFFICER_NEWS.raised, { faction: FACTION_NAMES[f], name: officerName(p), rank: rankName(p) });
+  chronicle(s, t, 'world'); report?.push(t);
+  return true;
 }
 function rankScore(o: EnemyOfficer): number { return o.level + o.victims.length * 3 + o.meets.length; }
 function fillFaction(s: GameState, f: FactionId, r: Rng, report?: string[]): void {
@@ -138,7 +245,10 @@ function fillFaction(s: GameState, f: FactionId, r: Rng, report?: string[]): voi
     }
   }
   for (let rank = 0; rank <= 2; rank++) {
-    while (activeOf(s, f).filter((o) => o.rank === rank).length < OFFICER.roster[rank] && activeOf(s, f).length < OFFICER.rosterMax) officers(s).push(newOfficer(s, r, f, rank));
+    while (activeOf(s, f).filter((o) => o.rank === rank).length < OFFICER.roster[rank] && activeOf(s, f).length < OFFICER.rosterMax) {
+      if (rank === 2 && raiseProspect(s, f, r, report)) continue;
+      officers(s).push(newOfficer(s, r, f, rank));
+    }
   }
 }
 
@@ -464,6 +574,7 @@ export function yearlyOfficers(s: GameState, r: Rng): string[] {
     chronicle(s, t, 'student'); report.push(t);
     st.history.push({ year: s.year, text: `${FACTION_NAMES[c.country]}の${rankName(o)}になった（敵将の名簿に載る）` });
   }
+  contests(s, r, report);
   ensureRosters(s, r, report);
   // 三国の軍の頭の性格で、戦況の動きが少し変わる（好戦的な頭は緊張を高める）
   let dt = 0;
@@ -495,6 +606,38 @@ export function yearlyOfficers(s: GameState, r: Rng): string[] {
   const gone = officers(s).filter((o) => o.status !== 'active');
   if (gone.length > 40) { const keep = new Set(gone.slice(-40)); s.officers = officers(s).filter((o) => o.status === 'active' || keep.has(o)); }
   return report;
+}
+
+/** 権力争い（9夜目）：野心のある幹部が頭の座をねらい、翌年に決着する */
+function contests(s: GameState, r: Rng, report: string[]): void {
+  for (const f of ROSTER_FACTIONS) {
+    const list = activeOf(s, f);
+    const head = list.find((o) => o.rank === 0);
+    const c = list.find((o) => o.contest);
+    const rn = RANK_NAMES[f === 'bandit' ? 'bandit' : 'army'][0];
+    if (c) {
+      if (c.contest! >= s.year) continue;
+      c.contest = undefined;
+      if (head && r.chance(OFFICER.contestWin)) {
+        head.status = 'retired'; head.endYear = s.year; head.endNote = '権力争いに敗れて去った';
+        c.rank = 0;
+        const t = fill(OFFICER_NEWS.struggle, { faction: FACTION_NAMES[f], name: officerName(c), rank: rn, loser: officerName(head) });
+        chronicle(s, t, 'world'); report.push(t);
+      } else {
+        const t = fill(OFFICER_NEWS.contestLost, { faction: FACTION_NAMES[f], name: officerName(c), rank: rn });
+        chronicle(s, t, 'world'); report.push(t);
+        if (r.chance(0.5)) { c.status = 'retired'; c.endYear = s.year; c.endNote = '権力争いに敗れて去った'; }
+      }
+      continue;
+    }
+    if (!head || !r.chance(OFFICER.contestChance)) continue;
+    const amb = list.filter((o) => o.rank === 1 && !o.alumniId && ['arrogant', 'young', 'cunning'].includes(o.personality));
+    if (!amb.length) continue;
+    const x = r.weighted(amb, (o) => 1 + rankScore(o));
+    x.contest = s.year;
+    const t = fill(OFFICER_NEWS.contest, { faction: FACTION_NAMES[f], name: officerName(x), rank: rn });
+    chronicle(s, t, 'world'); report.push(t);
+  }
 }
 
 export function alumniOfficer(s: GameState, st: Student, country: CountryId, rank: number): EnemyOfficer {
