@@ -143,15 +143,16 @@ function Detail({ s, st, exam, sub }: { s: GameState; st: Student; exam?: boolea
       <div class="dt-body">
       {tab === 'stats' && <>
           <div class="card">
-            <h3>能力</h3>
+            <div class="row between nowrap"><h3 style={{ margin: 0 }}>能力</h3><span class="small muted">合計成長率 <b class="dt-total">{st.growthKnown ? `${STATS.reduce((x, k) => x + gr[k], 0)}%` : '？'}</b></span></div>
             <div class="statlist">
-              <div class="statrow sr-head"><span /><b /><span class="bonus">兵種</span><span class="small muted">（{cls.name}）</span><span class="gr">伸びやすさ</span></div>
+              <div class="statrow sr-head"><span /><b /><span class="bonus">兵種</span><span class="small muted">（{cls.name}）</span><span class="gr">成長率</span></div>
               {STATS.map((k) => {
                 const b = es[k] - st.stats[k];
                 const g = (cls.growth as Partial<Record<string, number>>)[k] ?? 0;
-                return <div class="statrow"><span>{STAT_NAMES[k]}</span><b>{es[k]}</b><span class={`bonus ${b > 0 ? 'up' : b < 0 ? 'down' : ''}`}>{b ? `${b > 0 ? '+' : '−'}${Math.abs(b)}` : ''}</span><Gauge v={es[k]} max={k === 'hp' ? capHp : cap} thin /><span class={`gr ${g > 0 ? 'up' : g < 0 ? 'down' : ''}`}>{g ? `${g > 0 ? '+' : '−'}${Math.abs(g)}%` : ''}</span></div>;
+                return <div class="statrow"><span>{STAT_NAMES[k]}</span><b>{es[k]}</b><span class={`bonus ${b > 0 ? 'up' : b < 0 ? 'down' : ''}`}>{b ? `${b > 0 ? '+' : '−'}${Math.abs(b)}` : ''}</span><Gauge v={es[k]} max={k === 'hp' ? capHp : cap} thin /><span class={`gr total ${g > 0 ? 'up' : g < 0 ? 'down' : ''}`}>{st.growthKnown ? `${gr[k]}%` : g ? `？${g > 0 ? '+' : '−'}${Math.abs(g)}` : '？'}</span></div>;
               })}
             </div>
+            <div class="small muted">成長率＝レベルアップでその能力が上がる見込み（本人＋兵種＋才能・特徴。内わけは下の「内わけを見る」）</div>
             <ClassMods c={cls} />
             {!grad && (
               <div class="traingrid">
@@ -163,10 +164,10 @@ function Detail({ s, st, exam, sub }: { s: GameState; st: Student; exam?: boolea
             )}
             {cls.ability && ABILITIES[cls.ability] && <div class="small ruled">兵種スキル：<b>{ABILITIES[cls.ability].name}</b>（{ABILITIES[cls.ability].desc}）</div>}
           </div>
-          <div class="card">
-            <h3>成長率（レベルアップでの伸びやすさ）</h3>
+          <details class="card dt-fold">
+            <summary><b>成長率の内わけを見る</b><span class="small muted">（本人＋兵種＋才能・特徴）</span></summary>
             <GrowthTable s={s} st={st} />
-          </div>
+          </details>
       </>}
       {tab === 'skills' && <>
           <div class="card">

@@ -1376,3 +1376,6 @@ body[data-season="winter"] { --tint: rgba(190, 210, 235, .14); }
 .dt-tabs button.on { background: #fffaf0; color: var(--accent); transform: none; box-shadow: 0 -2px 4px rgba(0, 0, 0, .12); border-color: #c9a24f; border-top: 3px solid var(--accent); }
 .dt-body { background: rgba(255, 250, 240, .55); border: 1px solid #c6b08a; border-radius: 0 0 10px 10px; padding: 6px; margin-bottom: 10px; }
 .dt-body > .card:first-child { margin-top: 0; }
+.statrow .gr.total { font-weight: bold; color: var(--ink); }
+.dt-total { color: var(--accent); font-size: 15px; }
+.dt-fold summary { min-height: 44px; display: flex; align-items: center; gap: 6px; cursor: pointer; }
