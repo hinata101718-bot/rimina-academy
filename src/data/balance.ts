@@ -22,7 +22,8 @@ export const B = {
     hpStart: [18, 26] as [number, number],
     statStart: [2, 8] as [number, number],
     growthBase: [7, 30] as [number, number], // 7夜目：レベルの目標が上がった分、15〜60 → 7〜30
-    hpGrowthBonus: 10,          // HPの成長率は少し高め
+    hpGrowthBonus: 10,
+    growthQuality: 4,           // 評判が高いほど成長率の高い子が来る（7夜目：8→4）          // HPの成長率は少し高め
     statCapSchool: 30,
     hpCapSchool: 60,
     statCapGrad: 50,
@@ -48,7 +49,8 @@ export const B = {
   day: {
     cards: 5,                      // 毎日出る授業の数（＋休講）
     faces: [0.3, 0.45, 0.25],      // 1枚のカードに出る顔の数（1人・2人・3人の割合）
-    skillPts: 0.62,                // 顔なし・↑↑・倍率1のときの、1日の技能ポイント
+    highDiv: 800, highMin: 0.3,   // ランクが高いほど伸びにくい（技能ポイント÷900だけ減る、最低0.3倍）
+    skillPts: 0.66,                // 顔なし・↑↑・倍率1のときの、1日の技能ポイント
     faceMul: 2, targetMul: 1.3, target2Mul: 1.15, tagMul: 1.3,
     viceMul: 1.1,                  // 担任のいる学年は少しよく伸びる
     exp: 2.7,                      // ふつうの授業の経験値（顔なし）
@@ -85,7 +87,7 @@ export const B = {
   // ---- 授業（6夜目まで。週末・個人指導の数字は古いセーブの変換と会話の条件に使う） ----
   lesson: {
     focusPoints: 6, targetPoints: 8, expPerWeek: 9, // 3夜目：兵種試験にレベル条件が入ったので、授業の経験値を5→9に
-    teacherRankMul: { E: 0.6, D: 0.8, C: 1.0, B: 1.2, A: 1.4, S: 1.6 } as Record<string, number>,
+    teacherRankMul: { E: 0.75, D: 0.9, C: 1.0, B: 1.1, A: 1.2, S: 1.3 } as Record<string, number>, // 7夜目：0.6〜1.6 → 0.75〜1.3（学校が育った後半に伸びすぎないように）
     noTeacherMul: 0.5,
     campMul: 1.5,
     dreamMatchUpChance: 0.35,  // 月末：目標技能が夢に沿うとやる気が上がる確率
@@ -151,12 +153,12 @@ export const B = {
     vassalAidMul: { empire: 1.5, kingdom: 1.0, alliance: 1.2 } as Record<string, number>,
   },
   facilities: {
-    training: { name: '訓練場', cost: [600, 1500, 3000], skillUp: [0, 0.1, 0.2, 0.3], skills: ['sword', 'lance', 'axe'] as SkillId[] },
-    library: { name: '書庫', cost: [600, 1500, 3000], skillUp: [0, 0.1, 0.2, 0.3], skills: ['magic'] as SkillId[] },
-    stable: { name: '厩舎', cost: [800, 1800, 3500], skillUp: [0, 0.1, 0.2, 0.3], skills: ['riding', 'flying'] as SkillId[] },
-    chapel: { name: '礼拝堂', cost: [600, 1500, 3000], skillUp: [0, 0.1, 0.2, 0.3], skills: ['faith'] as SkillId[] },
+    training: { name: '訓練場', cost: [600, 1500, 3000], skillUp: [0, 0.05, 0.1, 0.15], skills: ['sword', 'lance', 'axe'] as SkillId[] },
+    library: { name: '書庫', cost: [600, 1500, 3000], skillUp: [0, 0.05, 0.1, 0.15], skills: ['magic'] as SkillId[] },
+    stable: { name: '厩舎', cost: [800, 1800, 3500], skillUp: [0, 0.05, 0.1, 0.15], skills: ['riding', 'flying'] as SkillId[] },
+    chapel: { name: '礼拝堂', cost: [600, 1500, 3000], skillUp: [0, 0.05, 0.1, 0.15], skills: ['faith'] as SkillId[] },
     dining: { name: '食堂', cost: [500, 1200, 2500], skillUp: [0, 0, 0, 0], skills: [] as SkillId[] },
-    range: { name: '射撃場', cost: [800, 1800, 3500], skillUp: [0, 0.1, 0.2, 0.3], skills: ['gun', 'bow'] as SkillId[] },
+    range: { name: '射撃場', cost: [800, 1800, 3500], skillUp: [0, 0.05, 0.1, 0.15], skills: ['gun', 'bow'] as SkillId[] },
   },
   diningMotivationKeep: [0, 0.15, 0.3, 0.45], // 毎週のやる気低下を防ぐ確率
   diningEventUp: [0, 0.1, 0.2, 0.3],
@@ -188,7 +190,7 @@ export const B = {
     drillExpMul: 0.7,
     skillPerUse: 1.5,   // 7夜目：戦闘で武器を1回使うごとの技能（4→1.5）
     expDamp: { base: 0.5, perLevel: 0.006, min: 0.3 }, // 7夜目：戦闘の経験値は控えめに（レベルの伸びの中心は授業）。レベルが高いほど少なく
-    injuryBase: 50, injuryPerLck: 1, injurySupportB: 5, injurySupportA: 10, injuryMax: 90,
+    injuryBase: 68, injuryPerLck: 1, injurySupportB: 5, injurySupportA: 10, injuryMax: 94,
     injuryWeeks: [3, 5] as [number, number],
     commandBase: 80, commandPerTrust: 0.2,
     aimHit: 15,

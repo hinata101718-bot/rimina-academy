@@ -156,7 +156,9 @@ function boostOf(card: LessonCard, id: string): Boost {
 function pointsFor(s: GameState, st: Student, k: SkillId, w: number, b: Boost): number {
   const D = B.day;
   const target = st.targets[0] === k ? D.targetMul : st.targets[1] === k ? D.target2Mul : 1;
-  return D.skillPts * w * lessonMul(s, st, k) * (b.face ? D.faceMul : 1) * target * (b.tag ? D.tagMul : 1);
+  // 7夜目：ランクが高いほど伸びにくい（学校が育った後半に、在学中にSまで届きすぎないように）
+  const high = Math.max(D.highMin, 1 - st.skills[k] / D.highDiv);
+  return D.skillPts * w * lessonMul(s, st, k) * (b.face ? D.faceMul : 1) * target * (b.tag ? D.tagMul : 1) * high;
 }
 
 /** 鍛錬ゲージ：たまって満タンで+1 */

@@ -97,7 +97,7 @@ export function generateStudent(s: GameState, rng: Rng, opt: GenOptions = {}): S
   for (const k of STATS) {
     const bonus = Math.round(q * 2);
     stats[k] = k === 'hp' ? rng.int(...B.student.hpStart) + bonus : rng.int(B.student.statStart[0], B.student.statStart[1]) + (rng.chance(q) ? 1 : 0);
-    let g = rng.int(...B.student.growthBase) + Math.round(q * 8);
+    let g = rng.int(...B.student.growthBase) + Math.round(q * B.student.growthQuality);
     if (k === 'hp') g += B.student.hpGrowthBonus;
     if (parents) g = Math.round((g + (parents[0].growth[k] + parents[1].growth[k]) / 2) / 2);
     growth[k] = g;
