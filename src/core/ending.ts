@@ -55,18 +55,22 @@ export function endingReady(s: GameState, when: 'year' | 'month'): { kind: Endin
   return null;
 }
 /** 学校の中立宣言への道：条件ごとの達成状況（戦況タブに出す） */
-export interface NeutralStep { label: string; ok: boolean; now: string }
+export interface NeutralStep { label: string; ok: boolean; now: string; defense?: boolean }
 export function neutralProgress(s: GameState): NeutralStep[] {
   const E = B.ending;
   const w = s.world;
   const grads = Object.values(s.students).filter((x) => x.status === 'graduated').length;
   const fmin = Math.min(...COUNTRIES.map((c) => w.friendship[c]));
+  const al = Object.fromEntries(COUNTRIES.map((c) => [c, activeAlumni(s, c).length])) as Record<CountryId, number>;
+  const amin = Math.min(...COUNTRIES.map((c) => al[c])), amax = Math.max(...COUNTRIES.map((c) => al[c]));
+  const balanced = amin >= E.neutralAlumniMin && amax <= amin * E.neutralBalance;
   return [
     { label: `学校の評判 ${E.neutralRep}以上`, ok: s.reputation >= E.neutralRep, now: `いま${Math.floor(s.reputation)}` },
     { label: `卒業生 ${E.neutralGrads}人以上`, ok: grads >= E.neutralGrads, now: `いま${grads}人` },
     { label: `三国との友好度がすべて${E.neutralFriendship}以上`, ok: fmin >= E.neutralFriendship, now: COUNTRIES.map((c) => `${COUNTRY_SHORT[c]}${Math.round(w.friendship[c])}`).join('・') },
     { label: '学校が独立している', ok: !w.vassal, now: w.vassal ? `${COUNTRY_SHORT[w.vassal]}の傘下` : '独立' },
-    { label: 'この年度に学校防衛戦で勝つ', ok: w.defenseWonYear === s.year, now: w.defenseWonYear === s.year ? '勝った' : 'まだ' },
+    { label: '三国にいる教え子の数が釣り合っている', ok: balanced, now: COUNTRIES.map((c) => `${COUNTRY_SHORT[c]}${al[c]}`).join('・') + '人' },
+    { label: 'この年度に学校防衛戦で勝つ', ok: w.defenseWonYear === s.year, now: w.defenseWonYear === s.year ? '勝った' : 'まだ', defense: true },
   ];
 }
 /** 中立宣言への道を見せてよいか（隠しエンドなので、評判が上がるまでは伏せる） */

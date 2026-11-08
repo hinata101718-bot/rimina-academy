@@ -164,7 +164,8 @@ describe('エンディング', () => {
     s.reputation = 100; s.world.friendship = { kingdom: 80, empire: 75, alliance: 90 }; s.world.vassal = null; s.world.defenseWonYear = s.year;
     expect(endingReady(s, 'month')).toBeNull(); // 卒業生が足りない
     const g = Object.values(s.students).find((x) => x.status === 'graduated')!;
-    for (let i = 0; i < 150; i++) s.students[`x${i}`] = { ...g, id: `x${i}` };
+    for (let i = 0; i < 150; i++) s.students[`x${i}`] = { ...g, id: `x${i}`, career: { ...g.career!, alive: true, retired: false, kind: 'army', country: (['kingdom', 'empire', 'alliance'] as const)[i % 3] } };
+    for (const x of Object.values(s.students)) if (x.status === 'graduated' && !x.id.startsWith('x') && x.career) x.career = { ...x.career, kind: 'home', country: null };
     expect(endingReady(s, 'month')?.kind).toBe('neutral');
     for (const k of ['peace', 'unify', 'ceasefire', 'neutral'] as const) expect(endingScene(s, new Rng(s), k, 'kingdom').length).toBeGreaterThan(5);
   });

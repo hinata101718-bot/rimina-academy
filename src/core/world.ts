@@ -5,7 +5,7 @@ import type { CountryId } from './types';
 import type { GameState, Student } from './state';
 import { Rng } from './rng';
 import { clamp, relKey } from './util';
-import { yearlyExhaustion, yearlyUnifyCount } from './ending';
+import { yearlyExhaustion, yearlyUnifyCount, neutralProgress } from './ending';
 
 export type Stage = 'peace' | 'tension' | 'war';
 export function tensionStage(t: number): Stage {
@@ -267,9 +267,7 @@ export function majorEvents(s: GameState, rng: Rng, yearEnd: boolean): string[] 
 
 /** 学校の中立宣言の条件のうち、学校防衛戦の勝利のほかがすべてそろっているか */
 export function neutralAlmost(s: GameState): boolean {
-  const E = B.ending;
-  const grads = Object.values(s.students).filter((x) => x.status === 'graduated').length;
-  return s.reputation >= E.neutralRep && grads >= E.neutralGrads && !s.world.vassal && COUNTRIES.every((c) => s.world.friendship[c] >= E.neutralFriendship);
+  return neutralProgress(s).filter((x) => !x.defense).every((x) => x.ok);
 }
 
 function pushEventNews(s: GameState, title: string, lines: string[]) {

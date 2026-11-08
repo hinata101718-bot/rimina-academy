@@ -234,7 +234,7 @@ export const B = {
       epidemicRate: 0.02,
       heroPower: 15,
       schoolDefenseChance: 0.15,
-      neutralDefenseChance: 0.05, // 中立宣言の条件が防衛戦以外そろっているとき、激戦期でなくても学校が狙われる（毎月）
+      neutralDefenseChance: 0.12, // 中立宣言の条件が防衛戦以外そろっているとき、激戦期でなくても学校が狙われる（毎月）
       peaceRel: 0,
       peaceTension: 45,             // 関係がすべて0以上で、緊張度がこれ未満なら和平会議が開かれやすい
       peaceChance: 0.3,
@@ -274,6 +274,7 @@ export const B = {
     ceasefireWarYears: 8,        // 戦いの疲れ（激戦期1年=1、緊張期1年=0.5、平和期は−1）が8年分
     ceasefirePower: 35,          // 三国すべての国力が35以下
     neutralRep: 90, neutralGrads: 100, neutralFriendship: 60, // 学校の中立宣言（4夜目にゆるめた）
+    neutralBalance: 1.15, neutralAlumniMin: 10, // 三国にいる教え子の数が釣り合っている（多い国が少ない国の1.15倍まで・各国10人以上）
     neutralRevealRep: 70,        // 評判70になるまで、戦況タブの「中立宣言への道」は「？？？」
     // 戦いの疲れ：長く戦うほど、三国とも国力が削れていく（強い国ほど大きく）
     exhaustWar: 1, exhaustTension: 0.5, exhaustPeace: -1, exhaustDrainFrom: 3, exhaustDrainPer: 0.03,

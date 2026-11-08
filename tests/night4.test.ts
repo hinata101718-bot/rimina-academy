@@ -13,9 +13,12 @@ const fixture = (name: string) => readFileSync(new URL(`./fixtures/${name}`, imp
 
 /** 卒業生を n 人そろえる */
 function withGrads(s: GameState, n: number) {
+  // 今の卒業生は故郷へ帰ったことにして、新しい卒業生を三国へ順に（数が釣り合うように）
+  for (const x of Object.values(s.students)) if (x.status === 'graduated' && x.career && !x.id.startsWith('g')) x.career = { ...x.career, kind: 'home', country: null };
   const g = Object.values(s.students).find((x) => x.status === 'graduated') ?? enrolled(s)[0];
   const have = Object.values(s.students).filter((x) => x.status === 'graduated').length;
-  for (let i = have; i < n; i++) s.students[`g${i}`] = { ...g, id: `g${i}`, status: 'graduated', career: g.career ? { ...g.career } : { alive: true, kind: 'home', country: null, path: 'warrior', rank: 0 } as never };
+  const cs = ['kingdom', 'empire', 'alliance'] as const;
+  for (let i = have; i < n; i++) s.students[`g${i}`] = { ...g, id: `g${i}`, status: 'graduated', career: { ...(g.career ?? {}), alive: true, retired: false, kind: 'army', country: cs[i % 3], path: 'warrior', rank: 0 } as never };
 }
 
 describe('学校の中立宣言（隠しエンド）', () => {
@@ -41,6 +44,11 @@ describe('学校の中立宣言（隠しエンド）', () => {
     expect(endingReady(s, 'month')).toBeNull();
     s.world.vassal = null; s.reputation = 89.5;
     expect(endingReady(s, 'month')).toBeNull();
+    // 三国にいる教え子の数が釣り合っていないと届かない（4夜目に足した絞りこみ）
+    s.reputation = 90;
+    expect(endingReady(s, 'month')?.kind).toBe('neutral');
+    for (const x of Object.values(s.students)) if (x.career?.country === 'empire') x.career.country = 'kingdom';
+    expect(endingReady(s, 'month')).toBeNull();
   });
   it('戦況タブの「中立宣言への道」：条件ごとの✓／×。評判70までは伏せる', () => {
     const s = deserialize(fixture('v3-save.json'));
@@ -50,7 +58,7 @@ describe('学校の中立宣言（隠しエンド）', () => {
     s.reputation = 70;
     expect(neutralRevealed(s)).toBe(true);
     const p = neutralProgress(s);
-    expect(p.length).toBe(5);
+    expect(p.length).toBe(6);
     expect(p.find((x) => x.label.includes('評判'))!.ok).toBe(false);
     s.reputation = 95;
     expect(neutralProgress(s).find((x) => x.label.includes('評判'))!.ok).toBe(true);
