@@ -269,3 +269,11 @@ describe('レベルアップの2ピン保証（8夜目の途中で届いた感�
     }
   });
 });
+
+describe('戦いの記録はタップで進む・兵種試験は必ず合格（8夜目の途中で届いた感想メモ）', () => {
+  it('はじめの設定は「タップで1枚ずつ」。古いセーブも設定がなければタップ', () => {
+    expect(mk(31).settings.battleLog).toBe('tap');
+    const s = deserialize(fixture('v7-day.json'));
+    expect(s.settings.battleLog ?? 'tap').toBe('tap');
+  });
+});
