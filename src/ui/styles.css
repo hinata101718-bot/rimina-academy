@@ -1050,3 +1050,8 @@ body[data-season="winter"] { --tint: rgba(190, 210, 235, .14); }
 .rep-steps span { font-size: 12px; padding: 1px 6px; border: 1px solid var(--line); border-radius: 3px; color: var(--sub); }
 .rep-steps span.past { color: var(--gold); border-color: var(--gold); }
 .rep-steps span.now { background: var(--main); color: #f8e6b8; border-color: var(--main); font-weight: bold; }
+.btn.glow { animation: examGlow 1.6s ease-in-out infinite alternate; }
+@keyframes examGlow { from { box-shadow: 0 0 0 0 rgba(233, 199, 106, .0); } to { box-shadow: 0 0 10px 3px rgba(233, 199, 106, .85); } }
+.flag.gray-flag { background: #9a8f7c; }
+.stucard .sc-body .row.nowrap { overflow: hidden; }
+@media (max-width: 380px) { .page-paper { padding-left: 10px; padding-right: 10px; } .page-paper.binder { padding-left: 28px; } .page-paper.binder::before { left: 5px; } .content { padding: 10px 8px; } }

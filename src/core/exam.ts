@@ -58,12 +58,13 @@ export function passRate(st: Student, c: ClassDef): number {
   let over = Infinity;
   for (const [k, r] of Object.entries(c.req)) over = Math.min(over, st.skills[k as SkillId] - RANK_POINTS[r as Rank]);
   if (over === Infinity) over = 0;
-  if (over < 0) return 0;
-  return Math.min(B.exam.max, Math.round(B.exam.baseRate + over / B.exam.perPoints));
+  // 8夜目（ヒナタさん指定）：条件（Lv・技能ランク）を満たしていれば必ず合格
+  return over < 0 ? 0 : 100;
 }
 
 export function canTakeExam(s: GameState, st: Student): boolean {
-  return st.status === 'enrolled' && available(st) && st.examMonth !== absMonth(s.year, s.month);
+  // 8夜目：不合格がなくなったので、月に1回の制限もなし
+  void s; return st.status === 'enrolled' && available(st);
 }
 
 export function examCandidates(s: GameState): Student[] {

@@ -155,7 +155,7 @@ export function Desk({ s }: { s: GameState }) {
       {photos.length > 0 && (
         <div class="deskphotos">
           {photos.map(({ st, tag }, i) => (
-            <button class={`photo-card t${i}`} onClick={() => { sfx('move'); navigate({ tab: 'students', page: 'detail', id: st.id }); }}>
+            <button class={`photo-card t${i}`} onClick={() => { sfx('move'); navigate({ tab: 'students', page: tag === '試験OK' ? 'exam' : 'detail', id: st.id }); }}>
               <span class="pin red" />
               <Portrait st={st} size={92} frame={countryColor(st.origin)} />
               {tag && <span class="ph-tag">{tag}</span>}

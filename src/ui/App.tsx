@@ -60,8 +60,8 @@ export function App() {
   // 8夜目：机の世界。ホームと机の上の頁は木の上に、ほかの画面は紙の頁（名簿＝綴じた名簿、個人ページ＝機密の書類、戦況＝作戦書）
   const desk = route.tab === 'school' && !route.page;
   const wood = desk || (route.tab === 'school' && ['today', 'instructor', 'notebook', 'news'].includes(route.page ?? '')) || (route.tab === 'students' && route.page === 'classbook');
-  const paperKind = route.tab === 'students' ? (route.page === 'detail' ? 'dossier' : !route.page ? 'binder' : 'sheet-exam') : route.tab === 'war' ? 'secret' : route.tab === 'yearbook' ? 'annals' : '';
-  const paperStamp = route.tab === 'students' && !route.page ? '在籍' : route.tab === 'students' && route.page === 'detail' ? '機密' : route.tab === 'war' ? '作戦' : route.tab === 'students' && route.page === 'exam' ? '試験' : '';
+  const paperKind = route.tab === 'students' ? (route.page === 'detail' || (route.page === 'exam' && route.id) ? 'dossier' : !route.page ? 'binder' : 'sheet-exam') : route.tab === 'war' ? 'secret' : route.tab === 'yearbook' ? 'annals' : '';
+  const paperStamp = route.tab === 'students' && !route.page ? '在籍' : route.tab === 'students' && (route.page === 'detail' || (route.page === 'exam' && route.id)) ? '機密' : route.tab === 'war' ? '作戦' : route.tab === 'students' && route.page === 'exam' && !route.id ? '試験' : '';
   const page = <>
     {route.tab === 'school' && <SchoolTab />}
     {route.tab === 'students' && <StudentsTab />}

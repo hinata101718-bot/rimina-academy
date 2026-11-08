@@ -120,7 +120,7 @@ export function StuCard({ s, st, exams, onClick, extra }: { s: GameState; st: St
       <div class="sc-body">
         <div class="sc-head">
           <NameLine st={st} />
-          <span class="sc-flags">{pinned && <span class="pinstar"><Icon name="star" size={18} /></span>}{flags.slice(0, 2).map((f) => <span class={`flag ${f.tone}`}>{f.text}</span>)}</span>
+          <span class="sc-flags">{pinned && <span class="pinstar"><Icon name="star" size={18} /></span>}{flags.slice(0, 2).map((f) => <span class={`flag ${f.tone}`} onClick={f.text === '試験OK' ? (e) => { e.stopPropagation(); navigate({ tab: 'students', page: 'exam', id: st.id }); } : undefined}>{f.text}</span>)}</span>
         </div>
         <div class="row nowrap gap4"><ClassName classId={st.classId} /><CountryChip o={st.origin} /><Chip>{PERSONALITIES[st.personality].name}</Chip>{st.grade > 0 && <span class="muted small">{st.grade}年</span>}</div>
         <div class="row nowrap gap6 expline"><span class="lbl">EXP</span><Gauge v={st.exp} max={B.student.expPerLevel} tone="exp" /></div>

@@ -94,16 +94,14 @@ describe('会話データ', () => {
 });
 
 describe('兵種試験', () => {
-  it('条件ちょうどで60%、超えると上がる', () => {
+  it('条件を満たしていれば必ず合格（8夜目）。足りなければ受けられない', () => {
     const s = mk(5);
     const st = enrolled(s)[0];
-    st.skills.sword = RANK_POINTS.D;
+    st.skills.sword = RANK_POINTS.D - 1;
     st.level = 5;
+    expect(passRate(st, CLASSES.swordsman)).toBe(0);
+    st.skills.sword = RANK_POINTS.D;
     expect(meetsReq(st, CLASSES.swordsman)).toBe(true);
-    expect(passRate(st, CLASSES.swordsman)).toBe(60);
-    st.skills.sword = RANK_POINTS.D + 100;
-    expect(passRate(st, CLASSES.swordsman)).toBe(80);
-    st.skills.sword = 500;
     expect(passRate(st, CLASSES.swordsman)).toBe(100);
     const r = takeExam(s, rng(s), st, 'swordsman');
     expect(r.ok).toBe(true);

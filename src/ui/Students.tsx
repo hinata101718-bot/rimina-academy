@@ -35,6 +35,7 @@ export function StudentsTab() {
   const { s, route } = useStore();
   if (!s) return null;
   if (route.page === 'detail' && route.id && s.students[route.id]) return <Detail s={s} st={s.students[route.id]} />;
+  if (route.page === 'exam' && route.id && s.students[route.id]) return <Detail s={s} st={s.students[route.id]} exam />;
   if (route.page === 'exam') return <ExamList s={s} />;
   if (route.page === 'classbook') return <ClassBook s={s} />;
   return <Roster s={s} />;
@@ -89,7 +90,9 @@ function promotionItems(st: Student): RankUpItem[] {
   return out;
 }
 
-function Detail({ s, st }: { s: GameState; st: Student }) {
+function Detail({ s, st, exam }: { s: GameState; st: Student; exam?: boolean }) {
+  const [examOpen, setExamOpen] = useState(!!exam);
+  const examReady = !st.status || st.status === 'enrolled' ? nextClasses(s, st).some((c) => classUnlocked(s, c) && meetsReq(st, c)) && canTakeExam(s, st) : false;
   const promo = promotionItems(st);
   const markSeen = () => act((g) => { const x = g.students[st.id]; if (x) { x.seenTitle = careerTitleOnly(titleOf(x)); x.seenClass = x.classId; } });
   const es = effectiveStats(st);
@@ -107,6 +110,7 @@ function Detail({ s, st }: { s: GameState; st: Student }) {
   const supList = supports.map((sp) => ({ sp, o: s.students[sp.a === st.id ? sp.b : sp.a] })).filter((x) => x.o);
   return (
     <div>
+      {examOpen && <ExamSheet s={s} st={st} onClose={() => setExamOpen(false)} />}
       {promo.length > 0 && <Sheet><RankUpPlayer s={s} items={promo} title="卒業生の昇進" onDone={markSeen} /></Sheet>}
       <Back to={() => history.length && navigate(grad ? { tab: 'yearbook' } : { tab: 'students' })} />
       <div class="pcard" style={{ ['--band' as string]: color }}>
@@ -124,7 +128,7 @@ function Detail({ s, st }: { s: GameState; st: Student }) {
         {!grad && (
           <div class="row" style={{ marginTop: 8 }}>
             <button class="btn small" onClick={() => act((g) => { g.pinned = pinned ? g.pinned.filter((x) => x !== st.id) : [...g.pinned, st.id].slice(-5); })}><span class={pinned ? 'pinstar' : ''}><Icon name="star" size={16} /></span> {pinned ? '気にかけるをやめる' : '気にかける'}</button>
-            {nextClasses(s, st).length > 0 && <button class="btn small" onClick={() => navigate({ tab: 'students', page: 'exam' })}><Icon name="exam" size={16} /> 兵種試験へ</button>}
+            {nextClasses(s, st).length > 0 && <button class={`btn small${examReady ? ' primary glow' : ''}`} onClick={() => { sfx('move'); setExamOpen(true); }}><Icon name="exam" size={16} /> 兵種試験を受ける{examReady ? '（受験できます）' : ''}</button>}
           </div>
         )}
       </div>
@@ -269,49 +273,52 @@ function NameLineBig({ st }: { st: Student }) {
 
 const TIER_NAMES = ['見習い', '初級', '中級', '上級', '最上級'];
 
+/** 兵種試験の入口（8夜目：受けられる子だけを並べ、個人ページの受験へ） */
 function ExamList({ s }: { s: GameState }) {
-  const [msg, setMsg] = useState('');
-  const list = enrolled(s).filter((st) => nextClasses(s, st).length);
-  const ready = new Set(examCandidates(s).map((x) => x.id));
-  const sorted = [...list].sort((a, b) => (ready.has(b.id) ? 1 : 0) - (ready.has(a.id) ? 1 : 0) || b.level - a.level);
+  const ready = examCandidates(s);
+  const later = enrolled(s).filter((st) => !ready.includes(st) && nextClasses(s, st).length);
   return (
     <div>
       <Back to={() => navigate({ tab: 'students' })} />
-      <SecTitle>兵種試験<span class="cnt">受験できる生徒 {ready.size}人</span></SecTitle>
-      <div class="muted small">技能ランクとレベルの両方が条件を満たすと受験できます（月に1回）。受験のレベル：初級 Lv{B.exam.levelReq[1]}・中級 Lv{B.exam.levelReq[2]}・上級 Lv{B.exam.levelReq[3]}（最上級は卒業後 Lv{B.exam.levelReq[4]}）。技能が条件を超えるほど合格しやすくなります。</div>
+      <SecTitle>兵種試験<span class="cnt">受けられる生徒 {ready.length}人</span></SecTitle>
+      <div class="muted small">兵種試験は、その子の個人ページの「兵種試験を受ける」から受けます。Lvと技能ランクの条件を満たしていれば、必ず合格します。受験のレベル：初級 Lv{B.exam.levelReq[1]}・中級 Lv{B.exam.levelReq[2]}・上級 Lv{B.exam.levelReq[3]}（最上級は卒業後 Lv{B.exam.levelReq[4]}）。</div>
+      {ready.map((st) => <MiniCard st={st} sub={`${st.grade}年・${TIER_NAMES[CLASSES[st.classId].tier]}`} right={<button class="btn small primary" onClick={() => { sfx('move'); navigate({ tab: 'students', page: 'exam', id: st.id }); }}>受験へ</button>} />)}
+      {!ready.length && <div class="empty-note">今すぐ受けられる生徒はいません</div>}
+      {later.length > 0 && <div class="small muted" style={{ marginTop: 8 }}>もう少しで受けられる子：{later.slice(0, 12).map((st) => st.given).join('・')}（個人ページで足りない条件が見られます）</div>}
+    </div>
+  );
+}
+
+/** 個人ページの兵種試験（8夜目）：その子が受けられる兵種だけ。補正の比べ・足りない条件・使える武器とスキル */
+function ExamSheet({ s, st, onClose }: { s: GameState; st: Student; onClose: () => void }) {
+  const [msg, setMsg] = useState('');
+  const opts = nextClasses(s, st);
+  const can = canTakeExam(s, st);
+  return (
+    <Sheet title={`${st.given}の兵種試験`} onClose={onClose}>
+      <div class="small muted">今の兵種：<b>{CLASSES[st.classId].name}</b>（Lv{st.level}）。条件を満たしていれば、必ず合格します。</div>
       {msg && <div class="guide">{msg}</div>}
-      {sorted.map((st) => {
-        const opts = nextClasses(s, st);
-        const can = canTakeExam(s, st);
+      {opts.map((c) => {
+        const ok = classUnlocked(s, c) && meetsReq(st, c);
+        const miss = missingReqs(s, st, c);
         return (
-          <MiniCard st={st} sub={`${st.grade}年・${TIER_NAMES[CLASSES[st.classId].tier]}`} right={ready.has(st.id) ? <span class="flag">試験OK</span> : undefined}>
-            {opts.map((c) => {
-              const ok = classUnlocked(s, c) && meetsReq(st, c);
-              const rate = ok ? passRate(st, c) : 0;
-              const miss = missingReqs(s, st, c);
-              const lv = levelReq(c);
-              return (
-                <div class="pcard" style={{ ['--band' as string]: ok ? 'var(--main)' : '#cfc6b2', margin: '8px 0 0' }}>
-                  <div class="row between nowrap">
-                    <div class="grow"><ClassName classId={c.id} size={16} /> <span class="muted small">{TIER_NAMES[c.tier]}</span></div>
-                    <button class={`btn small${ok && can ? ' primary' : ''}`} disabled={!ok || !can} onClick={() => { if (!confirm(`${st.given}が${c.name}の試験を受けます（合格率${rate}%）`)) return; act((g) => { const r = takeExam(g, rng(g), g.students[st.id], c.id); setMsg(r.text); sfx(r.ok ? 'pass' : 'cancel'); }); }}>{ok ? `受験 ${rate}%` : '条件未達'}</button>
-                  </div>
-                  <div class="checkline"><span class={st.level >= lv ? 'ok' : 'ng'}>{st.level >= lv ? '✓' : '×'}</span>{st.level >= lv ? `Lv${lv}以上（いま Lv${st.level}）` : `Lv${lv}から受験できます（あと${lv - st.level}）`}</div>
-                  {Object.entries(c.req).map(([k, r]) => { const have = st.skills[k as SkillId] >= RANK_POINTS[r as Rank]; return <div class="checkline"><span class={have ? 'ok' : 'ng'}>{have ? '✓' : '×'}</span>{SKILL_NAMES[k as SkillId]} {r}{have ? '' : ' が必要'}（いま {rankOf(st.skills[k as SkillId])}）</div>; })}
-                  {miss.filter((m) => !m.startsWith('Lv') && !m.includes('が必要（いま')).length > 0 && <div class="small" style={{ color: 'var(--accent)' }}>{miss.filter((m) => !m.startsWith('Lv') && !m.includes('が必要（いま')).join('／')}</div>}
-                  <div class="small muted">{c.desc}{c.ability && ABILITIES[c.ability] ? `　スキル「${ABILITIES[c.ability].name}」：${ABILITIES[c.ability].desc}` : ''}</div>
-                  <div class="small" style={{ marginTop: 4 }}><b>{CLASSES[st.classId].name} → {c.name}</b>に変わると</div>
-                  <ClassCompare from={CLASSES[st.classId]} to={c} />
-                  <div class="small muted">「いるあいだ」の補正は入れ替わり、伸びやすさで伸びた分は残ります。</div>
-                </div>
-              );
-            })}
-            {!can && <div class="muted small" style={{ marginTop: 4 }}>今月はもう受験できません（または休み中）</div>}
-          </MiniCard>
+          <div class="pcard" style={{ ['--band' as string]: ok ? 'var(--good)' : '#cfc6b2', margin: '8px 0 0' }}>
+            <div class="row between nowrap">
+              <div class="grow"><ClassName classId={c.id} size={17} /> <span class="muted small">{TIER_NAMES[c.tier]}</span></div>
+              {ok ? <span class="flag" style={{ background: 'var(--good)' }}>条件を満たしています</span> : <span class="flag gray-flag">条件が足りない</span>}
+            </div>
+            {!ok && <div class="small" style={{ color: 'var(--accent)' }}>{miss.join('／')}</div>}
+            <div class="small muted">{c.desc}</div>
+            <div class="small" style={{ marginTop: 4 }}><b>{CLASSES[st.classId].name} → {c.name}</b>に変わると</div>
+            <ClassCompare from={CLASSES[st.classId]} to={c} />
+            <div class="small muted">「いるあいだ」の補正は入れ替わり、伸びやすさで伸びた分は残ります。</div>
+            <button class={`btn block${ok && can ? ' primary' : ''}`} style={{ marginTop: 6 }} disabled={!ok || !can} onClick={() => { act((g) => { const r = takeExam(g, rng(g), g.students[st.id], c.id); setMsg(r.text); sfx(r.ok ? 'pass' : 'cancel'); }); }}>{ok ? `${c.name}になる` : '条件が足りない'}</button>
+          </div>
         );
       })}
-      {!sorted.length && <div class="empty-note">次の兵種がある生徒はいません</div>}
-    </div>
+      {!opts.length && <div class="empty-note">次の兵種はありません</div>}
+      {!can && <div class="muted small" style={{ marginTop: 4 }}>けがで休んでいるあいだは受けられません</div>}
+    </Sheet>
   );
 }
 
