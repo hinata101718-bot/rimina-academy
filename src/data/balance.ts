@@ -39,7 +39,7 @@ export const B = {
   motivationMul: [0.8, 0.9, 1.0, 1.1, 1.2],
   motivationLabel: ['とても低い', '低い', '普通', '高い', 'とても高い'],
   fatigue: {
-    lesson: 8, tutoring: 10, spar: 10, campMul: 1.5,
+    lesson: 7, tutoring: 10, spar: 10, campMul: 1.5,
     naturalRecovery: 5, chapelRecovery: [0, 3, 6, 9],
     slowAt: 60, slowMul: 0.8, sickAt: 100, sickReset: 40, warnAt: 80,
     rest: 25, tea: 5, epidemicCap: 80,

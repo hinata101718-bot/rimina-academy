@@ -524,3 +524,16 @@ body { background-attachment: fixed; }
 @keyframes abIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
 @keyframes abBlink { 50% { opacity: .35; } }
 .ab-weapon.none { color: var(--accent); font-weight: bold; }
+/* 6夜目：名簿の一覧（簡易）を手帳の見た目に（罫線・紙の質感・国の色の小さな印） */
+.notebook { position: relative; margin: 8px 0; padding: 6px 8px 6px 26px; border: 1px solid #cdbf9f; border-radius: 4px 10px 10px 4px;
+  background-color: #fcf7ea;
+  background-image: linear-gradient(90deg, transparent 17px, rgba(196, 92, 72, .45) 17px, rgba(196, 92, 72, .45) 18.5px, transparent 18.5px),
+    radial-gradient(circle at 20% 10%, rgba(255, 255, 255, .6), transparent 45%), radial-gradient(circle at 80% 90%, rgba(180, 150, 100, .10), transparent 55%);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, .8) inset, 0 2px 5px rgba(60, 50, 30, .16), -3px 0 0 #b9a77f inset; }
+.notebook::before { content: ""; position: absolute; left: 5px; top: 10px; bottom: 10px; width: 6px; background: radial-gradient(circle, #d8cbb0 2.5px, transparent 3px) 0 0 / 6px 22px repeat-y; opacity: .9; }
+.notebook .nb-row { position: relative; border-bottom: 1px solid rgba(110, 140, 170, .32); }
+.notebook .nb-row:last-child { border-bottom: none; }
+.notebook .nb-row .stu { border-left: none; padding: 6px 0 6px 2px; min-height: 52px; background: transparent; }
+.notebook .nb-row .stu b { font-family: "Hiragino Mincho ProN", "Noto Serif JP", serif; font-size: 15px; }
+.notebook .nb-seal { position: absolute; left: -21px; top: 50%; width: 12px; height: 12px; margin-top: -6px; border-radius: 3px; background: var(--band); transform: rotate(45deg); box-shadow: 0 0 0 2px #fcf7ea, 0 0 0 3px var(--band); opacity: .85; }
+[data-stage="war"] .notebook { background-color: #e4dfd6; }

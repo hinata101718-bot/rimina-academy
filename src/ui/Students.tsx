@@ -56,7 +56,7 @@ function Roster({ s }: { s: GameState }) {
       </div>
       {view === 'card'
         ? list.map((st) => <StuCard s={s} st={st} exams={exams} />)
-        : <div class="card compact">{list.map((st) => <div style={{ ['--band' as string]: countryColor(st.origin) }}><StuRow st={st} right={<span class="compright">{s.pinned.includes(st.id) && <span class="pinstar"><Icon name="star" size={16} /></span>}{studentFlags(s, st, exams).slice(0, 1).map((f) => <span class={`flag ${f.tone}`}>{f.text}</span>)}<MoodDots m={st.motivation} /></span>} /></div>)}</div>}
+        : <div class="notebook compact">{list.map((st) => <div class="nb-row" style={{ ['--band' as string]: countryColor(st.origin) }}><span class="nb-seal" aria-hidden="true" /><StuRow st={st} right={<span class="compright">{s.pinned.includes(st.id) && <span class="pinstar"><Icon name="star" size={16} /></span>}{studentFlags(s, st, exams).slice(0, 1).map((f) => <span class={`flag ${f.tone}`}>{f.text}</span>)}<MoodDots m={st.motivation} /></span>} /></div>)}</div>}
       {!list.length && <div class="empty-note">{grade === 9 ? '気にかける生徒はまだいません（個人ページの★で登録できます）' : '生徒がいません'}</div>}
     </div>
   );
