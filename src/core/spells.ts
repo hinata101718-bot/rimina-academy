@@ -61,7 +61,7 @@ export function learnSpells(s: GameState | null, st: Student): string[] {
     if (st.spells.includes(slot.id)) continue;
     if ((st.skills[slot.skill] ?? 0) >= RANK_POINTS[slot.rank]) { st.spells.push(slot.id); got.push(slot.id); }
   }
-  if (got.length && s) for (const id of got) st.history.push({ year: s.year, text: `${WEAPONS[id].name}を覚えた` });
+  if (got.length && s) { for (const id of got) st.history.push({ year: s.year, text: `${WEAPONS[id].name}を覚えた` }); st.lastSpellWeek = s.absWeek; }
   return got;
 }
 

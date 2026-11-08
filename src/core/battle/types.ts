@@ -41,6 +41,8 @@ export interface Unit {
   dmgTaken: number;
   usedWeapon: Record<string, number>;
   face?: unknown;
+  /** 自動の戦闘：作戦・役割・やる気などによる補正 */
+  mod?: { hit?: number; avo?: number; dmg?: number; def?: number; crit?: number };
 }
 
 export interface BattleLogEntry { text: string; kind?: 'crit' | 'kill' | 'miss' | 'hit' | 'heal' | 'info' | 'level' }
@@ -85,7 +87,15 @@ export interface BattleState {
   rescued?: boolean;
   escaped?: number;
   escapeNeed?: number;
+  /** 自動の戦闘（5夜目）。ないときは手動の戦闘 */
+  auto?: import('./auto').AutoState;
+  /** 自動の戦闘：戦いの出来事の記録（場面の文に使う） */
+  feed?: FeedEntry[];
+  /** 味方が優先して狙う敵（敵将） */
+  focus?: string;
 }
+
+export interface FeedEntry { t: 'kill' | 'crit' | 'heal' | 'miss' | 'fallen' | 'hit'; a: string; d: string; turn: number; dmg?: number }
 
 export interface Strike { by: string; hit: boolean; crit: boolean; dmg: number }
 export interface LastAction { attacker: string; defender: string; strikes: Strike[]; killed: string[]; heal?: number; seq: number }

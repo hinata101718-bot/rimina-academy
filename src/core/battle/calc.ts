@@ -101,12 +101,13 @@ function sideStats(b: BattleState, a: Unit, d: Unit, ax: number, ay: number, sup
   const sa = supportBonus(b, a, sup), sd = supportBonus(b, d, sup);
   let might = w.might + tri * B.battle.triangleMight;
   if (effective) might *= B.battle.effectiveMul;
-  let atk = (magical ? a.stats.mag : a.stats.str) + might + sa.dmg + sumAb(a, 'dmg');
+  let atk = (magical ? a.stats.mag : a.stats.str) + might + sa.dmg + sumAb(a, 'dmg') + (a.mod?.dmg ?? 0);
   if (a.hp <= a.maxHp / 2) atk += sumAb(a, 'lowHpAtk');
   const dTile = terrainDef(tile(b, d.x, d.y));
   let defStat = magical ? d.stats.res : d.stats.def + dTile.def;
   defStat += adjacentAllies(b, d).reduce((s, o) => s + sumAb(o, 'adjAllyDef'), 0);
   defStat -= d.weaken > 0 ? B.battle.weakenAmount : 0;
+  defStat += d.mod?.def ?? 0;
   if (magical && d.ward) defStat += d.ward;
   defStat -= sumAb(a, 'pierce');
   if (w.type === 'gun') defStat = Math.floor(defStat * B.battle.gunDefPierce);
@@ -114,12 +115,12 @@ function sideStats(b: BattleState, a: Unit, d: Unit, ax: number, ay: number, sup
   dmg = Math.max(0, Math.round(dmg));
   const pa = a.personality ? PERSONALITIES[a.personality as PersonalityId] : null;
   const pd = d.personality ? PERSONALITIES[d.personality as PersonalityId] : null;
-  let hit = w.hit + a.stats.skl * 2 + a.stats.lck / 2 + tri * B.battle.triangleHit + sa.hit + sumAb(a, 'hit') + (pa?.hit ?? 0) + (a.aimed ? B.battle.aimHit : 0);
+  let hit = w.hit + a.stats.skl * 2 + a.stats.lck / 2 + tri * B.battle.triangleHit + sa.hit + sumAb(a, 'hit') + (pa?.hit ?? 0) + (a.aimed ? B.battle.aimHit : 0) + (a.mod?.hit ?? 0);
   if (b.real) hit += sumAb(a, 'realBattleHit');
-  let avo = d.stats.spd * 2 + d.stats.lck + dTile.avo + sd.avo + sumAb(d, 'avo') + (pd?.avo ?? 0);
+  let avo = d.stats.spd * 2 + d.stats.lck + dTile.avo + sd.avo + sumAb(d, 'avo') + (pd?.avo ?? 0) + (d.mod?.avo ?? 0);
   if (adjacentEnemies(b, d).length >= 3) avo += sumAb(d, 'surroundedAvo');
   if (!b.units.some((o) => o !== d && !o.dead && isFriendly(o, d) && dist(o, d) <= 2)) avo += sumAb(d, 'aloneAvo');
-  const crit = clamp(Math.round(w.crit + a.stats.skl / 2 + sa.crit + sumAb(a, 'crit') + (pa?.crit ?? 0) - d.stats.lck), 0, 100);
+  const crit = clamp(Math.round(w.crit + a.stats.skl / 2 + sa.crit + sumAb(a, 'crit') + (pa?.crit ?? 0) + (a.mod?.crit ?? 0) - d.stats.lck), 0, 100);
   const count = a.stats.spd - d.stats.spd >= B.battle.doubleSpeed - sumAb(a, 'followUp') && w.type !== 'gun' ? 2 : 1;
   return { dmg, hit: clamp(Math.round(hit - avo), 0, 100), crit, count, triangle: tri, effective, canAttack: true };
 }

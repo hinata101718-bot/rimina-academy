@@ -77,6 +77,7 @@ export function takeExam(s: GameState, rng: Rng, st: Student, classId: string): 
   const ok = rng.next() * 100 < rate;
   if (ok) {
     st.classId = c.id;
+    st.lastClassWeek = s.absWeek;
     addRecent(s, st, 'ev_exam', c.name);
     st.motivation = Math.min(4, st.motivation + 1);
     if (c.tier >= 2) chronicle(s, `${st.given}が${c.name}に`, 'student');

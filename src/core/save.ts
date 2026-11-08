@@ -27,6 +27,7 @@ export function migrate(s: GameState, from: number): GameState {
   s.settings = { ...defaultSettings(), ...oldSettings };
   if (from < 2) migrateTo2(s, oldSettings as Partial<GameState['settings']>);
   if (from < 3) migrateTo3(s);
+  if (from < 4) migrateTo4(s);
   s.heirs ??= [];
   s.archive ??= {};
   s.notices ??= [];
@@ -94,4 +95,26 @@ function migrateTo3(s: GameState): void {
   ensureTeacherSince(s);
   for (const st of [...Object.values(s.students ?? {}), ...(s.applicants ?? [])]) st.birthday ??= birthdayFor(st.id + st.given);
   s.settings.rosterView ??= 'card';
+}
+
+/**
+ * 4夜目の版（version 3）→ 5夜目の版（version 4）
+ * - 戦闘は自動で決着する形が基本に（設定「戦闘を自分で指揮する」は初期オフ）
+ * - 因縁の敵将の記録・直近に使った場面の文の記録を足す
+ * - 手動の戦闘の途中で保存されたセーブは、そのまま手動の戦闘の続きから遊べる
+ */
+function migrateTo4(s: GameState): void {
+  s.settings.manualBattle ??= false;
+  s.nemeses ??= [];
+  s.autoMemory ??= { lines: [], events: [] };
+  s.pending ??= [];
+  s.pending.push({
+    type: 'event', title: '戦闘が自動で決着するようになりました',
+    lines: [
+      '月末の戦闘は、出撃メンバー・作戦の方針・役割を決めると、自動で決着するようになりました。戦いの様子は場面ごとにタップで見られ、ここぞという時には先生が指示を選べます。',
+      '育てた能力・兵種・技能・支援・やる気・疲れが、そのまま結果に表れます。',
+      '今までどおり自分で指揮したいときは、「設定」の「戦闘を自分で指揮する」をオンにするか、出撃前に「この戦いは自分で指揮する」を選んでください。',
+      ...(s.battle ? ['いま途中の戦闘は、これまでどおり自分で指揮して続けられます。'] : []),
+    ],
+  });
 }

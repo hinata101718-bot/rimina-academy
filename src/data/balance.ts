@@ -1,7 +1,7 @@
 // バランス値。ゲームの数値はすべてここに集める（設計書の「ふつう」が初期値）。
 import type { Rank, SkillId, StatId } from '../core/types';
 
-export const SAVE_VERSION = 3;
+export const SAVE_VERSION = 4;
 
 export const RANKS: Rank[] = ['E', 'E+', 'D', 'D+', 'C', 'C+', 'B', 'B+', 'A', 'A+', 'S'];
 export const RANK_POINTS: Record<Rank, number> = {
@@ -156,6 +156,7 @@ export const B = {
     rainMove: -1, fogRange: -1,
     vulnerary: 10,
     maxTurnsDefault: 25,
+    focusAggro: 250, // 自動の戦闘「速攻で敵将を」：敵将を狙いやすく
     enemyPowerRange: [0.9, 1.1] as [number, number],
     enemyPowerBase: 0.5, enemyPowerPerDanger: 0.1, drillPowerMul: 0.85,
     gunDefPierce: 0.5,

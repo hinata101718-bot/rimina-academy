@@ -36,6 +36,11 @@ export function SettingsTab() {
         </details>
       </div>
       <div class="card">
+        <h3>戦闘</h3>
+        <div class="row between"><span>戦闘を自分で指揮する</span><input type="checkbox" checked={s.settings.manualBattle} onChange={(e) => set((x) => { x.manualBattle = (e.target as HTMLInputElement).checked; })} /></div>
+        <div class="muted small">オフ（はじめの設定）：出撃メンバー・作戦・役割を決めると自動で決着し、戦いの様子を場面で見せます。オン：マスを動かして自分で指揮します。オフのままでも、出撃前に「この戦いは自分で指揮する」を選べます。</div>
+      </div>
+      <div class="card">
         <h3>表示・演出</h3>
         <div class="row between"><span>名簿の顔</span><div class="seg"><button class={s.settings.portrait === 'face' ? 'on' : ''} onClick={() => set((x) => { x.portrait = 'face'; })}>似顔絵</button><button class={s.settings.portrait === 'dot' ? 'on' : ''} onClick={() => set((x) => { x.portrait = 'dot'; })}>色の丸</button></div></div>
         <div class="row between" style={{ marginTop: 6 }}><span>カットイン</span><div class="seg">{(['all', 'important', 'off'] as const).map((c) => <button class={s.settings.cutin === c ? 'on' : ''} onClick={() => set((x) => { x.cutin = c; })}>{{ all: '毎回', important: '大事な時', off: 'なし' }[c]}</button>)}</div></div>
@@ -59,7 +64,7 @@ export function SettingsTab() {
           <button class="btn small" onClick={() => act((g) => { const y = g.year; let k = 0; while (g.year === y && k++ < 60) autoWeek(g); })}>1年進める</button>
         </div>
       </details>
-      <div class="muted small" style={{ textAlign: 'center' }}>辺境士官学校 ―戦争が終わる日まで― 3夜目の版</div>
+      <div class="muted small" style={{ textAlign: 'center' }}>辺境士官学校 ―戦争が終わる日まで― 5夜目の版</div>
     </div>
   );
 }

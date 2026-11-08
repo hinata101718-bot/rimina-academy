@@ -101,6 +101,9 @@ export interface Student {
   spouse: string | null;
   diedYear: number | null;
   deathNote: string | null;
+  /** 最後に魔法を覚えた週・兵種が変わった週（自動の戦闘の出来事に使う） */
+  lastSpellWeek?: number;
+  lastClassWeek?: number;
 }
 
 export interface Support { a: string; b: string; value: number; kind: 'none' | 'friend' | 'rival' | 'love'; seen: string[]; lastRank: '' | 'C' | 'B' | 'A' }
@@ -203,13 +206,21 @@ export interface ChronicleEntry { year: number; month: number; text: string; kin
 
 export interface Photo { cohort: number; year: number; ids: string[]; empty: string[] }
 
+/** 因縁の敵将 */
+export interface Nemesis {
+  id: string; name: string; personality: string; face: FaceParts; classId: string; level: number;
+  kind: 'army' | 'bandit' | 'monster'; country: CountryId | null;
+  meets: { year: number; month: number; title: string; result: 'win' | 'lose' | 'fled' | 'fell' }[];
+  status: 'active' | 'defeated';
+}
+
 export type EndingKind = 'peace' | 'unify' | 'ceasefire' | 'neutral';
 
 /** 画面に出す「処理待ち」 */
 export type Pending =
   | { type: 'weekSummary'; lines: string[]; talks: TalkLog[]; growth?: GrowthEntry[] }
   | { type: 'questBoard' }
-  | { type: 'battleResult'; lines: string[]; grades: { id: string; grade: string; note: string }[]; win: boolean; growth?: GrowthEntry[] }
+  | { type: 'battleResult'; lines: string[]; grades: { id: string; grade: string; note: string }[]; win: boolean; growth?: GrowthEntry[]; mvp?: string; review?: string[]; title?: string }
   | { type: 'event'; title: string; lines: string[] }
   | { type: 'entrance' }
   | { type: 'career' }
@@ -270,6 +281,8 @@ export interface Settings {
   flip: boolean;
   /** 名簿の表示：カード／簡易（1行） */
   rosterView: 'card' | 'compact';
+  /** 戦闘を自分で指揮する（オフなら自動の戦闘。5夜目） */
+  manualBattle: boolean;
   rewind: boolean;
   guide: boolean;
   sound: boolean;
@@ -327,6 +340,10 @@ export interface GameState {
   endings?: { kind: EndingKind; year: number; country?: CountryId }[];
   /** 後継の打診を断った卒業生（その年度の間） */
   declinedSuccessors?: string[];
+  /** 因縁の敵将（逃した敵将。5夜目） */
+  nemeses?: Nemesis[];
+  /** 自動の戦闘で直近に使った文・出来事（同じ並びを避ける） */
+  autoMemory?: { lines: string[]; events: string[] };
   nextId: number;
   settings: Settings;
   guideStep: number;

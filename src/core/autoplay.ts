@@ -4,7 +4,8 @@ import { WEAPONS } from '../data/weapons';
 import type { SkillId } from './types';
 import type { GameState, Student } from './state';
 import { enrolled, available, deployLimit, capacity } from './game';
-import { nextWeek, startBattle, finishBattle, finishCareers, admit, autoAdmitIds, battleCtx, rng, ensureReinforcementFactory } from './flow';
+import { nextWeek, startBattle, finishBattle, finishCareers, admit, autoAdmitIds, battleCtx, rng, ensureReinforcementFactory, startAutoQuest } from './flow';
+import { defaultPlan, skipAuto, type AutoChoice } from './battle/auto';
 import { autoPlayerPhase, endPlayerPhase, rewind, canRewind } from './battle/engine';
 import { autoExam } from './exam';
 import { autoRecommend, suitablePath, availableChoices as availableChoicesOf, type CareerChoice, type CareerPlan } from './career';
@@ -20,7 +21,12 @@ import { retireInstructor, successorCandidates, askSuccessor, externalSuccessor,
 
 /** 武器の自動割り当て */
 export function autoDeploy(s: GameState, limit = deployLimit(s)): Deploy[] {
-  const list = enrolled(s).filter(available).sort((a, b) => b.level - a.level).slice(0, limit);
+  return deployFor(s, enrolled(s).filter(available).sort((a, b) => b.level - a.level).slice(0, limit).map((x) => x.id));
+}
+
+/** 決めたメンバーに、武器庫の武器・杖と傷薬を割り当てる */
+export function deployFor(s: GameState, ids: string[]): Deploy[] {
+  const list = ids.map((id) => s.students[id]).filter(Boolean);
   const used = new Set<string>();
   let items = s.items.vulnerary;
   return list.map((st) => {
@@ -83,6 +89,20 @@ export function autoBattle(s: GameState): void {
   finishBattle(s);
 }
 
+/** 自動の戦闘を最後まで（選択はおすすめのもの）進めて、結果を反映する */
+export function finishAuto(s: GameState, pick?: (c: AutoChoice) => number): void {
+  if (!s.battle?.auto) return;
+  skipAuto(s, battleCtx(s), pick ?? autoChoicePick);
+  if (s.battle && s.battle.phase !== 'done') { s.battle.phase = 'done'; s.battle.result = 'lose'; }
+  finishBattle(s);
+}
+let autoChoicePick: ((c: AutoChoice) => number) | undefined;
+/** シミュレーション用：選択の選び方を差し替える */
+export function setAutoChoicePick(f: ((c: AutoChoice) => number) | undefined): void { autoChoicePick = f; }
+let manualInSim = false;
+/** シミュレーション用：手動の戦闘（4夜目までの戦い方）で回す */
+export function setManualInSim(v: boolean): void { manualInSim = v; }
+
 // ---------- 進路の方針（長期シミュレーション用） ----------
 export type CareerPolicy = 'auto' | 'peace' | 'unify' | 'none' | 'neutral';
 let careerPolicy: CareerPolicy = 'auto';
@@ -141,8 +161,10 @@ export function autoPending(s: GameState): void {
       // 中立狙い：友好度のいちばん低い国の依頼を優先（三国の依頼を均等に）
       const pick = (careerPolicy === 'neutral' ? [...ok].sort((a, b) => questFriend(s, a.clientCountry) - questFriend(s, b.clientCountry) || b.reward - a.reward)[0] : undefined)
         ?? ok.sort((a, b) => b.reward - a.reward)[0] ?? s.quests[0];
-      startBattle(s, pick.id, autoDeploy(s));
-      autoBattle(s);
+      if (manualInSim) { startBattle(s, pick.id, autoDeploy(s)); autoBattle(s); continue; }
+      const d = autoDeploy(s);
+      startAutoQuest(s, pick.id, d, defaultPlan(s, pick, d));
+      finishAuto(s);
       continue;
     }
     if (p.type === 'career') {

@@ -13,6 +13,7 @@ import { YearbookTab } from './Yearbook';
 import { SettingsTab } from './Settings';
 import { PendingView } from './Pending';
 import { BattleView } from './Battle';
+import { AutoBattleView } from './AutoBattle';
 import { money, stageOf } from './common';
 import { STAGE_NAMES } from '../core/world';
 import { nextWeek } from '../core/flow';
@@ -51,6 +52,7 @@ export function App() {
   const season = s ? seasonOf(s.month) : 'spring';
   useEffect(() => { document.body.dataset.season = season; }, [season]);
   if (!s) return <Title />;
+  if (s.battle?.auto) return <AutoBattleView />;
   if (s.battle) return <BattleView />;
   const unread = s.mail.filter((m) => !m.read).length;
   const exportDays = Math.floor((Date.now() - s.lastExport) / 86400000);

@@ -13,6 +13,7 @@ import { gainExp, startGrowthLog, stopGrowthLog, snapGrowth, diffGrowth } from '
 import { learnSpells } from './spells';
 import { createBattle, unitFromStudent, defaultWeaponFor, type Deploy } from './battle/setup';
 import { startPlayerPhase, setReinforcementFactory, weaponSkillId } from './battle/engine';
+import { startAutoBattle, applyAutoResults, type AutoPlan } from './battle/auto';
 import { monthlyWorld, yearlyWorld, questWorldEffect, tensionStage, activeAlumni } from './world';
 import { simulateAlumni, aidMoney, titleOf } from './alumni';
 import { prepareCareers, graduate, type CareerPlan } from './career';
@@ -67,6 +68,15 @@ export function startBattle(s: GameState, questId: string, deploys: Deploy[]): v
   s.pending = s.pending.filter((p) => p.type !== 'questBoard');
 }
 
+/** 自動の戦闘を始める（5夜目） */
+export function startAutoQuest(s: GameState, questId: string, deploys: Deploy[], plan: AutoPlan): void {
+  const q = s.quests.find((x) => x.id === questId);
+  if (!q) return;
+  ensureReinforcementFactory(s);
+  s.pending = s.pending.filter((p) => p.type !== 'questBoard');
+  startAutoBattle(s, q, deploys, plan, battleCtx(s));
+}
+
 export function ensureReinforcementFactory(s: GameState): void {
   setReinforcementFactory((b) => {
     const st = b.reinforcement ? s.students[b.reinforcement] : null;
@@ -93,6 +103,8 @@ export function finishBattle(s: GameState): void {
   if (win) s.stats.battlesWon++; else s.stats.battlesLost++;
   const growth: GrowthEntry[] = [];
   startGrowthLog();
+  // 自動の戦闘：初陣などの出来事で増える経験値
+  for (const e of b.auto?.effects ?? []) if (e.kind === 'exp') { const u = b.units.find((x) => x.studentId === e.id && x.side === 'player'); if (u) u.expGain += e.v; }
 
   for (const u of b.units) {
     if (!u.studentId || u.side === 'enemy' && !u.persuadable) continue;
@@ -185,7 +197,12 @@ export function finishBattle(s: GameState): void {
       } else { addRep(s, B.reputation.questLose); lines.push(`依頼は失敗。評判${B.reputation.questLose}`); }
     }
   }
-  s.pending.push({ type: 'battleResult', lines, grades, win, growth });
+  const auto = applyAutoResults(s, b, r, lines, {
+    addSupport: (a, c, v) => { const t = addSupport(s, r, a, c, v); if (t) s.pending.push({ type: 'talk', talk: t }); },
+    reveal: (st, v) => revealTalent(s, st, v),
+    motivation: (st, d) => changeMotivation(st, d),
+  });
+  s.pending.splice(s.pending.findIndex((p) => p.type === 'talk') >= 0 ? s.pending.findIndex((p) => p.type === 'talk') : s.pending.length, 0, { type: 'battleResult', lines, grades, win, growth, mvp: auto.mvp ?? undefined, review: auto.review, title: b.title });
   s.battle = null;
   if (q?.kind === 'schoolDefense' && win) checkEndings(s, r, 'month');
   endMonth(s);

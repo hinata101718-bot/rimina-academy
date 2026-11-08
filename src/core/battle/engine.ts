@@ -177,7 +177,7 @@ function strike(b: BattleState, ctx: BattleCtx, a: Unit, d: Unit, out: Strike[])
   const w = weaponOf(a)!;
   a.usedWeapon[w.id] = (a.usedWeapon[w.id] ?? 0) + 1;
   if (w.type === 'gun') a.reloadTurn = b.turn + 1;
-  if (roll >= s.hit) { out.push({ by: a.uid, hit: false, crit: false, dmg: 0 }); log(b, `${a.name}の攻撃は外れた`, 'miss'); return; }
+  if (roll >= s.hit) { out.push({ by: a.uid, hit: false, crit: false, dmg: 0 }); log(b, `${a.name}の攻撃は外れた`, 'miss'); b.feed?.push({ t: 'miss', a: a.uid, d: d.uid, turn: b.turn }); return; }
   const crit = r.next() * 100 < s.crit;
   const dmg = Math.min(d.hp, crit ? s.dmg * B.battle.critMul : s.dmg);
   d.hp -= dmg; a.dmgDealt += dmg; d.dmgTaken += dmg; a.hits += 1;
@@ -185,6 +185,7 @@ function strike(b: BattleState, ctx: BattleCtx, a: Unit, d: Unit, out: Strike[])
   if (a.side !== 'enemy' && !isFriendly(a, d)) (b.hitBy[d.uid] ??= []).includes(a.uid) || b.hitBy[d.uid].push(a.uid);
   out.push({ by: a.uid, hit: true, crit, dmg });
   log(b, `${a.name}→${d.name} ${crit ? '必殺！' : ''}${dmg}ダメージ`, crit ? 'crit' : 'hit');
+  b.feed?.push({ t: crit ? 'crit' : 'hit', a: a.uid, d: d.uid, turn: b.turn, dmg });
   if (w.poison || abilitiesOf(a).some((x) => x.poison)) d.poison = B.battle.poisonTurns;
   if (w.weaken || abilitiesOf(a).some((x) => x.weaken)) d.weaken = B.battle.weakenTurns;
   if (d.hp <= 0) defeat(b, ctx, d, a);
@@ -200,6 +201,7 @@ function defeat(b: BattleState, ctx: BattleCtx, d: Unit, by: Unit | null): void 
     }
   }
   log(b, `${d.name}を倒した`, 'kill');
+  if (by) b.feed?.push({ t: 'kill', a: by.uid, d: d.uid, turn: b.turn });
   if (d.studentId && (d.side === 'player' || d.side === 'ally' || d.persuadable)) {
     let outcome: 'dead' | 'injured' | 'out' = 'out';
     if (b.real) {
@@ -214,6 +216,7 @@ function defeat(b: BattleState, ctx: BattleCtx, d: Unit, by: Unit | null): void 
       outcome = rngOf(b).next() * 100 < deathP ? 'dead' : 'injured';
     }
     b.fallen.push({ studentId: d.studentId, outcome });
+    b.feed?.push({ t: 'fallen', a: d.uid, d: by?.uid ?? '', turn: b.turn });
     log(b, outcome === 'dead' ? `${d.name}が戦死した……` : outcome === 'injured' ? `${d.name}が重傷を負い、運ばれていった` : `${d.name}は戦闘から外れた`, 'info');
   }
 }
@@ -262,6 +265,7 @@ export function heal(b: BattleState, a: Unit, t: Unit, staffId?: string): boolea
   a.moved = true; a.acted = true;
   b.lastAction = { attacker: a.uid, defender: t.uid, strikes: [], killed: [], heal: amt, seq: ++b.popupSeq };
   log(b, `${a.name}が${t.name}のHPを${amt}回復`, 'heal');
+  b.feed?.push({ t: 'heal', a: a.uid, d: t.uid, turn: b.turn, dmg: amt });
   return true;
 }
 
@@ -502,6 +506,7 @@ export function enemyAct(b: BattleState, ctx: BattleCtx, e: Unit, attackOnly = f
         const kill = f.atk.dmg * f.atk.count >= t.hp && f.atk.hit > 0;
         let score = exp * 3 + (kill ? 1000 + f.atk.hit * 2 : 0) + (staffOf(t) ? 40 : 0) + (100 - (t.hp / t.maxHp) * 100) * 0.3;
         if (t.escort) score += B.battle.escortAggro;
+        if (e.side !== 'enemy' && b.focus && t.uid === b.focus) score += B.battle.focusAggro;
         const cautious = e.side !== 'enemy' ? 2.2 : 0.8;
         score -= f.def.canAttack ? f.def.dmg * f.def.count * (f.def.hit / 100) * cautious : 0;
         if (e.side !== 'enemy' && f.def.canAttack && f.def.dmg * f.def.count >= e.hp && f.def.hit > 0 && !kill) score -= 400;
@@ -526,7 +531,8 @@ export function enemyAct(b: BattleState, ctx: BattleCtx, e: Unit, attackOnly = f
 }
 
 /** オートプレイ用：味方フェーズを自動で行う（慎重な人間の遊び方をまねる） */
-export function autoPlayerPhase(b: BattleState, ctx: BattleCtx, careful: Set<string> = new Set()): void {
+export function autoPlayerPhase(b: BattleState, ctx: BattleCtx, careful: Set<string> = new Set(), opt: { weakHp?: number; goalHp?: number } = {}): void {
+  const weakHp = opt.weakHp ?? 0.5, goalHp = opt.goalHp ?? 0.4;
   const enemies = () => b.units.filter((e) => e.side === 'enemy' && !e.dead);
   const threatMap = () => { const m = new Map<number, number>(); for (const e of enemies()) for (const k of enemyThreat(b, e)) m.set(k, (m.get(k) ?? 0) + 1); return m; };
   // 瀕死で危ない子は「下がれ」
@@ -543,7 +549,7 @@ export function autoPlayerPhase(b: BattleState, ctx: BattleCtx, careful: Set<str
     if (b.objective === 'rescue' && u.side === 'player') {
       if (canRescue(b, u)) { rescue(b, u); continue; }
       const cap = b.units.find((x) => x.captive && !x.dead);
-      if (cap && !careful.has(u.uid) && u.hp > u.maxHp * 0.4) {
+      if (cap && !careful.has(u.uid) && u.hp > u.maxHp * goalHp) {
         const r = reachable(b, u);
         const tm = threatMap();
         let best: { k: number; sc: number } | null = null;
@@ -582,7 +588,7 @@ export function autoPlayerPhase(b: BattleState, ctx: BattleCtx, careful: Set<str
       const gk = b.goal.y * b.width + b.goal.x;
       if (r.has(gk)) { u.x = b.goal.x; u.y = b.goal.y; wait(b, u); continue; }
     }
-    if ((u.hp <= u.maxHp * 0.5 || careful.has(u.uid)) && !staffOf(u)) {
+    if ((u.hp <= u.maxHp * weakHp || careful.has(u.uid)) && !staffOf(u)) {
       // 弱っている子は、敵の攻撃が届きにくいマスへ下がる（回復役の近く）
       const tm = threatMap();
       const r = reachable(b, u);

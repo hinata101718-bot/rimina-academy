@@ -460,3 +460,66 @@ body { background-attachment: fixed; }
 .hallpage > .btn { margin: 4px 0 8px; }
 .hallgrad > b { flex: none; }
 .hallgrad > .muted { min-width: 0; white-space: normal; overflow-wrap: anywhere; }
+
+/* ===== 自動の戦闘（5夜目） ===== */
+.ab-intel .ab-leaderface { display: inline-block; line-height: 0; border: 2px solid var(--accent); border-radius: 22%; overflow: hidden; background: #f7f0e2; flex: none; }
+.ab-match { margin-top: 4px; }
+.ab-match.good { color: var(--main); font-weight: bold; } .ab-match.bad { color: var(--accent); font-weight: bold; }
+.ab-members { display: grid; grid-template-columns: repeat(auto-fill, minmax(76px, 1fr)); gap: 6px; margin: 6px 0; }
+.ab-mem { position: relative; display: flex; flex-direction: column; align-items: center; gap: 1px; min-height: 96px; padding: 6px 2px 4px; border: 1.5px solid var(--line); border-radius: 10px; background: #fffdf7; opacity: .55; cursor: pointer; }
+.ab-mem.on { opacity: 1; border-color: var(--main); box-shadow: 0 0 0 2px var(--main2); }
+.ab-mem .ab-lv { position: absolute; top: 44px; left: 50%; transform: translateX(-50%) scale(.85); }
+.ab-mem .ab-name { font-weight: bold; font-size: 13px; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-top: 6px; }
+.ab-mem .ab-cls { font-size: 11px; color: var(--sub); max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ab-mem .ab-check { position: absolute; top: 3px; right: 4px; background: var(--main); color: #fff; border-radius: 50%; width: 20px; height: 20px; font-size: 13px; line-height: 20px; }
+.ab-mem .ab-warn { position: absolute; top: 3px; left: 4px; background: var(--accent); color: #fff; border-radius: 4px; font-size: 11px; padding: 0 3px; }
+.ab-tactics { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.ab-tac { text-align: left; min-height: 64px; padding: 8px; border: 1.5px solid var(--line); border-radius: 10px; background: #fffdf7; display: flex; flex-direction: column; gap: 2px; cursor: pointer; }
+.ab-tac b { font-family: var(--mincho); font-size: 16px; }
+.ab-tac.on { border-color: var(--main); background: var(--main2); }
+.ab-tac .ab-fit { align-self: flex-start; font-size: 11px; color: #fff; background: var(--gold); border-radius: 4px; padding: 0 5px; }
+.ab-role { background: #fffdf7; border: 1px solid #e2d8c2; border-radius: 10px; padding: 6px 8px; margin: 6px 0; }
+.ab-roleseg { margin-top: 4px; }
+.ab-roleseg button { min-height: 44px; font-size: 13px; padding: 0 2px; display: flex; flex-direction: column; align-items: center; justify-content: center; line-height: 1.2; }
+.ab-roleseg button small { font-size: 12px; }
+.ab-weapon { cursor: pointer; text-decoration: underline dotted; overflow: hidden; text-overflow: ellipsis; }
+.ab-odds { display: flex; align-items: center; justify-content: space-between; margin: 12px 0 6px; padding: 8px 12px; border: 1px dashed var(--line); border-radius: 10px; }
+.ab-oddsv { font-family: var(--mincho); font-size: 22px; }
+.ab-oddsv.good { color: var(--main); } .ab-oddsv.even { color: var(--gold); } .ab-oddsv.bad { color: var(--accent); }
+.ab-manual { margin: 8px 0; min-height: 44px; font-size: 14px; }
+.ab-manual input { width: 22px; height: 22px; flex: none; }
+
+.ab-view { max-width: 640px; margin: 0 auto; min-height: 100vh; display: flex; flex-direction: column; padding: calc(8px + env(safe-area-inset-top)) 12px calc(12px + env(safe-area-inset-bottom)); }
+.ab-head { position: sticky; top: 0; background: var(--paper); z-index: 5; padding-bottom: 6px; border-bottom: 1px solid var(--line); }
+.ab-mom { display: flex; align-items: center; gap: 6px; margin-top: 6px; }
+.ab-momlabel { font-size: 12px; color: var(--sub); flex: none; }
+.ab-mombar { flex: 1; height: 14px; display: flex; border-radius: 7px; overflow: hidden; border: 1px solid var(--line); }
+.ab-mombar .ally { background: linear-gradient(90deg, #3f6fb0, #6c96d0); transition: width .8s; }
+.ab-mombar .enemy { background: linear-gradient(90deg, #d07a6c, #b5483a); transition: width .8s; }
+.ab-scene { flex: 1; overflow-y: auto; padding: 8px 0 12px; cursor: pointer; min-height: 50vh; }
+.ab-stitle { font-family: var(--mincho); font-size: 22px; margin: 4px 0 8px; display: flex; align-items: baseline; gap: 8px; }
+.ab-stitle span { font-size: 13px; color: #fff; background: var(--main); border-radius: 4px; padding: 0 6px; font-family: inherit; }
+.ab-faces { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+.ab-face { position: relative; display: flex; flex-direction: column; align-items: center; width: 52px; }
+.ab-face.down { filter: grayscale(1); opacity: .6; }
+.ab-face .ab-fname { font-size: 11px; max-width: 52px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ab-hurt { position: absolute; top: -3px; right: 0; background: #c0533e; color: #fff; font-size: 11px; border-radius: 8px; padding: 0 4px; line-height: 16px; }
+.ab-hurt.down { background: #555; }
+.ab-line { margin: 6px 0; animation: abIn .35s ease-out; }
+.ab-line.narr { font-family: var(--mincho); background: #fbf6e9; border: 1px solid #e0d3b4; border-radius: 8px; padding: 8px 10px; }
+.ab-line.say { display: flex; gap: 8px; align-items: flex-start; background: #fffdf7; border: 1px solid #e2d8c2; border-radius: 12px; padding: 6px 10px 6px 6px; }
+.ab-line.say.foe { border-color: #d9a79c; background: #fbefec; }
+.ab-lface { line-height: 0; border-radius: 22%; overflow: hidden; flex: none; border: 2px solid var(--accent); }
+.ab-who { font-size: 12px; color: var(--sub); font-weight: bold; }
+.ab-tap { text-align: center; color: var(--sub); font-size: 13px; margin-top: 10px; animation: abBlink 1.4s infinite; }
+.ab-choice { border: 2px solid var(--gold); border-radius: 12px; background: #fffaf0; padding: 10px; margin: 6px 0; animation: abIn .4s ease-out; }
+.ab-cprompt { color: var(--gold); font-weight: bold; font-size: 13px; display: flex; gap: 4px; align-items: center; }
+.ab-cq { font-family: var(--mincho); font-size: 16px; margin: 4px 0 8px; }
+.ab-copt { display: flex !important; align-items: center; gap: 8px; text-align: left; min-height: 52px; margin: 6px 0; }
+.ab-copt .grow { display: flex; flex-direction: column; }
+.ab-ctrl { display: flex; gap: 8px; justify-content: center; padding-top: 6px; }
+.ab-ctrl .btn { min-height: 44px; min-width: 120px; }
+.ab-endbtn { margin-top: 6px; min-height: 52px; }
+.ab-mvp .ab-mvpl { display: inline-block; font-family: var(--mincho); font-weight: bold; color: #fff; background: var(--gold); border-radius: 4px; padding: 0 8px; font-size: 13px; letter-spacing: .1em; }
+@keyframes abIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+@keyframes abBlink { 50% { opacity: .35; } }

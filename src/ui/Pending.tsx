@@ -30,6 +30,7 @@ import { STATS, B } from '../data/balance';
 import type { Path } from '../core/types';
 import type { Deploy } from '../core/battle/setup';
 import { sfx } from './sound';
+import { AutoPrep, AutoResultHead } from './AutoBattle';
 import { Icon } from './icons';
 import { countryColor, CountryChip, Chip, Stars, Num, LvBadge, MiniCard, NameLine, OBJECTIVE_ICON, WEATHER_ICON } from './cards';
 import { rankOf } from '../core/util';
@@ -103,8 +104,9 @@ function BattleResult({ s, p, onDone }: { s: GameState; p: Extract<GameState['pe
   const [step, setStep] = useState(p.growth?.length ? 0 : 1);
   if (step === 0) return <Sheet title={p.win ? '勝利 ― 成長の記録' : '敗北 ― 成長の記録'}><GrowthPlayer s={s} entries={p.growth ?? []} title="出撃した生徒" onDone={() => setStep(1)} /></Sheet>;
   return (
-    <Sheet title={p.win ? '勝利' : '敗北'}>
-      <h3>講評</h3>
+    <Sheet title={`${p.win ? '勝利' : '敗北'}${p.title ? `：${p.title}` : ''}`}>
+      <AutoResultHead s={s} mvp={p.mvp} review={p.review} />
+      <h3>生徒ごとの評価</h3>
       {p.grades.map((g) => { const st = s.students[g.id]; if (!st) return null; return <MiniCard st={st} onClick={() => undefined} sub={g.note} right={<span class={`grade g${g.grade}`}>{g.grade}</span>} />; })}
       <div class="pcard"><ul class="list sumlist">{p.lines.map((l) => <li><span class="todoicon"><Icon name={l.startsWith('勝利') ? 'flag' : l.startsWith('敗北') ? 'skull' : l.includes('報酬') ? 'coin' : lineIcon(l)} size={16} /></span><span>{l}</span></li>)}</ul></div>
       <button class="btn primary block" onClick={() => { sfx('ok'); onDone(); }}>閉じる</button>
@@ -140,6 +142,7 @@ function QuestBoard({ s }: { s: GameState }) {
       </Sheet>
     );
   }
+  if (!s.settings.manualBattle) return <AutoPrep key={q.id} s={s} q={q} onBack={s.quests.length > 1 ? () => { setQid(null); setDeploy(null); } : undefined} />;
   const limit = deployLimit(s);
   const d = deploy ?? autoDeploy(s, limit);
   const setD = (nd: Deploy[]) => setDeploy(nd);
