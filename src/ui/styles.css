@@ -1464,3 +1464,17 @@ body[data-season="winter"] { --tint: rgba(190, 210, 235, .14); }
 .rb-allies.many .rb-hp { font-size: 10px; }
 .rb-allies.many .rb-row { display: none; }
 .rb-allies.many .rb-bar { min-width: 30px; height: 4px; }
+/* 10夜目の途中：どの画面でもページ全体が横にスライドしないように（わざと横にスクロールする部分は、その枠の中だけ） */
+html, body { overflow-x: hidden; max-width: 100%; }
+#app, #root { overflow-x: hidden; max-width: 100vw; }
+.sheet { overflow-x: hidden; overflow-y: auto; overscroll-behavior: contain; touch-action: pan-y pinch-zoom; }
+.sheet > * { max-width: 100%; }
+.sq-quests, .pills, .scroll-x, .hall-compare { touch-action: pan-x pan-y; max-width: 100%; }
+.ab-role, .ab-role .row { min-width: 0; max-width: 100%; }
+.ab-role .ab-weapon { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; display: inline-block; vertical-align: bottom; }
+.ab-roleseg { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.ab-roleseg button { min-width: 0; overflow: hidden; }
+.ab-role select { max-width: 100%; min-width: 0; }
+.ab-role .ruled { flex-wrap: wrap; }
+/* iPhone Safari は16pxより小さい入力欄を選ぶと画面を拡大し、そのあと横にずれる。入力欄は16pxに */
+select, input[type="text"], input[type="number"], textarea { font-size: 16px; }
