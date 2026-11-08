@@ -30,7 +30,9 @@ export function isFriendly(a: Unit, c: Unit): boolean {
 }
 export function abilitiesOf(u: Unit): AbilityDef[] { return u.abilities.map((id) => ABILITIES[id]).filter(Boolean); }
 function sumAb(u: Unit, key: keyof AbilityDef): number {
-  return abilitiesOf(u).reduce((s, a) => s + ((a[key] as number | undefined) ?? 0), 0);
+  // 12夜目：武器の種類を決めた心得は、その武器を持っているときだけ
+  const wt = u.weaponId ? WEAPONS[u.weaponId]?.type : undefined;
+  return abilitiesOf(u).reduce((s, a) => s + (a.wtype && (!wt || !a.wtype.includes(wt)) ? 0 : ((a[key] as number | undefined) ?? 0)), 0);
 }
 export function hasAb(u: Unit, key: keyof AbilityDef): boolean { return abilitiesOf(u).some((a) => !!a[key]); }
 

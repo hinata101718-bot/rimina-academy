@@ -1,5 +1,6 @@
 // 固有スキル・特徴スキル（自動発動のみ）。兵種の ability と特徴タグから参照される。
 import type { AbilityDef } from '../core/types';
+import { ART_LIST, mindAbility } from './arts';
 
 const list: AbilityDef[] = [
   // ---------- 特徴タグ用 ----------
@@ -111,4 +112,5 @@ const list: AbilityDef[] = [
   { id: 'heroic_soul', name: '英雄の魂', desc: '命中+10、回避+10、必殺+10、与えるダメージ+2。', hit: 10, avo: 10, crit: 10, dmg: 2 },
 ];
 
-export const ABILITIES: Record<string, AbilityDef> = Object.fromEntries(list.map((a) => [a.id, a]));
+// 12夜目：心得も固有スキルとして登録する
+export const ABILITIES: Record<string, AbilityDef> = Object.fromEntries([...list, ...ART_LIST.filter((a) => a.kind === 'mind').map(mindAbility)].map((a) => [a.id, a]));

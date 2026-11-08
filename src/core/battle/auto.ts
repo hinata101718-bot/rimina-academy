@@ -1,6 +1,7 @@
 // 自動の戦闘（5夜目）：今の戦闘の計算を裏で手早く回し、その記録から場面と出来事を拾う。
 // 出撃前の作戦の方針・役割、ここぞの選択（1〜2回）、敵将の口上と因縁、結果の講評。
 import { rollLoot } from '../loot';
+import { officerArts } from '../arts';
 import { KILL_REACT } from '../../data/aftermath_war';
 import { PROSE_AFTER } from '../../data/warprose';
 import { B } from '../../data/balance';
@@ -297,6 +298,7 @@ function makeLeader(s: GameState, q: Quest, b: BattleState, r: Rng, tactic: stri
         b.enemyAlumni ??= alum.id;
       } else swap(enemyUnit(r, u.uid, o.classId, officerLevel(o, u.level), u.x, u.y, s.world.gunUnlocked, u.boss));
       const hits = applyOfficerTraits(b, o, u, tactic);
+      u.arts = officerArts(o, s); // 12夜目：敵将の戦技
       info = { uid: u.uid, name: officerName(o), personality: o.personality as LeaderPersonality, face: o.face, classId: u.classId, officerId: o.id, faceImage: o.faceImage, alumniId: o.alumniId, again: o.meets.length > 0, scars: o.scars, rank: rankName(o), traitHits: hits };
       if (o.traits.includes('loyal')) info.noFlee = true;
       // 執着：負けた相手の生徒を狙う

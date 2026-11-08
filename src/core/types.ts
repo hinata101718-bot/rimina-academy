@@ -25,6 +25,8 @@ export type Path = 'warrior' | 'strategist' | 'civil' | 'champion'; // 将（武
 
 export interface AbilityDef {
   id: string;
+  /** 12夜目：この武器の種類を持っているときだけ効く（心得） */
+  wtype?: WeaponType[];
   name: string;
   desc: string;
   hit?: number;       // 命中+

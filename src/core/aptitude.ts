@@ -112,9 +112,14 @@ export function checkBloom(s: GameState, st: Student): boolean {
   b.reveal = 100;
   if (st.apt) { st.apt.bad = st.apt.bad.filter((x) => x !== k); if (!st.apt.good.includes(k)) st.apt.good.push(k); }
   s.pending.push({ type: 'bloom', studentId: st.id, skill: k });
+  bloomHook?.(s, st);
   st.history.push({ year: s.year, text: `苦手だった${SKILL_NAMES[k]}の才能が開花した` });
   return true;
 }
+
+/** 開花したとき（12夜目：固有の戦技を覚える。循環を避けるため、あとから差しこむ） */
+let bloomHook: ((s: GameState, st: Student) => void) | null = null;
+export function setBloomHook(f: (s: GameState, st: Student) => void): void { bloomHook = f; }
 
 /** 開花した子の技（兵種の固有スキルに足す） */
 export function bloomAbility(st: Student): string | null { return st.bud?.done ? st.bud.ability ?? null : null; }

@@ -1,4 +1,5 @@
 // 戦闘の進行：移動・攻撃・回復・待機・指示・敵AI・勝敗・巻き戻し
+import { pickArt } from '../arts';
 import { B } from '../../data/balance';
 import { FORMATION } from '../../data/stratagems';
 import { WEAPONS } from '../../data/weapons';
@@ -173,17 +174,21 @@ function weaponSkillId(type: string): string { return type === 'holy' || type ==
 function strike(b: BattleState, ctx: BattleCtx, a: Unit, d: Unit, out: Strike[], role: 'atk' | 'counter' | 'follow' = 'atk'): void {
   if (a.dead || d.dead) return;
   const f = forecast(b, a, d, a.x, a.y, ctx.support);
-  const s = f.atk;
+  let s = f.atk;
   if (!s.canAttack) return;
   const hp0 = d.hp;
   const r = rngOf(b);
-  const roll = ((r.next() + r.next()) / 2) * 100;
   const w = weaponOf(a)!;
+  // 12夜目：戦技（自動で使う）。使うときは命中・威力・必殺が変わる
+  const art = pickArt(a, d, w.type, s.dmg, () => r.next(), (x) => moveTypeOf(x));
+  if (art) s = { ...s, hit: Math.max(0, Math.min(100, s.hit + art.hit)), dmg: art.dmg, crit: Math.max(0, Math.min(100, s.crit + art.crit)) };
+  const roll = ((r.next() + r.next()) / 2) * 100;
   a.usedWeapon[w.id] = (a.usedWeapon[w.id] ?? 0) + 1;
   if (w.type === 'gun') a.reloadTurn = b.turn + 1;
-  if (roll >= s.hit) { out.push({ by: a.uid, hit: false, crit: false, dmg: 0 }); log(b, `${a.name}の攻撃は外れた`, 'miss'); b.feed?.push({ t: 'miss', a: a.uid, d: d.uid, turn: b.turn }); b.blog?.push({ k: 'atk', x: b.xseq ?? 0, a: a.uid, d: d.uid, w: w.id, dmg: 0, hit: false, crit: false, tri: s.triangle, eff: s.effective, role, hp0, hp1: hp0, max: d.maxHp, kill: false }); return; }
+  if (roll >= s.hit) { out.push({ by: a.uid, hit: false, crit: false, dmg: 0 }); log(b, `${a.name}の攻撃は外れた`, 'miss'); b.feed?.push({ t: 'miss', a: a.uid, d: d.uid, turn: b.turn }); b.blog?.push({ k: 'atk', x: b.xseq ?? 0, a: a.uid, d: d.uid, w: w.id, dmg: 0, hit: false, crit: false, tri: s.triangle, eff: s.effective, role, hp0, hp1: hp0, max: d.maxHp, kill: false, art: art?.id }); return; }
   const crit = r.next() * 100 < s.crit;
   const dmg = Math.min(d.hp, crit ? s.dmg * B.battle.critMul : s.dmg);
+  void art;
   d.hp -= dmg; a.dmgDealt += dmg; d.dmgTaken += dmg; a.hits += 1;
   if (a.side !== 'enemy') a.expGain += B.battle.exp.hit;
   if (a.side !== 'enemy' && !isFriendly(a, d)) (b.hitBy[d.uid] ??= []).includes(a.uid) || b.hitBy[d.uid].push(a.uid);
@@ -191,7 +196,7 @@ function strike(b: BattleState, ctx: BattleCtx, a: Unit, d: Unit, out: Strike[],
   out.push({ by: a.uid, hit: true, crit, dmg });
   log(b, `${a.name}→${d.name} ${crit ? '必殺！' : ''}${dmg}ダメージ`, crit ? 'crit' : 'hit');
   b.feed?.push({ t: crit ? 'crit' : 'hit', a: a.uid, d: d.uid, turn: b.turn, dmg });
-  b.blog?.push({ k: 'atk', x: b.xseq ?? 0, a: a.uid, d: d.uid, w: w.id, dmg, hit: true, crit, tri: s.triangle, eff: s.effective, role, hp0, hp1: Math.max(0, d.hp), max: d.maxHp, kill: d.hp <= 0 });
+  b.blog?.push({ k: 'atk', x: b.xseq ?? 0, a: a.uid, d: d.uid, w: w.id, dmg, hit: true, crit, tri: s.triangle, eff: s.effective, role, hp0, hp1: Math.max(0, d.hp), max: d.maxHp, kill: d.hp <= 0, art: art?.id });
   if (w.poison || abilitiesOf(a).some((x) => x.poison)) d.poison = B.battle.poisonTurns;
   if (w.weaken || abilitiesOf(a).some((x) => x.weaken)) d.weaken = B.battle.weakenTurns;
   if (d.hp <= 0) defeat(b, ctx, d, a);

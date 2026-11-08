@@ -18,6 +18,7 @@ import { startNewsDesk } from './newspaper';
 import { STATS } from '../data/balance';
 import { STOCK_IDS, stockUid } from './loot';
 import { liftGrowth, talentToApt } from './aptitude';
+import { learnArts } from './arts';
 import { RANK_POINTS } from '../data/balance';
 
 export interface SaveFile { app: 'rimina-academy'; version: number; savedAt: number; state: GameState }
@@ -49,6 +50,7 @@ export function migrate(s: GameState, from: number): GameState {
   if (from < 10) migrateTo10(s);
   ensure10(s);
   if (from < 11) migrateTo11(s);
+  if (from < 12) migrateTo12(s);
   s.heirs ??= [];
   s.archive ??= {};
   s.notices ??= [];
@@ -353,6 +355,23 @@ function migrateTo11(s: GameState): void {
       '画面の文と、生徒たちの台詞を読みやすく書き直しました。',
       '学年の違う二人が親しくなると「先輩と後輩」になることがあります。いっしょの授業では後輩がよく伸び、卒業する先輩は後輩に何かを託していきます。',
       '戦いの文が、武器や当たり方ごとに書き分けられるようになりました。設定の「戦の描写」で、ふつう・濃い・凄惨を選べます（はじめは濃い）。',
+    ],
+  });
+}
+
+/**
+ * 11夜目の版（version 11）→ 12夜目の版（version 12）
+ * - 戦技と心得：今いる生徒・卒業生は、今の技能ランクまでの技を覚えた状態にする（演出なし）。付けかえはおまかせ
+ */
+function migrateTo12(s: GameState): void {
+  for (const st of [...Object.values(s.students ?? {}), ...(s.applicants ?? [])]) learnArts(null, st, false);
+  s.pending ??= [];
+  s.pending.push({
+    type: 'event', title: '12夜目の新しいこと',
+    lines: [
+      '技能ランクが上がると「戦技」と「心得」を覚えるようになりました。戦技は戦いの中で自動で使う技、心得はいつも効く力です。',
+      '今いる子は、今の技能ランクまでの技をもう覚えています。個人ページの「技能」タブで、覚えた技とまだの技を見られます。',
+      '敵将も戦技を使います。出撃前の敵の情報や組織図に「〇〇の使い手」と出ます。',
     ],
   });
 }

@@ -34,6 +34,8 @@ import { rankOf } from '../core/util';
 import { usableSpells } from '../core/spells';
 import { armoryItem, armoryName, isStock, stockList } from '../core/loot';
 import { PROSE_DENSE, PROSE_BRUTAL, PROSE_FALL } from '../data/warprose';
+import { ARTS } from '../data/arts';
+import { officerArts, artsLabel } from '../core/arts';
 
 const FIT_MARK = ['△', '○', '◎'];
 const SQUAD_LABEL = ['第一部隊', '第二部隊', '第三部隊'];
@@ -303,6 +305,7 @@ function LeaderIntel({ s, q, leader, intel, ids, onScout, scoutMsg }: { s: GameS
       </div>
       {o && o.kind !== 'monster' && (
         <div class="ofc-traits">
+          {officerArts(o, s).length > 0 && <span class="ofc-trait art">{artsLabel(officerArts(o, s))}</span>}
           <span class="small muted">特徴</span>
           {o.traits.map((t) => o.knownTraits.includes(t) ? <span class={`ofc-trait ${OFFICER_TRAITS[t].style ? 'style' : OFFICER_TRAITS[t].weak ? 'weak' : 'strong'}`}>{OFFICER_TRAITS[t].style ? '型' : OFFICER_TRAITS[t].weak ? '弱点' : '強み'}：{OFFICER_TRAITS[t].name}</span> : <span class="ofc-trait unknown">？</span>)}
         </div>
@@ -626,7 +629,9 @@ function sentences(s: GameState, b: BattleState, it: BItem, nameOf: (uid: string
   const au = b.units.find((u) => u.uid === e.a);
   const mt = au ? CLASSES[au.classId]?.moveType : undefined;
   if (e.role === 'atk' && (mt === 'cavalry' || mt === 'flying') && (e.x + e.hp0) % 3 === 0) out.push({ cls: 'narr', text: mt === 'cavalry' ? `${A}は馬で回りこみ、${D}の背後を突いた。` : `${A}は空から${D}へ舞い降りた。` });
-  out.push({ cls: side, text: isMagic && e.role !== 'counter' && e.role !== 'follow' ? `${A}は${w!.name}を唱えた！` : `${A}の${verb}！${e.eff ? '　特効！' : ''}` });
+  // 12夜目：戦技を使ったときは、技の名前
+  if (e.art && ARTS[e.art]) out.push({ cls: `${side} art`, text: `${A}の『${ARTS[e.art].name}』！` });
+  else out.push({ cls: side, text: isMagic && e.role !== 'counter' && e.role !== 'follow' ? `${A}は${w!.name}を唱えた！` : `${A}の${verb}！${e.eff ? '　特効！' : ''}` });
   const du = b.units.find((u) => u.uid === e.d);
   // 11夜目：戦の描写（武器ごと・当たり方ごと）。生徒が倒れたときは、重傷・戦死の文
   const level = s.settings.battleProse ?? 'dense';

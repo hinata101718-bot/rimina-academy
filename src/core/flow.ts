@@ -458,6 +458,8 @@ function warAfterScene(s: GameState, r: Rng, st: Student, kind: 'dead' | 'injure
     if (weaponId && WEAPONS[weaponId] && !WEAPONS[weaponId].spell) L.push({ by: 'narr', text: fill(r.pick(KEEPSAKE)) });
     s.pending.push({ type: 'scene', title: `${st.given}を弔う夜`, lines: L.map((l, i) => (i === 0 ? { ...l, faces: [st.id] } : l)) });
   } else {
+    // 療養の場面は、月末に1つまで（けがの多い月に場面が続きすぎないように）
+    if (s.pending.some((p) => p.type === 'scene' && p.title.endsWith('の療養'))) return;
     for (const t of r.pick(RECOVERY)) L.push({ by: 'narr', text: fill(t) });
     s.pending.push({ type: 'scene', title: `${st.given}の療養`, lines: L.map((l, i) => (i === 0 ? { ...l, faces: [st.id] } : l)) });
   }

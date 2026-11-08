@@ -61,6 +61,8 @@ export interface Student {
   spells: string[];
   /** 会話の記録（GameState.archive の id、新しいものが後ろ） */
   archive?: string[];
+  /** 12夜目：覚えた戦技・心得、付けているもの（おまかせ。手で選んだら artsManual） */
+  arts?: string[]; artsOn?: string[]; artsManual?: boolean;
   /** 10夜目：この子と見た面談・相談の題（同じ会話を二度出さない） */
   seenTalks?: string[];
   /** 信頼40・70・90の特別な面談のうち、済んだもの */
@@ -411,6 +413,8 @@ export type Pending =
   | { type: 'rankup'; items: RankUpItem[] }
   /** 発見の演出（隠れた才能のヒント1→ヒント2→判明、意外な一面） */
   | { type: 'discovery'; studentId: string; stage: 1 | 2 | 3 | 4; title: string; text: string; name?: string }
+  /** 戦技・心得を覚えた（12夜目：タップで進む演出） */
+  | { type: 'art'; studentId: string; ids: string[] }
   /** 才能開花（10夜目：大きな演出） */
   | { type: 'bloom'; studentId: string; skill?: SkillId; gold?: boolean };
 

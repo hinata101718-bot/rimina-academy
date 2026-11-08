@@ -1584,3 +1584,17 @@ i.apt { font-style: normal; display: inline-flex; align-items: center; justify-c
   radial-gradient(ellipse at 50% 50%, transparent 55%, rgba(90, 0, 0, .35) 100%); animation: splatIn .25s ease-out both; }
 @keyframes splatIn { from { transform: scale(.6); opacity: 0; } to { transform: scale(1); opacity: 1; } }
 .fx-fall.dead.splat { background: radial-gradient(ellipse at 50% 80%, #3a0606, #0a0303 70%); }
+/* 12夜目：戦技と心得 */
+.dq-line.art { color: #f6d27a; font-weight: bold; letter-spacing: .05em; text-shadow: 0 0 6px rgba(240, 200, 90, .5); }
+.rb-line.art { color: #8a5a08; font-weight: bold; }
+.ofc-trait.art { background: #2a3a5a; color: #e8dcc0; border-color: #6a7ab0; }
+.arts-card .arts-row { display: flex; gap: 6px; align-items: flex-start; padding: 4px 0; border-bottom: 1px dashed var(--line); }
+.arts-sk { flex: none; width: 2.8em; padding-top: 5px; color: var(--sub); }
+.arts-list { display: flex; flex-wrap: wrap; gap: 4px; min-width: 0; }
+.arts-chip { font-size: 12px; padding: 4px 8px; min-height: 32px; border-radius: 14px; border: 1px solid #b89a62; background: #fffaf0; color: #3a2a1a; }
+.arts-chip.art { border-color: #c06a3a; }
+.arts-chip.mind { border-color: #4a7ab0; }
+.arts-chip.on.art { background: #f3d9c0; font-weight: bold; }
+.arts-chip.on.mind { background: #d6e4f6; font-weight: bold; }
+.arts-chip.bloom { box-shadow: 0 0 0 2px #e8c45a; }
+.arts-chip.none { border-style: dashed; color: #a89880; background: transparent; }

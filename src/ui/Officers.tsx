@@ -1,4 +1,6 @@
 // 敵将の名簿（6夜目）：三国の軍と盗賊団の幹部。会うほど情報が増える
+import { officerArts, artsLabel } from '../core/arts';
+import { ARTS } from '../data/arts';
 import { useEffect, useRef, useState } from 'preact/hooks';
 import type { GameState, EnemyOfficer } from '../core/state';
 import { officerName, rankName, factionName, knowledge, stageName, fullName, officerById, orgChanges, markOrgSeen, prospectsOf, type OrgChange, type OrgChangeKind } from '../core/officers';
@@ -249,6 +251,7 @@ export function OfficerSheet({ s, o, onClose }: { s: GameState; o: EnemyOfficer;
         {o.prospect && <div class="small" style={{ marginTop: 4 }}>見込みのある兵：{o.deed}</div>}
         {o.raisedYear && <div class="small" style={{ marginTop: 4 }}>{o.raisedYear}年目に、一兵卒から取り立てられました（{o.deed}）</div>}
       </div>
+      {o.kind !== 'monster' && officerArts(o, s).length > 0 && <div class="small" style={{ marginTop: 4 }}>戦技：<b>{officerArts(o, s).map((x) => ARTS[x]?.name).join('・')}</b>（{artsLabel(officerArts(o, s))}）</div>}
       {o.kind !== 'monster' && (
         <>
           <h3>隠れた特徴</h3>

@@ -1,5 +1,6 @@
 // 依頼から戦闘を組み立てる（マップの型の組み替え・敵の生成・戦力の調整）
 import { armoryItem } from '../loot';
+import { equippedOf } from '../arts';
 import { B, STATS } from '../../data/balance';
 import { MAPS } from '../../data/maps';
 import { CLASSES, CLASS_LIST } from '../../data/classes';
@@ -34,6 +35,8 @@ export function studentAbilities(st: Student): string[] {
   for (const t of st.traits) { const a = TRAITS[t].ability; if (a) ab.push(a); }
   // 10夜目：才能開花で身につけた技
   if (st.bud?.done && st.bud.ability) ab.push(st.bud.ability);
+  // 12夜目：付けている心得
+  for (const a of equippedOf(st)) if (a.kind === 'mind') ab.push(a.id);
   return ab;
 }
 
@@ -46,6 +49,7 @@ export function unitFromStudent(st: Student, side: Unit['side'], uid: string, x:
   return baseUnit({
     uid, side, studentId: st.id, name: st.given, classId: st.classId, level: st.level, stats, x, y,
     weaponId: attack, weapons, abilities: studentAbilities(st), personality: st.personality,
+    arts: equippedOf(st).filter((a) => a.kind === 'art').map((a) => a.id),
   });
 }
 

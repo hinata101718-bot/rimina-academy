@@ -29,6 +29,8 @@ export interface Unit {
   reloadTurn: number;      // 銃：このターンは撃てない
   aimed: boolean;
   abilities: string[];
+  /** 12夜目：付けている戦技 */
+  arts?: string[];
   personality?: string;
   supportBonus?: unknown;
   escort?: boolean;        // 護衛対象
@@ -114,7 +116,7 @@ export interface BattleState {
 /** 戦いの記録（7夜目）：1回の攻撃・回復・ターンの区切り。x＝同じ攻撃のやりとりの番号 */
 export type BLog =
   | { k: 'turn'; turn: number; side: 'player' | 'enemy' }
-  | { k: 'atk'; x: number; a: string; d: string; w: string | null; dmg: number; hit: boolean; crit: boolean; tri: number; eff: boolean; role: 'atk' | 'counter' | 'follow' | 'duel'; hp0: number; hp1: number; max: number; kill: boolean }
+  | { k: 'atk'; x: number; a: string; d: string; w: string | null; dmg: number; hit: boolean; crit: boolean; tri: number; eff: boolean; role: 'atk' | 'counter' | 'follow' | 'duel'; hp0: number; hp1: number; max: number; kill: boolean; /** 12夜目：使った戦技 */ art?: string }
   | { k: 'heal'; x: number; a: string; d: string; w: string | null; amt: number; hp0: number; hp1: number; max: number };
 
 export interface FeedEntry { t: 'kill' | 'crit' | 'heal' | 'miss' | 'fallen' | 'hit'; a: string; d: string; turn: number; dmg?: number }

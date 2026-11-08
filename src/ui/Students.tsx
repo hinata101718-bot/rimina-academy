@@ -21,6 +21,7 @@ import { ABILITIES } from '../data/abilities';
 import { B, SKILLS, STATS, RANK_POINTS, LEAD_SKILLS } from '../data/balance';
 import { goodOf, badOf, budKnown, budHinted, budName } from '../core/aptitude';
 import { suitablePath } from '../core/career';
+import { ArtsCard } from './Arts';
 import { rankOf, nextRankPoints, MONTH_NAMES } from '../core/util';
 import type { SkillId, Rank } from '../core/types';
 import type { GameState, Student, RankUpItem } from '../core/state';
@@ -197,6 +198,7 @@ function Detail({ s, st, exam, sub }: { s: GameState; st: Student; exam?: boolea
               </div>
             )}
           </div>
+          <ArtsCard s={s} st={st} />
           <SpellCard st={st} />
           {cls.ability && ABILITIES[cls.ability] && <div class="card"><h3>兵種スキル</h3><div><b>{ABILITIES[cls.ability].name}</b>：{ABILITIES[cls.ability].desc}</div></div>}
       </>}
