@@ -220,7 +220,7 @@ export type EndingKind = 'peace' | 'unify' | 'ceasefire' | 'neutral';
 export type Pending =
   | { type: 'weekSummary'; lines: string[]; talks: TalkLog[]; growth?: GrowthEntry[] }
   | { type: 'questBoard' }
-  | { type: 'battleResult'; lines: string[]; grades: { id: string; grade: string; note: string }[]; win: boolean; growth?: GrowthEntry[]; mvp?: string; review?: string[]; title?: string }
+  | { type: 'battleResult'; lines: string[]; grades: { id: string; grade: string; note: string }[]; win: boolean; growth?: GrowthEntry[]; mvp?: string; review?: string[]; title?: string; findings?: BattleFinding[] }
   | { type: 'event'; title: string; lines: string[] }
   | { type: 'entrance' }
   | { type: 'career' }
@@ -232,6 +232,9 @@ export type Pending =
   | { type: 'successor' }
   | { type: 'scene'; title: string; lines: SceneLine[]; after?: 'ending' }
   | { type: 'ending'; kind: EndingKind; country?: CountryId };
+
+/** 戦闘で伸びた・分かったこと（結果の画面にまとめて出す） */
+export interface BattleFinding { id?: string; icon: string; text: string }
 
 /** 成長の記録（ゲージの演出用）。前と後の値だけを持つ */
 export interface GrowthEntry {

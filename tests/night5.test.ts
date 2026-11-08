@@ -74,6 +74,8 @@ describe('自動の戦闘', () => {
       finishBattle(s);
       const p = s.pending.find((x) => x.type === 'battleResult');
       expect(p && p.type === 'battleResult' && p.mvp).toBeTruthy();
+      // この戦いで伸びた・分かったこと：レベルが上がった子は必ず載る
+      if (p && p.type === 'battleResult') for (const g of p.growth ?? []) if (g.lv1 > g.lv0) expect(p.findings?.some((f) => f.id === g.id && f.text.includes(`Lv${g.lv1}`))).toBe(true);
       expect(s.battle).toBeNull();
     }
   });

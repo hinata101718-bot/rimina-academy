@@ -106,6 +106,12 @@ function BattleResult({ s, p, onDone }: { s: GameState; p: Extract<GameState['pe
   return (
     <Sheet title={`${p.win ? '勝利' : '敗北'}${p.title ? `：${p.title}` : ''}`}>
       <AutoResultHead s={s} mvp={p.mvp} review={p.review} />
+      {p.findings && p.findings.length > 0 && (
+        <div class="pcard" style={{ ['--band' as string]: 'var(--gold)' }}>
+          <h3 style={{ marginTop: 0 }}>この戦いで伸びた・分かったこと</h3>
+          <ul class="list sumlist">{p.findings.map((f) => <li><span class="todoicon"><Icon name={f.icon} size={16} /></span><span>{f.text}</span></li>)}</ul>
+        </div>
+      )}
       <h3>生徒ごとの評価</h3>
       {p.grades.map((g) => { const st = s.students[g.id]; if (!st) return null; return <MiniCard st={st} onClick={() => undefined} sub={g.note} right={<span class={`grade g${g.grade}`}>{g.grade}</span>} />; })}
       <div class="pcard"><ul class="list sumlist">{p.lines.map((l) => <li><span class="todoicon"><Icon name={l.startsWith('勝利') ? 'flag' : l.startsWith('敗北') ? 'skull' : l.includes('報酬') ? 'coin' : lineIcon(l)} size={16} /></span><span>{l}</span></li>)}</ul></div>

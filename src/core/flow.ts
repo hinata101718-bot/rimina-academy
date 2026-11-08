@@ -3,7 +3,7 @@ import { B } from '../data/balance';
 import { BACKGROUNDS, COUNTRIES, COUNTRY_SHORT, COUNTRY_NAMES, SKILL_NAMES } from '../data/people';
 import { WEAPONS } from '../data/weapons';
 import type { CountryId, SkillId } from './types';
-import type { GameState, Quest, Student, GrowthEntry } from './state';
+import type { GameState, Quest, Student, GrowthEntry, BattleFinding } from './state';
 import { Rng } from './rng';
 import { enrolled, addMoney, addRep, chronicle, notify, enrollCohort, capacity, mail, available } from './game';
 import { resolveWeek, startMonthStudents, changeMotivation, revealTalent, addSkill } from './week';
@@ -19,7 +19,7 @@ import { simulateAlumni, aidMoney, titleOf } from './alumni';
 import { prepareCareers, graduate, type CareerPlan } from './career';
 import { generateStudent } from './student';
 import { rollTeacherCandidates, monthlySalaries, yearlyRaises } from './teachers';
-import { absMonth, MONTH_NAMES } from './util';
+import { absMonth, MONTH_NAMES, rankOf } from './util';
 import { retireCheck, viceOf, cleanVice } from './instructor';
 import { checkEndings, peaceEraYear } from './ending';
 import { TRAITS } from '../data/people';
@@ -202,10 +202,27 @@ export function finishBattle(s: GameState): void {
     reveal: (st, v) => revealTalent(s, st, v),
     motivation: (st, d) => changeMotivation(st, d),
   });
-  s.pending.splice(s.pending.findIndex((p) => p.type === 'talk') >= 0 ? s.pending.findIndex((p) => p.type === 'talk') : s.pending.length, 0, { type: 'battleResult', lines, grades, win, growth, mvp: auto.mvp ?? undefined, review: auto.review, title: b.title });
+  const firstTalk = s.pending.findIndex((p) => p.type === 'talk');
+  const findings = battleFindings(s, growth, lines, s.pending.slice(firstTalk >= 0 ? firstTalk : s.pending.length));
+  s.pending.splice(firstTalk >= 0 ? firstTalk : s.pending.length, 0, { type: 'battleResult', lines, grades, win, growth, mvp: auto.mvp ?? undefined, review: auto.review, title: b.title, findings });
   s.battle = null;
   if (q?.kind === 'schoolDefense' && win) checkEndings(s, r, 'month');
   endMonth(s);
+}
+
+/** 戦闘のあとの「この戦いで伸びた・分かったこと」（レベル・技能ランク・魔法・才能・特徴・支援） */
+export function battleFindings(s: GameState, growth: GrowthEntry[], lines: string[], talks: GameState['pending']): BattleFinding[] {
+  const out: BattleFinding[] = [];
+  for (const g of growth) {
+    const st = s.students[g.id];
+    if (!st) continue;
+    if (g.lv1 > g.lv0) out.push({ id: st.id, icon: 'star', text: `${st.given}　Lv${g.lv0} → Lv${g.lv1}` });
+    for (const k of g.skills) { const r0 = rankOf(k.p0), r1 = rankOf(k.p1); if (r0 !== r1) out.push({ id: st.id, icon: 'lesson', text: `${st.given}　${SKILL_NAMES[k.k]} ${r0} → ${r1}` }); }
+    for (const sp of g.spells) out.push({ id: st.id, icon: 'tome', text: `${st.given}　${WEAPONS[sp]?.name ?? sp}を覚えた` });
+  }
+  for (const l of lines) if (l.includes('才能') || l.includes('特徴')) { const st = Object.values(s.students).find((x) => x.status === 'enrolled' && l.startsWith(`戦場で${x.given}`) || l.startsWith(`${x.given}の特徴`)); out.push({ id: st?.id, icon: 'lantern', text: l }); }
+  for (const p of talks) if (p.type === 'talk') { const a = s.students[p.talk.a], c = s.students[p.talk.b]; if (a && c) out.push({ id: a.id, icon: 'heart', text: `${a.given}と${c.given}の支援が${p.talk.rank}に` }); }
+  return out;
 }
 
 export function killStudent(s: GameState, st: Student, note: string): void {
