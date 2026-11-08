@@ -63,7 +63,7 @@ export function simulateAlumni(s: GameState, rng: Rng): AlumniNews[] {
       c.rankYears += 1;
       const max = RANK_TITLES[c.path].length - 1;
       const e = effectiveStats(st);
-      let p = B.alumni.promoteBase + (st.level - 15 - c.rank * 7) * 0.02 + c.rankYears * 0.03;
+      let p = B.alumni.promoteBase + (st.level - B.alumni.promoteLevel - c.rank * 7) * 0.02 + c.rankYears * 0.03;
       if (c.path === 'civil') p += (e.cha - 10) * 0.015 + (st.house === 'noble' ? 0.05 : 0);
       if (c.path === 'strategist') p += (e.skl + e.mag - 20) * 0.008;
       if (c.country === 'kingdom') p += st.house === 'noble' ? 0.08 : -0.06;

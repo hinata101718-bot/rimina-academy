@@ -20,3 +20,19 @@ todayCards(s);
 writeFileSync(`${out}/home.json`, serialize(s));
 chooseLesson(s, recommendCard(s));
 writeFileSync(`${out}/result.json`, serialize(s));
+// 月末の依頼掲示板 → 自動の戦闘の途中（判断の手前）
+import { startAutoQuest } from '../src/core/flow';
+import { defaultPlan } from '../src/core/battle/auto';
+import { autoDeploy } from '../src/core/autoplay';
+{
+  const g = JSON.parse(serialize(s)).state;
+  g.pending = [];
+  let guard = 0;
+  while (!g.pending.some((p: { type: string }) => p.type === 'questBoard') && guard++ < 40) { autoPending(g); if (g.pending.some((p: { type: string }) => p.type === 'questBoard')) break; autoDay(g); }
+  g.pending = g.pending.filter((p: { type: string }) => p.type === 'questBoard');
+  writeFileSync(`${out}/board.json`, serialize(g));
+  const q = g.quests.find((x: { real: boolean; enemyCountry: string | null }) => x.real && x.enemyCountry) ?? g.quests.find((x: { real: boolean }) => x.real) ?? g.quests[0];
+  const d = autoDeploy(g);
+  startAutoQuest(g, q.id, d, defaultPlan(g, q, d));
+  writeFileSync(`${out}/battle.json`, serialize(g));
+}

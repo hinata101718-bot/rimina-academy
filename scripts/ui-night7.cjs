@@ -46,6 +46,24 @@ const only = process.env.ONLY ? process.env.ONLY.split(',') : null;
     await p.waitForTimeout(1500);
     await shot('06-growth-moment');
   }
+  if (want('battle')) {
+    await open(path.join(dir, 'battle.json'));
+    await p.waitForTimeout(6000);
+    await shot('07-battlelog');
+    await p.click('.bl-ctrl button:has-text("速く")').catch(() => undefined);
+    for (let i = 0; i < 80; i++) { if (await p.$('.ab-choice')) break; await p.waitForTimeout(300); }
+    await shot('08-battle-choice');
+    await p.click('.ab-copt >> nth=0').catch(() => undefined); await p.waitForTimeout(500);
+    await p.click('.bl-ctrl button:has-text("速く")').catch(() => undefined);
+    for (let i = 0; i < 120; i++) { if (await p.$('button:has-text("結果を見る")')) break; if (await p.$('.ab-choice')) { await p.click('.ab-copt >> nth=0'); await p.waitForTimeout(400); continue; } await p.waitForTimeout(300); }
+    await shot('09-battle-end');
+    await p.click('button:has-text("結果を見る")').catch(() => undefined); await p.waitForTimeout(1200);
+    for (let i = 0; i < 30; i++) { if (await p.$('.levelup')) break; await p.mouse.click(195, 500); await p.waitForTimeout(250); }
+    await p.waitForTimeout(1200);
+    await shot('10-levelup');
+    for (let i = 0; i < 6; i++) { const sk = await p.$('.sheet button:has-text("スキップ")'); if (!sk) break; await sk.click(); await p.waitForTimeout(250); }
+    await shot('11-result');
+  }
   console.log('errors', errors.length ? errors : 'none');
   console.log('wide', wide.length ? wide : 'none');
   await b.close();

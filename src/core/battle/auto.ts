@@ -8,7 +8,7 @@ import { WEAPONS } from '../../data/weapons';
 import { NAMES } from '../../data/names';
 import { COUNTRY_SHORT, TRAITS } from '../../data/people';
 import type { GameState, Quest, Student, FaceParts, EnemyOfficer } from '../state';
-import type { BattleState, Unit, FeedEntry } from './types';
+import type { BattleState, Unit, FeedEntry, BLog } from './types';
 import type { PersonalityId } from '../types';
 import { Rng } from '../rng';
 import { createBattle, enemyUnit, type Deploy } from './setup';
@@ -26,7 +26,9 @@ import { enrolled, available, chronicle } from '../game';
 
 // ---------- 型 ----------
 export interface AutoLine { by: string; text: string }
-export interface AutoScene { title: string; lines: AutoLine[]; faces: string[]; momentum: number; hurt: string[]; down: string[]; /** 宿敵の決着：二人だけの場面（生徒id） */ duo?: string }
+export interface AutoScene { title: string; lines: AutoLine[]; faces: string[]; momentum: number; hurt: string[]; down: string[]; /** 宿敵の決着：二人だけの場面（生徒id） */ duo?: string;
+  /** 戦いの記録（7夜目）：この場面までの攻撃ごとの記録と、場面の終わりの両軍のHP・倒れた（退いた）者 */
+  log?: BLog[]; hp?: Record<string, number>; gone?: string[] }
 export interface AutoChoiceOpt { id: string; label: string; note: string; actor?: string }
 export interface AutoChoice { kind: 'help' | 'push' | 'duel' | 'persuade' | 'route' | 'settle' | 'grudge'; prompt: string; actor?: string; options: AutoChoiceOpt[]; recommended: number; /** 二人だけの特別な場面（宿敵の決着） */ duo?: boolean }
 export interface LeaderInfo {
@@ -73,6 +75,8 @@ export interface AutoState {
   spot: Record<string, number>;
   retreatedAll?: boolean;
   review: string[];
+  /** 戦いのはじめの両軍のHP（uid→[今, 最大]。7夜目） */
+  hp0?: Record<string, [number, number]>;
 }
 
 export interface AutoPlan { tactic: TacticId; roles: Record<string, RoleId> }
@@ -328,11 +332,13 @@ function buildBattle(s: GameState, q: Quest, deploys: Deploy[], plan: AutoPlan, 
   const b = createBattle(s, q, deploys, seed);
   b.auto = newAuto(plan);
   b.feed = [];
+  b.blog = [];
   const r = rngOf(b);
   b.auto.leader = makeLeader(s, q, b, r, plan.tactic);
   b.rng = r.h.rng;
   applyPlan(s, b, q, plan);
   if (TACTICS[plan.tactic].focusBoss && b.auto.leader) b.focus = b.auto.leader.uid;
+  b.auto.hp0 = Object.fromEntries(b.units.map((u) => [u.uid, [u.hp, u.maxHp] as [number, number]]));
   b.auto.startHp = {
     ally: b.units.filter((u) => u.side === 'player').reduce((a, u) => a + u.maxHp, 0) || 1,
     enemy: b.units.filter((u) => u.side === 'enemy').reduce((a, u) => a + u.maxHp, 0) || 1,
@@ -436,8 +442,15 @@ function hurtList(b: BattleState): string[] { return b.units.filter((u) => u.sid
 function downList(b: BattleState): string[] { return b.fallen.map((f) => f.studentId); }
 function spot(a: AutoState, id: string, v = 1) { a.spot[id] = (a.spot[id] ?? 0) + v; }
 
-function sceneOf(b: BattleState, title: string, lines: AutoLine[], faces: string[]): AutoScene {
-  return { title, lines: lines.filter((l) => l.text).slice(0, 5), faces: [...new Set(faces)].slice(0, 6), momentum: momentum(b), hurt: hurtList(b), down: downList(b) };
+function sceneOf(b: BattleState, title: string, lines: AutoLine[], faces: string[], takeLog = true): AutoScene {
+  const sc: AutoScene = { title, lines: lines.filter((l) => l.text).slice(0, 5), faces: [...new Set(faces)].slice(0, 6), momentum: momentum(b), hurt: hurtList(b), down: downList(b) };
+  if (b.blog) {
+    // 戦いの記録：この場面までの分を場面へ移す
+    sc.log = takeLog ? b.blog.splice(0) : [];
+    sc.hp = Object.fromEntries(b.units.map((u) => [u.uid, Math.max(0, u.hp)]));
+    sc.gone = b.units.filter((u) => u.dead || b.retreated.includes(u.uid)).map((u) => u.uid);
+  }
+  return sc;
 }
 
 // 出来事：発生の条件と効果。条件を満たす候補から、直近に出たものを避けて選ぶ
@@ -615,7 +628,7 @@ function openingScene(s: GameState, b: BattleState, q: Quest): AutoScene {
   if (lines.length > 5) lines.splice(1, 1);
   while (lines.length > 5) lines.splice(lines[0].by === 'narr' && lines.length > 5 ? 0 : 2, 1);
   b.rng = r.h.rng;
-  return sceneOf(b, '開戦', lines, ev.length ? [ev[1].by, ...faces] : faces);
+  return sceneOf(b, '開戦', lines, ev.length ? [ev[1].by, ...faces] : faces, false);
 }
 
 function midScene(s: GameState, b: BattleState, title: string, q: Quest): AutoScene {
@@ -623,7 +636,8 @@ function midScene(s: GameState, b: BattleState, title: string, q: Quest): AutoSc
   const lines: AutoLine[] = [];
   if (title === '山場') lines.push({ by: 'narr', text: pickText(s, r, CLIMAX_TEXT[q.objective] ?? CLIMAX_TEXT.rout) });
   const h = highlights(s, b, r, title === '山場' ? 1 : 2);
-  lines.push(...h.lines.slice(0, 3));
+  // 戦いの記録があるときは、誰が何をしたかはカードで見せるので、場面の文には入れない（7夜目）
+  if (!b.blog) lines.push(...h.lines.slice(0, 3));
   const ev = takeEvent(s, b, r, 'mid');
   lines.push(...ev);
   // 援軍
@@ -641,7 +655,7 @@ function endScene(s: GameState, b: BattleState): AutoScene {
   const a = b.auto!;
   const lines: AutoLine[] = [];
   const h = highlights(s, b, r, 1);
-  lines.push(...h.lines.slice(0, 2));
+  if (!b.blog) lines.push(...h.lines.slice(0, 2));
   const win = b.result === 'win';
   if (a.retreatedAll) lines.push({ by: 'narr', text: pickText(s, r, END_TEXT.retreat) });
   const L = a.leader;
@@ -790,13 +804,17 @@ function duel(b: BattleState, ctx: BattleCtx, u: Unit, e: Unit): 'win' | 'lose' 
       const crit = r.next() * 100 < f.crit;
       const dmg = crit ? f.dmg * B.battle.critMul : f.dmg;
       if (a.side === 'player') { a.hits++; a.dmgDealt += dmg; a.expGain += B.battle.exp.hit; }
-      if (d.hp - dmg <= 0) { d.hp = 1; return true; }
+      const hp0 = d.hp;
+      const w = weaponOf(a);
+      if (d.hp - dmg <= 0) { d.hp = 1; b.blog?.push({ k: 'atk', x: b.xseq ?? 0, a: a.uid, d: d.uid, w: w?.id ?? null, dmg: hp0 - 1, hit: true, crit, tri: f.triangle, eff: f.effective, role: 'duel', hp0, hp1: 1, max: d.maxHp, kill: false }); return true; }
       d.hp -= dmg;
+      b.blog?.push({ k: 'atk', x: b.xseq ?? 0, a: a.uid, d: d.uid, w: w?.id ?? null, dmg, hit: true, crit, tri: f.triangle, eff: f.effective, role: 'duel', hp0, hp1: d.hp, max: d.maxHp, kill: false });
     }
     return false;
   };
   // 一騎打ちの間合い（敵将の隣）
   const ux = e.x, uy = Math.min(b.height - 1, e.y + 1);
+  if (b.blog) b.xseq = (b.xseq ?? 0) + 1;
   let res: 'win' | 'lose' | 'draw' = 'draw';
   for (let i = 0; i < AUTO.duelRounds; i++) {
     if (swing(u, e, ux, uy)) { res = 'win'; break; }

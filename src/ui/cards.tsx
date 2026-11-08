@@ -53,8 +53,9 @@ export function MoodDots({ m }: { m: number }) {
   const color = ['#d0702c', '#d39a3a', '#b9b04a', '#8aa84f', '#5f9a4c'][m];
   return <span class="mooddots" title={B.motivationLabel[m]}>{[0, 1, 2, 3, 4].map((i) => <i style={{ background: i <= m ? color : undefined }} />)}</span>;
 }
+/** 体力のゲージ（7夜目：疲労の裏返しを「体力」として見せる。低いと赤） */
 export function FatigueBar({ f }: { f: number }) {
-  return <Gauge v={f} max={100} tone={f >= B.fatigue.slowAt ? 'red' : 'warn'} thin />;
+  return <Gauge v={100 - f} max={100} tone={f >= B.fatigue.slowAt ? 'red' : 'exp'} thin />;
 }
 
 /** 技能の上位n個 */
@@ -81,7 +82,7 @@ export function studentFlags(s: GameState, st: Student, exams?: Set<string>): { 
   if (st.injuredWeeks > 0) out.push({ text: `けが あと${st.injuredWeeks}週`, tone: 'red' });
   if (s.consults.includes(st.id)) out.push({ text: '相談あり', tone: 'gold' });
   if ((exams ?? new Set(examCandidates(s).map((x) => x.id))).has(st.id)) out.push({ text: '試験OK', tone: 'main' });
-  if (st.fatigue >= B.fatigue.slowAt) out.push({ text: `疲労${Math.round(st.fatigue)}`, tone: 'red' });
+  if (st.fatigue >= B.fatigue.slowAt) out.push({ text: `体力${Math.round(100 - st.fatigue)}`, tone: 'red' });
   if (st.motivation <= 1) out.push({ text: 'やる気低下', tone: 'red' });
   if (st.talent && st.talentReveal >= B.talent.hint1 && st.talentReveal < B.talent.full) out.push({ text: '才能のヒント', tone: 'main' });
   if (s.students[st.id] && isBirthdayWeek(s, st)) out.push({ text: '誕生日', tone: 'gold' });
@@ -127,7 +128,7 @@ export function StuCard({ s, st, exams, onClick, extra }: { s: GameState; st: St
         <div class="skill3">{topSkills(s, st).map((k) => <SkillBox k={k} p={st.skills[k]} target={st.targets.includes(k)} />)}</div>
         <div class="sc-foot">
           <span class="nowrap">やる気 <MoodDots m={st.motivation} /></span>
-          <span class="nowrap fat">疲労 <FatigueBar f={st.fatigue} /></span>
+          <span class="nowrap fat">体力 <FatigueBar f={st.fatigue} /></span>
         </div>
         <div class="dream">夢：{dream?.text ? dream.name : '特になし'}</div>
         {extra}

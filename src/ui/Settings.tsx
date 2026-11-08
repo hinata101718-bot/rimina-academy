@@ -28,9 +28,9 @@ export function SettingsTab() {
           {(['easy', 'normal', 'hard'] as Difficulty[]).map((d) => <button class={s.settings.difficulty === d ? 'on' : ''} onClick={() => set((x) => { x.difficulty = d; x.mods = { ...DIFFICULTY[d] }; })}>{{ easy: 'やさしい', normal: 'ふつう', hard: 'むずかしい' }[d]}</button>)}
         </div>
         <details style={{ marginTop: 6 }}><summary class="muted">細かな調整（倍率）</summary>
-          {([['enemy', '敵の強さ'], ['exp', '経験値の入り方'], ['money', 'お金の入り方'], ['death', '戦死の確率'], ['reveal', '才能が分かる速さ'], ['war', '戦争の進む速さ']] as const).map(([k, label]) => (
+          {([['enemy', '敵の強さ'], ['exp', '経験値の入り方'], ['skill', '技能の伸び方'], ['money', 'お金の入り方'], ['death', '戦死の確率'], ['reveal', '才能が分かる速さ'], ['war', '戦争の進む速さ']] as const).map(([k, label]) => (
             <div class="row between"><span>{label}</span>
-              <span class="row"><input type="range" min="0.5" max="1.5" step="0.05" value={s.settings.mods[k]} onInput={(e) => set((x) => { x.mods[k] = Number((e.target as HTMLInputElement).value); })} /><span style={{ width: 40 }}>×{s.settings.mods[k].toFixed(2)}</span></span>
+              <span class="row"><input type="range" min="0.5" max="1.5" step="0.05" value={s.settings.mods[k] ?? 1} onInput={(e) => set((x) => { x.mods[k] = Number((e.target as HTMLInputElement).value); })} /><span style={{ width: 40 }}>×{(s.settings.mods[k] ?? 1).toFixed(2)}</span></span>
             </div>
           ))}
         </details>

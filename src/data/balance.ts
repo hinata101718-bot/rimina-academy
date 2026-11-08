@@ -225,7 +225,7 @@ export const B = {
   },
   // ---- 卒業生 ----
   alumni: {
-    yearlyExp: { warrior: 120, strategist: 90, civil: 60, stay: 50, home: 20, merc: 110 } as Record<string, number>,
+    yearlyExp: { warrior: 140, strategist: 100, civil: 60, stay: 50, home: 25, merc: 120 } as Record<string, number>, // 7夜目：最上級（Lv45）・上限（Lv70）に合わせて少し上げた
     deathRate: { peace: 0.006, tension: 0.015, war: 0.028 },
     frontDeathMul: 1.25, rearDeathMul: 0.8, veteranLevel: 60, veteranMin: 0.45,
     empireFrontExtra: 0.012,
@@ -243,6 +243,7 @@ export const B = {
       civil: [1, 3, 6, 12],
     },
     promoteBase: 0.25,
+    promoteLevel: 22, // 昇進のしやすさの基準のレベル（7夜目：卒業時のレベルが上がったので 15→22）
     tier4Level: 45,
   },
   // ---- 戦況 ----

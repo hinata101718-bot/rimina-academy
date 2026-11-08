@@ -167,17 +167,18 @@ export function moveUnit(b: BattleState, u: Unit, x: number, y: number): boolean
 
 function weaponSkillId(type: string): string { return type === 'holy' || type === 'staff' ? 'faith' : type; }
 
-function strike(b: BattleState, ctx: BattleCtx, a: Unit, d: Unit, out: Strike[]): void {
+function strike(b: BattleState, ctx: BattleCtx, a: Unit, d: Unit, out: Strike[], role: 'atk' | 'counter' | 'follow' = 'atk'): void {
   if (a.dead || d.dead) return;
   const f = forecast(b, a, d, a.x, a.y, ctx.support);
   const s = f.atk;
   if (!s.canAttack) return;
+  const hp0 = d.hp;
   const r = rngOf(b);
   const roll = ((r.next() + r.next()) / 2) * 100;
   const w = weaponOf(a)!;
   a.usedWeapon[w.id] = (a.usedWeapon[w.id] ?? 0) + 1;
   if (w.type === 'gun') a.reloadTurn = b.turn + 1;
-  if (roll >= s.hit) { out.push({ by: a.uid, hit: false, crit: false, dmg: 0 }); log(b, `${a.name}の攻撃は外れた`, 'miss'); b.feed?.push({ t: 'miss', a: a.uid, d: d.uid, turn: b.turn }); return; }
+  if (roll >= s.hit) { out.push({ by: a.uid, hit: false, crit: false, dmg: 0 }); log(b, `${a.name}の攻撃は外れた`, 'miss'); b.feed?.push({ t: 'miss', a: a.uid, d: d.uid, turn: b.turn }); b.blog?.push({ k: 'atk', x: b.xseq ?? 0, a: a.uid, d: d.uid, w: w.id, dmg: 0, hit: false, crit: false, tri: s.triangle, eff: s.effective, role, hp0, hp1: hp0, max: d.maxHp, kill: false }); return; }
   const crit = r.next() * 100 < s.crit;
   const dmg = Math.min(d.hp, crit ? s.dmg * B.battle.critMul : s.dmg);
   d.hp -= dmg; a.dmgDealt += dmg; d.dmgTaken += dmg; a.hits += 1;
@@ -187,6 +188,7 @@ function strike(b: BattleState, ctx: BattleCtx, a: Unit, d: Unit, out: Strike[])
   out.push({ by: a.uid, hit: true, crit, dmg });
   log(b, `${a.name}→${d.name} ${crit ? '必殺！' : ''}${dmg}ダメージ`, crit ? 'crit' : 'hit');
   b.feed?.push({ t: crit ? 'crit' : 'hit', a: a.uid, d: d.uid, turn: b.turn, dmg });
+  b.blog?.push({ k: 'atk', x: b.xseq ?? 0, a: a.uid, d: d.uid, w: w.id, dmg, hit: true, crit, tri: s.triangle, eff: s.effective, role, hp0, hp1: Math.max(0, d.hp), max: d.maxHp, kill: d.hp <= 0 });
   if (w.poison || abilitiesOf(a).some((x) => x.poison)) d.poison = B.battle.poisonTurns;
   if (w.weaken || abilitiesOf(a).some((x) => x.weaken)) d.weaken = B.battle.weakenTurns;
   if (d.hp <= 0) defeat(b, ctx, d, a);
@@ -228,10 +230,11 @@ export function attack(b: BattleState, ctx: BattleCtx, a: Unit, d: Unit): boolea
   if (!w || !canUseNow(b, a, w) || !inRange(b, w, dist(a, d)) || isFriendly(a, d)) return false;
   const f = forecast(b, a, d, a.x, a.y, ctx.support);
   const strikes: Strike[] = [];
+  if (b.blog) b.xseq = (b.xseq ?? 0) + 1;
   strike(b, ctx, a, d, strikes);
-  if (f.def.canAttack) strike(b, ctx, d, a, strikes);
-  if (f.atk.count > 1) strike(b, ctx, a, d, strikes);
-  else if (f.def.canAttack && f.def.count > 1) strike(b, ctx, d, a, strikes);
+  if (f.def.canAttack) strike(b, ctx, d, a, strikes, 'counter');
+  if (f.atk.count > 1) strike(b, ctx, a, d, strikes, 'follow');
+  else if (f.def.canAttack && f.def.count > 1) strike(b, ctx, d, a, strikes, 'follow');
   a.moved = true; a.acted = true; a.aimed = false;
   b.lastAction = { attacker: a.uid, defender: d.uid, strikes, killed: [a, d].filter((u) => u.dead).map((u) => u.uid), seq: ++b.popupSeq };
   recordAdjacency(b, a);
@@ -258,6 +261,7 @@ export function heal(b: BattleState, a: Unit, t: Unit, staffId?: string): boolea
   const w = (staffId ? staffsOf(a).find((x) => x.id === staffId && inRange(b, x, dist(a, t))) : null) ?? bestStaffFor(b, a, t);
   if (!w) return false;
   const amt = Math.min(t.maxHp - t.hp, healAmount(a, w));
+  if (b.blog) { b.xseq = (b.xseq ?? 0) + 1; b.blog.push({ k: 'heal', x: b.xseq, a: a.uid, d: t.uid, w: w.id, amt, hp0: t.hp, hp1: t.hp + amt, max: t.maxHp }); }
   t.hp += amt;
   if (w.cure) { t.poison = 0; t.weaken = 0; }
   if (w.ward) t.ward = w.ward;
@@ -273,6 +277,7 @@ export function heal(b: BattleState, a: Unit, t: Unit, staffId?: string): boolea
 export function useItem(b: BattleState, u: Unit): boolean {
   if (u.acted || !u.item || u.hp >= u.maxHp) return false;
   const amt = u.item === 'elixir' ? u.maxHp - u.hp : Math.min(u.maxHp - u.hp, B.battle.vulnerary);
+  if (b.blog) { b.xseq = (b.xseq ?? 0) + 1; b.blog.push({ k: 'heal', x: b.xseq, a: u.uid, d: u.uid, w: u.item, amt, hp0: u.hp, hp1: u.hp + amt, max: u.maxHp }); }
   u.hp += amt;
   log(b, `${u.name}は${u.item === 'elixir' ? '特効薬' : '傷薬'}を使った（+${amt}）`, 'heal');
   u.item = null; u.moved = true; u.acted = true;
@@ -423,6 +428,7 @@ function phaseStart(b: BattleState, side: 'player' | 'enemy'): void {
 export function startPlayerPhase(b: BattleState): void {
   b.phase = 'player';
   phaseStart(b, 'player');
+  b.blog?.push({ k: 'turn', turn: b.turn, side: 'player' });
   snapshot(b);
 }
 
@@ -433,6 +439,7 @@ export function endPlayerPhase(b: BattleState, ctx: BattleCtx): EnemyReplay {
   for (const u of b.units) if (u.side !== 'enemy') { u.aimed = false; }
   b.phase = 'enemy';
   phaseStart(b, 'enemy');
+  b.blog?.push({ k: 'turn', turn: b.turn, side: 'enemy' });
   replay.initial = viewsOf(b);
   const enemies = b.units.filter((u) => u.side === 'enemy' && !u.dead);
   for (const e of enemies) {

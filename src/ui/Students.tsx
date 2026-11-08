@@ -133,11 +133,12 @@ function Detail({ s, st }: { s: GameState; st: Student }) {
               <h3>状態</h3>
               <div class="statgrid">
                 <div class="row nowrap gap6"><span class="small" style={{ width: 52 }}>やる気</span><MoodDots m={st.motivation} /><span class="small muted">{B.motivationLabel[st.motivation]}</span></div>
-                <div class="row nowrap gap6"><span class="small" style={{ width: 52 }}>疲労</span><FatigueBar f={st.fatigue} /><Num v={Math.round(st.fatigue)} /></div>
+                <div class="row nowrap gap6"><span class="small" style={{ width: 52 }}>体力</span><FatigueBar f={st.fatigue} /><Num v={Math.round(100 - st.fatigue)} /></div>
                 <div class="row nowrap gap6"><span class="small" style={{ width: 52 }}>信頼</span><Gauge v={st.trust} max={100} thin /><Num v={Math.round(st.trust)} /></div>
                 <div class="row nowrap gap6"><span class="small" style={{ width: 52 }}>才能</span><Gauge v={st.talentReveal} max={100} thin tone="skill" /><span class="small muted">{Math.round(st.talentReveal)}%</span></div>
               </div>
               {st.sickWeeks > 0 && <div class="tag red">体調不良（あと{st.sickWeeks}週）</div>}
+              {(st.sickDays ?? 0) > 0 && <div class="tag red">体調不良（あと{st.sickDays}日休み）</div>}
               {st.injuredWeeks > 0 && <div class="tag red">重傷（あと{st.injuredWeeks}週）</div>}
               {st.dropoutSign && <div class="tag red">退学の予兆あり：面談で話を聞こう（あと面談{st.dropoutSign.talksNeeded}回）</div>}
             </div>
@@ -162,6 +163,14 @@ function Detail({ s, st }: { s: GameState; st: Student }) {
               ))}
             </div>
             <div class="small muted">＋の数字は兵種による補正です。</div>
+            {!grad && (
+              <div class="traingrid">
+                <div class="small"><b>鍛錬ゲージ</b><span class="muted">（授業でたまり、満タンで+1。顔が出ている授業ほど早くたまる）</span></div>
+                {STATS.map((k) => (
+                  <div class="trainrow"><span class="small">{STAT_NAMES[k]}</span><span class="ggauge train grow"><span style={{ width: `${Math.round(st.train?.[k] ?? 0)}%` }} /></span><span class="small muted">{(st.trainGain?.[k] ?? 0) > 0 ? `+${st.trainGain![k]}` : ''}</span></div>
+                ))}
+              </div>
+            )}
             {cls.ability && ABILITIES[cls.ability] && <div class="small ruled">兵種スキル：<b>{ABILITIES[cls.ability].name}</b>（{ABILITIES[cls.ability].desc}）</div>}
           </div>
         </div>
@@ -171,7 +180,7 @@ function Detail({ s, st }: { s: GameState; st: Student }) {
             <div class="skillgrid">{SKILLS.filter((k) => skillUnlocked(s, k)).map((k) => <SkillBox k={k} p={st.skills[k]} target={!grad && st.targets.includes(k)} />)}</div>
             {!grad && (
               <div style={{ marginTop: 8 }}>
-                <div class="muted small">目標技能（2つ・金の枠）：授業で特に伸びます。夢に沿うとやる気が上がりやすい（夢に沿う技能：{dream.skills.map((k) => SKILL_NAMES[k]).join('・') || 'なし'}）</div>
+                <div class="muted small">今月の目標技能（2つ・金の枠）：目標の授業でさらに伸びます（1つ目は×1.3）。月に一度決めます。夢に沿うとやる気が上がりやすい（夢に沿う技能：{dream.skills.map((k) => SKILL_NAMES[k]).join('・') || 'なし'}）</div>
                 {[0, 1].map((i) => (
                   <select value={st.targets[i]} onChange={(e) => act((g) => { const x = g.students[st.id]; const t = [...x.targets] as [SkillId, SkillId]; t[i] = (e.target as HTMLSelectElement).value as SkillId; x.targets = t; x.targetsAuto = false; })} style={{ marginRight: 6 }}>
                     {SKILLS.filter((k) => skillUnlocked(s, k)).map((k) => <option value={k}>{SKILL_NAMES[k]}</option>)}

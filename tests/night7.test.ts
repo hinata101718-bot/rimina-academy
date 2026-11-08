@@ -183,3 +183,62 @@ describe('6夜目版のセーブ（形式5）', () => {
     autoDay(s);
   });
 });
+
+import { startAutoQuest, battleCtx } from '../src/core/flow';
+import { defaultPlan, skipAuto } from '../src/core/battle/auto';
+import { battleItems, hpAt, compact } from '../src/core/battle/blog';
+import type { Unit, BLog } from '../src/core/battle/types';
+import { autoDeploy } from '../src/core/autoplay';
+import { rollQuests } from '../src/core/quests';
+
+describe('戦いの記録', () => {
+  const battle = (seed: number) => {
+    const s = newGame({ name: 't', background: 'knight', seed });
+    autoYears(s, 1); autoPending(s);
+    s.pending = [{ type: 'questBoard' }]; s.quests = rollQuests(s);
+    const q = s.quests.find((x) => x.real) ?? s.quests[0];
+    const d = autoDeploy(s);
+    startAutoQuest(s, q.id, d, defaultPlan(s, q, d));
+    skipAuto(s, battleCtx(s), (c) => c.recommended);
+    return s;
+  };
+  it('1回の攻撃ごとの記録が場面に入り、受けた側のHP（前と後）が正しい', () => {
+    const s = battle(31);
+    const b = s.battle!;
+    const logs = b.auto!.scenes.flatMap((sc) => sc.log ?? []);
+    const atk = logs.filter((e) => e.k === 'atk') as Extract<BLog, { k: 'atk' }>[];
+    expect(atk.length).toBeGreaterThan(3);
+    for (const e of atk) {
+      if (e.role === 'duel') continue;
+      expect(e.hp1).toBe(Math.max(0, e.hp0 - e.dmg));
+      if (!e.hit) expect(e.dmg).toBe(0);
+      if (e.kill) expect(e.hp1).toBe(0);
+    }
+    expect(logs.some((e) => e.k === 'turn' && e.side === 'enemy')).toBe(true);
+    expect(atk.some((e) => e.role === 'counter')).toBe(true);
+  });
+  it('記録を最後まで進めると、上のHPの一覧が戦闘の終わりのHPと一致する', () => {
+    const s = battle(32);
+    const b = s.battle!;
+    const items = battleItems(b);
+    const { hp } = hpAt(b, items, items.length);
+    for (const u of b.units) if (hp[u.uid] !== undefined) expect(hp[u.uid]).toBe(Math.max(0, u.hp));
+    // 黄色い帯（出来事・口上）と、ターンの区切りがある
+    expect(items.some((x) => x.k === 'band')).toBe(true);
+    expect(items.some((x) => x.k === 'turn')).toBe(true);
+  });
+  it('雑兵の行動が3つ以上続くと「盗賊3人の攻撃：合計」の1枚にまとまる', () => {
+    const u = (uid: string, side: Unit['side']) => ({ uid, side, boss: false } as Unit);
+    const units = [u('p1', 'player'), u('e1', 'enemy'), u('e2', 'enemy'), u('e3', 'enemy'), u('L', 'enemy')];
+    const atk = (x: number, a: string, d: string, dmg: number, role: 'atk' | 'counter' = 'atk', kill = false): BLog => ({ k: 'atk', x, a, d, w: null, dmg, hit: dmg > 0, crit: false, tri: 0, eff: false, role, hp0: 20, hp1: 20 - dmg, max: 20, kill });
+    const log: BLog[] = [{ k: 'turn', turn: 1, side: 'enemy' }, atk(1, 'e1', 'p1', 3), atk(1, 'p1', 'e1', 5, 'counter'), atk(2, 'e2', 'p1', 4), atk(3, 'e3', 'p1', 2), atk(4, 'L', 'p1', 6)];
+    const items = compact(log, units, 'L');
+    const g = items.find((x) => x.k === 'group');
+    expect(g && g.k === 'group' && g.count === 3 && g.total === 9 && g.counter === 5).toBe(true);
+    // 敵将の攻撃はまとめない
+    expect(items.some((x) => x.k === 'atk' && x.e.a === 'L')).toBe(true);
+    // 倒した攻撃が入ると、まとめない
+    const log2: BLog[] = [atk(1, 'e1', 'p1', 3), atk(2, 'e2', 'p1', 4, 'atk', true), atk(3, 'e3', 'p1', 2)];
+    expect(compact(log2, units, 'L').some((x) => x.k === 'group')).toBe(false);
+  });
+});

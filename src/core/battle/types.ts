@@ -101,7 +101,17 @@ export interface BattleState {
   feed?: FeedEntry[];
   /** 味方が優先して狙う敵（敵将） */
   focus?: string;
+  /** 戦いの記録（7夜目。自動の戦闘だけ。場面を作るときに場面へ移す） */
+  blog?: BLog[];
+  /** 攻撃のやりとりの番号 */
+  xseq?: number;
 }
+
+/** 戦いの記録（7夜目）：1回の攻撃・回復・ターンの区切り。x＝同じ攻撃のやりとりの番号 */
+export type BLog =
+  | { k: 'turn'; turn: number; side: 'player' | 'enemy' }
+  | { k: 'atk'; x: number; a: string; d: string; w: string | null; dmg: number; hit: boolean; crit: boolean; tri: number; eff: boolean; role: 'atk' | 'counter' | 'follow' | 'duel'; hp0: number; hp1: number; max: number; kill: boolean }
+  | { k: 'heal'; x: number; a: string; d: string; w: string | null; amt: number; hp0: number; hp1: number; max: number };
 
 export interface FeedEntry { t: 'kill' | 'crit' | 'heal' | 'miss' | 'fallen' | 'hit'; a: string; d: string; turn: number; dmg?: number }
 
