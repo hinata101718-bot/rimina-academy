@@ -67,12 +67,15 @@ const ONLY = process.env.ONLY ? process.env.ONLY.split(',') : null;
     await shot('10-sortie-result');
     await click('.sheet .btn.primary'); await p.waitForTimeout(300);
     for (let i = 0; i < 12; i++) { if (await p.$('.ev-card')) break; const c = await p.$('.sheet button:has-text("スキップ"), .sheet button:has-text("次へ"), .sheet button:has-text("閉じる")'); if (!c) break; await c.click(); await p.waitForTimeout(250); }
+    await p.evaluate(() => document.querySelector('.ev-card')?.scrollIntoView());
     await shot('11-evals');
   }
   if (want('strat')) { await open('strat.json', true); await p.waitForTimeout(900); await shot('12-new-strat'); }
   if (want('org')) {
     await open('org.json');
-    await tab(2); await click('button:has-text("敵将の名簿")'); await shot('20-orgchart'); await shot('20b-orgchart-full', true);
+    await tab(2); await click('button:has-text("敵将の名簿")');
+    const dot = await p.$('.ofc-tabs button:has(.org-dot)'); if (dot) { await dot.click(); await p.waitForTimeout(400); }
+    await shot('20-orgchart'); await shot('20b-orgchart-full', true);
     await click('.org-playbtn'); await p.waitForTimeout(1400); await shot('21-org-change-play');
     await click('.org-player'); await p.waitForTimeout(1400); await shot('22-org-change-play2');
   }

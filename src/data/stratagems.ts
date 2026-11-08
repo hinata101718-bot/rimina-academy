@@ -71,7 +71,7 @@ export const STRATS: Record<StratId, StratDef> = {
     ok: ['陽動に釣られ、敵の陣が横に伸びた！ 守りが薄い', '{leader}が囮の旗を追って前に出た！'], ng: ['陽動は見抜かれた。敵は動かない……'] },
   withdraw: { id: 'withdraw', name: '退き陣', mark: '退', when: 'mid', base: 60,
     desc: '退く道を先に決めておく。傷ついた子を下げやすく、倒れても重傷で済みやすい',
-    win: { injury: 20, ally: { avo: 5 } }, lose: { ally: { hit: -3 } }, unlock: { start: true },
+    win: { injury: 10, ally: { avo: 3 } }, lose: { ally: { hit: -3 } }, unlock: { start: true },
     tip: 'どこでも使える。危ない依頼の守り札',
     ok: ['{a}の合図で、退く道が開かれた。傷ついた子から下がっていく', '退き陣が整った。これで誰も置いていかない'], ng: ['退く道が敵にふさがれた！ 下がりたくても下がれない……'] },
   fire: { id: 'fire', name: '火計', mark: '火', when: 'open', base: 40, terrain: ['forest', 'village', 'town', 'fort', 'hill'], weather: ['clear'], fizzle: ['rain'], weak: ['fire_weak'], bad: ['iron_wall'],
@@ -138,7 +138,7 @@ export const STRAT = {
 /** 陣形（9夜目）：前列は狙われやすく、後列は守られる */
 export const FORMATION = {
   /** 敵が狙う相手を選ぶときの点（前列+、後列−） */
-  frontAggro: 20, backAggro: -35,
+  frontAggro: 12, backAggro: -20,
   front: { def: 1 } as UnitMod, back: { avo: 4 } as UnitMod,
 };
 

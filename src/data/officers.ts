@@ -34,7 +34,7 @@ export const OFFICER = {
   /** この年齢を過ぎると、年度末に引退することがある */
   retireAge: 56, retireChance: 0.25,
   /** 名簿から選ぶ重み：会ったことのある敵将・執着している生徒が出撃しているとき */
-  metWeight: 1.6, grudgeWeight: 2.5, rivalWeight: 2.0,
+  metWeight: 2.2, grudgeWeight: 2.5, rivalWeight: 3.0,
   /** 魔物の頭が逃げたとき（名簿はないが、因縁として残る） */
   monsterAgain: 0.35,
   /** 隠れた特徴の数 */
@@ -48,7 +48,7 @@ export const OFFICER = {
   /** 宿敵の段階：何度戦えば（直接ぶつかった回数）次の段階か */
   stageAt: [2, 3, 5] as [number, number, number],
   /** 倒れた敵将が、深手を負いながら逃げのびる確率（階級ごと）。敵将を倒せば勝ちの戦いでは×0.6 */
-  survive: [0.5, 0.45, 0.35] as [number, number, number], surviveBossMul: 0.6,
+  survive: [0.55, 0.5, 0.45] as [number, number, number], surviveBossMul: 0.6,
   /** 仇討ちの誓いを立てる人数（倒された子1人につき） */
   vowMax: 2,
   /** 仇討ちの誓い：その敵将との戦いでの補正 */

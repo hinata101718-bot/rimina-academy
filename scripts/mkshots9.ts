@@ -4,7 +4,7 @@ import { writeFileSync, mkdirSync } from 'node:fs';
 import { serialize } from '../src/core/save';
 import { newGame } from '../src/core/game';
 import { autoYears, autoPending, autoDay, setAutoChoicePick, humanLikePick, recommendSquads } from '../src/core/autoplay';
-import { startSortie, finishBattle, battleCtx, chooseLesson } from '../src/core/flow';
+import { startSortie, finishBattle, battleCtx, chooseLesson, squadCount } from '../src/core/flow';
 import { todayCards, recommendCard } from '../src/core/lessons';
 import { skipAuto, officerForQuest } from '../src/core/battle/auto';
 import { markOrgSeen } from '../src/core/officers';
@@ -35,6 +35,8 @@ autoPending(s); s.pending = [];
 save('org', s);
 const b = clone(s);
 toBoard(b);
+// 3部隊を出せる月まで進める
+for (let k = 0; k < 8 && squadCount(b) < 3; k++) { autoPending(b); toBoard(b); }
 save('board', b);
 const sq = recommendSquads(b);
 startSortie(b, sq);

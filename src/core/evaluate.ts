@@ -138,7 +138,7 @@ export function evaluateBattle(s: GameState, b: BattleState, q: Quest | undefine
     if (t.swings >= 1 || u.dmgDealt > 0) st.lastRec = { hitRate: hr, dealt: u.dmgDealt, kills: u.kills };
     // 宿敵・誓い
     const rivals: string[] = [];
-    if (o && rv) {
+    if (o && rv && (rv.stage >= 1 || rv.vow || (rivalsBefore[id] ?? 0) >= 1)) {
       const before = rivalsBefore[id] ?? 0;
       if (rv.settled) rivals.push(`${officerName(o)}との因縁に決着`);
       else if (rv.stage > before) rivals.push(`${officerName(o)}：${stageName(before)}→${stageName(rv.stage)}`);

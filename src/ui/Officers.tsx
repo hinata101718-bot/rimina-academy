@@ -84,7 +84,13 @@ function OrgChart({ s, f, changes, focus, onOpen }: { s: GameState; f: FactionId
   const kidsOf = (id: string) => nodes.filter((n) => n.rank === 2 && n.parent === id);
   const orphans = nodes.filter((n) => n.rank === 2 && !mids.some((m) => m.o.id === n.parent));
   const prospects = prospectsOf(s, f);
-  useEffect(() => { if (focus) setTimeout(() => document.querySelector(`[data-oid="${focus}"]`)?.scrollIntoView?.({ block: 'center', inline: 'center', behavior: 'smooth' }), 200); }, []);
+  const treeRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    // 木が画面より広いときは、真ん中（将軍）が見えるように
+    const el = treeRef.current;
+    if (el && el.scrollWidth > el.clientWidth) el.scrollLeft = (el.scrollWidth - el.clientWidth) / 2;
+    if (focus) setTimeout(() => document.querySelector(`[data-oid="${focus}"]`)?.scrollIntoView?.({ block: 'center', inline: 'center', behavior: 'smooth' }), 200);
+  }, [prev]);
   const Node = ({ n }: { n: ONode }) => <OrgNode s={s} n={n} prev={prev} focus={focus === n.o.id} onOpen={() => onOpen(n.o.id)} />;
   return (
     <div class="org-wrap" style={{ ['--band' as string]: FACTION_COLOR[f] }}>
@@ -99,7 +105,7 @@ function OrgChart({ s, f, changes, focus, onOpen }: { s: GameState; f: FactionId
           </div>
         </div>
       )}
-      <div class="org-tree">
+      <div class="org-tree" ref={treeRef}>
         <ul class="org-root">
           <li>
             {head ? <Node n={head} /> : <div class="org-vacant">{RANK_NAMES[kind][0]}の座は空いている</div>}
