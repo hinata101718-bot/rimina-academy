@@ -82,7 +82,7 @@ export function AwayBlock({ s, p, short }: { s: GameState; p: BattleReport; shor
   const calls = p.calls ?? [];
   return (
     <div class="paper small aw-block">
-      <div class="row nowrap gap6">{cap && <Portrait st={cap} size={30} frame={countryColor(cap.origin)} />}<b>先生は同行しませんでした。{cap ? `部隊長の${cap.given}がまかされました` : ''}</b></div>
+      <div class="row nowrap gap6 aw-head">{cap && <Portrait st={cap} size={30} frame={countryColor(cap.origin)} />}<b>先生は同行しませんでした。{cap ? `部隊長の${cap.given}がまかされました` : ''}</b></div>
       {calls.length === 0 && <div class="muted">ここぞの判断が要る場面はありませんでした。</div>}
       {calls.map((c) => <div class={`aw-call ${c.good ? 'good' : 'bad'}`}>{cap ? `${cap.given}の判断` : '部隊長の判断'}：{c.label} → <b>{c.good ? 'うまくいった' : '迷いが出た'}</b></div>)}
       {!short && (p.moments ?? []).length > 0 && (
@@ -144,7 +144,7 @@ export function LootView({ s, items, onDone }: { s: GameState; items: LootItem[]
 
 export function BattleResult({ s, p, onDone }: { s: GameState; p: BattleReport; onDone: () => void }) {
   const [step, setStep] = useState(p.growth?.length ? 0 : 1);
-  if (step === 2) return <LootView s={s} items={p.loot ?? []} onDone={onDone} />;
+  if (step === 2) return <Sheet><LootView s={s} items={p.loot ?? []} onDone={onDone} /></Sheet>;
   if (step === 0) return <Sheet title={p.win ? '勝利 ― 成長の記録' : '敗北 ― 成長の記録'}><GrowthPlayer s={s} entries={p.growth ?? []} title="出撃した生徒" onDone={() => setStep(1)} /></Sheet>;
   return (
     <Sheet title={`${p.win ? '勝利' : '敗北'}${p.title ? `：${p.title}` : ''}`}>
@@ -160,7 +160,7 @@ export function SortieResult({ s, reports, onDone }: { s: GameState; reports: Ba
   const [step, setStep] = useState<'sum' | 'grow' | 'loot' | number>('sum');
   const loot = reports.flatMap((r) => r.loot ?? []);
   const close = () => { sfx('ok'); if (loot.length) setStep('loot'); else onDone(); };
-  if (step === 'loot') return <LootView s={s} items={loot} onDone={onDone} />;
+  if (step === 'loot') return <Sheet><LootView s={s} items={loot} onDone={onDone} /></Sheet>;
   if (step === 'grow') return <Sheet title="成長の記録"><GrowthPlayer s={s} entries={growth} title="出撃した生徒" onDone={() => setStep(0)} /></Sheet>;
   if (typeof step === 'number') {
     const p = reports[step];
