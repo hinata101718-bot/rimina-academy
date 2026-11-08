@@ -4,7 +4,7 @@
 依頼者：ヒナタさん（眠っています。返事はできません）
 
 ## 0. いちばん大事なこと
-1. **質問で止まらないこと。** 迷ったら `docs/feedback.md` → `docs/design.md` → `docs/hearing.md` の順に意図を読み、判断して進め、判断を報告書に書く。見本：`docs/mockups/worldmap.png`（勢力図）、`docs/mockups/orgchart-fx.png`（組織図の変化の場面。左から討ち取り→抜擢→昇進の玉突き）。ヒナタさん確認済み。
+1. **質問で止まらないこと。** 迷ったら `docs/feedback.md` → `docs/design.md` → `docs/hearing.md` の順に意図を読み、判断して進め、判断を報告書に書く。見本：`docs/mockups/worldmap.png`（勢力図）、`docs/mockups/orgchart-fx.png`（組織図の変化の場面。左から討ち取り→抜擢→昇進の玉突き）。ヒナタさん確認済み（勢力図は 0:09 に最終版を確認）。
 2. **①〜④をすべて終えるまで作業を続けること。**
 3. 段階ごとに `npm test` と `npm run build` を通してコミット・プッシュ。途中の公開でゲームが止まらないこと。
 4. **既存のセーブデータを壊さない。** 12夜目版（形式12）のセーブのテストを足す。
