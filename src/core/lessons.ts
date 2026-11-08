@@ -10,18 +10,30 @@ import { enrolled, available, notify } from './game';
 import { addSupport, addTrust, getSupport, supportRank, supportValue, buildTalk } from './support';
 import { gainExp, startGrowthLog, stopGrowthLog, snapGrowth, diffGrowth, growthRates } from './growth';
 import { learnSpells, learnedText } from './spells';
-import { teacherMul, facilityMulOf, fatigueMul, talentMulOf, traitLessonMulOf, addSkill, revealTalent, changeMotivation, skillUnlocked, interviewStudent, endOfWeek, expBonusOf, startWeekStudents } from './week';
+import { teacherMul, facilityMulOf, talentMulOf, traitLessonMulOf, addSkill, revealTalent, changeMotivation, skillUnlocked, interviewStudent, endOfWeek, expBonusOf, startWeekStudents } from './week';
 import { growTeacherSkill } from './instructor';
 import { viceOf } from './instructor';
 
 export const DAY_NAMES = ['月', '火', '水', '木', '金'];
 
 export function absDay(s: GameState): number { return s.absWeek * 5 + ((s.day ?? 1) - 1); }
-/** 体力（0〜100）。中身は今までの疲労の裏返し */
-export function stamina(st: Student): number { return Math.round(100 - st.fatigue); }
-export function tired(st: Student): boolean { return st.fatigue >= 100 - B.day.lowStamina; }
-/** 授業を受けられる子（体調不良・けがの子は休み） */
-export function attends(st: Student): boolean { return available(st) && !(st.sickDays && st.sickDays > 0); }
+/** 授業を受けられる子（けがの子は休み）。7夜目：生徒の体力・体調不良はなくした */
+export function attends(st: Student): boolean { return available(st); }
+
+// ---------- 先生の体力（7夜目：体力は先生だけ） ----------
+/** 先生の最大体力（年をとると少し下がる。疫病の年は下がる） */
+export function teacherMax(s: GameState): number {
+  const T = B.teacher;
+  const age = Math.max(0, s.instructor.age - T.ageFrom) * T.agePerYear;
+  return Math.max(T.minMax, T.max - age - (s.world.epidemic ? T.epidemic : 0));
+}
+export function teacherStamina(s: GameState): number { s.instructor.stamina ??= teacherMax(s); return Math.min(teacherMax(s), s.instructor.stamina); }
+/** 先生が寝込んでいる（その日は自動で休講） */
+export function teacherSick(s: GameState): boolean { return (s.instructor.sickDays ?? 0) > 0; }
+/** 体力が低いと授業の効果が少し落ちる */
+export function teacherStaminaMul(s: GameState): number { return teacherStamina(s) < B.teacher.lowAt ? B.teacher.lowMul : 1; }
+/** その授業で使う先生の体力（夏の合宿は多め） */
+export function lessonCost(s: GameState, l: LessonDef): number { return l.stamina < 0 ? Math.round(l.stamina * (s.month === 3 ? B.fatigue.campMul : 1)) : l.stamina + (l.special === 'rest' ? B.teacher.chapelRest[s.facilities.chapel ?? 0] : 0); }
 
 function lessonAvailable(s: GameState, l: LessonDef, list: Student[]): boolean {
   if (l.needGun && !s.world.gunUnlocked) return false;
@@ -127,15 +139,13 @@ export function todayCards(s: GameState): LessonDay {
   return s.today;
 }
 
-/** 体力の低い子の人数（休講のカードに出す） */
-export function lowStaminaCount(s: GameState): number { return enrolled(s).filter((st) => attends(st) && tired(st)).length; }
 
 // ---------- 伸び ----------
 
 function lessonMul(s: GameState, st: Student, k: SkillId): number {
   const camp = s.month === 3 ? B.lesson.campMul : 1;
   const vice = viceOf(s, st.grade) ? B.day.viceMul : 1;
-  return teacherMul(s, k) * facilityMulOf(s, k) * B.motivationMul[st.motivation] * fatigueMul(st) * talentMulOf(st, k) * traitLessonMulOf(st) * camp * vice * (s.settings.mods.skill ?? 1);
+  return teacherMul(s, k) * facilityMulOf(s, k) * B.motivationMul[st.motivation] * teacherStaminaMul(s) * talentMulOf(st, k) * traitLessonMulOf(st) * camp * vice * (s.settings.mods.skill ?? 1);
 }
 /** レベルが上がるほど、授業の経験値は少なくなる */
 export function expDamp(level: number): number { const d = B.day.expDamp; return clamp(d.base - level * d.perLevel, d.min, d.max); }
@@ -174,7 +184,9 @@ export interface DayOutcome { lesson: string; faces: string[]; tags: [string, st
  */
 export function resolveLesson(s: GameState, r: Rng, idx: number, talkWith?: string): DayOutcome {
   const day = todayCards(s);
-  const card = day.cards[Math.max(0, Math.min(day.cards.length - 1, idx))];
+  // 先生が寝込んでいる日は、自動で休講
+  const sickRest = teacherSick(s);
+  const card = sickRest ? { id: 'rest', faces: [], tags: [] } : day.cards[Math.max(0, Math.min(day.cards.length - 1, idx))];
   const l = LESSON_BY_ID[card.id] ?? REST;
   const D = B.day;
   const lines: string[] = [];
@@ -223,9 +235,6 @@ export function resolveLesson(s: GameState, r: Rng, idx: number, talkWith?: stri
     // 才能の判明
     const rev = (l.reveal ?? (l.group === 'social' || l.group === 'rest' ? 0.4 : 1)) * D.reveal * faceM + (B.talent.libraryReveal[s.facilities.library ?? 0] + expBonusOf(s)) / 5;
     revealTalent(s, st, rev, lines);
-    // 体力
-    const cost = l.stamina < 0 ? -l.stamina * (camp ? B.fatigue.campMul : 1) : -l.stamina;
-    st.fatigue = clamp(st.fatigue + cost, 0, s.world.epidemic ? B.fatigue.epidemicCap + 20 : 100);
     if (b.face) st.lastAttention = s.absWeek;
   }
 
@@ -233,7 +242,7 @@ export function resolveLesson(s: GameState, r: Rng, idx: number, talkWith?: stri
   const faces = card.faces.map((id) => s.students[id]).filter((x): x is Student => !!x && attends(x));
   const push = (t: TalkLog | null) => { if (t) talks.push(t); };
   if (l.special === 'rest') {
-    lines.push(`今日は休講。みんなゆっくり休んだ（体力+${l.stamina}）`);
+    lines.push(sickRest ? `${s.instructor.name}先生が寝込んでしまい、今日は休講になった` : `今日は休講。先生もゆっくり休んだ（先生の体力+${lessonCost(s, l)}）`);
   } else if (l.special === 'tea') {
     const bd = faces.some((st) => st.birthday && st.birthday.month === s.month && st.birthday.week === s.week);
     const fest = s.month === 8 ? 1.5 : 1;
@@ -287,20 +296,20 @@ export function resolveLesson(s: GameState, r: Rng, idx: number, talkWith?: stri
   // 教官・講師にも身につく（選んだ授業の技能）
   for (const k of Object.keys(l.skills ?? {}) as SkillId[]) growTeacherSkill(s, k, D.teacherGrow, lines);
 
-  // 一日の終わり：回復・体調
-  for (const st of enrolled(s)) {
-    const rec = D.naturalRecovery + D.chapelRecovery[s.facilities.chapel ?? 0];
-    if (st.sickDays && st.sickDays > 0) { st.sickDays -= 1; st.fatigue = clamp(st.fatigue - rec * 2, 0, 100); if (st.sickDays === 0) lines.push(`${st.given}の体調が戻った`); continue; }
-    if (!available(st)) { st.fatigue = clamp(st.fatigue - rec, 0, 100); continue; }
-    const cap = s.world.epidemic ? B.fatigue.epidemicCap : B.fatigue.sickAt;
-    if (st.fatigue >= cap) {
-      st.sickDays = D.sickDays; st.fatigue = B.fatigue.sickReset;
-      lines.push(`${st.given}が体調を崩した（${D.sickDays}日休み）`);
-      notify(s, `${st.given}が体調不良で休み`, st.id);
-      continue;
-    }
-    st.fatigue = clamp(st.fatigue - rec, 0, 100);
-    if (tired(st) && r.chance(D.motivationDrop) && !r.chance(B.diningMotivationKeep[s.facilities.dining ?? 0])) changeMotivation(st, -1);
+  // 一日の終わり：先生の体力（授業で減り、休講で回復。0になると数日寝込む）
+  const T = B.teacher;
+  const ins = s.instructor;
+  if (sickRest) {
+    ins.sickDays = Math.max(0, (ins.sickDays ?? 0) - 1);
+    ins.stamina = Math.min(teacherMax(s), teacherStamina(s) + T.sickRecover);
+    if (!ins.sickDays) lines.push(`${ins.name}先生の体調が戻った`);
+  } else {
+    ins.stamina = clamp(teacherStamina(s) + lessonCost(s, l) + T.natural + T.chapel[s.facilities.chapel ?? 0], 0, teacherMax(s));
+    if (ins.stamina <= 0) {
+      ins.sickDays = T.sickDays; ins.stamina = 0;
+      lines.push(`${ins.name}先生が無理をしすぎて寝込んでしまった（${T.sickDays}日休講）`);
+      notify(s, `${ins.name}先生が寝込んでしまった。しばらく休講`);
+    } else if (ins.stamina < T.lowAt) lines.push(`${ins.name}先生の体力が残り少ない（${Math.round(ins.stamina)}）。休講で休もう`);
   }
 
   // 成長の記録（顔の子・ランクアップ・レベルアップ・魔法・鍛錬ゲージの+1）
@@ -337,8 +346,6 @@ function practiceEvent(s: GameState, r: Rng, card: LessonCard, l: LessonDef, fac
   const f = faces[0];
   if (l.skills || l.stats) cands.push({ kind: 'teacher', w: 2, ids: [r.pick(faces)] });
   if (l.skills) cands.push({ kind: 'extra', w: 1.5, ids: [r.pick(faces)] });
-  const t = faces.find((x) => x.fatigue >= 50);
-  if (t && l.stamina < 0) cands.push({ kind: 'close', w: 2, ids: [t] });
   const sp = faces.find((x) => x.talent && x.talentReveal < B.talent.full && l.skills && Object.keys(l.skills).includes(TALENTS[x.talent].skill as string));
   if (sp) cands.push({ kind: 'spark', w: 3, ids: [sp] });
   if (!cands.length || !f) return null;
@@ -355,7 +362,6 @@ function practiceEvent(s: GameState, r: Rng, card: LessonCard, l: LessonDef, fac
   if (c.kind === 'rival') { addSupport(s, r, a.id, b.id, 2); for (const x of c.ids) for (const k of Object.keys(l.skills ?? {}) as SkillId[]) addSkill(x, k, B.day.skillPts); }
   if (c.kind === 'teacher') addTrust(a, 1);
   if (c.kind === 'extra') for (const k of Object.keys(l.skills ?? {}) as SkillId[]) addSkill(a, k, B.day.skillPts * 1.5);
-  if (c.kind === 'close') a.fatigue = clamp(a.fatigue + 5, 0, 100);
   if (c.kind === 'spark') revealTalent(s, a, 8);
   void PERSONALITIES; void supportValue;
   return { kind: c.kind, ids: c.ids.map((x) => x.id), lines };
@@ -379,9 +385,11 @@ export function advanceDay(s: GameState, r: Rng, lines: string[]): { weekEnded: 
 export function cardScore(s: GameState, card: LessonCard, list: Student[] = enrolled(s).filter(attends)): number {
   const l = LESSON_BY_ID[card.id];
   if (!list.length) return 0;
-  const avgFat = list.reduce((a, st) => a + st.fatigue, 0) / list.length;
-  const low = list.filter(tired).length;
-  if (l.special === 'rest') return (avgFat >= 52 ? 40 : 0) + low * 6 + Math.max(0, avgFat - 40) * 0.8;
+  // 先生の体力：減ってきたら休講、底をつきそうな授業は避ける
+  const st0 = teacherStamina(s);
+  const tired = st0 < B.teacher.restAt;
+  if (l.special === 'rest') return st0 < B.teacher.lowAt ? 99 : tired ? 12 : 0;
+  if (st0 + lessonCost(s, l) <= 0) return -1;
   let v = 0;
   for (const st of list) {
     const face = card.faces.includes(st.id) ? B.day.faceMul : 1;
@@ -392,11 +400,11 @@ export function cardScore(s: GameState, card: LessonCard, list: Student[] = enro
   }
   v /= Math.max(1, list.length) / 6;
   if (l.special === 'interview') v = 8 + card.faces.reduce((a, id) => { const st = s.students[id]; return a + (st?.dropoutSign ? 40 : 0) + (s.consults.includes(id) ? 12 : 0) + (st && st.motivation <= 1 ? 8 : 0); }, 0);
-  if (l.special === 'tea') v = 6 + card.tags.length * 3 + card.faces.length * 2 + (avgFat >= 45 ? 4 : 0);
+  if (l.special === 'tea') v = 6 + card.tags.length * 3 + card.faces.length * 2 + (tired ? 4 : 0);
   if (l.special === 'dinner') v = 4 + list.filter((x) => x.motivation <= 1).length * 4;
   if (l.special === 'career') v = 5 + (s.month >= 6 ? 6 : 0);
-  // 疲れているときは体力を使う授業を避ける
-  if (l.stamina < -6 && avgFat >= 45) v *= 0.6;
+  // 先生が疲れているときは体力を使う授業を避ける
+  if (l.stamina < -6 && tired) v *= 0.6;
   v += card.tags.length * 1.5;
   return v;
 }

@@ -116,12 +116,10 @@ export function chooseReply(s: GameState, t: TalkLog, k: number): void {
   const e = opt.effect;
   if (e.trust) addTrust(st, e.trust);
   if (e.motivation) st.motivation = clamp(st.motivation + e.motivation, 0, 4);
-  if (e.fatigue) st.fatigue = clamp(st.fatigue + e.fatigue, 0, 100);
 }
 
 /** 相談の中身（疲れ・勉強・仲間・故郷） */
 export function consultFlag(rng: Rng, s: GameState, st: Student): string {
-  if (st.fatigue >= 50) return 's_tired';
   const opts = ['s_study', 's_home', ...(bestFriend(s, st) ? ['s_friend'] : [])];
   return rng.pick(opts);
 }

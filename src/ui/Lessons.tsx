@@ -5,7 +5,7 @@ import type { SkillId, StatId } from '../core/types';
 import { LESSON_BY_ID, LESSON_GROUP_NAMES, LESSON_GROUP_COLOR, type LessonDef } from '../data/lessons';
 import { SKILL_NAMES, STAT_NAMES, PERSONALITIES } from '../data/people';
 import { B, SKILLS, RANK_POINTS } from '../data/balance';
-import { todayCards, DAY_NAMES, tired, stamina, lowStaminaCount, attends, recommendCard } from '../core/lessons';
+import { todayCards, DAY_NAMES, attends, recommendCard, teacherStamina, teacherMax, teacherSick, lessonCost } from '../core/lessons';
 import { chooseLesson, weekAuto } from '../core/flow';
 import { skillUnlocked, bestTeacher, autoTargets } from '../core/week';
 import { viceOf, VICE_POLICY_NAMES, viceTargets } from '../core/instructor';
@@ -33,8 +33,22 @@ function gainChips(l: LessonDef): { label: string; up: string }[] {
   return out.slice(0, 4);
 }
 function staminaLabel(s: GameState, l: LessonDef): { text: string; good: boolean } {
-  const v = l.stamina < 0 && s.month === 3 ? Math.round(l.stamina * B.fatigue.campMul) : l.stamina;
+  const v = lessonCost(s, l);
   return { text: `体力${v >= 0 ? '+' : ''}${v}`, good: v >= 0 };
+}
+
+/** 先生の体力ゲージ（7夜目：体力は先生だけ） */
+export function TeacherStamina({ s }: { s: GameState }) {
+  const v = Math.round(teacherStamina(s)), m = teacherMax(s);
+  const low = v < B.teacher.lowAt;
+  return (
+    <div class={`tstamina${low ? ' low' : ''}`}>
+      <span class="small"><b>先生の体力</b></span>
+      <span class="ggauge grow"><span style={{ width: `${(v / m) * 100}%` }} /></span>
+      <b class="small">{v}/{m}</b>
+      {teacherSick(s) ? <span class="small red">寝込んでいる（あと{s.instructor.sickDays}日）</span> : low ? <span class="small red">低いと授業の効果が落ちる</span> : null}
+    </div>
+  );
 }
 /** 顔の子がこの授業で「目」（今月の目標技能） */
 function targetHit(st: Student, l: LessonDef): boolean {
@@ -61,25 +75,29 @@ export function LessonBoard({ s }: { s: GameState }) {
         <h2 class="serif" style={{ margin: '6px 0 0' }}>今日の授業</h2>
         <span class="lb-day">{DAY_NAMES[(s.day ?? 1) - 1]}曜日{day.rain ? '・雨' : ''}</span>
       </div>
-      <div class="muted small">1つ選ぶ。全員が伸びて、顔が出ている子は特に伸びる。</div>
+      <div class="muted small">1つ選ぶ。全員が伸びて、顔が出ている子は特に伸びる。授業は先生の体力を使い、休講で回復する。</div>
+      <TeacherStamina s={s} />
       <div class="targetbox" onClick={() => { sfx('move'); navigate({ tab: 'school', page: 'targets' }); }}>
         <b class="gold">今月の目標技能</b>
         <span class="small"><span class="fmark t inline">目</span> の子は自分の目標の授業でさらに伸びる（タップで見る・変える）</span>
       </div>
+      {teacherSick(s) && <div class="guide">{s.instructor.name}先生が寝込んでいます。今日は自動で休講になります（あと{s.instructor.sickDays}日）。</div>}
       <div class="lcards">
         {day.cards.map((c, i) => <LessonCardView s={s} c={c} on={sel === i} rec={i === rec} onPick={() => { sfx('move'); setSel(sel === i ? null : i); setWho(null); }} onFace={(id) => setWho(who === id ? null : id)} />)}
       </div>
       {whoSt && (
         <div class="whobox" onClick={() => setWho(null)}>
           <Portrait st={whoSt} size={36} frame={countryColor(whoSt.origin)} />
-          <div class="grow small"><b>{whoSt.given}</b>（{whoSt.grade}年・{PERSONALITIES[whoSt.personality].name}）目標：{SKILL_NAMES[whoSt.targets[0]]} {rankOf(whoSt.skills[whoSt.targets[0]])}・体力{stamina(whoSt)}</div>
+          <div class="grow small"><b>{whoSt.given}</b>（{whoSt.grade}年・{PERSONALITIES[whoSt.personality].name}）目標：{SKILL_NAMES[whoSt.targets[0]]} {rankOf(whoSt.skills[whoSt.targets[0]])}・やる気{B.motivationLabel[whoSt.motivation]}</div>
           <button class="btn ghost small" onClick={(e) => { e.stopPropagation(); navigate({ tab: 'students', page: 'detail', id: whoSt.id }); }}>個人ページ</button>
         </div>
       )}
       <div class="muted small" style={{ marginTop: 4 }}>・顔が出る子は毎日変わります（得意な技能・夢・性格に合う授業に出やすい）<br />・顔が2人以上（仲の良い組・恋人・ライバル）重なると友情タッグ✦</div>
       <div style={{ height: 64 }} />
       <div class="lessonbar">
-        {card && l ? (
+        {teacherSick(s) ? (
+          <button class="btn primary block" onClick={() => { sfx('ok'); act((g) => chooseLesson(g, 0)); }}>今日は休講（先生が寝込んでいる）</button>
+        ) : card && l ? (
           talkFaces.length > 1 ? (
             <div class="row nowrap gap6" style={{ width: '100%' }}>
               <span class="small">誰と話す？</span>
@@ -100,7 +118,6 @@ function LessonCardView({ s, c, on, rec, onPick, onFace }: { s: GameState; c: Le
   const sl = staminaLabel(s, l);
   const tagged = new Set(c.tags.flat());
   const faces = c.faces.map((id) => s.students[id]).filter((x): x is Student => !!x && attends(x));
-  const low = l.special === 'rest' ? lowStaminaCount(s) : 0;
   const teacher = l.skills && Object.keys(l.skills).length ? bestTeacher(s, Object.keys(l.skills)[0] as SkillId) : '';
   return (
     <div class={`lcard g-${l.group}${on ? ' on' : ''}`} style={{ ['--lc' as string]: LESSON_GROUP_COLOR[l.group] }} onClick={onPick} role="button">
@@ -117,7 +134,6 @@ function LessonCardView({ s, c, on, rec, onPick, onFace }: { s: GameState; c: Le
             <span class={`lc-face${tagged.has(st.id) ? ' tag' : ''}`} onClick={(e) => { e.stopPropagation(); onFace(st.id); }}>
               <Portrait st={st} size={44} frame={countryColor(st.origin)} />
               {targetHit(st, l) && <i class="fmark t">目</i>}
-              {tired(st) && <i class="fmark f">疲</i>}
               {c.consult?.includes(st.id) && <i class="fmark c">相</i>}
               {tagged.has(st.id) && <i class="fmark s">✦</i>}
             </span>
@@ -125,7 +141,7 @@ function LessonCardView({ s, c, on, rec, onPick, onFace }: { s: GameState; c: Le
         </div>
       )}
       {c.tags.length > 0 && <div class="lc-tag">✦ 友情タッグ {c.tags.map(([a, b]) => `${s.students[a]?.given}×${s.students[b]?.given}`).join('・')}</div>}
-      {l.special === 'rest' ? <div class="small muted">{low ? `体力の低い子が${low}人` : 'みんなまだ元気'}</div> : l.note ? <div class="small muted">{l.note}</div> : teacher ? <div class="small muted">担当：{teacher}</div> : null}
+      {l.special === 'rest' ? <div class="small muted">先生の体力 {Math.round(teacherStamina(s))}/{teacherMax(s)}</div> : l.note ? <div class="small muted">{l.note}</div> : teacher ? <div class="small muted">担当：{teacher}</div> : null}
       {rec && !on && <span class="lc-rec">おすすめ</span>}
     </div>
   );

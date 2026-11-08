@@ -54,7 +54,7 @@ function Roster({ s }: { s: GameState }) {
         {[[0, '全学年'], [1, '1年'], [2, '2年'], [3, '3年'], [9, '★気にかける']].map(([g, label]) => <button class={grade === g ? 'on' : ''} onClick={() => { sfx('move'); setGrade(g as number); }}>{label}</button>)}
       </div>
       <div class="row between" style={{ marginBottom: 4 }}>
-        <select value={sort} onChange={(e) => setSort((e.target as HTMLSelectElement).value as typeof sort)}><option value="grade">学年順</option><option value="level">レベル順</option><option value="mood">やる気の低い順</option><option value="fatigue">疲れている順</option></select>
+        <select value={sort} onChange={(e) => setSort((e.target as HTMLSelectElement).value as typeof sort)}><option value="grade">学年順</option><option value="level">レベル順</option><option value="mood">やる気の低い順</option></select>
         <div class="seg" style={{ width: 150 }}>
           <button class={view === 'card' ? 'on' : ''} onClick={() => act((g) => { g.settings.rosterView = 'card'; })}>カード</button>
           <button class={view === 'compact' ? 'on' : ''} onClick={() => act((g) => { g.settings.rosterView = 'compact'; })}>簡易</button>
@@ -133,12 +133,10 @@ function Detail({ s, st }: { s: GameState; st: Student }) {
               <h3>状態</h3>
               <div class="statgrid">
                 <div class="row nowrap gap6"><span class="small" style={{ width: 52 }}>やる気</span><MoodDots m={st.motivation} /><span class="small muted">{B.motivationLabel[st.motivation]}</span></div>
-                <div class="row nowrap gap6"><span class="small" style={{ width: 52 }}>体力</span><FatigueBar f={st.fatigue} /><Num v={Math.round(100 - st.fatigue)} /></div>
                 <div class="row nowrap gap6"><span class="small" style={{ width: 52 }}>信頼</span><Gauge v={st.trust} max={100} thin /><Num v={Math.round(st.trust)} /></div>
                 <div class="row nowrap gap6"><span class="small" style={{ width: 52 }}>才能</span><Gauge v={st.talentReveal} max={100} thin tone="skill" /><span class="small muted">{Math.round(st.talentReveal)}%</span></div>
               </div>
               {st.sickWeeks > 0 && <div class="tag red">体調不良（あと{st.sickWeeks}週）</div>}
-              {(st.sickDays ?? 0) > 0 && <div class="tag red">体調不良（あと{st.sickDays}日休み）</div>}
               {st.injuredWeeks > 0 && <div class="tag red">重傷（あと{st.injuredWeeks}週）</div>}
               {st.dropoutSign && <div class="tag red">退学の予兆あり：面談で話を聞こう（あと面談{st.dropoutSign.talksNeeded}回）</div>}
             </div>

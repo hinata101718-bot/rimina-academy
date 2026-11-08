@@ -50,7 +50,6 @@ function Home({ s }: { s: GameState }) {
   if (ex.length) todo.push({ icon: 'exam', text: `兵種試験を受けられる生徒が${ex.length}人（${ex.map((x) => x.given).join('・')}）`, go: () => navigate({ tab: 'students', page: 'exam' }), red: true });
   for (const st of list) {
     if (st.dropoutSign) todo.push({ icon: 'bell', text: `退学の予兆：${st.given}（面談のカードで話を聞こう）`, go: () => navigate({ tab: 'students', page: 'detail', id: st.id }), red: true });
-    if (st.fatigue >= B.fatigue.warnAt && available(st)) todo.push({ icon: 'bell', text: `体力が少ない：${st.given}（体力${Math.round(100 - st.fatigue)}。休講で回復）`, go: () => navigate({ tab: 'students', page: 'detail', id: st.id }) });
     if (st.motivation <= 0) todo.push({ icon: 'bell', text: `やる気がとても低い：${st.given}`, go: () => navigate({ tab: 'students', page: 'detail', id: st.id }) });
   }
   for (const st of list) if (st.birthday && st.birthday.month === s.month && st.birthday.week === s.week) todo.push({ icon: 'cake', text: `今週は${st.given}の誕生日（お茶会のカードに出やすい）`, go: () => navigate({ tab: 'students', page: 'detail', id: st.id }) });
@@ -103,7 +102,6 @@ function Home({ s }: { s: GameState }) {
                     <Portrait st={st} size={60} frame={c} />
                     <NameLine st={st} size={15} family={false} />
                     <div class="small row nowrap gap4" style={{ justifyContent: 'center' }}><MoodDots m={st.motivation} /></div>
-                    <div class="small row nowrap gap4" style={{ width: '100%' }}>体力<FatigueBar f={st.fatigue} /></div>
                     {f && <span class={`flag ${f.tone}`}>{f.text}</span>}
                   </div>
                 ); })}
@@ -146,7 +144,7 @@ function Facilities({ s }: { s: GameState }) {
       <div class="muted">所持金 {money(s.money)}・施設の維持費 毎月{money(upkeepCost(s))}（段階1つにつき{B.upkeepPerLevel}G）</div>
       {ids.map((f) => {
         const lv = s.facilities[f] ?? 0; const cost = facilityCost(s, f); const def = B.facilities[f];
-        const eff = f === 'library' ? '魔道の伸び↑・才能が早く分かる' : f === 'chapel' ? '信仰の伸び↑・体力が回復しやすい' : f === 'dining' ? 'やる気が下がりにくい・交流の会話が増える' : f === 'stable' ? '騎乗・飛行の伸び↑・騎兵/天馬の兵種試験が受けられる' : f === 'range' ? '銃・弓の伸び↑' : '剣・槍・斧の伸び↑';
+        const eff = f === 'library' ? '魔道の伸び↑・才能が早く分かる' : f === 'chapel' ? '信仰の伸び↑・先生の体力が回復しやすい' : f === 'dining' ? 'やる気が下がりにくい・交流の会話が増える' : f === 'stable' ? '騎乗・飛行の伸び↑・騎兵/天馬の兵種試験が受けられる' : f === 'range' ? '銃・弓の伸び↑' : '剣・槍・斧の伸び↑';
         return (
           <div class="pcard" style={{ ['--band' as string]: lv >= 3 ? 'var(--gold)' : lv > 0 ? 'var(--main)' : '#cfc6b2' }}>
             <div class="row between nowrap">

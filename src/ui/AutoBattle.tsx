@@ -115,7 +115,6 @@ export function AutoPrep({ s, q, onBack }: { s: GameState; q: Quest; onBack?: ()
               <span class="ab-lv"><LvBadge lv={st.level} /></span>
               <span class="ab-name">{st.given}</span>
               <span class="ab-cls">{CLASSES[st.classId]?.name}</span>
-              {st.fatigue >= AUTO.fatigueFrom && <span class="ab-warn">疲</span>}
               {on && <span class="ab-check">✓</span>}
             </button>
           );

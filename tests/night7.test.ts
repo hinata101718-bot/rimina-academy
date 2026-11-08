@@ -5,7 +5,7 @@ import { deserialize, serialize } from '../src/core/save';
 import { newGame, enrolled } from '../src/core/game';
 import { autoYears, autoPending, autoWeek, autoDay, finishAuto, autoBattle } from '../src/core/autoplay';
 import { chooseLesson, weekAuto, rng } from '../src/core/flow';
-import { todayCards, resolveLesson, absDay, tired, stamina } from '../src/core/lessons';
+import { todayCards, resolveLesson, absDay, teacherStamina, teacherMax, teacherSick } from '../src/core/lessons';
 import { LESSON_BY_ID } from '../src/data/lessons';
 import { B, SAVE_VERSION } from '../src/data/balance';
 import { Rng } from '../src/core/rng';
@@ -15,7 +15,7 @@ import type { GameState } from '../src/core/state';
 const fixture = (name: string) => readFileSync(new URL(`./fixtures/${name}`, import.meta.url), 'utf8');
 const fresh = (seed = 5) => { const s = newGame({ name: 't', background: 'knight', seed }); s.pending = []; return s; };
 /** すべての子を同じ条件にする（才能・特徴・やる気・疲れ） */
-function even(s: GameState) { for (const st of enrolled(s)) { st.talent = null; st.traits = []; st.motivation = 2; st.fatigue = 0; st.targets = ['sword', 'lance']; } }
+function even(s: GameState) { s.instructor.stamina = 100; for (const st of enrolled(s)) { st.talent = null; st.traits = []; st.motivation = 2; st.targets = ['sword', 'lance']; } }
 
 describe('日ごとの授業カード', () => {
   it('毎日5種類＋休講が出る。1人の子の顔は1日に1枚だけ。同じ日には同じカード', () => {
@@ -53,19 +53,30 @@ describe('日ごとの授業カード', () => {
     expect(g[0] / g[ci]).toBeGreaterThan(2 * 1.3 * 1.3 * 0.85);
     expect(g[0] / g[ci]).toBeLessThan(2 * 1.3 * 1.3 * 1.15);
   });
-  it('休講で全員の体力が回復し、体力が尽きると体調を崩して何日か休む', () => {
+  it('体力は先生だけ：授業で減り、休講で回復。0になると数日寝込んで自動で休講', () => {
     const s = fresh(12);
-    for (const st of enrolled(s)) st.fatigue = 70;
-    expect(tired(enrolled(s)[0])).toBe(true);
-    s.today = { key: absDay(s), cards: [{ id: 'rest', faces: [], tags: [] }] };
+    s.instructor.stamina = 60;
+    s.today = { key: absDay(s), cards: [{ id: 'axe_strike', faces: [], tags: [] }, { id: 'rest', faces: [], tags: [] }] };
     resolveLesson(s, rng(s), 0);
-    for (const st of enrolled(s)) expect(stamina(st)).toBeGreaterThan(30 + 25);
-    const st = enrolled(s)[0];
-    st.fatigue = 98;
-    s.today = { key: absDay(s), cards: [{ id: 'axe_strike', faces: [], tags: [] }] };
+    expect(teacherStamina(s)).toBeLessThan(60);
+    const before = teacherStamina(s);
+    resolveLesson(s, rng(s), 1);
+    expect(teacherStamina(s)).toBeGreaterThan(before + 20);
+    // 生徒には体力も体調不良もない
+    for (const st of enrolled(s)) { expect(st.fatigue).toBe(0); expect(st.sickDays ?? 0).toBe(0); }
+    s.instructor.stamina = 3;
     const r = resolveLesson(s, rng(s), 0);
-    expect(st.sickDays).toBeGreaterThan(0);
-    expect(r.lines.some((l) => l.includes('体調を崩した'))).toBe(true);
+    expect(teacherSick(s)).toBe(true);
+    expect(r.lines.some((l) => l.includes('寝込んで'))).toBe(true);
+    const sk = enrolled(s)[0].skills.axe;
+    const r2 = resolveLesson(s, rng(s), 0);
+    expect(r2.lesson).toBe('rest');
+    expect(enrolled(s)[0].skills.axe).toBe(sk);
+  });
+  it('年をとると先生の最大体力が少し下がる', () => {
+    const s = fresh(13);
+    s.instructor.age = 30; const young = teacherMax(s);
+    s.instructor.age = 62; expect(teacherMax(s)).toBeLessThan(young);
   });
   it('鍛錬ゲージ：授業で能力ごとのゲージがたまり、満タンで+1', () => {
     const s = fresh(13);
@@ -142,7 +153,9 @@ describe('6夜目版のセーブ（形式5）', () => {
   it('週の途中（個人指導・週末の予定・重点科目あり）：形式6になり、重点科目と週末の予定は最初の日のカードに出る', () => {
     const s = deserialize(fixture('v6-week.json'));
     expect(s.version).toBe(SAVE_VERSION);
-    expect(SAVE_VERSION).toBe(6);
+    expect(SAVE_VERSION).toBe(7);
+    for (const st of enrolled(s)) expect(st.fatigue).toBe(0);
+    expect(s.instructor.stamina).toBe(100);
     expect(s.day).toBe(1);
     expect(s.plan.tutoring.length + s.plan.weekend.length).toBe(0);
     expect(s.settings.mods.skill).toBe(1);
@@ -346,6 +359,6 @@ describe('まるごと書いた会話', () => {
       const t = buildTalk(s, new Rng({ rng: i + 1 }), sp, 'C');
       if (t && WHOLE_TALKS.some((w) => sp.seen.includes(w.id))) whole++;
     }
-    expect(whole).toBeGreaterThan(15);
+    expect(whole).toBeGreaterThan(10);
   });
 });

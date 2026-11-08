@@ -36,6 +36,7 @@ export function migrate(s: GameState, from: number): GameState {
   if (from < 4) migrateTo4(s);
   if (from < 5) migrateTo5(s);
   if (from < 6) migrateTo6(s);
+  if (from < 7) migrateTo7(s);
   s.heirs ??= [];
   s.archive ??= {};
   s.notices ??= [];
@@ -198,4 +199,18 @@ function migrateTo6(s: GameState): void {
       ...(s.battle ? ['いま途中の戦闘は、そのまま続けられます。'] : []),
     ],
   });
+}
+
+/**
+ * 7夜目の途中の版（version 6）→ version 7：体力は先生だけ（生徒の体力・疲労・体調不良をなくす）
+ * - 生徒の疲労・体調不良（日・週）を消す。先生の体力を満タンで始める
+ * - 6夜目版からの変換（migrateTo6 のあと）もここを通る
+ */
+function migrateTo7(s: GameState): void {
+  for (const st of [...Object.values(s.students ?? {}), ...(s.applicants ?? [])]) { st.fatigue = 0; st.sickDays = 0; st.sickWeeks = 0; }
+  s.instructor.stamina ??= 100;
+  s.instructor.sickDays ??= 0;
+  s.today = null;
+  s.pending ??= [];
+  s.pending.push({ type: 'event', title: '体力は先生だけになりました', lines: ['生徒の体力（疲労）と体調不良はなくなりました。', '授業は先生の体力を使います。武器の授業は多め、頭と心の授業は少なめ、交流は少し。休講で大きく回復します。', '先生の体力が低いと授業の効果が少し落ち、0になると数日寝込んで自動で休講になります。体力のゲージは授業カードの画面に出ています。'] });
 }

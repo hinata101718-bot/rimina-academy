@@ -167,7 +167,6 @@ function applyPlan(s: GameState, b: BattleState, q: Quest, plan: AutoPlan): void
     if (st) {
       const m = (st.motivation - 2) * AUTO.motivationStep;
       addMod(u, { hit: m, avo: m });
-      if (st.fatigue >= AUTO.fatigueFrom) addMod(u, AUTO.fatigueMod);
     }
   }
 }
@@ -404,7 +403,7 @@ export function recommendDeploy(s: GameState, q: Quest, limit: number, base: (id
   const pool = q.kind ? (q.kind === 'monster' ? ['axe'] : q.enemyCountry ? ['lance', 'sword', 'axe'] : ['axe', 'sword']) : [];
   const score = (st: Student) => {
     const c = CLASSES[st.classId] ?? CLASSES.novice;
-    let v = st.level * 3 + (st.motivation - 2) * 2 - (st.fatigue >= AUTO.fatigueFrom ? 4 : 0);
+    let v = st.level * 3 + (st.motivation - 2) * 2;
     for (const t of pool) if (c.weapons.some((w) => BEATS[w] === t)) v += 1.5;
     return v;
   };
@@ -1180,7 +1179,6 @@ export function applyAutoResults(s: GameState, b: BattleState, r: Rng, lines: st
   const intel = enemyIntel(s, { ...b, units: b.units.map((u) => ({ ...u, dead: false })) });
   if (intel.matchup >= 0.8) review.push(pk(REVIEW_TEXT.triangleGood)); else if (intel.matchup <= -0.8) review.push(pk(REVIEW_TEXT.triangleBad));
   if (a.events.some((x) => x.startsWith('combo') || x.startsWith('lovers'))) review.push(REVIEW_TEXT.support[0]);
-  if (dep.filter((x) => x.st.fatigue >= AUTO.fatigueFrom).length >= 2) review.push(REVIEW_TEXT.tired[0]);
   if (dep.some((x) => x.st.motivation <= 0)) review.push(REVIEW_TEXT.lowMotivation[0]);
   return { mvp, review: review.slice(0, 3) };
 }

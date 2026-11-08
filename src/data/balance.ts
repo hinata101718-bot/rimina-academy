@@ -1,7 +1,7 @@
 // バランス値。ゲームの数値はすべてここに集める（設計書の「ふつう」が初期値）。
 import type { Rank, SkillId, StatId } from '../core/types';
 
-export const SAVE_VERSION = 6;
+export const SAVE_VERSION = 7;
 
 export const RANKS: Rank[] = ['E', 'E+', 'D', 'D+', 'C', 'C+', 'B', 'B+', 'A', 'A+', 'S'];
 export const RANK_POINTS: Record<Rank, number> = {
@@ -71,6 +71,16 @@ export const B = {
     consultInterview: true,
     sickDays: 5,                   // 体調を崩すと休む日数
     motivationDrop: 0.06,          // 疲れているとき、1日にやる気が下がる確率
+  },
+  // ---- 先生の体力（7夜目の途中で方針変更：体力は先生だけ。生徒の体力・疲労・体調不良はなくした） ----
+  teacher: {
+    max: 100, ageFrom: 45, agePerYear: 1, minMax: 70, epidemic: 15, // 年をとると最大体力が少し下がる（45歳から1年に1、最低70）。疫病の年は−15
+    natural: 4,                 // 毎日の自然回復
+    chapel: [0, 1, 2, 3],       // 礼拝堂の段階ごとの毎日の回復
+    chapelRest: [0, 5, 10, 15], // 礼拝堂の段階ごとの休講の回復の上乗せ
+    lowAt: 30, lowMul: 0.85,    // 体力がこれ未満だと授業の効果×0.85
+    restAt: 45,                 // おまかせ：これ未満なら休講も考える
+    sickDays: 3, sickRecover: 20, // 0になると3日寝込む（自動で休講）。寝込んでいる間は1日+20
   },
   // ---- 授業（6夜目まで。週末・個人指導の数字は古いセーブの変換と会話の条件に使う） ----
   lesson: {

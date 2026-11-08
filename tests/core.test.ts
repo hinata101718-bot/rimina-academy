@@ -68,7 +68,7 @@ describe('1週間', () => {
     expect(s.pending.some((p) => p.type === 'questBoard')).toBe(true);
     const after = enrolled(s);
     expect(after.some((x, i) => x.skills.sword + x.skills.lance > before[i].sword + before[i].lance)).toBe(true);
-    expect(after.some((x) => x.fatigue > 0)).toBe(true);
+    expect((s.instructor.stamina ?? 100)).toBeLessThan(100); // 7夜目：体力は先生だけ
     expect(Object.values(s.supports).some((sp) => sp.value > 0)).toBe(true);
   });
   it('支援値が上がると会話が組み立てられる', () => {

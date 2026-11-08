@@ -10,19 +10,25 @@ export const PHRASES_IV: PhraseTable = {
     cheerful: 'えーっ、先生も勉強中なの！？', shy: '……せんせいも、べんきょう、するんだ。', competitive: '先生も勉強してるのか……負けていられないな。', whimsical: 'ふうん、先生も勉強するんだ。なんだか面白いね。',
   },
   iv_r3_teach: {
-    hot: '俺、教えるのは下手ですけど、やってみます！', calm: '人に教えたことはありませんが……やってみます。', timid: 'わ、わたしなんかが…先生に教えるなんて…',
-    cynic: '僕が先生に教えるの？ 立場が逆じゃないか。', gentle: 'わたしにも、教えられることがあるかなあ。', serious: '私などが先生にお教えするなど、恐れ多いことです。',
-    cheerful: 'わたしが先生の先生！？ やってみたい！', shy: '……わたしに、おしえられること、あるかな。', competitive: '教えるからには、手加減はしませんよ。', whimsical: '教えるのって、なんだか楽しそう。'
+    hot: '教える側も、勉強になるんですね！ 知らなかったです！', calm: '……教える側にも、学ぶことがあるのですね。', timid: 'お、教える側も…勉強になるんですね…',
+    cynic: 'ふうん。教わる側のほうが大変だと思ってたけど。', gentle: '教える側も、お勉強になるんですね〜', serious: '教える立場にも学びがあるとは……心に留めておきます。',
+    cheerful: 'へえー！ 教えるのも勉強になるんだ！', shy: '……おしえるのも、べんきょう、なんだ。', competitive: '教える側も鍛えられる、ってことですか。', whimsical: '教えると覚えるって、なんだか不思議だね。',
   },
   iv_r3_teach_talent: {
-    hot: '最近、{myTalentSkill}だけは誰にも負けない気がするんです！ それなら教えられます！', calm: '{myTalentSkill}なら……少しは教えられるかもしれません。', timid: 'あ、あの…{myTalentSkill}なら…ちょっとだけ…',
-    cynic: '{myTalentSkill}なら、まあ、教えてやらないこともないよ。', gentle: '{myTalentSkill}なら、お教えできるかも〜', serious: '{myTalentSkill}でしたら、お役に立てるかもしれません。',
-    cheerful: '{myTalentSkill}なら任せて！ 最近すっごく調子いいの！', shy: '……{myTalentSkill}なら、すこし。', competitive: '{myTalentSkill}なら、先生にだって負けません。', whimsical: '{myTalentSkill}なら、なんとなく教えられる気がする。'
+    hot: 'そういえば俺、最近{myTalentSkill}だけは誰にも負けない気がするんです！', calm: '……そういえば最近、{myTalentSkill}には少し手応えがあります。', timid: 'あ、あの…わたし、最近{myTalentSkill}だけは…ちょっとだけ、自信が…',
+    cynic: 'そういえば、{myTalentSkill}だけは最近ちょっと調子いいんだよね。', gentle: 'そういえばわたし、最近{myTalentSkill}がちょっと得意なんですよ〜', serious: '僭越ながら、最近は{myTalentSkill}に手応えを感じております。',
+    cheerful: 'そういえばわたし、最近{myTalentSkill}がすっごく調子いいの！', shy: '……{myTalentSkill}なら、すこし、とくい。', competitive: '{myTalentSkill}なら、最近は先生にも負けない気がします。', whimsical: 'そういえば最近、{myTalentSkill}がなんとなく楽しいんだ。',
   },
   iv_r3_proud: {
     hot: 'はい！ 任せてください！', calm: '……分かりました。準備しておきます。', timid: 'は、はい…がんばります…',
     cynic: '……しかたないな。覚悟しておいてよ。', gentle: 'はーい。楽しみにしててくださいね。', serious: '承知いたしました。誠心誠意、お教えします。',
     cheerful: 'やったー！ 先生の先生だ！', shy: '……うん。がんばる。', competitive: '覚悟してください、先生。', whimsical: 'いいよ。気が向いた日にね。'
+  },
+  // 近況3の結び（先生の「ありがとう」に返す）
+  iv_r3_end: {
+    hot: 'こちらこそです！ 先生に教える日、楽しみにしてます！', calm: 'こちらこそ。……少し、楽しみです。', timid: 'こ、こちらこそ…ちゃんと教えられるよう、練習しておきます…',
+    cynic: '……礼を言うのはまだ早いよ。教えてからにして。', gentle: 'こちらこそ、ありがとうございます〜。楽しみですね。', serious: 'こちらこそ、身に余る光栄です。',
+    cheerful: 'えへへ、こっちこそ！ 先生の先生、がんばるね！', shy: '……こちらこそ。', competitive: '礼なら、俺の授業を受けてからにしてください。', whimsical: 'ふふ、どういたしまして。まだ何も教えてないけどね。',
   },
 
   // ===== 近況1 =====
@@ -42,7 +48,7 @@ export const PHRASES_IV: PhraseTable = {
     cheerful: 'ふつう！ でもふつうって、けっこう幸せですよね！', shy: '……ふつう、です。', competitive: 'まあまあです。まだ満足はしてません。', whimsical: 'うーん、ふつう。たぶん。',
   },
   iv_r_skill: {
-    hot: '{mySkill}、毎日夜まで振ってます！ 手の皮がむけても平気です！', calm: '{mySkill}は少しずつですが、手応えを感じています。', timid: '{mySkill}…まだ下手だけど、前よりは…怖くなくなりました…',
+    hot: '{mySkill}、毎日へとへとになるまで稽古してます！ まだまだ伸びます！', calm: '{mySkill}は少しずつですが、手応えを感じています。', timid: '{mySkill}…まだ下手だけど、前よりは…怖くなくなりました…',
     cynic: '{mySkill}ですか。まあ、人並みにはなってきたかと。', gentle: '{mySkill}、ちょっとずつ楽しくなってきましたよ〜', serious: '{mySkill}は毎朝の自主練を欠かさず続けております。',
     cheerful: '{mySkill}、すっごく楽しいです！ 昨日は先輩にほめられました！', shy: '……{mySkill}、すこし、うまくなった……と思います。', competitive: '{mySkill}なら、同期の誰にも負けないつもりです。', whimsical: '{mySkill}、気分がのる日はけっこういける。',
   },
@@ -78,9 +84,9 @@ export const PHRASES_IV: PhraseTable = {
     cheerful: 'ぜんぶおいしいです！ あ、でも{myFood}が出たら最高です！', shy: '……おいしい、です。……{myFood}も、好き。', competitive: '量が足りないです。{myFood}なら十杯はいけるのに。', whimsical: '{myFood}、食べたいなあ。今すぐ。',
   },
   iv_r2_home: {
-    hot: '{myHome}です！ {mySight}がすっごくきれいで、いつか先生にも見せたいです！', calm: '{myHome}です。{mySight}が見える、静かな所です。', timid: '{myHome}…です。{mySight}が、好きでした…',
-    cynic: '{myHome}ですよ。{mySight}くらいしか自慢はないですね。', gentle: '{myHome}ですよ〜。{mySight}がね、とってもきれいなんです。', serious: '{myHome}です。{mySight}が見渡せる、良い土地です。',
-    cheerful: '{myHome}です！ {mySight}がね、すっごいんですよ！', shy: '……{myHome}。……{mySight}が、きれいで……', competitive: '{myHome}です。{mySight}なら、どこにも負けません。', whimsical: '{myHome}。{mySight}を眺めてぼーっとするのが好きだった。',
+    hot: '{mySight}がすっごくきれいなところです！ いつか先生にも見せたいです！', calm: '{mySight}が見える、静かな所です。', timid: '{mySight}が…見えるところで…好きでした…',
+    cynic: '{mySight}くらいしか自慢のない所ですよ。', gentle: '{mySight}がね、とってもきれいなところなんです〜', serious: '{mySight}が見渡せる、良い土地です。',
+    cheerful: '{mySight}がね、すっごいんですよ！ 先生にも見てほしいなあ！', shy: '……{mySight}が、きれいな、ところ……', competitive: '{mySight}なら、どこにも負けない所です。', whimsical: '{mySight}を眺めてぼーっとするのに、ちょうどいい所。',
   },
   iv_r2_home_orphan: {
     hot: '孤児院です！ チビたちがいっぱいいて、毎日うるさかったです！', calm: '孤児院です。賑やかでしたが、居心地は悪くなかった。', timid: 'こ、孤児院です…院長先生が、優しかったです…',
@@ -152,7 +158,7 @@ export const PHRASES_IV: PhraseTable = {
   iv_c_nodream_more: {
     hot: 'でも、ここで仲間と過ごして、なんか見えてきた気もするんです！', calm: 'ただ、ここで過ごした時間が、答えのかけらにはなっています。', timid: 'でも…ここに来て、少しだけ…やりたいことが…',
     cynic: '……でも、ここでの三年は無駄じゃなかったと思ってます。', gentle: 'でもね、みんなと一緒にいられる場所がいいなあ、とは思うんです〜', serious: 'ただ、この学校で学んだことを活かせる道に進みたいと考えております。',
-    cheerful: 'でも、みんなと離れるのはさみしいなあ！', shy: '……でも、ここで……少し、見えた気がします。', competitive: 'でも、どこへ行っても負けないことだけは決めてます。', whimsical: 'でもね、どこに行ってもなんとかなる気はしてる。',
+    cheerful: 'でも、みんなと離れるのはさみしいなあ！', shy: '……でも、ここで……少し、見えた気がします。', competitive: 'ただ、ここで競い合った連中のことは、どこへ行っても忘れません。', whimsical: 'でもね、どこに行ってもなんとかなる気はしてる。',
   },
   iv_c_fear: {
     hot: '……もし戦場で仲間と向き合ったら、って考えると、正直こわいです。', calm: 'いつか同期と剣を交えるかもしれない。覚悟はしているつもりです。', timid: 'こ、こわいです…みんなと戦うことになったら…',
@@ -240,7 +246,7 @@ export const PHRASES_IV: PhraseTable = {
   iv_s_study: {
     hot: '{mySkill}がぜんぜん伸びないんです！ 毎日やってるのに！', calm: '{mySkill}の伸びが止まっている気がして。', timid: '{mySkill}が…うまくならなくて…',
     cynic: '{mySkill}、行き詰まってましてね。', gentle: '{mySkill}がね、なかなか上手にならないんです〜', serious: '{mySkill}において伸び悩んでおります。',
-    cheerful: '{mySkill}、壁にぶつかっちゃって！', shy: '……{mySkill}が……', competitive: '{mySkill}で、同期に差をつけられてるんです。', whimsical: '{mySkill}、最近つまんなくなってきちゃって。',
+    cheerful: '{mySkill}、壁にぶつかっちゃって！', shy: '……{mySkill}が……', competitive: '{mySkill}で、同期に差をつけられてるんです。', whimsical: '{mySkill}、最近ちっとも上達しなくて、つまんないの。',
   },
   iv_s_study2: {
     hot: '同じことばっかりやってて、何が悪いのか分からないんです！', calm: 'やり方を変えるべきか、続けるべきか迷っています。', timid: 'どうしたら…いいのか…分からなくて…',
@@ -263,7 +269,7 @@ export const PHRASES_IV: PhraseTable = {
     cheerful: '家族、元気かなあって、急に気になっちゃって！', shy: '……家族が、しんぱいで……', competitive: '故郷で何かあったら、俺が守らなきゃいけないのに。', whimsical: '最近、故郷の夢ばっかり見るんだ。',
   },
   iv_s_home2: {
-    hot: '会いたいなあ……あ、いや、修行中なんでしたっけ！', calm: '……ただ、ここを離れるわけにもいかない。', timid: '帰りたいなって…ちょっとだけ…',
+    hot: '会いたいなあ……あ、いや、今は修行中でした！ がまんします！', calm: '……ただ、ここを離れるわけにもいかない。', timid: '帰りたいなって…ちょっとだけ…',
     cynic: '別にホームシックってわけじゃないですよ。……たぶん。', gentle: 'ちょっとだけ、帰りたくなっちゃいました〜', serious: '修業中の身で、甘えたことを申しました。',
     cheerful: 'みんなの顔、見たいなあ！', shy: '……あいたい。', competitive: '弱音です。忘れてください。', whimsical: 'たまには顔見たいなって。',
   },

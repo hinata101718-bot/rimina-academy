@@ -177,6 +177,9 @@ export interface Instructor {
   studentId?: string;
   /** 着任した年 */
   since?: number;
+  /** 先生の体力（7夜目）と、寝込んでいる残りの日数 */
+  stamina?: number;
+  sickDays?: number;
 }
 
 export interface WorldState {

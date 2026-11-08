@@ -742,3 +742,8 @@ body { background-attachment: fixed; }
 .bl-card, .lr-head { position: relative; }
 .lcard, .bl-card { background-image: linear-gradient(180deg, rgba(255,255,255,.4), rgba(255,255,255,0) 45%); }
 .seedcard .flag.red { background: var(--accent); color: #fff; }
+.tstamina { display: flex; align-items: center; gap: 6px; margin: 6px 0 2px; padding: 6px 10px; border: 1px solid var(--line); border-radius: 10px; background: var(--paper2); flex-wrap: wrap; }
+.tstamina .ggauge { min-width: 120px; }
+.tstamina .ggauge > span { background: linear-gradient(90deg, #4f9a6a, #7cc08f); }
+.tstamina.low .ggauge > span { background: linear-gradient(90deg, #c0533e, #e08a6a); }
+.tstamina .red, .small.red { color: var(--accent); font-weight: bold; }

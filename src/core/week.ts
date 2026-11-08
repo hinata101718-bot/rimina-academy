@@ -63,7 +63,7 @@ export function facilityMulOf(s: GameState, k: SkillId): number {
   }
   return m;
 }
-export function fatigueMul(st: Student): number { return st.fatigue >= B.fatigue.slowAt ? B.fatigue.slowMul : 1; }
+
 export function talentMulOf(st: Student, k: SkillId): number {
   if (!st.talent) return 1;
   const t = TALENTS[st.talent];
@@ -137,7 +137,6 @@ export function endOfWeek(s: GameState, rng: Rng): string[] {
   for (const st of enrolled(s)) {
     if (st.sickWeeks > 0) { st.sickWeeks -= 1; if (st.sickWeeks === 0) lines.push(`${st.given}の体調が戻った`); }
     if (st.injuredWeeks > 0) { st.injuredWeeks -= 1; if (st.injuredWeeks === 0) lines.push(`${st.given}のけがが治った`); }
-    if (st.fatigue >= B.fatigue.warnAt) notify(s, `${st.given}の体力が${Math.round(100 - st.fatigue)}`, st.id);
     st.lowMotivWeeks = st.motivation === 0 ? st.lowMotivWeeks + 1 : 0;
   }
   lines.push(...processDropout(s, rng));

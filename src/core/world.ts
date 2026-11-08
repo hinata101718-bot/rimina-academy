@@ -238,7 +238,7 @@ export function majorEvents(s: GameState, rng: Rng, yearEnd: boolean): string[] 
   // 8. 疫病
   if (yearEnd && rng.chance(B.world.events.epidemicRate)) {
     w.epidemic = true;
-    fire('疫病の流行', ['大陸で疫病が流行している。今年は体調を崩す生徒が出やすい（疲労の限界が下がる）。']);
+    fire('疫病の流行', ['大陸で疫病が流行している。今年は先生の体力の上限が下がる（無理をすると寝込みやすい）。']);
   }
   // 9. 学校防衛戦
   //    中立宣言の条件が防衛戦のほかすべてそろっていると、激戦期でなくても、学校の名声を快く思わない者に狙われることがある
