@@ -47,11 +47,11 @@ export const MAPS: Record<string, MapTemplate> = {
     '.?..E.?.',
     '~~=~~=~~',
     '..?..?..',
-    '.V.S..V.',
+    '.V....V.',
     '?.....?.',
     'PPP..PPP',
-    '.PP.PP..',
-  ] },
+    '.PPSPP..',
+  ] }, // 7夜目：守る村人（S）を味方の後ろへ（前にいて1ターン目に倒され、防衛戦がすぐ負けになっていた）
   mountain_fort: { id: 'mountain_fort', name: '山の砦', bossTerrain: 'fort', rows: [
     'MM#.K#MM',
     'M.E..E.M',

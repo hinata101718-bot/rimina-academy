@@ -176,8 +176,9 @@ describe('自動の戦闘', () => {
 
   it('育て方が結果に出る：生徒を強くすると勝ちやすく、弱くすると負けやすい', () => {
     let strong = 0, weak = 0;
-    for (let seed = 1; seed <= 12; seed++) {
-      for (const mul of [1.4, 0.6]) {
+    // （7夜目：敵の伸びを下げたので、弱くする側を0.6→0.45、試す数を12→16に）
+    for (let seed = 1; seed <= 16; seed++) {
+      for (const mul of [1.4, 0.45]) {
         const s = deserialize(fixture('v3-save.json'));
         const q = boardOf(s, seed);
         const d = autoDeploy(s);

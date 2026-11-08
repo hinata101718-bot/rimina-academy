@@ -161,7 +161,8 @@ export function createBattle(s: GameState, quest: Quest, deploys: Deploy[], seed
   if (quest.objective === 'escape') b.escapeNeed = Math.min(B.battle.escapeNeed, deploys.length);
   // 守る対象
   if (npc && (quest.objective === 'escort' || quest.objective === 'defend')) {
-    const st = emptyStats(3); st.hp = B.battle.npcHp; st.def = B.battle.npcDef; st.res = B.battle.npcDef; st.spd = 5; st.lck = 8;
+    // 7夜目：依頼のレベルに合わせて丈夫に（銃兵の多い防衛戦で、1ターン目に村人が倒れて負けることがあったため）
+    const st = emptyStats(3); st.hp = Math.round(B.battle.npcHp + quest.level * B.battle.npcHpPerLevel); st.def = Math.round(B.battle.npcDef + quest.level * B.battle.npcDefPerLevel); st.res = st.def; st.spd = 5; st.lck = 8;
     b.units.push(baseUnit({ uid: 'npc', side: 'npc', name: quest.objective === 'escort' ? '依頼人' : '村人', classId: 'novice', level: 1, stats: st, x: npc[0], y: npc[1], escort: true }));
   }
   // 敵
@@ -170,7 +171,13 @@ export function createBattle(s: GameState, quest: Quest, deploys: Deploy[], seed
   const pool = kind?.enemyPool ?? ['fighter', 'swordsman', 'lancer', 'archer', 'mage'];
   const level = Math.max(1, Math.round(quest.level * s.settings.mods.enemy));
   const nEnemy = Math.min(enemyTiles.length, deploys.length + (quest.danger - 1) + (quest.objective === 'defend' ? 2 : quest.objective === 'escape' ? 1 : 0) + (quest.real ? 0 : -1));
-  const spots = rng.shuffle([...enemyTiles].filter(([x, y]) => !b.units.some((u) => u.x === x && u.y === y))).slice(0, Math.max(2, nEnemy));
+  // 7夜目：頭目の場所とは重ねない。防衛戦では、守る村人のすぐそばから敵を出さない（1ターン目に倒されて負けることがあったため）
+  const needBoss = (boss || quest.objective === 'boss' || quest.objective === 'seize') && quest.objective !== 'rescue' && quest.objective !== 'escape';
+  const bossTile = needBoss ? (boss ?? enemyTiles[0]) : null;
+  const guard = b.units.find((u) => u.escort);
+  let cand = rng.shuffle([...enemyTiles].filter(([x, y]) => !b.units.some((u) => u.x === x && u.y === y) && !(bossTile && bossTile[0] === x && bossTile[1] === y)));
+  if (guard && quest.objective === 'defend') cand = [...cand.filter(([x, y]) => Math.abs(x - guard.x) + Math.abs(y - guard.y) >= B.battle.defendSpawnDist), ...cand.filter(([x, y]) => Math.abs(x - guard.x) + Math.abs(y - guard.y) < B.battle.defendSpawnDist)];
+  const spots = cand.slice(0, Math.max(2, nEnemy));
   const aiFor = (): Unit['ai'] => rng.weighted(['charge', 'ambush', 'hold'] as const, (a) => ({ charge: quest.objective === 'defend' ? 8 : 4, ambush: 4, hold: 1 })[a]);
   let n = 0;
   for (const [x, y] of spots) {
@@ -179,8 +186,8 @@ export function createBattle(s: GameState, quest: Quest, deploys: Deploy[], seed
     u.ai = aiFor();
     b.units.push(u);
   }
-  if ((boss || quest.objective === 'boss' || quest.objective === 'seize') && quest.objective !== 'rescue' && quest.objective !== 'escape') {
-    const [bx, by] = boss ?? enemyTiles[0];
+  if (needBoss && bossTile) {
+    const [bx, by] = bossTile;
     const u = enemyUnit(rng, `e${n++}`, rng.pick(pool), level + 2, bx, by, gun, true);
     u.ai = quest.objective === 'boss' || quest.objective === 'seize' ? 'hold' : 'ambush';
     u.name = `${u.name}（頭目）`;

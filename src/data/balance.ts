@@ -191,6 +191,7 @@ export const B = {
     enemyPowerBase: 0.5, enemyPowerPerDanger: 0.1, drillPowerMul: 0.85,
     gunDefPierce: 0.5,
     escortAggro: 25, npcHp: 30, npcDef: 6, escapeNeed: 3,
+    npcHpPerLevel: 2, npcDefPerLevel: 0.4, defendSpawnDist: 5, // 7夜目：守る相手（村人・依頼人）は依頼のレベルに合わせて丈夫に
   },
   terrain: {
     plain: { name: '平地', avo: 0, def: 0, cost: { infantry: 1, cavalry: 1, armor: 1, flying: 1 } },
