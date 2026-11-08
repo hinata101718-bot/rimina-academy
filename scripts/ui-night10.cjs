@@ -75,6 +75,40 @@ const W = Number(process.env.W || 390);
   await p.waitForTimeout(1200); await shot('17-bloom');
   await p.click('.bloom-wrap'); await p.waitForTimeout(400); await p.click('.bloom-wrap'); await p.waitForTimeout(400); await p.click('.bloom-wrap'); await p.waitForTimeout(600);
   await shot('18-bloom-teacher');
+  // 主な画面すべて：幅360・390・430でページが横にずれないか（10夜目の途中の感想メモ）
+  const checked = [];
+  const measure = async (name, w) => {
+    await p.waitForTimeout(350);
+    const r = await p.evaluate(() => {
+      const de = document.documentElement;
+      const sheets = [...document.querySelectorAll('.sheet, .ab-view, main, #app')].map((x) => ({ c: x.className, sw: x.scrollWidth, cw: x.clientWidth, ox: getComputedStyle(x).overflowX }));
+      const bad = sheets.filter((x) => x.sw > x.cw + 1 && x.ox !== 'hidden' && x.ox !== 'clip');
+      return { doc: de.scrollWidth, bad: bad.map((x) => `${x.c.split(' ')[0]}:${x.sw}`) };
+    });
+    checked.push(`${name}@${w}`);
+    if (r.doc > w || r.bad.length) wide.push(`${name}@${w}: ページ${r.doc}px ${r.bad.join(' ')}`);
+  };
+  for (const w of [360, 390, 430]) {
+    await p.setViewportSize({ width: w, height: 844 });
+    await open('skills.json');
+    await measure('ホーム', w);
+    await tab(0); await click('.command'); await measure('授業', w); await click('button:has-text("戻る")');
+    await tab(1); await measure('名簿', w);
+    await click('.stucard >> nth=0');
+    for (const tb of ['能力', '技能', '人柄', '関係', '記録']) { await click(`button:has-text("${tb}")`); await measure(`個人ページ・${tb}`, w); }
+    await tab(2); await measure('戦況', w);
+    await click('button:has-text("敵将の名簿")'); await measure('組織図', w);
+    await tab(3); await measure('年鑑', w);
+    await tab(4); await measure('設定', w);
+    await tab(0); for (const pg of ['武器庫', '施設・講師', '教官']) { const b2 = await p.$(`button:has-text("${pg}")`); if (b2) { await b2.click(); await measure(pg, w); await click('button:has-text("戻る")'); } }
+    await open('board.json', true); await closeAll(); await measure('月末の出撃', w);
+    await click('.sq-card >> nth=0 >> .tap'); await measure('出撃前', w);
+    await p.evaluate(() => { const h = [...document.querySelectorAll('h3')].find((x) => x.textContent.includes('陣形')); h && h.scrollIntoView(); }); await measure('出撃前・役割と陣形', w);
+    await open('battle.json', true); await measure('戦いの画面', w);
+    await open('result.json', true); await measure('結果', w);
+    await open('bloom.json', true); await measure('開花', w);
+  }
+  console.log('checked', checked.length, '画面×幅');
   // 幅360・430でも横にずれないか
   for (const w of [360, 430]) {
     await p.setViewportSize({ width: w, height: 844 });
