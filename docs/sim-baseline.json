@@ -1,0 +1,19 @@
+{
+  "note": "長いシミュレーション（40年×10回×方針4つ）の主な数字。次の回はこの数字と比べる（前の版のコードで回し直さない）。",
+  "night": 9,
+  "years": 40,
+  "runs": 10,
+  "source": "docs/reports/night9.md の表と docs/sim-report.md（9夜目）",
+  "policies": {
+    "auto":    { "name": "おまかせ", "schoolDeaths": 2.2, "winRate": 94.1, "firstEnding": { "count": 10, "avgYear": 20.0 }, "moneyMedian": 19303, "moneyAvg": 26021, "nemesis": 12.1, "epithets": 23.2, "alumniDeathRate": 6, "gradLevel": 31, "battlesPerYear": 31.5, "cardsPerBattle": 47 },
+    "peace":   { "name": "和平狙い", "schoolDeaths": 1.3, "winRate": 96.2, "firstEnding": { "count": 10, "avgYear": 13.9, "main": "和平の円卓 9" }, "moneyMedian": 19587, "moneyAvg": 30243, "nemesis": 13.4, "epithets": 14.7, "alumniDeathRate": 2, "gradLevel": 31, "battlesPerYear": 31.7, "cardsPerBattle": 46 },
+    "unify":   { "name": "統一狙い", "schoolDeaths": 1.9, "winRate": 96.3, "firstEnding": { "count": 10, "avgYear": 8.1, "main": "統一 10" }, "moneyMedian": 19737, "moneyAvg": 22386, "nemesis": 9.1, "epithets": 21.7, "alumniDeathRate": 8, "gradLevel": 31, "battlesPerYear": 31.4, "cardsPerBattle": 42 },
+    "neutral": { "name": "中立狙い", "schoolDeaths": 1.2, "winRate": 96.2, "firstEnding": { "count": 10, "avgYear": 18.4, "main": "学校の中立宣言 9" }, "moneyMedian": 29240, "moneyAvg": 34924, "nemesis": 11.3, "epithets": 18.3, "alumniDeathRate": 6, "gradLevel": 31, "battlesPerYear": 31.4, "cardsPerBattle": 43 }
+  },
+  "growth": {
+    "grade3": { "level": 31, "hp": 46, "bestStat": 30, "worstStat": 12, "topSkill": 420, "secondSkill": 252, "otherSkill": 85 },
+    "statsPerLevelUp": null,
+    "bloomsPerCohort": null
+  },
+  "monthEndTaps3Squads": 135
+}
