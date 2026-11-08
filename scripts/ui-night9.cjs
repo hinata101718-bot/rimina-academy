@@ -40,10 +40,27 @@ const ONLY = process.env.ONLY ? process.env.ONLY.split(',') : null;
     await p.evaluate(() => { const h = [...document.querySelectorAll('h3')].find((x) => x.textContent.includes('陣形')); h && h.scrollIntoView(); });
     await shot('04-formation');
   }
-  if (want('battle')) {
-    await open('battle.json', true); await p.waitForTimeout(800);
+  const got = new Set();
+  const playBattle = async (file, prefix) => {
+    await open(file, true); await p.waitForTimeout(800);
     for (let i = 0; i < 6; i++) await click('.bl-log');
-    await shot('05-battle-log');
+    if (!got.has('log')) { got.add('log'); await shot(`${prefix}-battle-log`); }
+    for (let i = 0; i < 400; i++) {
+      for (const [sel, name] of [['.fx-cutin', '06-crit-cutin'], ['.fx-kill', '07-kill-stamp'], ['.fx-vs', '08-fate-duel'], ['.fx-fall', '09-student-fall']]) {
+        if (!got.has(name) && await p.$(sel)) { got.add(name); await p.waitForTimeout(sel === '.fx-kill' ? 250 : 600); await p.screenshot({ path: `${out}/${name}.png` }); console.log('shot', name); }
+      }
+      if (await p.$('.fx-over')) { await p.click('.fx-over').catch(() => undefined); await p.waitForTimeout(150); continue; }
+      if (await p.$('.ab-copt')) { if (!got.has('choice')) { got.add('choice'); await shot(`${prefix}-choice`); } await p.click('.ab-copt >> nth=0'); await p.waitForTimeout(400); continue; }
+      const end = await p.$('.ab-endbtn');
+      if (end) { const txt = await end.textContent(); if (!got.has('fresh')) { got.add('fresh'); } await end.click(); await p.waitForTimeout(800); if (txt.includes('結果')) break; continue; }
+      await p.click('.bl-log').catch(() => undefined); await p.waitForTimeout(140);
+      if (i === 30 && !got.has('cards')) { got.add('cards'); await shot('05b-attack-cards'); }
+    }
+  };
+  if (want('battle')) {
+    await playBattle('duel.json', '05');
+    if (!got.has('06-crit-cutin') || !got.has('07-kill-stamp')) await playBattle('battle.json', '05c');
+    if (await p.$('.sheet')) await shot('10b-after-battles');
   }
   if (want('result')) {
     await open('result.json', true);
@@ -55,7 +72,9 @@ const ONLY = process.env.ONLY ? process.env.ONLY.split(',') : null;
   if (want('strat')) { await open('strat.json', true); await p.waitForTimeout(900); await shot('12-new-strat'); }
   if (want('org')) {
     await open('org.json');
-    await tab(2); await click('button:has-text("敵将の名簿")'); await shot('20-orgchart');
+    await tab(2); await click('button:has-text("敵将の名簿")'); await shot('20-orgchart'); await shot('20b-orgchart-full', true);
+    await click('.org-playbtn'); await p.waitForTimeout(1400); await shot('21-org-change-play');
+    await click('.org-player'); await p.waitForTimeout(1400); await shot('22-org-change-play2');
   }
   console.log('wide', wide.join(', ') || 'なし');
   console.log('errors', errors.join('\n') || 'なし');

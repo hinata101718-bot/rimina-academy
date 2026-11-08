@@ -66,7 +66,7 @@ export function NewsView({ id, onLeave }: { id: string; onLeave?: () => void }) 
             {(n.orgs ?? []).map((o) => {
               const off = officerById(s, o.officerId);
               return (
-                <div class="np-org" onClick={() => { if (off) { sfx('move'); leave(); navigate({ tab: 'war', page: 'officers' }); } }}>
+                <div class="np-org" onClick={() => { if (off) { sfx('move'); leave(); navigate({ tab: 'war', page: 'officers', id: off.id }); } }}>
                   {off ? <span class="np-face"><OfficerFace o={off} size={40} frame={FACTION_COLOR[off.faction]} s={s} /></span> : null}
                   <div class="grow"><span class="np-box">{o.tag}</span>{o.name && <b>{o.name}</b>}{o.text}</div>
                 </div>

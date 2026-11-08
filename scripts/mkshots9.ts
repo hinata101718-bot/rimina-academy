@@ -6,7 +6,7 @@ import { newGame } from '../src/core/game';
 import { autoYears, autoPending, autoDay, setAutoChoicePick, humanLikePick, recommendSquads } from '../src/core/autoplay';
 import { startSortie, finishBattle, battleCtx, chooseLesson } from '../src/core/flow';
 import { todayCards, recommendCard } from '../src/core/lessons';
-import { skipAuto } from '../src/core/battle/auto';
+import { skipAuto, officerForQuest } from '../src/core/battle/auto';
 import { markOrgSeen } from '../src/core/officers';
 import type { GameState } from '../src/core/state';
 const out = process.argv[2] ?? 'shots9';
@@ -39,6 +39,15 @@ save('board', b);
 const sq = recommendSquads(b);
 startSortie(b, sq);
 save('battle', b);
+// 一騎打ちが来る戦い（敵将は「一騎打ちを断れない」）
+{
+  const d = clone(s);
+  toBoard(d);
+  const list = recommendSquads(d);
+  for (const x of list) { const q = d.quests.find((y) => y.id === x.questId)!; const o = officerForQuest(d, q); if (o && !o.traits.includes('duel_bound')) o.traits[0] = 'duel_bound'; }
+  startSortie(d, list);
+  save('duel', d);
+}
 const r = clone(b);
 let g = 0;
 while (r.battle && g++ < 5) { skipAuto(r, battleCtx(r)); finishBattle(r); }

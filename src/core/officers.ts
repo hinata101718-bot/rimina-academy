@@ -35,6 +35,7 @@ export function officerName(o: Pick<EnemyOfficer, 'given' | 'family' | 'epithet'
 export function fullName(o: EnemyOfficer): string { return o.kind === 'army' && o.family ? `${o.given}・${o.family}` : o.given; }
 export function rankName(o: Pick<EnemyOfficer, 'kind' | 'rank' | 'title'>): string {
   if (o.kind === 'monster') return '魔物の主';
+  if (o.rank >= 3) return '見込みのある兵';
   return RANK_NAMES[o.kind === 'army' ? 'army' : 'bandit'][Math.max(0, Math.min(2, o.rank))];
 }
 export function factionName(f: FactionId): string { return FACTION_NAMES[f]; }

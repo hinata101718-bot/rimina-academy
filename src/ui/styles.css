@@ -1141,3 +1141,194 @@ body[data-season="winter"] { --tint: rgba(190, 210, 235, .14); }
   .st-cards { grid-template-columns: 1fr; }
   .sq-lead > span { width: 6.5em; }
 }
+/* ===== 9夜目：敵将の組織図 ===== */
+.org-dot { display: inline-block; margin-left: 3px; background: #c9a035; color: #fff; border-radius: 9px; font-size: 11px; line-height: 16px; min-width: 16px; padding: 0 4px; }
+.org-changes { background: #fff6d6; border: 1.5px solid #e2c36a; border-radius: 12px; padding: 8px 10px; margin: 6px 0 8px; }
+.org-chead { font-family: var(--mincho); font-weight: bold; color: #6b4e12; margin-bottom: 2px; }
+.org-ch { display: flex; gap: 6px; align-items: flex-start; font-size: 13px; padding: 3px 0; cursor: pointer; min-height: 28px; }
+.org-chi { flex: none; width: 20px; text-align: center; font-weight: bold; color: #8a5d00; }
+.org-ch.fell .org-chi, .org-ch.gone .org-chi { color: #555; }
+.org-ch.promote .org-chi, .org-ch.raised .org-chi { color: #2f7a45; }
+.org-ch.contest .org-chi { color: #a8321f; }
+.org-seg { flex: none; width: 120px; }
+.org-seg button, .org-playbtn { min-height: 44px; }
+.org-tree { overflow-x: auto; padding: 4px 0 10px; -webkit-overflow-scrolling: touch; }
+.org-tree ul { position: relative; display: flex; justify-content: center; margin: 0; padding: 14px 0 0; list-style: none; }
+.org-tree > ul.org-root { padding-top: 0; min-width: fit-content; margin: 0 auto; }
+.org-tree li { position: relative; padding: 14px 2px 0; text-align: center; list-style: none; display: flex; flex-direction: column; align-items: center; }
+.org-root > li { padding-top: 0; }
+.org-tree li::before, .org-tree li::after { content: ''; position: absolute; top: 0; right: 50%; width: 50%; height: 14px; border-top: 2px solid #c9a035; }
+.org-tree li::after { right: auto; left: 50%; border-left: 2px solid #c9a035; }
+.org-tree li:only-child::before, .org-tree li:only-child::after { display: none; }
+.org-tree li:only-child { padding-top: 0; }
+.org-tree li:first-child::before, .org-tree li:last-child::after { border: 0 none; }
+.org-tree li:last-child::before { border-right: 2px solid #c9a035; border-radius: 0 6px 0 0; }
+.org-tree li:first-child::after { border-radius: 6px 0 0 0; }
+.org-tree ul ul::before { content: ''; position: absolute; top: 0; left: 50%; height: 14px; border-left: 2px solid #c9a035; }
+.org-tree li:only-child > .org-node { margin-top: 14px; }
+.org-root > li:only-child > .org-node { margin-top: 0; }
+.org-node { position: relative; width: 70px; display: flex; flex-direction: column; align-items: center; gap: 0; padding-top: 10px; cursor: pointer; }
+.org-node.r0 { width: 120px; }
+.org-face { line-height: 0; border-radius: 50%; }
+.org-face .ofc-face { border-radius: 50% !important; box-shadow: 0 0 0 2px var(--ring, #888); }
+.org-face.alum .ofc-face, .org-face.alum .portrait, .org-face.alum img { border-radius: 50% !important; }
+.org-node.lit .org-face { box-shadow: 0 0 0 3px #f3d98a, 0 0 16px 6px rgba(240, 200, 90, .75); animation: orgGlow 1.6s ease-in-out infinite alternate; }
+.org-node.focus .org-face { box-shadow: 0 0 0 3px #a8321f, 0 0 14px 4px rgba(168, 50, 31, .6); }
+@keyframes orgGlow { from { box-shadow: 0 0 0 3px #f3d98a, 0 0 8px 2px rgba(240, 200, 90, .5); } to { box-shadow: 0 0 0 3px #f3d98a, 0 0 20px 8px rgba(240, 200, 90, .85); } }
+.org-node.gone .org-face { filter: grayscale(1); opacity: .7; }
+.org-q { display: flex; align-items: center; justify-content: center; border-radius: 50%; border: 2.5px dashed #b4432f; background: #f1e8d6; color: #a08a6a; font-family: var(--mincho); font-size: 26px; font-weight: bold; }
+.org-name { font-family: var(--mincho); font-size: 13px; line-height: 1.25; margin-top: 3px; word-break: break-all; }
+.org-node.r0 .org-name { font-size: 15px; }
+.org-name.strike { text-decoration: line-through; color: #777; }
+.org-rank { font-size: 12px; color: var(--sub); }
+.org-note { font-size: 12px; color: #a8321f; line-height: 1.2; }
+.org-tag { position: absolute; top: -2px; left: 50%; transform: translateX(-50%); white-space: nowrap; font-size: 11px; font-weight: bold; color: #fff; border-radius: 9px; padding: 0 6px; line-height: 17px; z-index: 1; }
+.org-tag.new, .org-tag.prospect, .lg.new { background: #c9a035; }
+.org-tag.promote, .org-tag.raised, .lg.promote, .lg.raised { background: #2f7a45; }
+.org-tag.fell, .org-tag.gone, .lg.fell { background: #5a5246; }
+.org-tag.contest, .lg.contest { background: #b4432f; }
+.org-tag.epithet, .lg.epithet { background: #7a2a2a; }
+.org-tag.alumni, .lg.alumni { background: #2f5fa8; }
+.org-pro .org-tag { position: static; transform: none; }
+.org-vacant { font-size: 12px; color: var(--sub); border: 1.5px dashed var(--line); border-radius: 8px; padding: 4px 8px; }
+.org-legend { display: flex; flex-wrap: wrap; gap: 4px 10px; margin: 4px 0 8px; }
+.org-legend .lg { display: inline-flex; align-items: center; gap: 3px; background: none !important; color: var(--ink); }
+.org-legend .lg::before { content: ''; width: 12px; height: 12px; border-radius: 3px; background: currentColor; }
+.org-legend .lg.new::before { background: #c9a035; } .org-legend .lg.promote::before, .org-legend .lg.raised::before { background: #2f7a45; } .org-legend .lg.fell::before { background: #5a5246; } .org-legend .lg.contest::before { background: #b4432f; } .org-legend .lg.epithet::before { background: #7a2a2a; } .org-legend .lg.alumni::before { background: #2f5fa8; }
+.org-prospects { display: flex; gap: 8px; overflow-x: auto; padding: 4px 0 6px; }
+.org-pro { flex: none; width: 104px; display: flex; flex-direction: column; align-items: center; gap: 2px; text-align: center; background: #fffdf7; border: 1px solid #e2d8c2; border-radius: 10px; padding: 6px 4px; cursor: pointer; }
+.org-pro .small { line-height: 1.25; }
+/* 変化の演出 */
+.org-player { position: fixed; inset: 0; z-index: 60; background: rgba(20, 12, 6, .72); display: flex; align-items: center; justify-content: center; padding: 16px; }
+.org-pcard { width: min(360px, 100%); background: linear-gradient(#fbf4e2, #efe0bf); border: 2px solid #c9a035; border-radius: 14px; padding: 14px; text-align: center; display: flex; flex-direction: column; gap: 6px; align-items: center; animation: abIn .3s ease-out; }
+.org-pcard .btn { min-height: 44px; }
+.org-ptitle { font-family: var(--mincho); font-weight: bold; font-size: 18px; color: #6b4e12; }
+.org-pstage { position: relative; width: 220px; height: 200px; }
+.org-pstage.promote .org-prank { position: absolute; left: 0; font-size: 13px; font-weight: bold; color: var(--sub); }
+.org-prank.top { top: 18px; color: #2f7a45 !important; }
+.org-prank.bottom { bottom: 18px; }
+.org-pline { position: absolute; left: 50%; top: 40px; bottom: 40px; border-left: 3px solid #c9a035; }
+.org-pface { position: absolute; left: 50%; transform: translateX(-50%); line-height: 0; }
+.org-pface .ofc-face { border-radius: 50% !important; }
+.org-pface.rise { top: 0; animation: orgRise 1.3s cubic-bezier(.3, .8, .3, 1) both; }
+@keyframes orgRise { 0% { transform: translate(-50%, 110px) scale(.8); filter: none; } 70% { transform: translate(-50%, -6px) scale(1.05); } 100% { transform: translate(-50%, 0) scale(1); filter: drop-shadow(0 0 14px rgba(240, 200, 90, .95)); } }
+.org-grunt { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: 84px; height: 84px; border-radius: 50%; background: #6b5a44; color: #f7eedb; font-family: var(--mincho); font-size: 34px; display: flex; align-items: center; justify-content: center; animation: orgFadeOut 1.3s ease both; }
+.org-morph { display: block; animation: orgFadeIn 1.3s ease both; }
+@keyframes orgFadeOut { 0%, 40% { opacity: 1; } 100% { opacity: 0; } }
+@keyframes orgFadeIn { 0%, 40% { opacity: 0; } 100% { opacity: 1; } }
+.org-pstage.fell .org-pface, .org-pstage.new .org-pface, .org-pstage.prospect .org-pface, .org-pstage.epithet .org-pface, .org-pstage.contest .org-pface { top: 40px; }
+.org-pface.crack { filter: grayscale(1); animation: orgShake .5s ease-out; }
+.org-crackline { position: absolute; inset: 0; background: linear-gradient(115deg, transparent 46%, #1d1a16 47%, #1d1a16 49%, transparent 50%), linear-gradient(60deg, transparent 58%, #1d1a16 59%, transparent 60%); border-radius: 50%; }
+.org-pstamp { position: absolute; right: 6px; bottom: 6px; font-size: 22px; transform: rotate(-12deg); animation: fxStamp .45s cubic-bezier(.2, 1.6, .4, 1) .35s both; }
+.org-pface.pop { animation: orgPop .7s cubic-bezier(.2, 1.6, .4, 1) both; filter: drop-shadow(0 0 12px rgba(240, 200, 90, .9)); }
+@keyframes orgPop { from { transform: translateX(-50%) scale(.3); opacity: 0; } to { transform: translateX(-50%) scale(1); opacity: 1; } }
+@keyframes orgShake { 0%, 100% { transform: translateX(-50%); } 20% { transform: translateX(calc(-50% - 6px)); } 40% { transform: translateX(calc(-50% + 6px)); } 60% { transform: translateX(calc(-50% - 3px)); } }
+.org-swords { position: absolute; right: 6px; top: 10px; font-size: 34px; color: #a8321f; animation: orgPop .6s both; }
+.org-pname { font-size: 18px; font-weight: bold; }
+.org-ptext { font-size: 14px; }
+@keyframes fxStamp { from { transform: rotate(-12deg) scale(2.6); opacity: 0; } to { transform: rotate(-12deg) scale(1); opacity: 1; } }
+/* ===== 9夜目：戦闘演出 ===== */
+.bl-card.old { opacity: .5; filter: saturate(.6); transition: opacity .4s; }
+.bl-card.fresh { box-shadow: 0 0 0 1.5px #d8b55a, 0 2px 8px rgba(120, 80, 20, .25); }
+.bl-card.downed { background: linear-gradient(#e6e0d6, #d6cfc4); }
+.bl-target { position: relative; line-height: 0; display: inline-block; }
+.bl-target.fx-hit > :first-child { animation: fxShake .38s ease-out; }
+.bl-target.fx-hit::after { content: ''; position: absolute; inset: 0; border-radius: 6px; background: rgba(210, 30, 20, .55); animation: fxRed .45s ease-out forwards; pointer-events: none; }
+@keyframes fxShake { 0%, 100% { transform: none; } 20% { transform: translate(-3px, 1px); } 40% { transform: translate(3px, -1px); } 60% { transform: translate(-2px, 0); } 80% { transform: translate(2px, 0); } }
+@keyframes fxRed { from { opacity: 1; } to { opacity: 0; } }
+.fx-slash { position: absolute; inset: -6px; pointer-events: none; }
+/* 剣＝斜めの線 */
+.w-sword .fx-slash::before { content: ''; position: absolute; left: -10%; top: 48%; width: 120%; height: 3px; background: linear-gradient(90deg, transparent, #fff 30%, #b4432f 60%, transparent); transform: rotate(-38deg) scaleX(0); transform-origin: left center; animation: fxSlash .32s ease-out forwards; box-shadow: 0 0 6px #fff; }
+@keyframes fxSlash { 0% { transform: rotate(-38deg) scaleX(0); opacity: 1; } 70% { transform: rotate(-38deg) scaleX(1); opacity: 1; } 100% { transform: rotate(-38deg) scaleX(1); opacity: 0; } }
+/* 槍＝突き */
+.w-lance .fx-slash::before { content: ''; position: absolute; left: -40%; top: 47%; width: 90%; height: 4px; background: linear-gradient(90deg, transparent, #f4e7c4 40%, #fff); clip-path: polygon(0 30%, 88% 30%, 100% 50%, 88% 70%, 0 70%); animation: fxThrust .3s ease-out forwards; }
+@keyframes fxThrust { 0% { transform: translateX(0); opacity: 1; } 80% { transform: translateX(60%); opacity: 1; } 100% { transform: translateX(60%); opacity: 0; } }
+/* 斧＝叩きつけのひび */
+.w-axe .fx-slash::before { content: ''; position: absolute; inset: 8px; background: linear-gradient(100deg, transparent 47%, #2a1a10 48%, #2a1a10 51%, transparent 52%), linear-gradient(30deg, transparent 55%, #2a1a10 56%, transparent 58%), linear-gradient(150deg, transparent 60%, #2a1a10 61%, transparent 63%); animation: fxCrack .5s ease-out forwards; }
+.w-axe > :first-child { animation: fxSlam .35s ease-out !important; }
+@keyframes fxCrack { 0% { opacity: 0; transform: scale(.6); } 30% { opacity: 1; transform: scale(1.05); } 100% { opacity: 0; } }
+@keyframes fxSlam { 0% { transform: translateY(-4px); } 40% { transform: translateY(3px) scale(.96); } 100% { transform: none; } }
+/* 弓＝飛ぶ矢 */
+.w-bow .fx-slash::before { content: ''; position: absolute; left: -120%; top: 46%; width: 70%; height: 3px; background: linear-gradient(90deg, transparent, #7a5a2a 30%, #7a5a2a 85%, #ddd 85%); clip-path: polygon(0 0, 85% 0, 85% -150%, 100% 50%, 85% 250%, 85% 100%, 0 100%); animation: fxArrow .28s ease-in forwards; }
+@keyframes fxArrow { 0% { transform: translateX(0); opacity: 1; } 90% { transform: translateX(170%); opacity: 1; } 100% { transform: translateX(170%); opacity: 0; } }
+.w-gun .fx-slash::before { content: ''; position: absolute; inset: 20%; border-radius: 50%; background: radial-gradient(#fff, #ffd36a 40%, transparent 70%); animation: fxBurst .3s ease-out forwards; }
+/* 魔法＝色の光 */
+.w-magic .fx-slash::before, .w-holy .fx-slash::before { content: ''; position: absolute; inset: -4px; border-radius: 50%; background: radial-gradient(circle, rgba(255, 255, 255, .95), var(--mc, #ff6a2a) 35%, transparent 70%); animation: fxBurst .55s ease-out forwards; mix-blend-mode: screen; }
+.c-fire { --mc: #ff5a1f; } .c-thunder { --mc: #ffd52a; } .c-wind { --mc: #5fd07a; } .c-ice { --mc: #7cc8ff; } .c-dark { --mc: #9a5ad8; } .c-star { --mc: #ffe48a; } .c-holy { --mc: #fff3b0; }
+@keyframes fxBurst { 0% { transform: scale(.2); opacity: 1; } 60% { transform: scale(1.15); opacity: .95; } 100% { transform: scale(1.3); opacity: 0; } }
+/* 回復＝緑の光の粒 */
+.fx-sparks { position: absolute; inset: 0; pointer-events: none; }
+.fx-sparks i { position: absolute; bottom: 4px; width: 6px; height: 6px; border-radius: 50%; background: #8de39a; box-shadow: 0 0 6px #5fd07a; animation: fxRise .9s ease-out forwards; }
+.fx-sparks i:nth-child(1) { left: 10%; } .fx-sparks i:nth-child(2) { left: 35%; animation-delay: .1s; } .fx-sparks i:nth-child(3) { left: 60%; animation-delay: .05s; } .fx-sparks i:nth-child(4) { left: 80%; animation-delay: .18s; } .fx-sparks i:nth-child(5) { left: 48%; animation-delay: .25s; }
+@keyframes fxRise { from { transform: translateY(0); opacity: 1; } to { transform: translateY(-36px); opacity: 0; } }
+.fx-ministamp { position: absolute; right: -8px; bottom: -6px; font-family: var(--mincho); font-weight: bold; font-size: 12px; line-height: 1; color: #a8321f; border: 2px solid #a8321f; border-radius: 3px; padding: 2px 3px; background: rgba(255, 250, 240, .9); transform: rotate(-12deg); animation: fxStamp .35s cubic-bezier(.2, 1.6, .4, 1) both; }
+.bl-card .bl-target .fx-ministamp { line-height: 1; }
+/* ダメージの数字 */
+.bl-dmg.pop { display: inline-block; animation: fxPop .55s cubic-bezier(.2, 1.8, .4, 1) both; }
+.bl-dmg.pop.crit { font-size: 30px; color: #c41f12; text-shadow: 0 0 6px #ffd36a; }
+@keyframes fxPop { 0% { transform: translateY(-14px) scale(1.9) rotate(-8deg); opacity: 0; } 45% { transform: translateY(3px) scale(1.05) rotate(4deg); opacity: 1; } 70% { transform: translateX(-2px) rotate(-2deg); } 100% { transform: none; } }
+.bl-chain { display: block; font-size: 11px; color: #a8321f; font-weight: bold; line-height: 1; text-align: right; }
+.bl-chain s { text-decoration: none; opacity: .5; margin-left: 2px; }
+/* HPゲージの欠片 */
+.fx-chips { position: absolute; top: 0; bottom: 0; pointer-events: none; }
+.fx-chips i { position: absolute; top: 0; width: 5px; height: 5px; background: #c9583f; animation: fxChip .7s ease-out forwards; }
+.fx-chips i:nth-child(1) { left: 10%; --dx: -6px; } .fx-chips i:nth-child(2) { left: 40%; --dx: 4px; animation-delay: .05s; } .fx-chips i:nth-child(3) { left: 70%; --dx: 8px; animation-delay: .1s; } .fx-chips i:nth-child(4) { left: 90%; --dx: -3px; animation-delay: .15s; }
+@keyframes fxChip { from { transform: translate(0, 0) rotate(0); opacity: 1; } to { transform: translate(var(--dx), 14px) rotate(140deg); opacity: 0; } }
+.bl-hitbar { position: relative; overflow: visible; }
+/* 見せ場の画面 */
+.fx-over { position: fixed; inset: 0; z-index: 80; display: flex; flex-direction: column; align-items: center; justify-content: center; overflow: hidden; cursor: pointer; animation: fadein .15s; }
+.fx-skip { position: absolute; bottom: 18px; left: 0; right: 0; text-align: center; font-size: 12px; color: rgba(255, 240, 210, .75); }
+.fx-cutin { background: radial-gradient(circle at 50% 45%, #5e0e08, #230402 70%); }
+.fx-cutin.big { animation: fadein .1s, fxScreenShake .45s .25s; }
+@keyframes fxScreenShake { 0%, 100% { transform: none; } 15% { transform: translate(-7px, 4px); } 30% { transform: translate(6px, -5px); } 45% { transform: translate(-5px, -2px); } 60% { transform: translate(4px, 3px); } 80% { transform: translate(-2px, 1px); } }
+.fx-lines { position: absolute; inset: -50%; background: repeating-conic-gradient(from 0deg at 50% 50%, rgba(255, 220, 190, .32) 0deg 1.4deg, transparent 1.4deg 9deg); animation: fxSpin 3s linear infinite; }
+@keyframes fxSpin { to { transform: rotate(360deg); } }
+.fx-band { position: absolute; left: -10%; right: -10%; top: 26%; height: 250px; background: linear-gradient(90deg, rgba(250, 240, 220, .95), rgba(250, 240, 220, .55) 60%, transparent); border-top: 3px solid #e2b64a; border-bottom: 3px solid #e2b64a; transform: skewY(-9deg); overflow: hidden; animation: fxBandIn .35s cubic-bezier(.2, 1, .3, 1) both; }
+@keyframes fxBandIn { from { transform: skewY(-9deg) translateX(-100%); } to { transform: skewY(-9deg) translateX(0); } }
+.fx-bandface { position: absolute; left: 14%; top: 18px; transform: skewY(9deg); line-height: 0; animation: fxFaceIn .45s .05s cubic-bezier(.2, 1, .3, 1) both; }
+@keyframes fxFaceIn { from { transform: skewY(9deg) translateX(-60px); opacity: 0; } to { transform: skewY(9deg) translateX(0); opacity: 1; } }
+.fx-cutin.foe .fx-band { background: linear-gradient(270deg, rgba(60, 20, 16, .95), rgba(60, 20, 16, .5) 60%, transparent); left: -10%; }
+.fx-cutin.foe .fx-bandface { left: auto; right: 14%; }
+.fx-crit-title { position: absolute; right: 8%; top: 28%; font-family: var(--mincho); font-size: 58px; font-weight: 900; color: #fff1c6; text-shadow: 0 0 2px #7a2a0a, 3px 3px 0 #a8321f, 0 0 18px #ffb347; transform: rotate(-9deg); animation: fxTitle .5s .2s cubic-bezier(.2, 1.8, .4, 1) both; }
+.fx-cutin.foe .fx-crit-title { right: auto; left: 8%; }
+@keyframes fxTitle { from { transform: rotate(-9deg) scale(2.6); opacity: 0; } to { transform: rotate(-9deg) scale(1); opacity: 1; } }
+.fx-crit-say { position: absolute; right: 6%; top: calc(28% + 82px); max-width: 60%; font-family: var(--mincho); font-weight: bold; font-size: 16px; color: #fff; text-shadow: 0 1px 3px #000; transform: rotate(-9deg); text-align: right; animation: fadein .3s .45s both; }
+.fx-cutin.foe .fx-crit-say { right: auto; left: 6%; text-align: left; }
+.fx-crit-dmg { position: absolute; right: 10%; bottom: 22%; font-family: var(--mincho); font-size: 64px; font-weight: 900; color: #fff; text-shadow: 3px 3px 0 #a8321f, 0 0 16px #ff8a3a; animation: fxPop .6s .55s cubic-bezier(.2, 1.8, .4, 1) both; }
+.fx-kill { background: radial-gradient(circle, #f2e6c8, #cdb88e 75%); }
+.fx-killface { position: relative; line-height: 0; animation: fxShake .5s; }
+.fx-cracks { position: absolute; inset: 0; background: linear-gradient(110deg, transparent 44%, #120c08 45%, #120c08 47%, transparent 48%), linear-gradient(40deg, transparent 55%, #120c08 56%, #120c08 57%, transparent 58%), linear-gradient(160deg, transparent 62%, #120c08 63%, transparent 64%), linear-gradient(75deg, transparent 30%, #120c08 31%, transparent 32%); animation: fxCrack2 .4s .15s ease-out both; }
+@keyframes fxCrack2 { from { clip-path: circle(0 at 50% 50%); } to { clip-path: circle(80% at 50% 50%); } }
+.fx-frag { position: absolute; width: 14px; height: 14px; background: #3a2c1e; clip-path: polygon(50% 0, 100% 70%, 20% 100%); animation: fxFrag .8s .2s ease-out both; }
+.fx-frag.f1 { left: -6px; top: 10px; --fx: -40px; --fy: -30px; } .fx-frag.f2 { right: -8px; top: 30px; --fx: 44px; --fy: -10px; } .fx-frag.f3 { left: 10px; bottom: -6px; --fx: -30px; --fy: 36px; } .fx-frag.f4 { right: 12px; bottom: -4px; --fx: 36px; --fy: 30px; }
+@keyframes fxFrag { from { transform: translate(0, 0) rotate(0); opacity: 1; } to { transform: translate(var(--fx), var(--fy)) rotate(200deg); opacity: 0; } }
+.fx-killstamp { margin-top: 18px; font-size: 44px; padding: 4px 18px; border-width: 5px; transform: rotate(-8deg); animation: fxStamp2 .4s .35s cubic-bezier(.2, 1.6, .4, 1) both; }
+@keyframes fxStamp2 { from { transform: rotate(-8deg) scale(3); opacity: 0; } to { transform: rotate(-8deg) scale(1); opacity: 1; } }
+.fx-killname { margin-top: 14px; font-size: 20px; font-weight: bold; color: #2a2017; }
+.fx-killsub { font-size: 13px; color: #6b5a44; }
+.fx-fall { background: radial-gradient(circle at 50% 40%, rgba(40, 36, 32, .92), rgba(5, 4, 3, .98)); animation: fxDark 1.2s ease-out both; }
+@keyframes fxDark { from { background-color: transparent; opacity: 0; } to { opacity: 1; } }
+.fx-fallface { line-height: 0; opacity: .85; animation: fxSink 1.6s ease-out both; }
+.fx-fall.injured .fx-fallface { filter: saturate(.4) brightness(.8); }
+@keyframes fxSink { from { transform: none; opacity: 1; } to { transform: translateY(10px); opacity: .55; } }
+.fx-falltext { margin-top: 18px; max-width: 300px; text-align: center; color: #e8dfcf; font-size: 16px; line-height: 1.7; animation: fadein 1s .6s both; }
+.fx-vs { background: #2b1a0f; }
+.fx-vstitle { position: absolute; top: 9%; left: 0; right: 0; text-align: center; color: #f3d98a; font-size: 26px; letter-spacing: .3em; font-weight: bold; text-shadow: 0 0 10px rgba(240, 200, 90, .6); animation: fadein .4s both; }
+.fx-vsside { position: absolute; top: 18%; bottom: 22%; width: 62%; display: flex; flex-direction: column; justify-content: center; gap: 8px; color: #fff; font-family: var(--mincho); font-size: 18px; }
+.fx-vsside.ally { left: 0; align-items: flex-start; padding-left: 6%; background: linear-gradient(160deg, #1f3c78, #142a55); clip-path: polygon(0 0, 100% 0, 72% 100%, 0 100%); animation: fxFromL .45s cubic-bezier(.2, 1, .3, 1) both; }
+.fx-vsside.foe { right: 0; align-items: flex-end; padding-right: 6%; background: linear-gradient(200deg, #8f2a20, #5a1610); clip-path: polygon(28% 0, 100% 0, 100% 100%, 0 100%); animation: fxFromR .45s cubic-bezier(.2, 1, .3, 1) both; }
+@keyframes fxFromL { from { transform: translateX(-100%); } to { transform: none; } }
+@keyframes fxFromR { from { transform: translateX(100%); } to { transform: none; } }
+.fx-vsface { line-height: 0; }
+.fx-vsmark { position: absolute; top: 46%; left: 50%; transform: translate(-50%, -50%); font-family: var(--mincho); font-size: 64px; font-weight: 900; color: #f3d98a; text-shadow: 0 0 4px #000, 0 0 20px #f0b040; animation: fxTitle2 .5s .35s cubic-bezier(.2, 1.8, .4, 1) both; }
+@keyframes fxTitle2 { from { transform: translate(-50%, -50%) scale(3); opacity: 0; } to { transform: translate(-50%, -50%) scale(1); opacity: 1; } }
+.fx-spark { position: absolute; left: 50%; top: 50%; width: 90px; height: 2px; background: linear-gradient(90deg, transparent, #fff3c0, transparent); animation: fxSpark .6s .5s ease-out both; }
+.fx-spark.s1 { transform: rotate(20deg); } .fx-spark.s2 { transform: rotate(-35deg); animation-delay: .6s; } .fx-spark.s3 { transform: rotate(80deg); animation-delay: .7s; }
+@keyframes fxSpark { 0% { opacity: 0; width: 0; margin-left: 0; } 50% { opacity: 1; } 100% { opacity: 0; width: 160px; margin-left: -80px; } }
+.fx-vssay { position: absolute; bottom: 10%; left: 6%; right: 6%; background: rgba(0, 0, 0, .55); border: 1px solid #8a6a3a; color: #f7eedb; font-family: var(--mincho); font-size: 14px; padding: 8px 10px; border-radius: 6px; animation: fadein .4s .7s both; }
+/* レベルアップの金の光 */
+.levelup .lvbox { position: relative; overflow: hidden; }
+.levelup .lvbox::before { content: ''; position: absolute; inset: -40%; background: conic-gradient(from 0deg, transparent 0 20deg, rgba(255, 220, 120, .35) 30deg, transparent 40deg 110deg, rgba(255, 220, 120, .3) 120deg, transparent 130deg 200deg, rgba(255, 220, 120, .35) 210deg, transparent 220deg 290deg, rgba(255, 220, 120, .3) 300deg, transparent 310deg); animation: fxSpin 6s linear infinite; pointer-events: none; }
+.levelup .lvbox > * { position: relative; }
+.levelup .lvtitle { color: #b8862b; text-shadow: 0 0 10px rgba(255, 210, 100, .9); animation: fxGold 1.2s ease-in-out infinite alternate; }
+@keyframes fxGold { from { text-shadow: 0 0 4px rgba(255, 210, 100, .6); } to { text-shadow: 0 0 16px rgba(255, 220, 120, 1); } }

@@ -15,8 +15,9 @@ import { enrolled, available } from '../core/game';
 import { deployFor, canEquip } from '../core/autoplay';
 import { battleCtx, finishBattle } from '../core/flow';
 import { previewBattle, enemyIntel, estimateWin, recommendDeploy, defaultRole, roleFit, tacticFits, chooseAuto, skipAuto, scoutQuest, defaultPlan, recommendStrats, type AutoPlan, type LeaderInfo } from '../core/battle/auto';
-import { battleItems, hpAt, isGrunt, type BItem } from '../core/battle/blog';
-import type { BLog } from '../core/battle/types';
+import { battleItems, hpAt, isGrunt, type BItem, type AtkLog } from '../core/battle/blog';
+import { FX, MAGIC_COLOR, CRIT_SAY, LEADER_CRIT_SAY, FALL_TEXT, WEAPON_SFX, type FxLevel } from '../data/battlefx';
+import type { BLog, BattleState } from '../core/battle/types';
 import { STRIKE_VERB, ATTACK_SHOUT } from '../data/autobattle_text';
 import { COUNTRY_SHORT } from '../data/people';
 import { officerById, rivalryOf, stageName, isScout, factionName, rankName, officerName } from '../core/officers';
@@ -343,6 +344,12 @@ export function AutoBattleView() {
   const [speed, setSpeed0] = useState<Speed>(s?.settings.battleLog ?? 'tap');
   const setSpeed = (v: Speed) => { setSpeed0(v); act((g) => { g.settings.battleLog = v; }); };
   const ref = useRef<HTMLDivElement>(null);
+  const fxLevel: FxLevel = s?.settings.battleFx ?? 'big';
+  // 見せ場の演出（9夜目）：必殺・撃破・倒れた子・宿命の対決。出ている間は記録を止め、タップで早送り
+  const [fxq, setFxq] = useState<FxShow[]>([]);
+  const fxNow = fxq[0] ?? null;
+  const dismissFx = () => setFxq((q) => q.slice(1));
+  const duelShown = useRef<string>('');
   const total = items.length;
   const atLogEnd = pos >= total;
   const atChoice = !!a?.choice && atLogEnd;
@@ -352,10 +359,18 @@ export function AutoBattleView() {
   const fit = useMemo(() => { const sec = items.reduce((t, x) => t + (x.k === 'band' ? AUTO.log.band : x.k === 'turn' || x.k === 'title' ? AUTO.log.turn : x.k === 'sync' ? 0 : AUTO.log.card), 0) / 1000; return sec > AUTO.log.maxSec ? AUTO.log.maxSec / sec : 1; }, [total]);
   const effect = (it: (typeof items)[number]) => {
     if (it.k === 'sync') act((g) => { if (g.battle?.auto) g.battle.auto.shown = Math.max(g.battle.auto.shown, it.scene + 1); });
-    if (it.k === 'atk' && it.e.hit) sfx(it.e.crit ? 'crit' : 'hit');
+    if (it.k === 'atk') {
+      if (!it.e.hit) sfx('miss');
+      else if (fxLevel === 'low') sfx(it.e.crit ? 'crit' : 'hit');
+      else sfx(WEAPON_SFX[(it.e.w && WEAPONS[it.e.w]?.type) || ''] ?? 'hit');
+      const add = s && b ? fxFor(s, b, it.e, fxLevel) : [];
+      if (add.length) setFxq((q) => [...q, ...add]);
+    }
+    if (it.k === 'heal' && fxLevel !== 'low') sfx('heal');
   };
   /** タップで進む（8夜目）：1枚ずつ。区切りの見出しは次のカードといっしょに出す */
   const tapNext = () => {
+    if (fxNow) { dismissFx(); return; }
     if (atLogEnd) return;
     let p = pos;
     while (p < total) {
@@ -367,8 +382,29 @@ export function AutoBattleView() {
     setPos(p);
   };
   // 再生
+  // 見せ場は決まった時間で閉じる（タップでもっと早く）
   useEffect(() => {
-    if (speed === 'tap' || atLogEnd) return;
+    if (!fxNow) return;
+    const base = FX[fxNow.k === 'crit' ? 'cutin' : fxNow.k === 'kill' ? 'kill' : fxNow.k === 'fall' ? 'fall' : 'duel'];
+    const ms = base * (fxLevel === 'normal' ? FX.normalMul : 1) * (speed === 'fast' ? FX.fastMul : 1) * (speed === 'tap' && fxNow.k === 'duel' ? 3 : 1);
+    if (fxNow.k === 'crit') sfx('cutin'); else if (fxNow.k === 'kill') sfx('stamp'); else if (fxNow.k === 'fall') sfx('fall'); else sfx('vs');
+    const tm = setTimeout(dismissFx, ms);
+    return () => clearTimeout(tm);
+  }, [fxNow]);
+  // 宿命の対決・一騎打ちの判断が来たら、VSの画面を先に
+  useEffect(() => {
+    const c = a?.choice;
+    if (!c || !atChoice || fxLevel === 'low' || !s || !b) return;
+    const key = `${a!.scenes.length}|${c.prompt}`;
+    if ((c.duo || c.kind === 'duel') && duelShown.current !== key) {
+      duelShown.current = key;
+      const L = a!.leader;
+      const actor = c.actor ?? c.options.find((o) => o.actor)?.actor;
+      if (L && actor) setFxq((q) => [...q, { k: 'duel', a: actor, title: c.duo ? '宿命の対決' : '一騎打ち', say: c.prompt.split('\n')[1] ?? '' }]);
+    }
+  }, [atChoice, a?.choice?.prompt]);
+  useEffect(() => {
+    if (speed === 'tap' || atLogEnd || fxNow) return;
     const it = items[pos];
     const mul = ({ 1: 1.3, 2: 1, 3: 0.65 } as Record<number, number>)[s?.settings.animSpeed ?? 2] ?? 1;
     const base = it.k === 'band' ? AUTO.log.band : it.k === 'turn' || it.k === 'title' ? AUTO.log.turn : it.k === 'sync' ? 0 : AUTO.log.card;
@@ -378,7 +414,7 @@ export function AutoBattleView() {
       effect(it);
     }, ms);
     return () => clearTimeout(t);
-  }, [pos, speed, total]);
+  }, [pos, speed, total, fxNow]);
   if (!s || !b || !a) return null;
   const nextSquad = !!s.sortie && s.sortie.idx < s.sortie.squads.length - 1;
   const leader = a.leader;
@@ -410,6 +446,15 @@ export function AutoBattleView() {
   const foes = b.units.filter((u) => u.side === 'enemy' && (a.hp0?.[u.uid] || hp[u.uid] !== undefined));
   const shown = items.slice(0, pos).filter((x) => x.k !== 'sync');
   const view = shown.slice(-AUTO.log.keep);
+  // 追撃：同じやりとりの前の一撃のダメージ（「2連撃！」で数字を重ねる）
+  const chainOf = (it: BItem): number | null => {
+    if (it.k !== 'atk' || it.e.role !== 'follow') return null;
+    const i = items.indexOf(it);
+    for (let j = i - 1; j >= 0; j--) { const x = items[j]; if (x.k === 'atk' && x.e.x === it.e.x && x.e.a === it.e.a) return x.e.hit ? x.e.dmg : 0; if (x.k === 'turn') break; }
+    return null;
+  };
+  const cards = view.filter((x) => x.k === 'atk' || x.k === 'heal' || x.k === 'group');
+  const brightFrom = cards.length > FX.keepBright ? cards[cards.length - FX.keepBright] : cards[0];
   return (
     <div class="ab-view bl-view">
       <div class="ab-head bl-head">
@@ -422,10 +467,11 @@ export function AutoBattleView() {
       </div>
       <div class="ab-scene bl-log" ref={ref} onClick={() => { if (speed === 'tap') tapNext(); }}>
         {shown.length > view.length && <div class="small muted" style={{ textAlign: 'center' }}>（前の記録は省略）</div>}
-        {view.map((it, n) => <LogItem key={shown.length - view.length + n} it={it} s={s} nameOf={nameOf} sideOf={sideOf} Face={Face} leader={leader} leaderColor={leaderColor} />)}
+        {view.map((it, n) => <LogItem key={shown.length - view.length + n} it={it} s={s} nameOf={nameOf} sideOf={sideOf} Face={Face} leader={leader} leaderColor={leaderColor}
+          fx={fxLevel} fresh={n === view.length - 1} old={!!brightFrom && view.indexOf(brightFrom) > n && (it.k === 'atk' || it.k === 'heal' || it.k === 'group')} chain={chainOf(it)} />)}
         {!atLogEnd && speed === 'tap' && <div class="ab-tap">タップで次へ ▼</div>}
       </div>
-      {atChoice && a.choice && (
+      {atChoice && a.choice && !fxNow && (
         <div class="ab-choice">
           <div class={`ab-cprompt${a.choice.duo ? ' duo' : ''}`}><Icon name={a.choice.duo ? 'flame' : a.choice.kind === 'wait' ? 'scroll' : 'bell'} size={18} /> {a.choice.duo ? '宿命の対決' : a.choice.kind === 'wait' ? '策を切る' : 'ここぞの判断'}</div>
           {a.choice.duo && a.choice.actor && s.students[a.choice.actor] && leader && (
@@ -444,6 +490,7 @@ export function AutoBattleView() {
           ))}
         </div>
       )}
+      {fxNow && <FxOverlay s={s} b={b} fx={fxNow} level={fxLevel} leader={leader} leaderColor={leaderColor} nameOf={nameOf} onTap={dismissFx} />}
       {atEnd && <button class="btn primary block ab-endbtn" onClick={() => { sfx('ok'); act((g) => finishBattle(g)); }}>{nextSquad ? `${SQUAD_LABEL[s.sortie!.idx + 1]}の戦いへ` : '結果を見る'}</button>}
       {!atEnd && !atChoice && (
         <div class="ab-ctrl bl-ctrl">
@@ -467,7 +514,7 @@ function HpRow({ name, v, max, down, ally }: { name: string; v: number; max: num
   );
 }
 
-function LogItem({ it, s, nameOf, sideOf, Face, leader, leaderColor }: { it: BItem; s: GameState; nameOf: (uid: string) => string; sideOf: (uid: string) => string; Face: (p: { uid: string; size: number }) => preact.JSX.Element; leader: LeaderInfo | null; leaderColor: string }) {
+function LogItem({ it, s, nameOf, sideOf, Face, leader, leaderColor, fx, fresh, old, chain }: { it: BItem; s: GameState; nameOf: (uid: string) => string; sideOf: (uid: string) => string; Face: (p: { uid: string; size: number }) => preact.JSX.Element; leader: LeaderInfo | null; leaderColor: string; fx: FxLevel; fresh: boolean; old: boolean; chain: number | null }) {
   if (it.k === 'turn') return <div class={`bl-turn ${it.side}`}>ターン{it.turn}・{it.side === 'player' ? '味方の番' : '敵の番'}</div>;
   if (it.k === 'title') return <div class="bl-turn title">― {it.text} ―</div>;
   if (it.k === 'band') {
@@ -492,12 +539,17 @@ function LogItem({ it, s, nameOf, sideOf, Face, leader, leaderColor }: { it: BIt
   const e = it.e;
   const heal = e.k === 'heal';
   const atk = e.k === 'atk' ? e : null;
+  const wt = e.w ? WEAPONS[e.w]?.type : undefined;
+  const live = fresh && fx !== 'low';
+  const fxCls = live ? (heal ? 'fx-heal' : atk?.hit ? `fx-hit w-${wt ?? 'none'} c-${(e.w && MAGIC_COLOR[e.w]) || (wt === 'holy' ? 'holy' : wt === 'magic' ? 'fire' : '')}${atk.crit ? ' fx-crit' : ''}` : 'fx-miss') : '';
+  const du = s.battle?.units.find((u) => u.uid === e.d);
+  const downStudent = !!atk?.kill && du?.side !== 'enemy';
   return (
-    <div class={`bl-card ${sideOf(e.a)}`}>
+    <div class={`bl-card ${sideOf(e.a)}${old ? ' old' : ''}${live ? ' fresh' : ''}${downStudent ? ' downed' : ''}`}>
       <div class="bl-row">
         <Face uid={e.a} size={40} />
         <span class="bl-arrow">▶</span>
-        <Face uid={e.d} size={40} />
+        <span class={`bl-target ${fxCls}`}><Face uid={e.d} size={40} />{live && <span class="fx-slash" />}{live && heal && <span class="fx-sparks"><i /><i /><i /><i /><i /></span>}{atk?.kill && du?.side === 'enemy' && fx !== 'low' && <span class="fx-ministamp">撃破</span>}</span>
         <div class="grow bl-txt">
           <div class="bl-names"><b class={sideOf(e.a)}>{nameOf(e.a)}</b> → <b class={sideOf(e.d)}>{nameOf(e.d)}</b>
             {atk?.crit && <span class="bl-tag crit">必殺</span>}
@@ -507,15 +559,18 @@ function LogItem({ it, s, nameOf, sideOf, Face, leader, leaderColor }: { it: BIt
           </div>
           <div class="small bl-desc">{describe(s, e, nameOf, leader)}</div>
         </div>
-        <span class={`bl-dmg${heal ? ' heal' : atk && !atk.hit ? ' miss' : ''}`}>{heal ? `+${(e as { amt: number }).amt}` : atk && !atk.hit ? 'MISS' : `−${atk?.dmg ?? 0}`}</span>
+        <span class={`bl-dmg${heal ? ' heal' : atk && !atk.hit ? ' miss' : ''}${live ? ' pop' : ''}${atk?.crit ? ' crit' : ''}`}>
+          {chain !== null && atk?.hit && <span class="bl-chain">2連撃！<s>−{chain}</s></span>}
+          {heal ? `+${(e as { amt: number }).amt}` : atk && !atk.hit ? 'MISS' : `−${atk?.dmg ?? 0}`}
+        </span>
       </div>
-      <HitBar e={e} name={nameOf(e.d)} foe={sideOf(e.d) === 'foe'} />
+      <HitBar e={e} name={nameOf(e.d)} foe={sideOf(e.d) === 'foe'} chips={live && !!atk?.hit} />
     </div>
   );
 }
 
 /** 受けた側のHPゲージ：減った分を薄い赤で残し、減っていく */
-function HitBar({ e, name, foe }: { e: { hp0: number; hp1: number; max: number }; name: string; foe: boolean }) {
+function HitBar({ e, name, foe, chips }: { e: { hp0: number; hp1: number; max: number }; name: string; foe: boolean; chips?: boolean }) {
   const [go, setGo] = useState(false);
   useEffect(() => { const t = setTimeout(() => setGo(true), 60); return () => clearTimeout(t); }, []);
   const p0 = Math.max(0, Math.min(100, (e.hp0 / Math.max(1, e.max)) * 100));
@@ -523,7 +578,7 @@ function HitBar({ e, name, foe }: { e: { hp0: number; hp1: number; max: number }
   return (
     <div class="bl-hit">
       <span class={`small bl-hitn ${foe ? 'foe' : 'ally'}`}>{name}</span>
-      <span class="bl-hitbar"><span class="lost" style={{ width: `${Math.max(p0, p1)}%` }} /><span class={`now${p1 <= 33 ? ' low' : ''}`} style={{ width: `${go ? p1 : p0}%` }} /></span>
+      <span class="bl-hitbar"><span class="lost" style={{ width: `${Math.max(p0, p1)}%` }} /><span class={`now${p1 <= 33 ? ' low' : ''}`} style={{ width: `${go ? p1 : p0}%` }} />{chips && go && p0 > p1 && <span class="fx-chips" style={{ left: `${p1}%`, width: `${p0 - p1}%` }}><i /><i /><i /><i /></span>}</span>
       <b class="small bl-hitv">{go ? e.hp1 : e.hp0}/{e.max}</b>
     </div>
   );
@@ -547,6 +602,98 @@ function describe(s: GameState, e: BLog, nameOf: (uid: string) => string, leader
   if (e.tri < 0) parts.push('相性が悪い……');
   if (e.kill) { const du = b.units.find((u) => u.uid === e.d); parts.push(du?.side === 'enemy' ? `${nameOf(e.d)}を倒した！` : `${nameOf(e.d)}が倒れた……`); }
   return parts.join(' ');
+}
+
+// ================= 見せ場の演出（9夜目） =================
+type FxShow =
+  | { k: 'crit'; a: string; d: string; dmg: number; say: string }
+  | { k: 'kill'; a: string; d: string }
+  | { k: 'fall'; d: string; outcome: 'dead' | 'injured' | 'out' }
+  | { k: 'duel'; a: string; title: string; say: string };
+
+/** この攻撃で出す見せ場：必殺（生徒・敵将）、敵将・名のある敵の撃破、生徒が倒れた */
+function fxFor(s: GameState, b: BattleState, e: AtkLog, level: FxLevel): FxShow[] {
+  if (level === 'low' || !e.hit) return [];
+  const out: FxShow[] = [];
+  const au = b.units.find((u) => u.uid === e.a);
+  const du = b.units.find((u) => u.uid === e.d);
+  const L = b.auto?.leader;
+  const ast = au?.studentId ? s.students[au.studentId] : null;
+  if (e.crit && au && (ast || (L && au.uid === L.uid))) {
+    const salt = e.x * 7 + e.dmg;
+    const list = ast ? CRIT_SAY[ast.personality] : LEADER_CRIT_SAY[L!.personality] ?? LEADER_CRIT_SAY.proud;
+    out.push({ k: 'crit', a: e.a, d: e.d, dmg: e.dmg, say: list[salt % list.length] });
+  }
+  if (e.kill && du) {
+    if (du.side === 'enemy' && (du.boss || (L && du.uid === L.uid) || du.studentId || (level === 'big' && (b.auto?.raised ?? []).some((g) => g.uid === du.uid)))) out.push({ k: 'kill', a: e.a, d: e.d });
+    else if (du.side !== 'enemy' && du.studentId) out.push({ k: 'fall', d: e.d, outcome: b.fallen.find((f) => f.studentId === du.studentId)?.outcome ?? 'out' });
+  }
+  return out;
+}
+
+function BigFace({ s, b, uid, size, leader, leaderColor, gray }: { s: GameState; b: BattleState; uid: string; size: number; leader: LeaderInfo | null; leaderColor: string; gray?: boolean }) {
+  const u = b.units.find((x) => x.uid === uid);
+  const st = u?.studentId ? s.students[u.studentId] : null;
+  const style = gray ? { filter: 'grayscale(1) contrast(1.1)' } : undefined;
+  if (leader && uid === leader.uid) return <span style={style}><OfficerFace o={leaderFace(leader)} size={size} frame={leaderColor} s={s} /></span>;
+  if (st) return <span style={style}><Portrait st={st} size={size} frame={u!.side === 'enemy' ? 'var(--accent)' : countryColor(st.origin)} /></span>;
+  const g = b.auto?.raised?.find((x) => x.uid === uid);
+  if (g) return <span style={style}><OfficerFace o={{ faceImage: g.faceImage, face: g.face, scars: 0 }} size={size} frame="#222" s={s} /></span>;
+  return <span class="bl-icon foe" style={{ width: size, height: size, fontSize: size * 0.4, ...(style ?? {}) }}>兵</span>;
+}
+
+function FxOverlay({ s, b, fx, level, leader, leaderColor, nameOf, onTap }: { s: GameState; b: BattleState; fx: FxShow; level: FxLevel; leader: LeaderInfo | null; leaderColor: string; nameOf: (uid: string) => string; onTap: () => void }) {
+  const tap = (e: Event) => { e.stopPropagation(); onTap(); };
+  if (fx.k === 'crit') {
+    const foe = b.units.find((u) => u.uid === fx.a)?.side === 'enemy';
+    return (
+      <div class={`fx-over fx-cutin${foe ? ' foe' : ''}${level === 'big' ? ' big' : ''}`} onClick={tap}>
+        <div class="fx-lines" />
+        <div class="fx-band"><span class="fx-bandface"><BigFace s={s} b={b} uid={fx.a} size={210} leader={leader} leaderColor={leaderColor} /></span></div>
+        <div class="fx-crit-title">必殺！</div>
+        <div class="fx-crit-say">{nameOf(fx.a)}「{fx.say}」</div>
+        <div class="fx-crit-dmg">−{fx.dmg}</div>
+        <div class="fx-skip">タップで早送り</div>
+      </div>
+    );
+  }
+  if (fx.k === 'kill') {
+    const du = b.units.find((u) => u.uid === fx.d);
+    const o = leader && fx.d === leader.uid ? officerById(s, leader.officerId) : null;
+    const g = b.auto?.raised?.find((x) => x.uid === fx.d);
+    const sub = o ? `${factionName(o.faction)}・${rankName(o)}` : g ? `${g.given}・見込みのある兵` : du?.boss ? '敵の大将' : '';
+    return (
+      <div class="fx-over fx-kill" onClick={tap}>
+        <div class="fx-killface"><BigFace s={s} b={b} uid={fx.d} size={170} leader={leader} leaderColor="#222" gray /><span class="fx-cracks" /><i class="fx-frag f1" /><i class="fx-frag f2" /><i class="fx-frag f3" /><i class="fx-frag f4" /></div>
+        <div class="stamp fx-killstamp">撃破</div>
+        <div class="fx-killname serif">{nameOf(fx.d)}{sub ? `（${sub}）` : ''}</div>
+        <div class="fx-killsub">{nameOf(fx.a)}の一撃に倒れる</div>
+        <div class="fx-skip">タップで早送り</div>
+      </div>
+    );
+  }
+  if (fx.k === 'fall') {
+    const name = nameOf(fx.d);
+    const list = fx.outcome === 'dead' ? FALL_TEXT.dead : FALL_TEXT.injured;
+    return (
+      <div class={`fx-over fx-fall ${fx.outcome}`} onClick={tap}>
+        <div class="fx-fallface"><BigFace s={s} b={b} uid={fx.d} size={150} leader={leader} leaderColor={leaderColor} gray={fx.outcome === 'dead'} /></div>
+        <div class="fx-falltext serif">{fill(list[name.length % list.length], { a: name })}</div>
+        <div class="fx-skip">タップで次へ</div>
+      </div>
+    );
+  }
+  const st = s.students[fx.a];
+  return (
+    <div class="fx-over fx-vs" onClick={tap}>
+      <div class="fx-vstitle serif">{fx.title}</div>
+      <div class="fx-vsside ally"><span class="fx-vsface">{st && <Portrait st={st} size={170} frame="#3a5f9a" />}</span><b>{st?.given}</b></div>
+      <div class="fx-vsside foe"><span class="fx-vsface">{leader && <OfficerFace o={leaderFace(leader)} size={170} frame="#8f2a20" s={s} />}</span><b>{leader?.name}</b></div>
+      <div class="fx-vsmark">VS<i class="fx-spark s1" /><i class="fx-spark s2" /><i class="fx-spark s3" /></div>
+      {fx.say && <div class="fx-vssay">{fx.say}</div>}
+      <div class="fx-skip">タップで判断へ</div>
+    </div>
+  );
 }
 
 /** 戦いで目立った一般兵が名前を得る帯（9夜目） */
