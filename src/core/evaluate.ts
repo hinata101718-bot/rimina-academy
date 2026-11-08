@@ -34,7 +34,8 @@ export function unitLabel(s: GameState, b: BattleState, uid: string): string {
   return i >= 0 ? `${foe}${String.fromCharCode(65 + (i % 26))}` : u.name;
 }
 
-interface Tally { swings: number; hits: number; crits: number; kills: number; dealt: number; taken: number; struck: number; dodged: number; healed: number; heals: number; follow: number; tri: number; counterKill: number; minHp: number; leaderDmg: number; eff: number }
+interface Tally {
+  arts?: number; swings: number; hits: number; crits: number; kills: number; dealt: number; taken: number; struck: number; dodged: number; healed: number; heals: number; follow: number; tri: number; counterKill: number; minHp: number; leaderDmg: number; eff: number }
 
 /**
  * 出撃した生徒（在籍）の評価を作る。rivalsBefore＝戦いの前の宿敵の段階（生徒id→段階）
@@ -53,7 +54,7 @@ export function evaluateBattle(s: GameState, b: BattleState, q: Quest | undefine
       if (e.k === 'atk') {
         if (e.a === uid) {
           t.swings++;
-          if (e.hit) { t.hits++; t.dealt += e.dmg; if (e.crit) t.crits++; if (e.role === 'follow') t.follow++; if (e.tri > 0) t.tri++; if (e.eff) t.eff++; if (lu && e.d === lu.uid) t.leaderDmg += e.dmg; }
+          if (e.art) t.arts = (t.arts ?? 0) + 1; if (e.hit) { t.hits++; t.dealt += e.dmg; if (e.crit) t.crits++; if (e.role === 'follow') t.follow++; if (e.tri > 0) t.tri++; if (e.eff) t.eff++; if (lu && e.d === lu.uid) t.leaderDmg += e.dmg; }
           if (e.kill) { t.kills++; if (e.role === 'counter') t.counterKill++; }
         }
         if (e.d === uid) { if (e.hit) { t.struck++; t.taken += e.dmg; t.minHp = Math.min(t.minHp, e.hp1); } else t.dodged++; }
@@ -96,6 +97,7 @@ export function evaluateBattle(s: GameState, b: BattleState, q: Quest | undefine
     add('general_hunter', !!lu && t.leaderDmg >= lu.maxHp * 0.3);
     add('double', u.kills === 2);
     add('crit', t.crits >= 1);
+    add('art', (t.arts ?? 0) >= 2); // 12夜目：戦技を2回以上
     add('sniper', t.hits >= 3 && Object.keys(u.usedWeapon).some((w) => ['bow', 'magic', 'gun', 'holy'].includes(WEAPONS[w]?.type ?? '')));
     add('combo', (a?.events ?? []).some((x) => (x.startsWith('combo:') || x.startsWith('lovers:')) && x.endsWith(id)));
     add('dodge', t.dodged >= 3);

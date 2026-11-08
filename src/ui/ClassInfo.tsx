@@ -1,5 +1,6 @@
 // 兵種の補正と成長率の見える化（8夜目）：補正の札・成長率の内わけ・兵種図鑑
 import type { SkillId } from '../core/types';
+import { ART_LIST } from '../data/arts';
 import { useEffect, useState } from 'preact/hooks';
 import type { GameState, Student } from '../core/state';
 import type { ClassDef, Stats, StatId, Rank } from '../core/types';
@@ -175,6 +176,7 @@ function ClassSheet({ s, c, known, onClose }: { s: GameState; c: ClassDef; known
             {c.ability && ABILITIES[c.ability] && <div class="small">スキル「{ABILITIES[c.ability].name}」：{ABILITIES[c.ability].desc}</div>}
           </>
         ) : <div class="small muted">まだ誰もなっていない兵種です。生徒か卒業生が初めてなると、補正やスキルが分かります。</div>}
+        {known && <div class="small ruled">この兵種で使える戦技：{ART_LIST.filter((a) => a.kind === 'art' && !a.bloom && a.weapons && a.weapons.some((w) => c.weapons.includes(w))).filter((a, i, l) => l.findIndex((x) => x.skill === a.skill) === i || a.rank === 'D').slice(0, 6).map((a) => a.name).join('・') || 'なし'}（騎乗・飛行・軍略・統率などの戦技は、どの武器でも使えます）</div>}
         {c.hidden && <div class="small" style={{ color: '#8a5a08' }}>金の芽が開いた子だけが、この道へ進めます</div>}
         {(good.length > 0 || bloom.length > 0) && <div class="small ruled">{bloom.length > 0 && <div>開花で道が開けた子：<b>{bloom.join('・')}</b></div>}{good.length > 0 && <div>要る技能が得意な子：{good.slice(0, 8).join('・')}{good.length > 8 ? ' ほか' : ''}</div>}</div>}
         <div class="small ruled">なる条件：{c.prereq.length ? `${c.prereq.map((p) => (known || CLASSES[p].tier <= 1 ? CLASSES[p].name : '？')).join('・')}から` : '入学したとき'}{Object.entries(c.req).length ? `・${Object.entries(c.req).map(([k, r]) => `${SKILL_NAMES[k as keyof typeof SKILL_NAMES]}${r as Rank}`).join('・')}` : ''}{c.tier >= 1 ? `・Lv${B.exam.levelReq[c.tier]}以上` : ''}{c.tier === 4 ? '（卒業後）' : ''}</div>

@@ -70,7 +70,10 @@ export function rollLoot(s: GameState, b: BattleState, q: Quest | undefined, nam
     const o = leader.officerId ? (s.officers ?? []).find((x) => x.id === leader.officerId) : null;
     const fell = !!lu?.dead && !leader.fled && !b.retreated.includes(leader.uid) && leader.settled !== 'spare' && leader.settled !== 'persuade';
     const t = wtype(lu);
-    if (fell && t && o && o.kind !== 'monster') {
+    // 12夜目：ふつうの隊長は3割ほど。宿敵・因縁のある敵将・幹部以上・将軍（頭目）は必ず
+    const bond = o ? Object.values(s.rivalries ?? {}).some((rv) => rv.oid === o.id && (rv.stage >= 1 || !!rv.vow)) : false;
+    const sure = !!o && ((o.rank ?? 2) <= 1 || bond);
+    if (fell && t && o && o.kind !== 'monster' && (sure || r.chance(L.namedChance))) {
       const lv = lu!.level;
       // 銘入りの武器の段階：敵将の階級とレベル（隊長は鋼まで、幹部は銀まで、将軍は名匠まで）
       const cap = (o.rank ?? 2) >= 2 ? 0 : o.rank === 1 ? 1 : 2;

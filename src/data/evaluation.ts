@@ -15,6 +15,7 @@ export const BADGES: Record<string, BadgeDef> = {
   saver: { id: 'saver', name: '救い手', desc: '仲間の傷を何度も癒やした', tone: 'blue', pri: 74 },
   sniper: { id: 'sniper', name: '狙撃手', desc: '遠くから当て続けた', tone: 'red', pri: 62 },
   crit: { id: 'crit', name: '会心の一撃', desc: '必殺の一撃を決めた', tone: 'red', pri: 64 },
+  art: { id: 'art', name: '技の冴え', desc: '戦技を何度も決めた', tone: 'gold', pri: 58 },
   weakspot: { id: 'weakspot', name: '弱点を突いた', desc: '敵将の弱点を突いて攻めた', tone: 'gold', pri: 80 },
   general_hunter: { id: 'general_hunter', name: '将に迫る', desc: '敵将に大きな手傷を負わせた', tone: 'red', pri: 68 },
   planner: { id: 'planner', name: '策士', desc: '立てた策が決まった', tone: 'gold', pri: 78 },
