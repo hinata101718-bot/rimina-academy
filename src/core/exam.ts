@@ -23,7 +23,8 @@ export function classUnlocked(s: GameState, c: ClassDef): boolean {
 }
 
 /** 隠し兵種「英雄」：才能「英雄の器」の子が上級から（在学中は Lv20 以上で受験できる） */
-export function heroOpen(st: Student): boolean { return st.talent === 'hero' && (CLASSES[st.classId]?.tier ?? 0) === 3; }
+/** 10夜目：金の芽が開花した子（古いセーブの「英雄の器」もここに） */
+export function heroOpen(st: Student): boolean { return (st.talent === 'hero' || (!!st.bud?.gold && !!st.bud.done)) && (CLASSES[st.classId]?.tier ?? 0) === 3; }
 
 /** 受験に必要なレベル（段階ごと） */
 export function levelReq(c: ClassDef): number { return c.hidden ? B.exam.heroLevel : B.exam.levelReq[c.tier] ?? 0; }

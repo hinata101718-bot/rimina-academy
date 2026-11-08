@@ -63,7 +63,7 @@ export function ClassCompare({ from, to }: { from: ClassDef; to: ClassDef }) {
   );
 }
 
-/** 成長率の内わけ（本人 ＋ 兵種 ＋ 才能・特徴 ＝ 合計）。本人が「？」のあいだは分かる分だけ。判明したら埋まる演出 */
+/** 成長率の内わけ（本人 ＋ 兵種 ＋ 特徴 ＝ 合計）。本人が「？」のあいだは分かる分だけ。判明したら埋まる演出 */
 export function GrowthTable({ s, st }: { s: GameState; st: Student }) {
   const parts = growthParts(st);
   const known = st.growthKnown;
@@ -81,7 +81,7 @@ export function GrowthTable({ s, st }: { s: GameState; st: Student }) {
   void s;
   return (
     <div class={`gtable${reveal ? ' revealing' : ''}`}>
-      <div class="gt-row gt-head"><span>能力</span><span>本人</span><span>兵種</span><span>才能・特徴</span><span>合計</span></div>
+      <div class="gt-row gt-head"><span>能力</span><span>本人</span><span>兵種</span><span>特徴</span><span>合計</span></div>
       {STATS.map((k: StatId, i) => {
         const p = parts[k];
         const on = known && i < lit;
@@ -96,7 +96,7 @@ export function GrowthTable({ s, st }: { s: GameState; st: Student }) {
         );
       })}
       <div class="gt-sum"><span>合計成長率</span><b>{known && lit > STATS.length - 1 ? `${sum}%` : '？'}</b></div>
-      <div class="small muted">{known ? '本人の成長率は才能が分かると見えます（5%きざみ）。合計の％の確率で、レベルアップのときにその能力が+1。' : '本人の成長率は、才能が分かるまで「？」です。兵種の補正は最初から見えます。'}</div>
+      <div class="small muted">合計の％の確率で、レベルアップのときにその能力が上がります（5%きざみ）。</div>
     </div>
   );
 }

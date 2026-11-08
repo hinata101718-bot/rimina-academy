@@ -9,7 +9,7 @@ export type PersonalityId =
   | 'hot' | 'calm' | 'timid' | 'cynic' | 'gentle'
   | 'serious' | 'cheerful' | 'shy' | 'competitive' | 'whimsical';
 
-export type SkillId = 'sword' | 'lance' | 'axe' | 'bow' | 'magic' | 'faith' | 'riding' | 'heavy' | 'flying' | 'gun';
+export type SkillId = 'sword' | 'lance' | 'axe' | 'bow' | 'magic' | 'faith' | 'riding' | 'heavy' | 'flying' | 'gun' | 'tactics' | 'command';
 export type Rank = 'E' | 'E+' | 'D' | 'D+' | 'C' | 'C+' | 'B' | 'B+' | 'A' | 'A+' | 'S';
 
 export type StatId = 'hp' | 'str' | 'mag' | 'skl' | 'spd' | 'lck' | 'def' | 'res' | 'cha';
@@ -19,7 +19,7 @@ export type Stats = Record<StatId, number>;
 export type WeaponType = 'sword' | 'lance' | 'axe' | 'bow' | 'magic' | 'holy' | 'staff' | 'gun';
 export type MoveType = 'infantry' | 'cavalry' | 'armor' | 'flying';
 
-export type Path = 'warrior' | 'strategist' | 'civil'; // 武官・参謀・文官
+export type Path = 'warrior' | 'strategist' | 'civil' | 'champion'; // 将（武官）・参謀・文官・勇士（10夜目）
 
 // ---------- データ定義 ----------
 

@@ -31,12 +31,12 @@ describe('7夜目版のセーブ（形式7）', () => {
     const s = deserialize(fixture('v7-day.json'));
     expect(s.version).toBe(SAVE_VERSION);
     expect(SAVE_VERSION).toBeGreaterThanOrEqual(8);
-    expect(s.instructor.skills).toEqual(skills0);
+    expect(s.instructor.skills).toMatchObject(skills0); // 10夜目：軍略・統率が足される
     expect(s.instructor.xp).toBe(0);
     expect(s.instructor.abilities).toEqual([]);
     for (const st of Object.values(s.students)) for (const k of STATS) expect(st.growth[k] % 5).toBe(0);
-    // 丸めは四捨五入（大きく変わらない）
-    for (const st of Object.values(raw.state.students) as GameState['students'][string][]) for (const k of STATS) expect(Math.abs(s.students[st.id].growth[k] - st.growth[k])).toBeLessThanOrEqual(5);
+    // 10夜目：成長率は新しい基準へ引き上げる（下がらない）
+    for (const st of Object.values(raw.state.students) as GameState['students'][string][]) for (const k of STATS) expect(s.students[st.id].growth[k]).toBeGreaterThanOrEqual(st.growth[k] - 5);
     expect((s.classSeen ?? []).length).toBeGreaterThan(0);
     expect(s.newsDesk).toBeTruthy();
     expect(s.pending.some((p) => p.type === 'event' && p.title.includes('8夜目'))).toBe(true);

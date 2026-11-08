@@ -5,7 +5,8 @@ import { WEAPONS } from '../data/weapons';
 import type { CountryId, SkillId } from './types';
 import type { GameState, Quest, Student, GrowthEntry, BattleFinding, TalkLog, SquadPlan, BattleReport } from './state';
 import { SQUADS, STRAT } from '../data/stratagems';
-import { checkStratUnlocks, addStrat, awayJudgeRate } from './stratagems';
+import { checkStratUnlocks, addStrat, addCommand, awayJudgeRate } from './stratagems';
+import { checkBloom } from './aptitude';
 import { evaluateBattle } from './evaluate';
 import { rollLoot, takeLoot, repGift } from './loot';
 import { rivalryOf } from './officers';
@@ -277,7 +278,7 @@ export function finishBattle(s: GameState): void {
       st.weaponUse[w] = (st.weaponUse[w] ?? 0) + n;
       const def = WEAPONS[w];
       if (def) addSkill(st, weaponSkillId(def.type) as SkillId, n * B.battle.skillPerUse * B.motivationMul[st.motivation] * (s.settings.mods.skill ?? 1));
-      if (def && st.talent) revealTalent(s, st, B.talent.battleReveal / 2);
+      if (def) revealTalent(s, st, B.talent.battleReveal / 4); // 10夜目：戦いでも芽の判明度が少し上がる
     }
     const damp = Math.max(B.battle.expDamp.min, Math.min(1, B.battle.expDamp.base - st.level * B.battle.expDamp.perLevel));
     const ups = gainExp(s, r, st, u.expGain * expMul * damp);
@@ -360,6 +361,10 @@ export function finishBattle(s: GameState): void {
   // 策を立てた子は軍略が少し身につく（9夜目）
   const planner = b.auto?.plan?.planner;
   if (planner && s.students[planner]?.status === 'enrolled' && (b.auto?.strats ?? []).length) addStrat(s.students[planner], STRAT.plannerGain);
+  // 10夜目：部隊長を務めた子は統率が身につく
+  const captain = b.auto?.plan?.captain;
+  if (captain && s.students[captain]?.status === 'enrolled') addCommand(s.students[captain], STRAT.captainGain);
+  for (const id of evalIds) if (s.students[id]) checkBloom(s, s.students[id]);
   const evals = evaluateBattle(s, b, q, evalIds, auto.mvp ?? null, rivalsBefore, battlesBefore);
   // 個人ページの記録：称号の数・最近の評価・重傷の回数
   for (const e of evals) {

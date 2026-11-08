@@ -18,11 +18,11 @@ export function spellSkill(w: WeaponDef): 'magic' | 'faith' { return w.type === 
  * 生徒ごとの「覚える魔法の一覧」。生徒のidから決まる（ゲームの乱数を消費しない）ので、
  * 古いセーブの在校生にも同じ方法で一覧を作れる。
  */
-export function makeSpellPlan(st: Pick<Student, 'id' | 'given' | 'talent'>): SpellSlot[] {
+export function makeSpellPlan(st: Pick<Student, 'id' | 'given' | 'talent' | 'apt'>): SpellSlot[] {
   const rng = new Rng({ rng: hash(`${st.id}:${st.given}:spells`) });
   const out: SpellSlot[] = [];
   for (const skill of ['magic', 'faith'] as const) {
-    const genius = st.talent === `genius_${skill}`;
+    const genius = st.talent === `genius_${skill}` || !!st.apt?.good.includes(skill); // 10夜目：得意の子は珍しい魔法を覚えることがある
     const pool = SPELL_LIST.filter((w) => spellSkill(w) === skill && (!w.rare || genius));
     const n = rng.int(...SPELL_PLAN.count);
     // どのランクで覚えるか：E は高い確率で入れ、残りは D〜S から選ぶ

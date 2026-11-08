@@ -1,4 +1,6 @@
 // 卒業生の毎年のシミュレーション
+import type { SkillId } from './types';
+import { ARM_SKILLS } from '../data/balance';
 import { B } from '../data/balance';
 import { CLASSES, CLASS_LIST } from '../data/classes';
 import { COUNTRY_SHORT, RANK_TITLES, COUNTRIES } from '../data/people';
@@ -27,6 +29,9 @@ export function titleOf(st: Student): string {
 
 export interface AlumniNews { id: string; text: string; big: boolean }
 
+/** いちばん高い武器の技能（勇士の道） */
+function bestArmSkill(st: Student): SkillId { return ARM_SKILLS.filter((k) => k !== 'gun' || st.skills.gun > 0).sort((a, b) => (st.skills[b] ?? 0) - (st.skills[a] ?? 0))[0]; }
+
 export function simulateAlumni(s: GameState, rng: Rng): AlumniNews[] {
   const news: AlumniNews[] = [];
   const stage = tensionStage(s.world.tension);
@@ -46,7 +51,7 @@ export function simulateAlumni(s: GameState, rng: Rng): AlumniNews[] {
     // 最上級兵種
     const cls = CLASSES[st.classId];
     if (cls && cls.tier < 4 && st.level >= (B.exam.levelReq[cls.tier + 1] ?? B.alumni.tier4Level)) {
-      const kids = CLASS_LIST.filter((k) => k.prereq.includes(cls.id) && (!k.needGun || s.world.gunUnlocked) && (!k.hidden || st.talent === 'hero') && (!k.nation || k.nation === c.country));
+      const kids = CLASS_LIST.filter((k) => k.prereq.includes(cls.id) && (!k.needGun || s.world.gunUnlocked) && (!k.hidden || st.talent === 'hero' || (!!st.bud?.gold && !!st.bud.done)) && (!k.nation || k.nation === c.country));
       if (kids.length && rng.chance(0.5)) {
         const nation = kids.filter((k) => k.nation);
         const next = nation.length && rng.chance(0.5) ? rng.pick(nation) : rng.pick(kids);
@@ -67,7 +72,11 @@ export function simulateAlumni(s: GameState, rng: Rng): AlumniNews[] {
       const e = effectiveStats(st);
       let p = B.alumni.promoteBase + (st.level - B.alumni.promoteLevel - c.rank * 7) * 0.02 + c.rankYears * 0.03;
       if (c.path === 'civil') p += (e.cha - 10) * 0.015 + (st.house === 'noble' ? 0.05 : 0);
-      if (c.path === 'strategist') p += (e.skl + e.mag - 20) * 0.008;
+      // 10夜目：将は統率、参謀は軍略のランクが出世に大きく効く。勇士は隊長どまりになりやすい
+      const A = B.alumni;
+      if (c.path === 'warrior') p += ((st.skills.command ?? 0) - A.rankSkillBase) * A.rankSkill;
+      if (c.path === 'strategist') p += ((st.skills.tactics ?? 0) - A.rankSkillBase) * A.rankSkill;
+      if (c.path === 'champion' && c.rank >= 1) p *= A.championRankMul;
       if (c.country === 'kingdom') p += st.house === 'noble' ? 0.08 : -0.06;
       if (c.country === 'empire') p += 0.05;
       if (c.country === 'alliance') p += (e.cha - 10) * 0.01;
@@ -75,15 +84,24 @@ export function simulateAlumni(s: GameState, rng: Rng): AlumniNews[] {
       if (c.rank < max && rng.chance(Math.max(0.02, Math.min(0.7, p)))) {
         c.rank += 1; c.rankYears = 0;
         const t = RANK_TITLES[c.path][c.rank];
-        if (c.rank >= 2) big(st, `が${COUNTRY_SHORT[c.country!]}の${t}に昇進`); else st.history.push({ year: s.year, text: `${t}に昇進` });
+        const where = c.path === 'warrior' ? `（${rng.pick(['北方軍', '東部方面軍', '第三軍', '国境警備軍', '近衛軍'])}を率いる将に）` : c.path === 'strategist' ? `（${rng.pick(['第三軍', '本営', '北方軍', '西部方面軍'])}の参謀に）` : '';
+        if (c.rank >= 2) big(st, `が${COUNTRY_SHORT[c.country!]}の${t}に昇進${where}`); else st.history.push({ year: s.year, text: `${t}に昇進` });
         if (c.rank === max) chronicle(s, `${st.given}が${COUNTRY_SHORT[c.country!]}の${t}に`, 'student');
       }
+    }
+    // 10夜目：道に合った技能が毎年少しずつ伸びる。統率の低い将の失敗・勇士の武勲
+    if (c.kind === 'army' || c.kind === 'merc') {
+      const A = B.alumni;
+      const k: SkillId = c.path === 'warrior' ? 'command' : c.path === 'strategist' ? 'tactics' : c.path === 'champion' ? bestArmSkill(st) : 'command';
+      if (c.path !== 'civil') st.skills[k] = Math.min(700, (st.skills[k] ?? 0) + A.pathSkillYear * (0.7 + rng.next() * 0.6));
+      if (c.kind === 'army' && c.path === 'warrior' && c.rank >= 2 && (st.skills.command ?? 0) < A.lowCommandAt && rng.chance(A.lowCommandFail)) { c.rankYears = 0; st.history.push({ year: s.year, text: '兵がついてこず、戦で手痛い目にあった' }); news.push({ id: st.id, text: `${st.given}（${st.cohort}期生）の隊は、兵がついてこず苦しい戦いになった`, big: false }); }
+      if (c.path === 'champion' && stage !== 'peace' && rng.chance(A.championDeed)) big(st, rng.pick(['が単騎で敵陣を破った', 'が一騎打ちで敵の名のある将を退けた', 'が先陣を切って砦の門を破った']));
     }
     // 出来事
     const fighting = c.kind === 'army' || c.kind === 'merc';
     let death = 0;
     if (fighting) {
-      death = B.alumni.deathRate[stage] * (c.path === 'warrior' ? 1 : 0.4) * (c.front ? B.alumni.frontDeathMul : B.alumni.rearDeathMul);
+      death = B.alumni.deathRate[stage] * (c.path === 'warrior' ? 1 : c.path === 'champion' ? 1.1 : 0.4) * (c.front ? B.alumni.frontDeathMul : B.alumni.rearDeathMul);
       // 経験を積んだ卒業生ほど生き残りやすい
       death *= Math.max(B.alumni.veteranMin, 1 - st.level / B.alumni.veteranLevel);
       if (c.country === 'empire' && c.front) death += B.alumni.empireFrontExtra * (stage === 'peace' ? 0.3 : 1);

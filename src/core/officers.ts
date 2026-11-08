@@ -105,11 +105,14 @@ export function newOfficer(s: GameState, r: Rng, faction: FactionId, rank: numbe
   let ep = kind === 'bandit' ? r.pick(BANDIT_EPITHETS) : undefined;
   for (let k = 0; k < 12 && ep && usedEp.has(ep); k++) ep = r.pick(BANDIT_EPITHETS);
   const traits = r.shuffle([...TRAIT_IDS]).slice(0, OFFICER.traitCount);
+  // 10夜目：敵将の型（勇士型・将型）。はじめから知られている
+  const style = r.chance(rank === 0 ? 0.35 : rank === 1 ? 0.5 : 0.6) ? 'valor' : 'marshal';
+  traits.push(style);
   return {
     id, given, family: kind === 'army' ? r.pick(nl.family) : '', epithet: ep,
     faction, kind, country: kind === 'army' ? faction as CountryId : null, rank, gender, age, personality: pers,
     face: generateFace(r, origin as 'frontier', gender), faceImage, classId: r.pick(OFFICER_CLASSES[kind]),
-    level: Math.max(1, Math.round(3 + s.year * 0.6 + (2 - rank) * 2)), scars: 0, traits, knownTraits: [], meets: [], status: 'active', grudge: null, victims: [], joined: s.year,
+    level: Math.max(1, Math.round(3 + s.year * 0.6 + (2 - rank) * 2)), scars: 0, traits, knownTraits: [style], meets: [], status: 'active', grudge: null, victims: [], joined: s.year,
   };
 }
 

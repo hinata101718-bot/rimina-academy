@@ -124,6 +124,10 @@ export interface Student {
   evalLog?: { year: number; month: number; title: string; grade: string; badges: string[]; scene?: string | null }[];
   /** 重傷を負った回数 */
   wounds?: number;
+  /** 10夜目：得意技能（伸び×1.5）・苦手技能（×0.5）。入学時から見える */
+  apt?: { good: SkillId[]; bad: SkillId[] };
+  /** 10夜目：眠った芽（苦手の1つに。gold＝金の芽・英雄への道）。reveal＝芽の判明度、done＝開花した */
+  bud?: { skill?: SkillId; gold?: boolean; reveal: number; done?: boolean; year?: number; ability?: string };
   /** 前の戦いの戦績（9夜目：評価の「前より伸びた」に使う） */
   lastRec?: { hitRate: number; dealt: number; kills: number };
 }
@@ -404,7 +408,9 @@ export type Pending =
   /** 手応えの演出（教官の腕前・施設・評判・卒業生の昇進など） */
   | { type: 'rankup'; items: RankUpItem[] }
   /** 発見の演出（隠れた才能のヒント1→ヒント2→判明、意外な一面） */
-  | { type: 'discovery'; studentId: string; stage: 1 | 2 | 3 | 4; title: string; text: string; name?: string };
+  | { type: 'discovery'; studentId: string; stage: 1 | 2 | 3 | 4; title: string; text: string; name?: string }
+  /** 才能開花（10夜目：大きな演出） */
+  | { type: 'bloom'; studentId: string; skill?: SkillId; gold?: boolean };
 
 /** 戦闘の結果（1つの戦い）。9夜目：部隊の番号・部隊長・生徒ごとの評価・策の講評 */
 export interface BattleReport {

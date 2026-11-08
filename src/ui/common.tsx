@@ -1,3 +1,4 @@
+import { useState } from 'preact/hooks';
 import type { ComponentChildren } from 'preact';
 import type { Student, GameState } from '../core/state';
 import { Portrait } from './Portrait';
@@ -45,4 +46,15 @@ export function Back({ to }: { to: () => void }) {
 export function money(n: number) { return `${n.toLocaleString()}G`; }
 export function stageOf(s: GameState): 'peace' | 'tension' | 'war' {
   return s.world.tension < B.world.peaceBelow ? 'peace' : s.world.tension > B.world.warAbove ? 'war' : 'tension';
+}
+
+/** 「？」の札：タップで短い説明を開く（10夜目） */
+export function HelpTip({ text }: { text: string }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <span class="helptip">
+      <button class={`lb-help${open ? ' on' : ''}`} aria-label="説明" onClick={(e) => { e.preventDefault(); e.stopPropagation(); sfx('move'); setOpen(!open); }}>？</button>
+      {open && <span class="helptip-body small" onClick={() => setOpen(false)}>{text}</span>}
+    </span>
+  );
 }

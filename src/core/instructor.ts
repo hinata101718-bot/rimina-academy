@@ -1,4 +1,6 @@
 // 教官：教えるほど上がる技能（③）、加齢・引退・後継（④）、副教官（⑤）。DOMに依存しない
+import { goodOf } from './aptitude';
+import { RANK_TITLES } from '../data/people';
 import { B, SKILLS, RANK_POINTS } from '../data/balance';
 import { skillRankUp } from './discovery';
 import { BACKGROUNDS, COUNTRY_SHORT, SKILL_NAMES, PERSONALITIES, TALENTS, DREAMS } from '../data/people';
@@ -101,7 +103,7 @@ export function successorCandidates(s: GameState): SuccessorCand[] {
 }
 function titleShort(st: Student): string {
   const c = st.career!;
-  const t = ({ warrior: ['兵士', '小隊長', '部隊長', '将軍', '元帥'], strategist: ['参謀見習い', '作戦参謀', '参謀長', '軍師'], civil: ['書記官', '外交官', '大使', '宰相'] } as Record<string, string[]>)[c.path];
+  const t = RANK_TITLES[c.path] ?? RANK_TITLES.warrior;
   return t[Math.min(c.rank, t.length - 1)];
 }
 
@@ -287,6 +289,8 @@ function viceGroup(st: Student): 'loud' | 'quiet' | 'steady' { return PERSONALIT
  */
 export function viceTargets(s: GameState, st: Student, policy: VicePolicy, vice: Student, auto: (s: GameState, st: Student, p: VicePolicy) => [SkillId, SkillId]): [SkillId, SkillId] {
   const base = auto(s, st, policy);
+  // 10夜目：芽が見えている子は、その技能を目標のまま（狙って育てる）
+  if (st.bud && !st.bud.done && st.bud.skill && st.bud.reveal >= B.apt.known && base.includes(st.bud.skill)) return base;
   const viceSkill = [...SKILLS].filter((k) => k !== 'gun' || s.world.gunUnlocked).sort((a, b) => vice.skills[b] - vice.skills[a])[0];
   const g = viceGroup(vice);
   // しっかり者の担任は、自分の得意科目を2つ目にすすめることがある（その子にも少し素質があるとき）
@@ -297,7 +301,7 @@ export function viceTargets(s: GameState, st: Student, policy: VicePolicy, vice:
     return [by[0], by[1]];
   }
   // 静かな担任は「才能」の方針でも、才能が分からない子には夢を優先する
-  if (g === 'quiet' && policy === 'talent' && !(st.talent && st.talentReveal >= B.talent.hint1)) return auto(s, st, 'dream');
+  if (g === 'quiet' && policy === 'talent' && !goodOf(st).length) return auto(s, st, 'dream');
   return base;
 }
 

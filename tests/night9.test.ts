@@ -191,9 +191,9 @@ describe('策（作戦カード）と陣形', () => {
     s.pending = [];
     const d = todayCards(s);
     d.cards[0] = { id: 'tactics', faces: [], tags: [] };
-    const before = enrolled(s).map((x) => x.strat ?? 0);
+    const before = enrolled(s).map((x) => x.skills.tactics); // 10夜目：軍略は技能ランクに
     chooseLesson(s, 0);
-    const after = enrolled(s).map((x) => x.strat ?? 0);
+    const after = enrolled(s).map((x) => x.skills.tactics);
     expect(after.reduce((a, b) => a + b, 0)).toBeGreaterThan(before.reduce((a, b) => a + b, 0));
   });
   it('開戦の策は黄色い帯になり、ぶつかり合いのあとの策はここぞの判断で早めに切れる', () => {

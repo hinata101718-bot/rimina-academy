@@ -17,6 +17,8 @@ import { round5 } from './growth';
 import { startNewsDesk } from './newspaper';
 import { STATS } from '../data/balance';
 import { STOCK_IDS, stockUid } from './loot';
+import { liftGrowth, talentToApt } from './aptitude';
+import { RANK_POINTS } from '../data/balance';
 
 export interface SaveFile { app: 'rimina-academy'; version: number; savedAt: number; state: GameState }
 
@@ -293,5 +295,32 @@ function migrateTo10(s: GameState): void {
 
 /** 10夜目の形をそろえる（作業の途中で公開した版のセーブにも効くよう、何度呼んでも同じになる） */
 function ensure10(s: GameState): void {
-  void s;
+  const r = new Rng({ rng: (s.createdAt ?? 1) ^ 0x10a7 });
+  // 軍略・統率を技能ランクに：9夜目の軍略の数値（0〜100）と魅力から、E〜D+くらいに
+  const fill = (sk: Record<string, number> | undefined) => { if (!sk) return; sk.tactics ??= 0; sk.command ??= 0; };
+  const all = [...Object.values(s.students ?? {}), ...(s.applicants ?? [])];
+  for (const st of all) {
+    if (st.skills && st.skills.tactics === undefined) {
+      const cha = st.stats?.cha ?? 5;
+      st.skills.tactics = Math.min(RANK_POINTS['D+'], Math.round((st.strat ?? 0) * 0.9));
+      st.skills.command = Math.min(RANK_POINTS['D+'], Math.round(Math.max(0, cha - 4) * 3 + (st.strat ?? 0) * 0.3));
+    }
+    fill(st.skills);
+    // 得意・苦手・眠った芽（隠れた才能→得意）と、成長率の引き上げ
+    if (!st.apt) {
+      liftGrowth(st);
+      talentToApt(st, r, st.status === 'enrolled' || s.applicants?.includes(st));
+    }
+    st.growthKnown = true;
+  }
+  fill(s.instructor?.skills); fill(s.instructor?.caps);
+  // 敵将の型（勇士型・将型）：今いる敵将にも1つ（名前から決める）
+  for (const o of s.officers ?? []) {
+    if (o.kind === 'monster' || o.traits.includes('valor') || o.traits.includes('marshal')) continue;
+    let h = 7; for (const c of o.id + o.given) h = (h * 31 + c.charCodeAt(0)) >>> 0;
+    const st = h % 10 < (o.rank === 0 ? 4 : o.rank === 1 ? 5 : 6) ? 'valor' : 'marshal';
+    o.traits.push(st); o.knownTraits.push(st);
+  }
+  if (s.instructor?.caps) { s.instructor.caps.tactics = Math.max(s.instructor.caps.tactics, RANK_POINTS.B); s.instructor.caps.command = Math.max(s.instructor.caps.command, RANK_POINTS.B); }
+  if (s.instructor?.skills && !s.instructor.skills.tactics && !s.instructor.skills.command) { s.instructor.skills.tactics = RANK_POINTS.D; s.instructor.skills.command = RANK_POINTS.D; }
 }

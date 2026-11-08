@@ -1,6 +1,6 @@
 // 日ごとの授業カード（7夜目）：全学年いっしょ・1日1回。毎日5種類＋休講から1つ選ぶ。DOMに依存しない
 import { STRAT } from '../data/stratagems';
-import { addStrat } from './stratagems';
+import { isGood, budKnown, checkBloom } from './aptitude';
 import { B, SKILLS, STATS } from '../data/balance';
 import { LESSONS, REST, LESSON_BY_ID, PRACTICE_EVENTS, type LessonDef } from '../data/lessons';
 import { TALENTS, DREAMS, SKILL_NAMES, STAT_NAMES, PERSONALITIES } from '../data/people';
@@ -65,7 +65,8 @@ function faceWeight(s: GameState, st: Student, l: LessonDef): number {
   const ks = Object.keys(l.skills ?? {}) as SkillId[];
   if (ks.some((k) => st.targets[0] === k)) w += 3;
   if (ks.some((k) => st.targets[1] === k)) w += 1.5;
-  if (st.talent && ks.includes(TALENTS[st.talent].skill as SkillId)) w += 1.5;
+  if (ks.some((k) => isGood(st, k))) w += 1.5; // 10夜目：得意な技能の授業は顔が出やすい
+  if (budKnown(st) && st.bud?.skill && ks.includes(st.bud.skill)) w += 1;
   const d = DREAMS.find((x) => x.id === st.dream);
   if (d && ks.some((k) => d.skills.includes(k))) w += 1;
   if (l.likes?.includes(st.personality)) w += 1.5;
@@ -249,9 +250,6 @@ export function resolveLesson(s: GameState, r: Rng, idx: number, talkWith?: stri
     // 才能の判明
     const rev = ((l.reveal ?? (l.group === 'social' || l.group === 'rest' ? 0.4 : 1)) * D.reveal * faceM + (B.talent.libraryReveal[s.facilities.library ?? 0] + expBonusOf(s)) / 5) * (1 + fx(s, 'reveal'));
     revealTalent(s, st, rev, lines);
-    // 軍略（9夜目）：戦術論・兵法の歴史で身につく
-    const sg = STRAT.lessonGain[l.id];
-    if (sg) addStrat(st, sg * (b.face ? STRAT.faceMul : 1));
     if (b.face) st.lastAttention = s.absWeek;
   }
 
@@ -338,6 +336,7 @@ export function resolveLesson(s: GameState, r: Rng, idx: number, talkWith?: stri
     const snap = snaps.get(st.id)!;
     const learned = learnSpells(s, st);
     for (const id of learned) lines.push(learnedText(st, id));
+    checkBloom(s, st);
     const rankUp = SKILLS.some((k) => rankOf(snap.skills[k]) !== rankOf(st.skills[k]));
     for (const k of SKILLS) if (rankOf(snap.skills[k]) !== rankOf(st.skills[k])) lines.push(`${st.given}の${SKILL_NAMES[k]}が${rankOf(st.skills[k])}に上がった`);
     if (st.level > snap.level) lines.push(`${st.given}がLv${st.level}になった`);
@@ -370,7 +369,7 @@ function practiceEvent(s: GameState, r: Rng, card: LessonCard, l: LessonDef, fac
   const f = faces[0];
   if (l.skills || l.stats) cands.push({ kind: 'teacher', w: 2, ids: [r.pick(faces)] });
   if (l.skills) cands.push({ kind: 'extra', w: 1.5, ids: [r.pick(faces)] });
-  const sp = faces.find((x) => x.talent && x.talentReveal < B.talent.full && l.skills && Object.keys(l.skills).includes(TALENTS[x.talent].skill as string));
+  const sp = faces.find((x) => x.bud && !x.bud.done && x.bud.skill && x.bud.reveal < B.apt.known && l.skills && Object.keys(l.skills).includes(x.bud.skill));
   if (sp) cands.push({ kind: 'spark', w: 3, ids: [sp] });
   if (!cands.length || !f) return null;
   const c = r.weighted(cands, (x) => x.w);

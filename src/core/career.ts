@@ -1,4 +1,5 @@
 // 進路（声かけ・希望・推薦の三者）と卒業式
+import { ARM_SKILLS } from '../data/balance';
 import { B } from '../data/balance';
 import { careerTitleOnly } from './discovery';
 import { titleOf } from './alumni';
@@ -54,14 +55,22 @@ export function hopes(s: GameState, st: Student): CareerChoice[] {
   return (Object.keys(score) as CareerChoice[]).sort((a, b) => score[b] - score[a]);
 }
 
-export function suitablePath(st: Student): Path {
+/** 向いている道（10夜目：強さの2つの軸。采配＝統率→将・軍略→参謀、個の武→勇士、魅力→文官） */
+export function pathScores(st: Student): Record<Path, number> {
   const e = effectiveStats(st);
-  const civil = e.cha * 1.4 + (st.house === 'noble' ? 3 : 0);
-  const strat = (e.skl + e.mag) * 0.7;
-  const war = (e.str + e.def + e.spd) * 0.5 + st.level * 0.15;
-  if (civil >= strat && civil >= war) return 'civil';
-  if (strat >= war) return 'strategist';
-  return 'warrior';
+  const cmd = st.skills.command ?? 0, tac = st.skills.tactics ?? 0;
+  const arms = Math.max(...ARM_SKILLS.map((k) => st.skills[k] ?? 0));
+  // 自分のいちばん高い武器の技能と比べる（采配の技能が武器に近いほど、将・参謀に向く）
+  return {
+    civil: e.cha * 10 + (st.house === 'noble' ? 30 : 0),
+    warrior: cmd * 3.5 + e.cha * 6,
+    strategist: tac * 3.5 + (e.skl + e.mag) * 1.5,
+    champion: arms,
+  };
+}
+export function suitablePath(st: Student): Path {
+  const sc = pathScores(st);
+  return (Object.keys(sc) as Path[]).sort((a, b) => sc[b] - sc[a])[0];
 }
 
 export interface CareerPlan { studentId: string; recommend: CareerChoice; path: Path }

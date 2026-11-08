@@ -72,7 +72,10 @@ export function rollLoot(s: GameState, b: BattleState, q: Quest | undefined, nam
     const t = wtype(lu);
     if (fell && t && o && o.kind !== 'monster') {
       const lv = lu!.level;
-      const id = tierOf(t, lv < L.namedSteelLv ? 'steel' : lv < L.namedSilverLv ? 'silver' : 'master');
+      // 銘入りの武器の段階：敵将の階級とレベル（隊長は鋼まで、幹部は銀まで、将軍は名匠まで）
+      const cap = (o.rank ?? 2) >= 2 ? 0 : o.rank === 1 ? 1 : 2;
+      const lvTier = lv < L.namedSteelLv ? 0 : lv < L.namedSilverLv ? 1 : 2;
+      const id = tierOf(t, (['steel', 'silver', 'master'] as const)[Math.min(cap, lvTier)]);
       if (id) {
         const given = o?.given ?? leader.name;
         const ep = o?.epithet ? `「${o.epithet}」` : '';

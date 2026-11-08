@@ -29,10 +29,9 @@ export interface GrowthPart { own: number; cls: number; extra: number; total: nu
 export function growthParts(st: Student): Record<keyof Stats, GrowthPart> {
   const c = CLASSES[st.classId] ?? CLASSES.novice;
   const total = growthRates(st);
-  const tal = st.talent ? TALENTS[st.talent]?.stats ?? {} : {};
   const out = {} as Record<keyof Stats, GrowthPart>;
   for (const k of STATS) {
-    const own = st.growth[k] - ((tal as Partial<Stats>)[k] ?? 0);
+    const own = st.growth[k]; // 10夜目：隠れた才能はなくなり、本人の成長率に入っている
     const cls = (c.growth as Partial<Stats>)[k] ?? 0;
     out[k] = { own, cls, extra: total[k] - own - cls, total: total[k] };
   }

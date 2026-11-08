@@ -242,6 +242,7 @@ describe('自動の戦闘', () => {
       const lu = s.battle!.units.find((u) => u.uid === L.uid)!;
       // 取り逃がした（7夜目：敵が弱くなり討ち取ることが増えたので、倒れていても逃げたことにする）
       lu.dead = true; if (!s.battle!.retreated.includes(lu.uid)) s.battle!.retreated.push(lu.uid); L.fled = true; L.settled = null;
+      s.battle!.result = 'win'; // 10夜目：敵が強くなり負けることも増えたので、勝ったことにする（取り逃がしの仕組みだけを見る）
       finishBattle(s);
       o = (s.officers ?? []).find((x) => x.id === L.officerId && x.status === 'active' && x.meets.length === 1);
     }

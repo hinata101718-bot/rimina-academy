@@ -9,10 +9,30 @@ export const RANK_POINTS: Record<Rank, number> = {
 };
 export const SKILL_MAX_POINTS = 700;
 
-export const SKILLS: SkillId[] = ['sword', 'lance', 'axe', 'bow', 'magic', 'faith', 'riding', 'heavy', 'flying', 'gun'];
+export const SKILLS: SkillId[] = ['sword', 'lance', 'axe', 'bow', 'magic', 'faith', 'riding', 'heavy', 'flying', 'gun', 'tactics', 'command'];
+/** 武器と体の技能（10夜目：軍略・統率を除いたもの。兵種・武器・育ち方の目安に使う） */
+export const ARM_SKILLS: SkillId[] = ['sword', 'lance', 'axe', 'bow', 'magic', 'faith', 'riding', 'heavy', 'flying', 'gun'];
+/** 采配の技能（10夜目） */
+export const LEAD_SKILLS: SkillId[] = ['tactics', 'command'];
 export const STATS: StatId[] = ['hp', 'str', 'mag', 'skl', 'spd', 'lck', 'def', 'res', 'cha'];
 
 export const B = {
+  // ---- 得意・苦手・才能開花（10夜目） ----
+  apt: {
+    goodMul: 1.5, badMul: 0.5,
+    /** 芽が見えた苦手の伸び（育てればふつうに伸びる） */
+    budMul: 1.0,
+    /** 得意は2〜3個（3個になる確率）、苦手は1〜2個（2個になる確率） */
+    good3: 0.45, bad2: 0.45,
+    /** 眠った芽を持つ子の割合、金の芽（英雄への道）の割合 */
+    budChance: 0.3, goldChance: 0.012,
+    /** 芽の判明度：ヒント・芽の印が見える */
+    hint: 30, known: 60,
+    /** 目標技能にしてこのランクまで上げると開花 */
+    bloomRank: 'D+' as const,
+    /** 金の芽：判明したうえで、このレベル・得意の技能がこのランク */
+    goldLevel: 20, goldRank: 'C+' as const,
+  },
   // ---- 戦利品（10夜目：武器は買わずに戦いで手に入れる） ----
   loot: {
     /** 倒した雑兵が武器を落とす確率と、1つの戦いで落ちる数の上限 */
@@ -21,7 +41,7 @@ export const B = {
     silverLv: 18, silverChance: 0.35, masterLv: 30, masterChance: 0.08,
     /** 敵将の銘入りの武器：敵将のレベルで鋼→銀→名匠。銘入りは少し強い */
     namedSteelLv: 18, namedSilverLv: 32,
-    named: { might: 1, hit: 5, crit: 3 },
+    named: { might: 1, hit: 5, crit: 0 },
     /** 依頼の報酬に武器がつく確率（実戦・危険度2以上） */
     questChance: 0.18,
     /** 評判の段階が上がったとき、国から届く武器 */
@@ -35,13 +55,17 @@ export const B = {
     olderAge: [23, 26] as [number, number],
     hpStart: [18, 26] as [number, number],
     statStart: [2, 8] as [number, number],
-    growthBase: [7, 30] as [number, number], // 7夜目：レベルの目標が上がった分、15〜60 → 7〜30
+    growthBase: [7, 30] as [number, number], // 9夜目まで（古いセーブの変換の目安）
+    /** 10夜目：本人の成長率（風花雪月くらいの基準）。得意な能力50〜65・ふつう30〜45・苦手20〜30、HP40〜65。全能力の合計330〜420 */
+    growthHigh: [50, 65] as [number, number], growthMid: [30, 40] as [number, number], growthLow: [20, 30] as [number, number], growthHp: [40, 65] as [number, number],
+    growthTotal: [330, 420] as [number, number],
     hpGrowthBonus: 10,
     growthQuality: 4,           // 評判が高いほど成長率の高い子が来る（7夜目：8→4）          // HPの成長率は少し高め
-    statCapSchool: 30,
-    hpCapSchool: 60,
-    statCapGrad: 50,
-    hpCapGrad: 80,
+    // 10夜目：成長率を上げたので、上限も上げる（30のままだと3年生の4分の3が頭打ちになった）
+    statCapSchool: 40,
+    hpCapSchool: 70,
+    statCapGrad: 60,
+    hpCapGrad: 90,
     expPerLevel: 100,
     levelUpMin: 2,              // 8夜目「2ピン保証」：レベルアップで最低2つの能力が上がる
     maxLevel: 70,               // 7夜目：卒業後の上限 50→70
@@ -240,6 +264,8 @@ export const B = {
     pinMul: 1.22,
     // 9夜目：策・陣形・部隊長で味方が少し強くなった分（在学中の戦死を8夜目に近づける）
     stratMul: 1.06,
+    // 10夜目：生徒の成長率を風花雪月くらいに上げた分、敵の1レベルあたりの伸びも上げる（つり合いは敵の側でとる）
+    growth10: 1.5, growth10Hp: 1.4,
   },
   // ---- 依頼 ----
   quests: {
@@ -261,7 +287,7 @@ export const B = {
   },
   // ---- 卒業生 ----
   alumni: {
-    yearlyExp: { warrior: 140, strategist: 100, civil: 60, stay: 50, home: 25, merc: 120 } as Record<string, number>, // 7夜目：最上級（Lv45）・上限（Lv70）に合わせて少し上げた
+    yearlyExp: { warrior: 140, champion: 150, strategist: 100, civil: 60, stay: 50, home: 25, merc: 120 } as Record<string, number>, // 7夜目：最上級（Lv45）・上限（Lv70）に合わせて少し上げた
     deathRate: { peace: 0.006, tension: 0.015, war: 0.028 },
     frontDeathMul: 1.25, rearDeathMul: 0.8, veteranLevel: 60, veteranMin: 0.45,
     empireFrontExtra: 0.012,
@@ -277,7 +303,12 @@ export const B = {
       warrior: [1, 2, 4, 8, 15],
       strategist: [1, 3, 6, 12],
       civil: [1, 3, 6, 12],
+      champion: [1, 2, 4, 7],
     },
+    // 10夜目：出世に効く技能（将＝統率、参謀＝軍略。技能ポイント1あたり）、勇士の位の上がりにくさ、毎年伸びる道の技能
+    rankSkill: 0.0012, rankSkillBase: 140, championRankMul: 0.5, pathSkillYear: 14,
+    // 統率の低い将の失敗（年に1回の見込み）、勇士の武勲（二つ名・新聞）
+    lowCommandAt: 50, lowCommandFail: 0.12, championDeed: 0.18,
     promoteBase: 0.25,
     promoteLevel: 22, // 昇進のしやすさの基準のレベル（7夜目：卒業時のレベルが上がったので 15→22）
     tier4Level: 45,

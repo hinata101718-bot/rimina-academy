@@ -1,7 +1,9 @@
 // 生徒の育ち方の共通部分（授業の倍率・技能・才能の判明・やる気・面談・退学の予兆・月の始め）。
 // 7夜目：授業は日ごとの授業カード（lessons.ts）に。週末・個人指導はなくなった
 import { B, SKILLS } from '../data/balance';
-import { talentDiscovery, rollSides } from './discovery';
+import { rollSides } from './discovery';
+import { aptMul, goodOf, isBad, budKnown, budHinted, revealBud } from './aptitude';
+import { RANK_POINTS, LEAD_SKILLS as LEAD } from '../data/balance';
 import { TRAITS, TALENTS, DREAMS, SKILL_NAMES, PERSONALITIES, COUNTRY_NAMES } from '../data/people';
 import { CLASSES } from '../data/classes';
 import type { SkillId, CountryId } from './types';
@@ -26,13 +28,20 @@ export function autoTargets(s: GameState, st: Student, policy: Policy = 'balance
   const dream = DREAMS.find((d) => d.id === st.dream)!;
   const sk = SKILLS.filter((k) => skillUnlocked(s, k));
   const byPoints = [...sk].sort((a, b) => st.skills[b] - st.skills[a]);
-  const talentSkill = st.talent && st.talentReveal >= B.talent.hint1 ? TALENTS[st.talent].skill : undefined;
+  // 10夜目：得意な技能を考えに入れる（夢に沿う得意 → いちばん高い得意）。芽が見えている子は、その技能を2つ目に
+  const good = goodOf(st).filter((k) => skillUnlocked(s, k));
+  const goodSkill = good.find((k) => dream.skills.includes(k)) ?? [...good].sort((a, b) => st.skills[b] - st.skills[a])[0];
+  const bud = budKnown(st) && st.bud?.skill && skillUnlocked(s, st.bud.skill) ? st.bud.skill : undefined;
   const cls = CLASSES[st.classId];
   let first: SkillId;
-  if (policy === 'talent' && talentSkill) first = talentSkill;
+  if (policy === 'talent' && goodSkill) first = goodSkill;
   else if (policy === 'dream' && dream.skills[0]) first = dream.skills[0];
-  else if (policy === 'combat') first = byPoints[0];
-  else first = talentSkill ?? dream.skills[0] ?? byPoints[0];
+  else if (policy === 'combat') first = byPoints.find((k) => !LEAD.includes(k)) ?? byPoints[0];
+  else first = (dream.skills[0] && !isBad(st, dream.skills[0]) ? dream.skills[0] : undefined) ?? goodSkill ?? byPoints[0];
+  if (bud && bud !== first && policy !== 'combat') return [first, bud];
+  // 10夜目：統率・軍略が得意な子は、それを2つ目に（采配の道へ）
+  const lead = good.find((k) => LEAD.includes(k) && k !== first);
+  if (lead && policy !== 'combat' && policy !== 'dream') return [first, lead];
   // 2つ目：今の兵種の次の試験に必要な技能、なければ2番目に高い技能
   let second: SkillId | undefined;
   const next = Object.values(CLASSES).find((c) => c.prereq.includes(cls.id) && c.tier <= 3 && Object.keys(c.req).includes(first) && Object.keys(c.req).length > 1);
@@ -65,11 +74,9 @@ export function facilityMulOf(s: GameState, k: SkillId): number {
   return m;
 }
 
+/** 技能の伸びの倍率（10夜目：得意×1.5・苦手×0.5。金の芽が開花した子は全部少し） */
 export function talentMulOf(st: Student, k: SkillId): number {
-  if (!st.talent) return 1;
-  const t = TALENTS[st.talent];
-  if (t.hero) return 1.2;
-  return t.skill === k ? t.skillMul ?? 1 : 1;
+  return aptMul(st, k) * (st.bud?.gold && st.bud.done ? 1.15 : 1);
 }
 export function traitLessonMulOf(st: Student): number {
   let m = 1;
@@ -83,27 +90,14 @@ export function addSkill(st: Student, k: SkillId, pts: number): number {
   return st.skills[k] - before;
 }
 
+/** 判明度を上げる（10夜目：隠れた才能はなくなり、眠った芽の判明度と、隠れた特徴に使う） */
 export function revealTalent(s: GameState, st: Student, amount: number, lines?: string[]): void {
-  if (!st.talent) {
-    // 才能がない子も判明度は進む（「目立った才能はなさそう」と分かる）
-    const before = st.talentReveal;
-    st.talentReveal = clamp(st.talentReveal + amount * s.settings.mods.reveal, 0, 100);
-    if (before < 100 && st.talentReveal >= 100) { st.growthKnown = true; lines?.push(`${st.given}の成長の傾向が分かった`); }
-    return;
-  }
-  const t = TALENTS[st.talent];
-  const before = st.talentReveal;
   st.talentReveal = clamp(st.talentReveal + amount * s.settings.mods.reveal, 0, 100);
   const after = st.talentReveal;
   const msg = (text: string) => { notify(s, text, st.id); lines?.push(text); };
-  if (before < B.talent.hint1 && after >= B.talent.hint1) msg(`才能のヒント：${st.given}は「${t.hint1}」`);
-  if (before < B.talent.hint2 && after >= B.talent.hint2) msg(`才能のヒント：${st.given}は「${t.hint2}」`);
-  talentDiscovery(s, st, before, after);
-  if (before < B.talent.full && after >= B.talent.full) {
-    st.growthKnown = true;
-    msg(`才能が判明：${st.given}は「${t.name}」だった！`);
-    chronicle(s, `${st.given}の才能「${t.name}」が判明`, 'student');
-  }
+  const out: string[] = [];
+  revealBud(s, st, amount, out);
+  for (const x of out) msg(x);
   // 隠れていた特徴タグも、判明度に応じて見えてくる
   if (after >= 50) for (const tr of st.traits) if (!st.knownTraits.includes(tr)) { st.knownTraits.push(tr); msg(`${st.given}の特徴「${TRAITS[tr].name}」が分かった`); break; }
 }
@@ -170,7 +164,7 @@ export function interviewStudent(s: GameState, rng: Rng, st: Student, consult: b
     topic = 'career';
     const d = DREAMS.find((x) => x.id === st.dream)!;
     out.push(`面談：${st.given}と進路の話をした${d.text ? `（夢は${d.text}）` : ''}`);
-  } else if (st.talent && st.talentReveal >= B.talent.hint1 && rng.chance(0.6)) {
+  } else if (budHinted(st) && rng.chance(0.6)) {
     topic = 'class';
     revealTalent(s, st, B.tutoring.talkReveal, out);
     out.push(`面談：${st.given}と兵種の話をした`);
@@ -260,7 +254,8 @@ export function startMonthStudents(s: GameState, rng: Rng): string[] {
   // 退学のまれな理由
   for (const st of list) {
     if (rng.chance(B.dropout.familyChancePerMonth)) startDropoutSign(s, rng, st, 'family');
-    else if (st.talentReveal >= 100 && st.talent && rng.chance(B.dropout.poachChancePerMonth)) startDropoutSign(s, rng, st, 'poach');
+    // 10夜目：他国からの引き抜きは、開花した子・得意の技能がBランク以上の子
+    else if ((st.bud?.done || goodOf(st).some((k) => st.skills[k] >= RANK_POINTS.B)) && rng.chance(B.dropout.poachChancePerMonth)) startDropoutSign(s, rng, st, 'poach');
     else if (s.world.tension > B.world.warAbove && st.origin !== 'frontier' && rng.chance(B.dropout.homeWarChancePerMonth)) startDropoutSign(s, rng, st, 'homewar');
   }
   // 今月の主役

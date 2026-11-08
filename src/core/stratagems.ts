@@ -1,4 +1,6 @@
 // 策（作戦カード）・陣形・部隊長（9夜目）。DOMに依存しない
+import { aptMul, isGood } from './aptitude';
+import { addSkill } from './week';
 import { STRATS, STRAT, STRAT_IDS, MAP_TAGS, SQUADS, FORMATION, type StratId, type StratDef, type StratEffect } from '../data/stratagems';
 import { OFFICER_TRAITS } from '../data/officers';
 import { CLASSES } from '../data/classes';
@@ -19,16 +21,17 @@ export function knownStrats(s: GameState): StratId[] {
 /** 出撃前に選べる策の枚数（先生の「軍師の眼」で+1） */
 export function stratSlots(s: GameState): number { return STRAT.slots + fx(s, 'stratSlots'); }
 
-export function stratOf(st: Student | null | undefined): number { return Math.round(st?.strat ?? 0); }
-export function addStrat(st: Student, v: number): void {
-  const mul = st.talent === 'strategist' ? STRAT.talentMul : 1;
-  st.strat = Math.min(STRAT.stratMax, Math.round(((st.strat ?? 0) + v * mul) * 10) / 10);
-}
-/** 部隊長の腕前（魅力＋軍略） */
-export function captainScore(st: Student): number { return effectiveStats(st).cha + stratOf(st); }
-/** 策を立てる腕前（軍略・魅力・軍師の才） */
+/** 軍略（10夜目：技能ランクの「軍略」。9夜目の0〜100の数値に合わせた目安＝技能ポイント÷2） */
+export function stratOf(st: Student | null | undefined): number { return Math.round((st?.skills?.tactics ?? 0) / 2); }
+/** 軍略が身につく（策を立てた戦いなど）。得意・苦手の倍率つき */
+export function addStrat(st: Student, v: number): void { addSkill(st, 'tactics', v * 2 * aptMul(st, 'tactics')); }
+/** 統率が身につく（部隊長を務めた戦い） */
+export function addCommand(st: Student, v: number): void { addSkill(st, 'command', v * aptMul(st, 'command')); }
+/** 部隊長の腕前（10夜目：統率ランクで決まる。魅力は統率の伸びやすさに少し効く）。統率の技能ポイント÷8 */
+export function captainScore(st: Student): number { return Math.round((st.skills?.command ?? 0) / 8); }
+/** 策を立てる腕前（軍略・魅力。軍略が得意・軍略の芽が開いた子は上乗せ） */
 export function plannerScore(st: Student): number {
-  return stratOf(st) * STRAT.plannerStrat + effectiveStats(st).cha * STRAT.plannerCha + (st.talent === 'strategist' && st.talentReveal >= 100 ? STRAT.talent : 0);
+  return stratOf(st) * STRAT.plannerStrat + effectiveStats(st).cha * STRAT.plannerCha + (isGood(st, 'tactics') ? STRAT.talent : 0);
 }
 export function defaultCaptain(s: GameState, ids: string[]): string | undefined {
   return ids.map((id) => s.students[id]).filter(Boolean).sort((a, b) => b.grade * 6 + captainScore(b) - a.grade * 6 - captainScore(a))[0]?.id;
@@ -39,7 +42,8 @@ export function defaultPlanner(s: GameState, ids: string[]): string | undefined 
 /** 部隊長の腕前による補正（命中+） */
 export function captainMod(st: Student | null | undefined): UnitMod {
   if (!st) return {};
-  return { hit: Math.min(SQUADS.captainMax, Math.floor((captainScore(st) / 10) * SQUADS.captainPer10)) };
+  const v = Math.min(SQUADS.captainMax, Math.floor((captainScore(st) / 10) * SQUADS.captainPer10));
+  return { hit: v, avo: v };
 }
 /** 教官が同行しない部隊（10夜目）：部隊長がここぞの判断でよい手を選ぶ見込み（0〜1） */
 export function awayJudgeRate(captain: Student | null | undefined, planner: Student | null | undefined): number {
@@ -154,7 +158,7 @@ export function checkStratUnlocks(s: GameState): StratId[] {
     if (u.strat !== undefined && u.cha === undefined) { by = list.find((st) => stratOf(st) >= u.strat!); if (by) why = `${by.given}の軍略が身についてきた`; }
     if (!by && u.cha !== undefined) { by = list.find((st) => effectiveStats(st).cha >= u.cha! && (u.strat === undefined || stratOf(st) >= u.strat)); if (by) why = `${by.given}の人を動かす力が育った`; }
     if (!by && u.move) { by = list.find((st) => u.move!.types.includes((CLASSES[st.classId] ?? CLASSES.novice).moveType as MoveType) && stratOf(st) >= u.move!.strat); if (by) why = `${by.given}が騎馬・飛行の戦い方を覚えた`; }
-    if (!by && u.talent) { by = list.find((st) => st.talent && u.talent!.includes(st.talent) && st.talentReveal >= 100); if (by) why = `${by.given}の才能が策を思いついた`; }
+    if (!by && u.talent) { by = list.find((st) => isGood(st, 'tactics') && stratOf(st) >= (u.strat ?? 0) * 0.6); if (by) why = `${by.given}の軍略の才が策を思いついた`; }
     if (!by) continue;
     (s.strats ??= [...START_STRATS]).push(id);
     known.add(id);

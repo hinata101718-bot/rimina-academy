@@ -32,6 +32,8 @@ export function studentAbilities(st: Student): string[] {
   const c = CLASSES[st.classId];
   if (c?.ability) ab.push(c.ability);
   for (const t of st.traits) { const a = TRAITS[t].ability; if (a) ab.push(a); }
+  // 10夜目：才能開花で身につけた技
+  if (st.bud?.done && st.bud.ability) ab.push(st.bud.ability);
   return ab;
 }
 
@@ -76,7 +78,7 @@ export function enemyUnit(rng: Rng, uid: string, classId: string, level: number,
   const growthAvg: Record<string, number> = B.enemy.growth;
   for (const k of STATS) {
     const base = k === 'hp' ? 19 : 4;
-    const g = (growthAvg[k] + ((c.growth[k] ?? 0) / 100)) * B.enemy.pinMul * B.enemy.stratMul;
+    const g = (growthAvg[k] + ((c.growth[k] ?? 0) / 100)) * B.enemy.pinMul * B.enemy.stratMul * (k === 'hp' ? B.enemy.growth10Hp : B.enemy.growth10);
     stats[k] = Math.round(base + level * g + rng.int(-1, 1) + (c.bonus[k] ?? 0));
   }
   // 魔道系は魔力、物理系は力を伸ばす

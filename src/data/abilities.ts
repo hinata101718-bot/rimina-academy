@@ -8,6 +8,21 @@ const list: AbilityDef[] = [
   { id: 'coward', name: '臆病', desc: '敵3体以上に隣接されると回避−15。', surroundedAvo: -15 },
   { id: 'lone_wolf', name: '一匹狼', desc: '2マス以内に味方がいないと回避+10。', aloneAvo: 10 },
 
+  // ---------- 才能開花（10夜目：苦手だった技能が開花した子だけの技） ----------
+  { id: 'bloom_sword', name: '目覚めた剣才', desc: '開花した剣の才。命中+5、必殺+8。', hit: 5, crit: 8 },
+  { id: 'bloom_lance', name: '目覚めた槍才', desc: '開花した槍の才。命中+8、受けるダメージ−1。', hit: 8, prot: 1 },
+  { id: 'bloom_axe', name: '目覚めた斧才', desc: '開花した斧の才。与えるダメージ+2。', dmg: 2 },
+  { id: 'bloom_bow', name: '目覚めた弓才', desc: '開花した弓の才。命中+10。', hit: 10 },
+  { id: 'bloom_magic', name: '目覚めた魔才', desc: '開花した魔道の才。与えるダメージ+2。', dmg: 2 },
+  { id: 'bloom_faith', name: '目覚めた祈り', desc: '開花した信仰の才。ターン開始時、周囲2マスの味方のHP+2。', auraHeal: 2 },
+  { id: 'bloom_riding', name: '人馬一体', desc: '開花した騎乗の才。回避+10。', avo: 10 },
+  { id: 'bloom_heavy', name: '揺るがぬ構え', desc: '開花した重装の才。受けるダメージ−2。', prot: 2 },
+  { id: 'bloom_flying', name: '風読み', desc: '開花した飛行の才。回避+10。', avo: 10 },
+  { id: 'bloom_gun', name: '目覚めた射才', desc: '開花した銃の才。命中+10。', hit: 10 },
+  { id: 'bloom_tactics', name: '先読み', desc: '開花した軍略の才。回避+8。策が決まりやすい。', avo: 8 },
+  { id: 'bloom_command', name: '号令', desc: '開花した統率の才。隣の味方の守備+1。', adjAllyDef: 1 },
+  { id: 'bloom_gold', name: '英雄の芽吹き', desc: '金の芽が開いた。命中+5、回避+5、与えるダメージ+1。', hit: 5, avo: 5, dmg: 1 },
+
   // ---------- 初級 ----------
   { id: 'blade_sense', name: '剣の心得', desc: '命中+5。', hit: 5 },
   { id: 'steady_guard', name: '踏ん張り', desc: '受けるダメージ−1。', prot: 1 },

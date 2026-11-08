@@ -61,9 +61,12 @@ export const LESSONS: LessonDef[] = [
   { id: 'run', name: '走り込み', mark: '走', group: 'body', stats: { hp: 1, spd: 0.5 }, exp: 1.3, stamina: -12, weight: 6, likes: ['hot', 'competitive'] },
   { id: 'strength', name: '筋力づくり', mark: '筋', group: 'body', stats: { str: 1, def: 0.5 }, exp: 1.2, stamina: -11, weight: 6, likes: ['competitive', 'hot'] },
   // ---- 頭と心6 ----
-  { id: 'tactics', name: '戦術論', mark: '策', group: 'mind', stats: { skl: 0.5, cha: 0.5 }, exp: 2, reveal: 1.5, stamina: -4, weight: 8, likes: ['calm', 'cynic', 'serious'], extra: [{ label: '経験値', big: true }] },
-  { id: 'history', name: '兵法の歴史', mark: '史', group: 'mind', stats: { lck: 0.5 }, exp: 1.5, reveal: 2.5, stamina: -3, weight: 6, likes: ['shy', 'serious'], extra: [{ label: '経験値' }, { label: '才能の発見', big: true }] },
-  { id: 'letters', name: '読み書き', mark: '書', group: 'mind', stats: { cha: 0.5, mag: 0.5 }, exp: 1, reveal: 2, stamina: -2, weight: 6, likes: ['gentle', 'shy'], extra: [{ label: '才能の発見' }] },
+  { id: 'tactics', name: '戦術論', mark: '策', group: 'mind', skills: { tactics: 1 }, stats: { skl: 0.5, cha: 0.5 }, exp: 2, reveal: 1.5, stamina: -4, weight: 8, likes: ['calm', 'cynic', 'serious'], extra: [{ label: '経験値', big: true }] },
+  { id: 'history', name: '兵法の歴史', mark: '史', group: 'mind', skills: { tactics: 0.5 }, stats: { lck: 0.5 }, exp: 1.5, reveal: 2.5, stamina: -3, weight: 6, likes: ['shy', 'serious'], extra: [{ label: '経験値' }, { label: '芽の発見', big: true }] },
+  // 10夜目：統率を伸ばす授業
+  { id: 'command', name: '指揮の演習', mark: '指', group: 'mind', skills: { command: 1 }, stats: { cha: 0.5 }, exp: 1.5, stamina: -6, weight: 8, likes: ['serious', 'hot', 'competitive'] },
+  { id: 'march', name: '行軍', mark: '行', group: 'body', skills: { command: 0.5 }, stats: { hp: 0.5, def: 0.5 }, exp: 1.5, stamina: -11, weight: 6, likes: ['hot', 'serious', 'cheerful'] },
+  { id: 'letters', name: '読み書き', mark: '書', group: 'mind', stats: { cha: 0.5, mag: 0.5 }, exp: 1, reveal: 2, stamina: -2, weight: 6, likes: ['gentle', 'shy'], extra: [{ label: '芽の発見' }] },
   { id: 'manners', name: '礼法', mark: '礼', group: 'mind', stats: { cha: 1 }, exp: 1, stamina: -3, weight: 6, likes: ['serious', 'calm'] },
   { id: 'diplomacy', name: '外交の作法', mark: '外', group: 'mind', stats: { cha: 1, lck: 0.5 }, exp: 1, stamina: -3, weight: 5, likes: ['cheerful', 'gentle'] },
   { id: 'meditate', name: '瞑想', mark: '瞑', group: 'mind', stats: { res: 1, lck: 0.5 }, exp: 0.8, reveal: 1, stamina: 3, weight: 6, likes: ['calm', 'gentle', 'timid'], extra: [{ label: '体力' }] },
@@ -74,7 +77,7 @@ export const LESSONS: LessonDef[] = [
   { id: 'interview', name: '面談', mark: '話', group: 'social', special: 'interview', stamina: 0, weight: 6, likes: ['timid', 'shy', 'serious'], extra: [{ label: '信頼', big: true }, { label: 'やる気' }], note: '顔の子から1人と話す' },
   { id: 'career', name: '進路指導', mark: '進', group: 'social', special: 'career', stamina: 0, weight: 3, extra: [{ label: '信頼', big: true }, { label: '進路' }], note: '3年生と進路の話をする' },
   // ---- 特別 ----
-  { id: 'field', name: '野外演習', mark: '野', group: 'special', special: 'field', skills: {}, stats: { hp: 0.5 }, exp: 3, reveal: 2, stamina: -13, weight: 2, extra: [{ label: '経験値', big: true }, { label: '目標技能', big: true }, { label: '才能の発見' }], note: '雨の日だけの特別な演習' },
+  { id: 'field', name: '野外演習', mark: '野', group: 'special', special: 'field', skills: {}, stats: { hp: 0.5 }, exp: 3, reveal: 2, stamina: -13, weight: 2, extra: [{ label: '経験値', big: true }, { label: '目標技能', big: true }, { label: '芽の発見' }], note: '雨の日だけの特別な演習' },
 ];
 export const REST: LessonDef = { id: 'rest', name: '休講', mark: '休', group: 'rest', special: 'rest', stamina: 25, weight: 0, extra: [{ label: '体力回復', big: true }] };
 export const LESSON_BY_ID: Record<string, LessonDef> = Object.fromEntries([...LESSONS, REST].map((l) => [l.id, l]));

@@ -1,4 +1,5 @@
 // 支援値（生徒どうし）・信頼（教官へ）・支援会話の組み立て
+import { budHinted, goodOf } from './aptitude';
 import { B } from '../data/balance';
 import { TRAITS, PERSONALITIES, COUNTRY_NAMES, DREAMS, SKILL_NAMES, TALENTS } from '../data/people';
 import { CLASSES } from '../data/classes';
@@ -92,7 +93,7 @@ function sideOk(s: GameState | null, st: Student, c: TalkSideCond | undefined, o
   if (c.origin && st.origin !== c.origin) return false;
   if (c.dream && !c.dream.includes(st.dream)) return false;
   if (c.recent && !(s && st.recent.some((e) => e.type === c.recent && s.absWeek - e.week <= 12))) return false;
-  if (c.talent !== undefined && (!!st.talent && st.talentReveal >= B.talent.hint1) !== c.talent) return false;
+  if (c.talent !== undefined && budHinted(st) !== c.talent) return false; // 10夜目：才能のヒント→芽の兆し
   if (c.senior !== undefined && (st.grade > other.grade && other.grade > 0) !== c.senior) return false;
   if (c.tired !== undefined && (st.fatigue >= 50) !== c.tired) return false;
   if (c.lowMood !== undefined && (st.motivation <= 1) !== c.lowMood) return false;
@@ -186,10 +187,10 @@ export function fillText(text: string, s: GameState, me: Student | null, you: St
     .replace(new RegExp(`\\{${prefix}Skill\\}`, 'g'), st ? SKILL_NAMES[bestSkill(st)] : '')
     .replace(new RegExp(`\\{${prefix}Class\\}`, 'g'), st ? CLASSES[st.classId]?.name ?? '' : '')
     .replace(new RegExp(`\\{${prefix}Friend\\}`, 'g'), () => (st ? bestFriend(s, st)?.given ?? '仲間' : ''))
-    .replace(new RegExp(`\\{${prefix}TalentSkill\\}`, 'g'), st ? SKILL_NAMES[(st.talent && TALENTS[st.talent].skill) || bestSkill(st)] : '')
+    .replace(new RegExp(`\\{${prefix}TalentSkill\\}`, 'g'), st ? SKILL_NAMES[(budHinted(st) && st.bud?.skill) || goodOf(st)[0] || bestSkill(st)] : '')
     .replace(new RegExp(`\\{${prefix}Love\\}`, 'g'), () => loveName(st))
     .replace(new RegExp(`\\{${prefix}Senior\\}`, 'g'), () => seniorName(st))
-    .replace(new RegExp(`\\{${prefix}Hint\\}`, 'g'), st && st.talent ? TALENTS[st.talent].hint1.replace(/気がする$/, '') : '');
+    .replace(new RegExp(`\\{${prefix}Hint\\}`, 'g'), st && st.bud?.skill ? `${SKILL_NAMES[st.bud.skill]}が少しずつ分かってきた` : st && st.bud?.gold ? '何をやらせても伸びる' : '');
   let out = rep(me, 'my', rep(you, 'your', me ? adaptPronoun(text, me) : text));
   out = out
     .replace(/\{me\}/g, me?.given ?? '').replace(/\{you\}/g, you?.given ?? '')

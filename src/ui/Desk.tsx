@@ -9,7 +9,8 @@ import { nextEvent } from '../core/calendar';
 import { teacherSick } from '../core/lessons';
 import { mentorXp, abilityCost, abilityState } from '../core/mentor';
 import { MENTOR_ABILITIES } from '../data/mentor';
-import { COUNTRY_NAMES, COUNTRY_SHORT } from '../data/people';
+import { COUNTRY_NAMES, COUNTRY_SHORT, SKILL_NAMES } from '../data/people';
+import { budKnown } from '../core/aptitude';
 import { DAY_NAMES } from '../core/lessons';
 import { MONTH_NAMES } from '../core/util';
 import { B } from '../data/balance';
@@ -98,7 +99,7 @@ export function deskTodos(s: GameState): DeskTodo[] {
   for (const id of s.consults) { const st = s.students[id]; if (st) out.push({ text: `${st.given}　相談あり`, go: () => navigate({ tab: 'students', page: 'detail', id }), red: true }); }
   const ex = examCandidates(s);
   if (ex.length) out.push({ text: `兵種試験　${kanjiNum(ex.length)}名`, go: () => navigate({ tab: 'students', page: 'exam' }), red: true });
-  for (const st of list) if (st.talent && st.talentReveal >= B.talent.hint1 && st.talentReveal < B.talent.full) { out.push({ text: `${st.given}　ひらめきの兆し`, go: () => navigate({ tab: 'students', page: 'detail', id: st.id }) }); break; }
+  for (const st of list) if (budKnown(st)) { out.push({ text: `${st.given}　${st.bud?.gold ? '金の芽' : `${SKILL_NAMES[st.bud!.skill!]}の芽`}を育てよう`, go: () => navigate({ tab: 'students', page: 'detail', id: st.id, sub: 'skills' }) }); break; }
   for (const st of list) if (st.birthday && st.birthday.month === s.month && st.birthday.week === s.week) out.push({ text: `${st.given}　誕生日の週`, go: () => navigate({ tab: 'students', page: 'detail', id: st.id }) });
   const ne = nextEvent(s);
   if (ne) out.push({ text: ne.weeks === 0 ? `今週　${ne.label}` : `${ne.label}まで　${kanjiNum(ne.weeks)}週`, go: () => navigate({ tab: 'school', page: 'today' }) });

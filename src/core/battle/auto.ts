@@ -89,6 +89,8 @@ export interface AutoState {
   injury?: number; duelOffer?: boolean; reveal?: boolean;
   /** 戦いで目立った一般兵（9夜目：名前と顔を得て「見込みのある兵」に） */
   raised?: RaisedGrunt[];
+  /** 勇士型の敵将が倒れて、兵が崩れた（10夜目） */
+  collapsed?: boolean;
   /** 教官が同行しない部隊（10夜目）：部隊長が下した判断 */
   away?: { calls: AwayCall[] };
 }
@@ -526,10 +528,10 @@ function eventCandidates(s: GameState, b: BattleState, phase: 'open' | 'mid'): E
     if (u.hp <= u.maxHp / 2 && (st.traits.includes('loser_hate') || st.personality === 'competitive') && !used('loserHate', st)) out.push({ id: 'loserHate', a: st, u, weight: 4, apply: () => { addMod(u, E.loserHate); if (st.traits.includes('loser_hate')) a.effects.push({ kind: 'trait', id: st.id, trait: 'loser_hate' }); } });
     if ((st.traits.includes('coward') || st.personality === 'timid') && st.battles <= 4 && (u.kills > 0 || u.hits > 0) && !used('coward', st)) out.push({ id: 'coward', a: st, u, weight: 3, apply: () => { addMod(u, E.coward); a.effects.push({ kind: 'motivation', id: st.id, v: 1 }); } });
     if (st.traits.includes('clutch') && b.real && u.hits >= 2 && !used('clutch', st)) out.push({ id: 'clutch', a: st, u, weight: 2.5, apply: () => a.effects.push({ kind: 'trait', id: st.id, trait: 'clutch' }) });
-    if (st.talent && st.talentReveal < 100 && (u.kills > 0 || u.hits >= 2) && !used('talent', st)) {
-      const tal = st.talent;
+    if (st.bud && !st.bud.done && st.bud.reveal < 100 && (u.kills > 0 || u.hits >= 2) && !used('talent', st)) {
+      // 10夜目：眠った芽の兆し（芽のある技能の武器を使った・金の芽）
       const usedTypes = Object.keys(u.usedWeapon).map((w) => WEAPONS[w]?.type);
-      const match = tal.startsWith('genius_') ? usedTypes.some((t) => (t === 'holy' || t === 'staff' ? 'faith' : t) === tal.slice(7)) : tal === 'leader' || tal === 'hero';
+      const match = st.bud.gold || usedTypes.some((t) => (t === 'holy' || t === 'staff' ? 'faith' : t) === st.bud!.skill);
       if (match) out.push({ id: 'talent', a: st, u, weight: 3.5, apply: () => a.effects.push({ kind: 'reveal', id: st.id, v: E.talentReveal }) });
     }
     if (staffOf(u) && (b.feed ?? []).filter((f) => f.t === 'heal' && f.a === u.uid).length >= 2 && !used('healer', st)) out.push({ id: 'healer', a: st, u, weight: 2, apply: () => a.effects.push({ kind: 'trust', id: st.id, v: 1 }) });
@@ -1242,6 +1244,16 @@ export function advanceAuto(s: GameState, ctx: BattleCtx): void {
     s.battle = b;
     const a2 = b.auto!;
     a2.exposed = [];
+    // 10夜目：勇士型の敵将が倒れると、兵が崩れる
+    {
+      const Lc = a2.leader; const luc = Lc ? b.units.find((u) => u.uid === Lc.uid) : null; const oc = officerById(s, Lc?.officerId);
+      const col = OFFICER_TRAITS.valor.collapse!;
+      if (Lc && luc?.dead && !Lc.fled && oc?.traits.includes('valor') && !a2.collapsed && b.phase !== 'done') {
+        a2.collapsed = true;
+        for (const e of b.units) if (e.side === 'enemy' && !e.dead) addMod(e, { hit: col.hit, avo: col.avo });
+        a2.scenes.push(sceneOf(b, '策', [{ by: 'strat', text: `${Lc.name}が倒れ、敵の兵が崩れ出した！` }], [], false));
+      }
+    }
     if (b.phase !== 'done' && b.turn > b.maxTurns) finish(b, 'lose');
     if (b.phase === 'done' || a2.seg === 2) {
       leaderEscape(s, b);

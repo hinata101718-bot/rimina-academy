@@ -149,16 +149,24 @@ export const BACKGROUNDS: BackgroundDef[] = [
 
 export const SKILL_NAMES: Record<SkillId, string> = {
   sword: '剣', lance: '槍', axe: '斧', bow: '弓', magic: '魔道', faith: '信仰',
-  riding: '騎乗', heavy: '重装', flying: '飛行', gun: '銃',
+  riding: '騎乗', heavy: '重装', flying: '飛行', gun: '銃', tactics: '軍略', command: '統率',
 };
 export const STAT_NAMES: Record<StatId, string> = {
   hp: 'HP', str: '力', mag: '魔力', skl: '技', spd: '速さ', lck: '幸運', def: '守備', res: '魔防', cha: '魅力',
 };
-export const PATH_NAMES: Record<Path, string> = { warrior: '武官', strategist: '参謀', civil: '文官' };
+export const PATH_NAMES: Record<Path, string> = { warrior: '将', strategist: '参謀', civil: '文官', champion: '勇士' };
+/** 10夜目：卒業後の道のひとこと（個人ページ・卒業式） */
+export const PATH_LINES: Record<Path, string> = {
+  warrior: '兵を率いて戦う。統率の高い子ほど、上の位へ上りやすい',
+  strategist: '後ろから策を立てる。軍略の高い子ほど、無駄な戦を避けさせる',
+  civil: '国と国のあいだを取り持つ。魅力の高い子ほど、和平に近づける',
+  champion: '兵を率いるより、自分で道を切り開く。武勲で名を上げる',
+};
 export const RANK_TITLES: Record<Path, string[]> = {
   warrior: ['兵士', '小隊長', '部隊長', '将軍', '元帥'],
   strategist: ['参謀見習い', '作戦参謀', '参謀長', '軍師'],
   civil: ['書記官', '外交官', '大使', '宰相'],
+  champion: ['兵士', '先鋒', '近衛', '名高い勇士'],
 };
 /** 出身ごとの髪色の傾向（髪色id: 重み） */
 export const HAIR_COLORS = ['#2b2320', '#5a3a24', '#8a5a2e', '#c99a4f', '#e6d08a', '#b8462f', '#7a7f8c', '#3e4f7a'];

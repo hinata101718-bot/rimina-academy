@@ -15,7 +15,7 @@ import type { GameState } from '../src/core/state';
 const fixture = (name: string) => readFileSync(new URL(`./fixtures/${name}`, import.meta.url), 'utf8');
 const fresh = (seed = 5) => { const s = newGame({ name: 't', background: 'knight', seed }); s.pending = []; return s; };
 /** すべての子を同じ条件にする（才能・特徴・やる気・疲れ） */
-function even(s: GameState) { s.instructor.stamina = 100; for (const st of enrolled(s)) { st.talent = null; st.traits = []; st.motivation = 2; st.targets = ['sword', 'lance']; } }
+function even(s: GameState) { s.instructor.stamina = 100; for (const st of enrolled(s)) { st.talent = null; st.apt = { good: [], bad: [] }; st.traits = []; st.motivation = 2; st.targets = ['sword', 'lance']; } }
 
 describe('日ごとの授業カード', () => {
   it('毎日5種類＋休講が出る。1人の子の顔は1日に1枚だけ。同じ日には同じカード', () => {
@@ -145,7 +145,7 @@ describe('育ち方', () => {
       expect(st.level).toBeLessThanOrEqual(19);
     }
     const top = first.map((st) => Math.max(...Object.values(st.skills)));
-    expect(Math.max(...top)).toBeLessThan(B.day ? 300 : 0);
+    expect(Math.max(...top)).toBeLessThan(B.day ? 360 : 0); // 10夜目：得意の技能は×1.5（中央値は9夜目とほぼ同じ）
   });
 });
 

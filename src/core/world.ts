@@ -45,7 +45,7 @@ export function rankPoints(st: Student): number {
   const table = B.alumni.rankPoints[st.career.path];
   return table[Math.min(st.career.rank, table.length - 1)] ?? 0;
 }
-export function pathPoints(s: GameState, c: CountryId, path: 'warrior' | 'strategist' | 'civil'): number {
+export function pathPoints(s: GameState, c: CountryId, path: 'warrior' | 'strategist' | 'civil' | 'champion'): number {
   return activeAlumni(s, c).filter((st) => st.career!.path === path).reduce((a, st) => a + rankPoints(st), 0);
 }
 
@@ -102,7 +102,8 @@ export function yearlyWorld(s: GameState, rng: Rng): string[] {
   const out: string[] = [];
   const speed = s.settings.mods.war;
   for (const c of COUNTRIES) {
-    const war = pathPoints(s, c, 'warrior') * B.world.warriorPowerMul;
+    // 10夜目：勇士は戦いの山場で効く（将の8割の力）
+    const war = (pathPoints(s, c, 'warrior') + pathPoints(s, c, 'champion') * 0.8) * B.world.warriorPowerMul;
     const strat = pathPoints(s, c, 'strategist') * B.world.strategistPowerMul;
     const atWarCount = COUNTRIES.filter((o) => o !== c && atWar(s, c, o)).length;
     let d = Math.min(B.world.warriorPowerMax, war * 0.4) + rng.int(-B.world.yearRandom, B.world.yearRandom) * speed;

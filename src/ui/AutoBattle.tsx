@@ -1,7 +1,7 @@
 // 自動の戦闘（5夜目）：出撃前の画面と、場面をタップで送る画面
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { act, useStore } from './store';
-import { Sheet } from './common';
+import { Sheet, HelpTip } from './common';
 import { Portrait, OfficerFace } from './Portrait';
 import { Icon } from './icons';
 import { sfx } from './sound';
@@ -29,7 +29,8 @@ import { OBJECTIVE_NAMES, WEATHER_NAMES } from '../core/quests';
 import { MAPS } from '../data/maps';
 import { WEAPONS } from '../data/weapons';
 import { CLASSES } from '../data/classes';
-import { B } from '../data/balance';
+import { B, RANK_POINTS } from '../data/balance';
+import { rankOf } from '../core/util';
 import { usableSpells } from '../core/spells';
 import { armoryItem, armoryName, isStock, stockList } from '../core/loot';
 
@@ -174,17 +175,18 @@ export function SquadEditor({ s, draft, setDraft, limit, exclude, usedArms, ques
 
       {deploy.length > 0 && (
         <div class="sq-leads">
-          <label class="sq-lead"><span><Icon name="flag" size={15} /> 部隊長</span>
+          <label class="sq-lead"><span><Icon name="flag" size={15} /> 部隊長 <HelpTip text="部隊長の統率が高いと、部隊の命中と回避が少し上がります。先生が同行しない部隊では、ここぞの判断も部隊長がします（統率と軍略が高いほど、よい判断になりやすい）。統率は「指揮の演習」「行軍」の授業や、部隊長を務めた戦いで伸びます。" /></span>
             <select value={plan.captain ?? ''} onChange={(e) => setDraft({ ...draft, captain: (e.target as HTMLSelectElement).value || undefined })}>
-              {members.sort((a, c) => captainScore(c) - captainScore(a)).map((st) => <option value={st.id}>{st.given}（{st.grade}年・腕前{captainScore(st)}）</option>)}
+              {[...members].sort((a, c) => captainScore(c) - captainScore(a)).map((st, i) => <option value={st.id}>{st.given}　統率{rankOf(st.skills.command ?? 0)}{i === 0 ? '（おすすめ）' : ''}</option>)}
             </select>
           </label>
-          <label class="sq-lead"><span><Icon name="scroll" size={15} /> 策を立てる子</span>
+          {plan.captain && s.students[plan.captain] && <div class="small sq-leadnote">{s.students[plan.captain].given}　統率{rankOf(s.students[plan.captain].skills.command ?? 0)}　{captainNote(s.students[plan.captain])}</div>}
+          <label class="sq-lead"><span><Icon name="scroll" size={15} /> 策を立てる子 <HelpTip text="策を立てる子の軍略が高いと、策が決まりやすくなります。新しい策を思いつくこともあります。軍略は「戦術論」「兵法の歴史」の授業や、策を立てた戦いで伸びます。" /></span>
             <select value={plan.planner ?? ''} onChange={(e) => setDraft({ ...draft, planner: (e.target as HTMLSelectElement).value || undefined })}>
-              {[...members].sort((a, c) => plannerScore(c) - plannerScore(a)).map((st) => <option value={st.id}>{st.given}（軍略{stratOf(st)}・魅力{effectiveStats(st).cha}）</option>)}
+              {[...members].sort((a, c) => plannerScore(c) - plannerScore(a)).map((st, i) => <option value={st.id}>{st.given}　軍略{rankOf(st.skills.tactics ?? 0)}{i === 0 ? '（おすすめ）' : ''}</option>)}
             </select>
           </label>
-          <div class="small muted">部隊長の腕前（魅力＋軍略）が高いと部隊の命中が少し上がる。策を立てる子の軍略・魅力で策が決まりやすくなる</div>
+          {plan.planner && s.students[plan.planner] && <div class="small sq-leadnote">{s.students[plan.planner].given}　軍略{rankOf(s.students[plan.planner].skills.tactics ?? 0)}　{plannerNote(s.students[plan.planner])}</div>}
         </div>
       )}
 
@@ -274,6 +276,9 @@ export function SquadEditor({ s, draft, setDraft, limit, exclude, usedArms, ques
 }
 
 function fill(t: string, v: Record<string, string>): string { return t.replace(/\{(\w+)\}/g, (m, k) => v[k] ?? m); }
+/** 部隊長・策を立てる子のひとこと（10夜目：技能ランクで） */
+function captainNote(st: Student): string { const p = st.skills.command ?? 0; return p >= RANK_POINTS.B ? '部隊の命中・回避がよく上がる' : p >= RANK_POINTS.D ? '部隊の命中・回避が少し上がる' : 'まだ部隊をまとめるのは不慣れ'; }
+function plannerNote(st: Student): string { const p = st.skills.tactics ?? 0; return p >= RANK_POINTS.B ? '策がとても決まりやすい' : p >= RANK_POINTS.D ? '策が決まりやすい' : 'まだ策を立てるのは不慣れ'; }
 function leaderFace(L: LeaderInfo | null) { return L ? { faceImage: L.faceImage, face: L.face, scars: L.scars, alumniId: L.alumniId } : null; }
 
 /** 出撃前：敵将の情報（名簿の敵将なら、分かっている特徴・因縁・偵察） */

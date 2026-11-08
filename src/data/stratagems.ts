@@ -59,7 +59,7 @@ export const STRATS: Record<StratId, StratDef> = {
     win: { ally: { hit: 4, avo: 2 } }, lose: { ally: { hit: -2 } }, unlock: { start: true },
     tip: '部隊長の魅力が高いほど効く',
     ok: ['{c}の声が戦場に響いた。「行くぞ！」――皆の目に火がともる', '{c}が剣を掲げる。部隊の足並みがそろった'], ng: ['{c}の声は、敵の鬨の声にかき消された……'] },
-  ambush: { id: 'ambush', name: '伏兵', mark: '伏', when: 'open', base: 40, terrain: ['forest', 'hill', 'town', 'village'], weak: ['hothead'], bad: ['cautious', 'night_strong'],
+  ambush: { id: 'ambush', name: '伏兵', mark: '伏', when: 'open', base: 40, terrain: ['forest', 'hill', 'town', 'village'], weak: ['hothead', 'marshal'], bad: ['cautious', 'night_strong'],
     desc: '物陰に兵を伏せ、敵の背後を突く。森・丘・街で効きやすい',
     win: { foeHpPct: 0.12, ally: { hit: 4, crit: 3 } }, lose: { ally: { avo: -5 } }, unlock: { start: true },
     tip: '森・丘・街・村なら効きやすい。挑発に乗りやすい敵将に強い',
@@ -84,7 +84,7 @@ export const STRATS: Record<StratId, StratDef> = {
     win: { foe: { hit: -8, avo: -8 } }, lose: { ally: { avo: -6 } }, unlock: { strat: 45 },
     tip: '霧の日に効く。夜霧に強い敵将には効かない',
     ok: ['闇にまぎれて陣へ忍びこんだ！ 敵はまだ寝ぼけている', '霧の中から襲いかかる。敵は何が起きたか分からない！'], ng: ['夜襲は待ち伏せられていた！ 敵の松明に囲まれる……'] },
-  pincer: { id: 'pincer', name: '挟み撃ち', mark: '挟', when: 'mid', base: 35, terrain: ['river', 'bridge', 'plain', 'road'], minMembers: 5,
+  pincer: { id: 'pincer', name: '挟み撃ち', mark: '挟', when: 'mid', base: 35, terrain: ['river', 'bridge', 'plain', 'road'], minMembers: 5, weak: ['marshal'],
     desc: '部隊を二つに分けて、前と後ろから挟む。川や橋で効きやすい。人数が要る',
     win: { foe: { def: -2, avo: -6 }, ally: { dmg: 1 } }, lose: { ally: { def: -1, hit: -2 } }, unlock: { strat: 60, talent: ['strategist', 'leader'] },
     tip: '川・橋・平原で効く。5人以上で',
@@ -99,7 +99,7 @@ export const STRATS: Record<StratId, StratDef> = {
     win: { ally: { hit: 6, crit: 4 }, noFlee: true }, lose: { ally: { avo: -6 } }, unlock: { move: { types: ['cavalry', 'flying'], strat: 40 } },
     tip: '騎馬・飛行の子がいると使える。逃げ足の速い敵将に強い',
     ok: ['蹄の音が響く！ 早駆けで敵将の退路を断った', '空と地から一気に駆けこむ。敵は逃げ場を失った！'], ng: ['駆けこみすぎた！ 先頭の子が囲まれる……'] },
-  duel: { id: 'duel', name: '一騎打ちの申し込み', mark: '騎', when: 'mid', base: 45, weak: ['duel_bound', 'hothead'], bad: ['cautious'],
+  duel: { id: 'duel', name: '一騎打ちの申し込み', mark: '騎', when: 'mid', base: 45, weak: ['duel_bound', 'hothead', 'valor'], bad: ['cautious'],
     desc: '敵将に一騎打ちを申し込む。受ければ、腕の立つ子が敵将と戦える',
     win: { duel: true, leaderFoe: { avo: -5 } }, lose: { ally: { hit: -3 } }, unlock: { cha: 30 },
     tip: '一騎打ちを断れない・挑発に乗りやすい敵将に強い',
@@ -133,6 +133,8 @@ export const STRAT = {
   weakMul: 1.5,
   /** 軍略：授業でたまる量（顔の子は×faceMul）・戦いで策を立てた子・軍師の才 */
   lessonGain: { tactics: 1, history: 0.7 } as Record<string, number>, faceMul: 2, plannerGain: 1, talentMul: 1.5, stratMax: 100,
+  /** 10夜目：部隊長を務めた戦いで身につく統率（技能ポイント） */
+  captainGain: 4,
 };
 
 /** 陣形（9夜目）：前列は狙われやすく、後列は守られる */

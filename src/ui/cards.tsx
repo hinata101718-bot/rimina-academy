@@ -8,13 +8,14 @@ import { navigate } from './store';
 import { CLASSES } from '../data/classes';
 import { COUNTRY_COLOR, COUNTRY_SHORT, PERSONALITIES, DREAMS, SKILL_NAMES, TALENTS } from '../data/people';
 import { B, SKILLS, RANK_POINTS } from '../data/balance';
+import { isGood, isBad, budKnown, budHinted } from '../core/aptitude';
 import { rankOf, nextRankPoints } from '../core/util';
 import { skillUnlocked } from '../core/week';
 import { examCandidates } from '../core/exam';
 
 /** 武器の種類 → 線画アイコン */
 const WEAPON_ICON: Record<string, string> = { sword: 'sword', lance: 'lance', axe: 'axe', bow: 'bow', magic: 'tome', holy: 'staff', staff: 'staff', gun: 'gun' };
-const SKILL_ICON: Record<SkillId, string> = { sword: 'sword', lance: 'lance', axe: 'axe', bow: 'bow', magic: 'tome', faith: 'staff', riding: 'run', heavy: 'shield', flying: 'star', gun: 'gun' };
+const SKILL_ICON: Record<SkillId, string> = { sword: 'sword', lance: 'lance', axe: 'axe', bow: 'bow', magic: 'tome', faith: 'staff', riding: 'run', heavy: 'shield', flying: 'star', gun: 'gun', tactics: 'scroll', command: 'flag' };
 export function skillIcon(k: SkillId): string { return SKILL_ICON[k]; }
 
 export function classIcon(classId: string): string {
@@ -63,11 +64,15 @@ export function topSkills(s: GameState, st: Student, n = 3): SkillId[] {
   return SKILLS.filter((k) => skillUnlocked(s, k)).sort((a, b) => st.skills[b] - st.skills[a] || (st.targets.includes(b) ? 1 : 0) - (st.targets.includes(a) ? 1 : 0)).slice(0, n);
 }
 /** 技能ランクの小箱（ランクは明朝体で大きく、次のランクまでのゲージ） */
-export function SkillBox({ k, p, target }: { k: SkillId; p: number; target?: boolean }) {
+/** 技能の札。10夜目：得意（金の「得」）・苦手（灰色の「苦」）・芽（小さな芽の印）・開花（金の花） */
+export function SkillBox({ k, p, target, st }: { k: SkillId; p: number; target?: boolean; st?: Student }) {
   const n = nextRankPoints(p); const cur = RANK_POINTS[rankOf(p)];
+  const good = st ? isGood(st, k) : false, bad = st ? isBad(st, k) : false;
+  const bud = st?.bud && !st.bud.done && st.bud.skill === k && budKnown(st);
+  const bloomed = st?.bud?.done && st.bud.skill === k;
   return (
-    <div class={`skillbox${target ? ' target' : ''}`}>
-      <div class="row between nowrap"><span class="sk">{SKILL_NAMES[k]}</span><b class="rank">{rankOf(p)}</b></div>
+    <div class={`skillbox${target ? ' target' : ''}${good ? ' good' : ''}${bad ? ' bad' : ''}`}>
+      <div class="row between nowrap"><span class="sk">{SKILL_NAMES[k]}{bloomed ? <i class="apt bloom" title="開花">花</i> : good ? <i class="apt good" title="得意（伸び×1.5）">得</i> : bad ? <i class="apt bad" title="苦手（伸び×0.5）">苦</i> : null}{bud && <i class="apt bud" title="眠った芽">芽</i>}</span><b class="rank">{rankOf(p)}</b></div>
       <Gauge v={n ? p - cur : 1} max={n ? n - cur : 1} tone="skill" thin />
     </div>
   );
@@ -89,7 +94,8 @@ export function studentFlags(s: GameState, st: Student, exams?: Set<string>): { 
   if (s.consults.includes(st.id)) out.push({ text: '相談あり', tone: 'gold' });
   if ((exams ?? new Set(examCandidates(s).map((x) => x.id))).has(st.id)) out.push({ text: '試験OK', tone: 'main' });
   if (st.motivation <= 1) out.push({ text: 'やる気低下', tone: 'red' });
-  if (st.talent && st.talentReveal >= B.talent.hint1 && st.talentReveal < B.talent.full) out.push({ text: '才能のヒント', tone: 'main' });
+  if (budKnown(st)) out.push({ text: st.bud?.gold ? '金の芽' : '芽', tone: 'gold' });
+  else if (budHinted(st)) out.push({ text: 'ひらめきの兆し', tone: 'main' });
   if (s.students[st.id] && isBirthdayWeek(s, st)) out.push({ text: '誕生日', tone: 'gold' });
   if (Object.values(s.rivalries ?? {}).some((r) => r.sid === st.id && !r.settled && (r.stage >= 2 || r.vow))) out.push({ text: '宿敵', tone: 'red' });
   return out;

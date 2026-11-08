@@ -7,7 +7,7 @@ import { growthRates } from '../core/growth';
 import { nextClasses, classUnlocked, meetsReq, passRate, canTakeExam, takeExam } from '../core/exam';
 import { rng } from '../core/flow';
 import { skillUnlocked } from '../core/week';
-import { StuRow, Back, Bar, moodIcon, Sheet } from './common';
+import { StuRow, Back, Bar, moodIcon, Sheet, HelpTip } from './common';
 import { RankUpPlayer } from './RankUp';
 import { careerTitleOnly, sidesFor } from '../core/discovery';
 import { SIDES } from '../data/discovery';
@@ -15,10 +15,12 @@ import { StuCard, SecTitle, MoodDots, studentFlags, countryColor, LvBadge, Class
 import { Icon } from './icons';
 import { examCandidates, missingReqs, levelReq } from '../core/exam';
 import { OfficerFace, Portrait } from './Portrait';
-import { SKILL_NAMES, STAT_NAMES, PERSONALITIES, TRAITS, TALENTS, DREAMS, COUNTRY_NAMES, HOUSE_NAMES } from '../data/people';
+import { SKILL_NAMES, STAT_NAMES, PERSONALITIES, TRAITS, TALENTS, DREAMS, COUNTRY_NAMES, HOUSE_NAMES, PATH_NAMES, PATH_LINES } from '../data/people';
 import { CLASSES } from '../data/classes';
 import { ABILITIES } from '../data/abilities';
-import { B, SKILLS, STATS, RANK_POINTS } from '../data/balance';
+import { B, SKILLS, STATS, RANK_POINTS, LEAD_SKILLS } from '../data/balance';
+import { goodOf, badOf, budKnown, budHinted, budName } from '../core/aptitude';
+import { suitablePath } from '../core/career';
 import { rankOf, nextRankPoints, MONTH_NAMES } from '../core/util';
 import type { SkillId, Rank } from '../core/types';
 import type { GameState, Student, RankUpItem } from '../core/state';
@@ -73,14 +75,21 @@ function Roster({ s }: { s: GameState }) {
   );
 }
 
-export function talentText(st: Student): string {
-  if (!st.talent) return st.talentReveal >= 100 ? '目立った才能はなさそう' : '？';
-  const t = TALENTS[st.talent];
-  if (st.talentReveal >= B.talent.full) return `「${t.name}」`;
-  if (st.talentReveal >= B.talent.hint2) return t.hint2;
-  if (st.talentReveal >= B.talent.hint1) return t.hint1;
-  return '？';
+/** 10夜目：得意・苦手・芽の説明の札（技能タブ） */
+function AptCard({ st }: { st: Student }) {
+  const good = goodOf(st), bad = badOf(st);
+  const b = st.bud;
+  return (
+    <div class="apt-card small">
+      <div><i class="apt good">得</i> 得意：<b>{good.map((k) => SKILL_NAMES[k]).join('・') || 'なし'}</b>（よく伸びる）</div>
+      <div><i class="apt bad">苦</i> 苦手：<b>{bad.map((k) => SKILL_NAMES[k]).join('・') || 'なし'}</b>（伸びにくい）</div>
+      {b?.done && <div class="apt-bloom"><i class="apt bloom">花</i> {b.gold ? '金の芽が開いた。英雄への道が開けている' : `苦手だった${SKILL_NAMES[b.skill!]}が開花した（${b.year}年目）`}{b.ability && ABILITIES[b.ability] ? `。技「${ABILITIES[b.ability].name}」：${ABILITIES[b.ability].desc}` : ''}</div>}
+      {b && !b.done && budKnown(st) && <div class="apt-bud"><i class="apt bud">芽</i> {b.gold ? '金の芽が見えている。得意の技能をC+まで上げ、Lv20になると開くかもしれない' : `${SKILL_NAMES[b.skill!]}に芽が見えている。目標技能にして${B.apt.bloomRank}まで上げると、花が開くかもしれない`}</div>}
+      {b && !b.done && !budKnown(st) && budHinted(st) && <div class="muted">……なにか眠っているものがあるかもしれない。授業や面談で見えてくる</div>}
+    </div>
+  );
 }
+export function talentText(st: Student): string { return budKnown(st) ? budName(st) : budHinted(st) ? 'ひらめきの兆し' : ''; }
 
 /** 卒業生の昇進・兵種昇格：個人ページを開いたとき、前に見たときから変わっていれば演出する */
 function promotionItems(st: Student): RankUpItem[] {
@@ -152,7 +161,7 @@ function Detail({ s, st, exam, sub }: { s: GameState; st: Student; exam?: boolea
                 return <div class="statrow"><span>{STAT_NAMES[k]}</span><b>{es[k]}</b><span class={`bonus ${b > 0 ? 'up' : b < 0 ? 'down' : ''}`}>{b ? `${b > 0 ? '+' : '−'}${Math.abs(b)}` : ''}</span><Gauge v={es[k]} max={k === 'hp' ? capHp : cap} thin /><span class={`gr total ${g > 0 ? 'up' : g < 0 ? 'down' : ''}`}>{st.growthKnown ? `${gr[k]}%` : g ? `？${g > 0 ? '+' : '−'}${Math.abs(g)}` : '？'}</span></div>;
               })}
             </div>
-            <div class="small muted">成長率＝レベルアップでその能力が上がる見込み（本人＋兵種＋才能・特徴。内わけは下の「内わけを見る」）</div>
+            <div class="small muted">成長率＝レベルアップでその能力が上がる見込み（本人＋兵種＋特徴。本人の成長率は入学したときから見えます。内わけは下の「内わけを見る」）</div>
             <ClassMods c={cls} />
             {!grad && (
               <div class="traingrid">
@@ -165,14 +174,17 @@ function Detail({ s, st, exam, sub }: { s: GameState; st: Student; exam?: boolea
             {cls.ability && ABILITIES[cls.ability] && <div class="small ruled">兵種スキル：<b>{ABILITIES[cls.ability].name}</b>（{ABILITIES[cls.ability].desc}）</div>}
           </div>
           <details class="card dt-fold">
-            <summary><b>成長率の内わけを見る</b><span class="small muted">（本人＋兵種＋才能・特徴）</span></summary>
+            <summary><b>成長率の内わけを見る</b><span class="small muted">（本人＋兵種＋特徴）</span></summary>
             <GrowthTable s={s} st={st} />
           </details>
       </>}
       {tab === 'skills' && <>
           <div class="card">
             <h3>技能ランク</h3>
-            <div class="skillgrid">{SKILLS.filter((k) => skillUnlocked(s, k)).map((k) => <SkillBox k={k} p={st.skills[k]} target={!grad && st.targets.includes(k)} />)}</div>
+            <div class="skillgrid">{SKILLS.filter((k) => skillUnlocked(s, k) && !LEAD_SKILLS.includes(k)).map((k) => <SkillBox k={k} st={st} p={st.skills[k]} target={!grad && st.targets.includes(k)} />)}</div>
+            <h3 style={{ marginTop: 10 }}>采配の技能 <HelpTip text="統率：部隊長にすると、部隊の命中・回避が少し上がり、先生が同行しない戦いでもよい判断をしやすくなります。「指揮の演習」「行軍」の授業や、部隊長を務めた戦いで伸びます。軍略：策を立てる子にすると、策が決まりやすくなります。新しい策も思いつきます。「戦術論」「兵法の歴史」の授業や、策を立てた戦いで伸びます。" /></h3>
+            <div class="skillgrid">{LEAD_SKILLS.map((k) => <SkillBox k={k} st={st} p={st.skills[k] ?? 0} target={!grad && st.targets.includes(k)} />)}</div>
+            <AptCard st={st} />
             {!grad && (
               <div style={{ marginTop: 8 }}>
                 <div class="muted small">今月の目標技能（2つ・金の枠）：目標の授業でさらに伸びます（1つ目は×1.3）。月に一度決めます。夢に沿うとやる気が上がりやすい（夢に沿う技能：{dream.skills.map((k) => SKILL_NAMES[k]).join('・') || 'なし'}）</div>
@@ -195,7 +207,7 @@ function Detail({ s, st, exam, sub }: { s: GameState; st: Student; exam?: boolea
               <div class="statgrid">
                 <div class="row nowrap gap6"><span class="small" style={{ width: 52 }}>やる気</span><MoodDots m={st.motivation} /><span class="small muted">{B.motivationLabel[st.motivation]}</span></div>
                 <div class="row nowrap gap6"><span class="small" style={{ width: 52 }}>信頼</span><Gauge v={st.trust} max={100} thin /><Num v={Math.round(st.trust)} /></div>
-                <div class="row nowrap gap6"><span class="small" style={{ width: 52 }}>才能</span><Gauge v={st.talentReveal} max={100} thin tone="skill" /><span class="small muted">{Math.round(st.talentReveal)}%</span></div>
+                {st.bud && !st.bud.done && <div class="row nowrap gap6"><span class="small" style={{ width: 52 }}>芽</span><Gauge v={Math.min(100, (st.bud.reveal / B.apt.known) * 100)} max={100} thin tone="skill" /><span class="small muted">{budKnown(st) ? budName(st) : budHinted(st) ? '兆しあり' : '？'}</span></div>}
               </div>
               {st.sickWeeks > 0 && <div class="tag red">体調不良（あと{st.sickWeeks}週）</div>}
               {st.injuredWeeks > 0 && <div class="tag red">重傷（あと{st.injuredWeeks}週）</div>}
@@ -211,7 +223,7 @@ function Detail({ s, st, exam, sub }: { s: GameState; st: Student; exam?: boolea
             {parents.length > 0 && <div>親：{parents.map((p) => <a onClick={() => navigate({ tab: 'students', page: 'detail', id: p.id })} style={{ textDecoration: 'underline', marginRight: 6 }}>{p.given}（{p.cohort}期生）</a>)}</div>}
             <div class="row gap4" style={{ marginTop: 4 }}>特徴：{st.knownTraits.map((t) => <Chip tone="main">{TRAITS[t].name}</Chip>)}{st.traits.length > st.knownTraits.length && <Chip tone="gray">？</Chip>}</div>
             {st.knownTraits.length > 0 && <div class="small muted">{st.knownTraits.map((t) => `${TRAITS[t].name}：${TRAITS[t].desc}`).join('／')}</div>}
-            <div style={{ marginTop: 4 }}>才能：<b>{talentText(st)}</b></div>
+            <div style={{ marginTop: 4 }}>向いている道：<b>{PATH_NAMES[suitablePath(st)]}</b><span class="small muted">（{PATH_LINES[suitablePath(st)]}）</span></div>
           </div>
           {st.status === 'enrolled' && <DiscoverCard st={st} />}
       </>}
@@ -259,16 +271,16 @@ function HonorCard({ st }: { st: Student }) {
 function DiscoverCard({ st }: { st: Student }) {
   const sides = sidesFor(st);
   const found = (st.sides ?? []).map((id) => SIDES.find((d) => d.id === id)).filter(Boolean);
-  const talentStage = !st.talent ? (st.talentReveal >= 100 ? 3 : st.talentReveal >= B.talent.hint1 ? 1 : 0) : st.talentReveal >= B.talent.full ? 3 : st.talentReveal >= B.talent.hint2 ? 2 : st.talentReveal >= B.talent.hint1 ? 1 : 0;
-  const total = st.traits.length + 3 + 1 + sides.length;
-  const got = st.knownTraits.length + talentStage + (st.growthKnown ? 1 : 0) + found.length;
+  // 10夜目：才能の判明度は、眠った芽の判明度に（芽のない子は「兆し」まで見て、ないと分かる）
+  const budStage = !st.bud ? (st.talentReveal >= B.apt.known ? 2 : st.talentReveal >= B.apt.hint ? 1 : 0) : st.bud.done ? 2 : budKnown(st) ? 2 : budHinted(st) ? 1 : 0;
+  const total = st.traits.length + 2 + sides.length;
+  const got = st.knownTraits.length + budStage + found.length;
   return (
     <div class="card">
       <h3>分かったこと <span class="small muted">{got}／{total}</span></h3>
       <div class="dc-meter"><span style={{ width: `${Math.round((got / Math.max(1, total)) * 100)}%` }} /></div>
       <div class="dc-row"><span class="dc-lab">特徴</span>{st.traits.map((t) => st.knownTraits.includes(t) ? <Chip tone="main">{TRAITS[t].name}</Chip> : <span class="dc-q">？</span>)}</div>
-      <div class="dc-row"><span class="dc-lab">才能</span>{[1, 2, 3].map((n) => <span class={`dc-step${n <= talentStage ? ' on' : ''}`}>{n === 3 ? '判明' : `ヒント${n}`}</span>)}<span class="small">{talentStage ? talentText(st) : ''}</span></div>
-      <div class="dc-row"><span class="dc-lab">成長の傾向</span>{st.growthKnown ? <Chip tone="main">分かった</Chip> : <span class="dc-q">？</span>}</div>
+      <div class="dc-row"><span class="dc-lab">眠った芽</span>{[1, 2].map((n) => <span class={`dc-step${n <= budStage ? ' on' : ''}`}>{n === 2 ? '芽' : '兆し'}</span>)}<span class="small">{st.bud?.done ? '開花した' : budKnown(st) ? budName(st) : budStage >= 2 && !st.bud ? '芽はなさそう' : ''}</span></div>
       <div class="dc-row"><span class="dc-lab">意外な一面</span>{found.map((d) => <Chip tone="gold">{d!.label}</Chip>)}{sides.slice(found.length).map(() => <span class="dc-q">？</span>)}</div>
     </div>
   );

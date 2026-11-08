@@ -117,8 +117,15 @@ export interface OfficerTraitDef {
   duel?: boolean;
   /** 傷が2つ以上でつく */
   fromScars?: boolean;
+  /** 10夜目：敵将の型（勇士型・将型）。くじでは選ばれず、どの敵将にも1つ。はじめから見える */
+  style?: boolean;
+  /** 勇士型：倒れると兵が崩れる（味方の命中・回避の補正が敵の兵に） */
+  collapse?: { hit: number; avo: number };
 }
 export const OFFICER_TRAITS: Record<string, OfficerTraitDef> = {
+  // 10夜目：敵将の型
+  valor: { id: 'valor', name: '武勇に優れる', weak: true, style: true, desc: '自ら先頭に立って戦う勇士。本人はとても強いが、倒れると兵が崩れやすい', tip: '一騎打ちの申し込みがよく効く。討ち取れば兵が崩れる', self: { hit: 8, avo: 5, def: 2 }, collapse: { hit: -10, avo: -10 } },
+  marshal: { id: 'marshal', name: '采配に優れる', weak: true, style: true, desc: '後ろから兵を動かす将。兵はよく動くが、本人は討ちやすい', tip: '伏兵・挟み撃ちが効く。敵将を狙えば早く崩せる', self: { def: -2, avo: -5 }, men: { hit: 5 } },
   fire_weak: { id: 'fire_weak', name: '炎に弱い', weak: true, desc: '昔、大火事で逃げ遅れたことがあり、炎を見ると体がすくむ', tip: '魔道の使い手を連れていくと有利', foe: { types: ['magic'], hit: 10, dmg: 3 } },
   bow_fear: { id: 'bow_fear', name: '弓を恐れる', weak: true, desc: '矢傷の古い記憶があり、弓兵を前にすると落ち着きをなくす', tip: '弓の使い手を連れていくと有利', foe: { types: ['bow'], hit: 15, dmg: 1 } },
   duel_bound: { id: 'duel_bound', name: '一騎打ちを断れない', weak: true, desc: '名誉にこだわり、挑まれた一騎打ちは決して断らない', tip: '一騎打ちの機会が必ず来る。腕の立つ子を連れていこう', duel: true },
@@ -133,7 +140,9 @@ export const OFFICER_TRAITS: Record<string, OfficerTraitDef> = {
   charisma: { id: 'charisma', name: '部下に慕われる', weak: false, desc: '部下が奮い立ち、いつも以上の力を出す', tip: '敵将を早く倒せば、部下の勢いも止まる', men: { hit: 5 } },
   old_wound: { id: 'old_wound', name: '古傷が痛む', weak: true, desc: '前の戦いの傷が癒えず、動きが鈍い', tip: '速さで上回れる', self: { spd: -2 }, fromScars: true },
 };
-export const TRAIT_IDS = Object.keys(OFFICER_TRAITS).filter((k) => !OFFICER_TRAITS[k].fromScars);
+export const TRAIT_IDS = Object.keys(OFFICER_TRAITS).filter((k) => !OFFICER_TRAITS[k].fromScars && !OFFICER_TRAITS[k].style);
+/** 敵将の型（10夜目：個の武と采配の2つの軸） */
+export const STYLE_IDS = ['valor', 'marshal'] as const;
 
 // ---------- 二つ名 ----------
 /** 倒した相手から：{v}は生徒の名 */

@@ -11,6 +11,7 @@ import type { Student, FaceParts, GameState } from './state';
 import { Rng } from './rng';
 import { emptySkills, emptyStats, clamp } from './util';
 import { round5 } from './growth';
+import { assignApt, assignBud, fitTotal } from './aptitude';
 
 export interface GenOptions {
   origin?: Origin;
@@ -82,28 +83,18 @@ export function generateStudent(s: GameState, rng: Rng, opt: GenOptions = {}): S
   }
   const knownTraits = traits.filter((t) => TRAITS[t].visible);
 
-  // 才能
-  let talent: string | null = null;
-  if (parents && (parents[0].talent || parents[1].talent) && rng.chance(0.6)) {
-    talent = rng.pick([parents[0].talent, parents[1].talent].filter(Boolean) as string[]);
-  } else if (rng.chance(B.student.heroChance)) talent = 'hero';
-  else if (rng.chance(B.student.talentChance + q * 0.15)) {
-    const ids = Object.keys(TALENTS).filter((k) => TALENTS[k].weight > 0);
-    talent = rng.weighted(ids, (k) => TALENTS[k].weight);
-  }
+  // 10夜目：隠れた才能はなくした（得意・苦手・眠った芽が引き継ぐ）
+  const talent: string | null = null;
 
   // 能力値
   const stats: Stats = emptyStats();
-  const growth: Stats = emptyStats();
   for (const k of STATS) {
     const bonus = Math.round(q * 2);
     stats[k] = k === 'hp' ? rng.int(...B.student.hpStart) + bonus : rng.int(B.student.statStart[0], B.student.statStart[1]) + (rng.chance(q) ? 1 : 0);
-    let g = rng.int(...B.student.growthBase) + Math.round(q * B.student.growthQuality);
-    if (k === 'hp') g += B.student.hpGrowthBonus;
-    if (parents) g = Math.round((g + (parents[0].growth[k] + parents[1].growth[k]) / 2) / 2);
-    growth[k] = g;
   }
-  if (talent) for (const [k, v] of Object.entries(TALENTS[talent].stats)) growth[k as keyof Stats] += v as number;
+  // 10夜目：本人の成長率（風花雪月くらいの基準）。夢に合う能力ほど「得意な能力」になりやすい
+  const growth = rollGrowth(rng, dreamDef.skills, q);
+  if (parents) for (const k of STATS) growth[k] = Math.round((growth[k] + (parents[0].growth[k] + parents[1].growth[k]) / 2) / 2);
   // 出身・家柄の補正
   if (house === 'noble') { growth.cha += 5; stats.cha += 1; }
   if (house === 'orphan') { growth.spd += 5; growth.lck -= 5; }
@@ -111,7 +102,8 @@ export function generateStudent(s: GameState, rng: Rng, opt: GenOptions = {}): S
   if (origin === 'empire') growth.str += 5;
   if (origin === 'alliance') growth.mag += 5;
   // 8夜目：成長率は5%きざみ（ヒナタさん指定）
-  for (const k of STATS) growth[k] = clamp(round5(growth[k]), 5, 95);
+  for (const k of STATS) growth[k] = clamp(round5(growth[k]), k === 'hp' ? 35 : 15, 70);
+  fitTotal(growth);
 
   // 技能の初期値：夢と出身国に沿った技能を少し
   const skills = emptySkills(0);
@@ -129,10 +121,11 @@ export function generateStudent(s: GameState, rng: Rng, opt: GenOptions = {}): S
   const face = generateFace(rng, origin, gender);
   if (parents) { face.hair = parents[0].face.hair; if (rng.chance(0.5)) face.hairStyle = parents[1].face.hairStyle; }
 
+  void TALENTS;
   const st: Student = {
     id: newId(s), given, family, gender, age, birthYear: s.year - age,
     origin, house, personality, dream, traits, knownTraits, talent, talentReveal: 0,
-    stats, growth, growthKnown: false, level: 1, exp: 0, skills, targets, targetsAuto: true,
+    stats, growth, growthKnown: true, level: 1, exp: 0, skills, targets, targetsAuto: true,
     classId: 'novice', motivation: 2, fatigue: 0, sickWeeks: 0, injuredWeeks: 0, trust: 10,
     grade: 1, cohort: 0, enrollYear: s.year, status: 'enrolled', lowMotivWeeks: 0, dropoutSign: null,
     lastAttention: s.absWeek, spotlightCount: 0, examMonth: -1, face, faceImage: null, recent: [],
@@ -141,10 +134,36 @@ export function generateStudent(s: GameState, rng: Rng, opt: GenOptions = {}): S
     parents: parents ? [parents[0].id, parents[1].id] : [], children: [], spouse: null, diedYear: null, deathNote: null,
     spells: [],
   };
+  // 10夜目：得意・苦手（入学時から見える）と眠った芽。親の得意を受け継ぐことがある
+  const inherit = parents ? [...new Set([...(parents[0].apt?.good ?? []), ...(parents[1].apt?.good ?? [])])].filter(() => rng.chance(0.35)).slice(0, 1) : [];
+  assignApt(st, rng, inherit);
+  assignBud(st, rng);
   st.spellPlan = makeSpellPlan(st);
   learnSpells(null, st);
   st.birthday = birthdayFor(st.id + st.given);
   return st;
+}
+
+/** 本人の成長率を作る：得意な能力2〜3つ（50〜65）・苦手2つ（20〜30）・ほか（30〜45）、HP（40〜65） */
+const STAT_FOR_SKILL: Partial<Record<SkillId, (keyof Stats)[]>> = {
+  sword: ['str', 'spd'], lance: ['str', 'def'], axe: ['str', 'hp'], bow: ['skl', 'spd'], magic: ['mag', 'res'], faith: ['mag', 'res'],
+  riding: ['spd', 'def'], heavy: ['def', 'hp'], flying: ['spd', 'res'], gun: ['skl'], tactics: ['skl', 'cha'], command: ['cha', 'def'],
+};
+export function rollGrowth(rng: Rng, favor: SkillId[], q = 0): Stats {
+  const g: Stats = emptyStats();
+  const keys = STATS.filter((k) => k !== 'hp');
+  const pref: Record<string, number> = {};
+  for (const sk of favor) for (const k of STAT_FOR_SKILL[sk] ?? []) pref[k] = (pref[k] ?? 0) + 1;
+  // 並べる順：好みのある能力ほど前（得意な能力）になりやすい
+  const order = [...keys].map((k) => ({ k, v: rng.next() + (pref[k] ?? 0) * 0.35 })).sort((a, b) => b.v - a.v).map((x) => x.k);
+  const nHigh = rng.chance(0.5) ? 3 : 2;
+  order.forEach((k, i) => {
+    const band = i < nHigh ? B.student.growthHigh : i >= order.length - 2 ? B.student.growthLow : B.student.growthMid;
+    g[k] = rng.int(band[0], band[1]);
+  });
+  g.hp = rng.int(...B.student.growthHp);
+  if (q > 0 && rng.chance(q)) g[rng.pick(keys)] += 5;
+  return g;
 }
 
 function highestSkill(sk: Record<SkillId, number>): SkillId {

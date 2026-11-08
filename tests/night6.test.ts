@@ -336,17 +336,16 @@ describe('手応えと発見', () => {
   it('授業でたまる疲労は7', () => {
     expect(B.fatigue.lesson).toBe(7);
   });
-  it('隠れた才能：ヒント1→ヒント2→判明の順に、発見の演出が積まれる', () => {
+  it('眠った芽（10夜目：隠れた才能の代わり）：兆し→芽の印の順に、発見の演出が積まれる', () => {
     const s = deserialize(fixture('v5-save.json'));
     s.pending = [];
-    const st = enrolled(s).find((x) => x.talent)!;
-    st.talentReveal = 0;
-    revealTalent(s, st, B.talent.hint1);
-    revealTalent(s, st, B.talent.hint2 - B.talent.hint1);
+    const st = enrolled(s)[0];
+    st.bud = { skill: st.apt!.bad[0], reveal: 0 };
+    revealTalent(s, st, B.apt.hint);
     revealTalent(s, st, 100);
     const ds = s.pending.filter((p) => p.type === 'discovery' && p.studentId === st.id);
-    expect(ds.map((p) => (p as { stage: number }).stage)).toEqual([1, 2, 3]);
-    const last = ds[2] as { name?: string; text: string };
+    expect(ds.map((p) => (p as { stage: number }).stage)).toEqual([1, 3]);
+    const last = ds[1] as { name?: string; text: string };
     expect(last.name).toBeTruthy();
     expect(last.text).not.toMatch(/\{\w+\}/);
   });

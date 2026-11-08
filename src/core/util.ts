@@ -18,7 +18,7 @@ export function emptyStats(v = 0): Stats {
   const s = {} as Stats; for (const k of STATS) s[k] = v; return s;
 }
 export function emptySkills(v = 0): Record<SkillId, number> {
-  return { sword: v, lance: v, axe: v, bow: v, magic: v, faith: v, riding: v, heavy: v, flying: v, gun: v };
+  return { sword: v, lance: v, axe: v, bow: v, magic: v, faith: v, riding: v, heavy: v, flying: v, gun: v, tactics: v, command: v };
 }
 export function clamp(v: number, lo: number, hi: number): number { return Math.max(lo, Math.min(hi, v)); }
 export function relKey(a: CountryId, b: CountryId): 'ke' | 'ea' | 'ak' {
