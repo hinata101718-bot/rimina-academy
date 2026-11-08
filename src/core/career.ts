@@ -1,5 +1,7 @@
 // 進路（声かけ・希望・推薦の三者）と卒業式
 import { B } from '../data/balance';
+import { careerTitleOnly } from './discovery';
+import { titleOf } from './alumni';
 import { COUNTRIES, COUNTRY_SHORT, DREAMS, COUNTRY_FAVOR_SKILLS, COUNTRY_FAVOR_HOUSE, PATH_NAMES } from '../data/people';
 import { CLASSES } from '../data/classes';
 import { WEAPONS } from '../data/weapons';
@@ -100,6 +102,7 @@ export function graduate(s: GameState, rng: Rng, plans: CareerPlan[]): { id: str
     if (country && kind === 'army') addFriendship(s, country, B.career.friendshipPerGrad);
     if (mood === 'match') addTrust(st, 5);
     st.farewell = farewell(s, rng, st, choice, mood);
+    st.seenTitle = careerTitleOnly(titleOf(st)); st.seenClass = st.classId;
     st.history.push({ year: s.year, text: `リミナ分校を卒業（${st.cohort}期生）。進路：${CHOICE_NAMES[choice]}${kind === 'army' ? `（${PATH_NAMES[plan.path]}）` : ''}` });
     lines.push({ id: st.id, text: st.farewell });
     s.stats.graduates += 1;

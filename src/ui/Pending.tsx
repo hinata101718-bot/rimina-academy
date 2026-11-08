@@ -31,6 +31,7 @@ import type { Path } from '../core/types';
 import type { Deploy } from '../core/battle/setup';
 import { sfx } from './sound';
 import { AutoPrep, AutoResultHead } from './AutoBattle';
+import { RankUpPlayer, DiscoveryView } from './RankUp';
 import { Icon } from './icons';
 import { countryColor, CountryChip, Chip, Stars, Num, LvBadge, MiniCard, NameLine, OBJECTIVE_ICON, WEATHER_ICON } from './cards';
 import { rankOf } from '../core/util';
@@ -55,6 +56,8 @@ export function PendingView() {
     case 'retire': return <Retire s={s} forced={p.forced} />;
     case 'successor': return <Successor s={s} />;
     case 'scene': return <Sheet title={p.title}><ScenePlayer key={p.title} s={s} lines={p.lines} onDone={done} /></Sheet>;
+    case 'rankup': return <Sheet><RankUpPlayer key={s.pending.length} s={s} items={p.items} onDone={done} /></Sheet>;
+    case 'discovery': return <Sheet><DiscoveryView key={`${p.studentId}${p.stage}${s.pending.length}`} s={s} p={p} onDone={done} /></Sheet>;
     case 'newspaper': return <Sheet title="新聞が届いた"><NewsView id={p.id} /><button class="btn primary block" style={{ marginTop: 10 }} onClick={done}>閉じる</button></Sheet>;
     default: return <Sheet title="お知らせ"><button class="btn primary block" onClick={done}>閉じる</button></Sheet>;
   }

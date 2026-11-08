@@ -148,3 +148,45 @@ export function Portrait({ st, size = 48, game, frame, fixed }: { st: Student; s
   if (frame) return <span style={{ display: 'inline-block', flex: 'none', lineHeight: 0, border: `${size >= 64 ? 3 : 2}px solid ${frame}`, borderRadius: '22%', overflow: 'hidden', background: '#f7f0e2' }}><FaceSvg face={st.face} size={size - (size >= 64 ? 6 : 4)} dim={!!dead} /></span>;
   return <FaceSvg face={st.face} size={size} dim={!!dead} />;
 }
+
+// ================= 敵将の顔（6夜目） =================
+/** 傷を負って戻った敵将：同じ画像の上に、傷跡・包帯・眼帯を重ねる（回数に応じて増える） */
+export function ScarOverlay({ n }: { n: number }) {
+  if (n <= 0) return null;
+  return (
+    <svg viewBox="0 0 100 100" class="scar-ov" aria-hidden="true">
+      {n >= 1 && <g stroke-linecap="round"><path d="M36 44 L45 58" stroke="#7a1f1a" stroke-width="2.4" /><path d="M36 44 L45 58" stroke="#e7a59a" stroke-width="0.9" /><path d="M38 49 L42 48 M40 53 L44 52" stroke="#7a1f1a" stroke-width="1.2" /></g>}
+      {n >= 2 && <g><path d="M18 22 Q50 12 84 22 L84 29 Q50 19 18 29 Z" fill="#f4ecdc" stroke="#b9a989" stroke-width="0.8" /><path d="M30 20 L33 26 M44 17 L46 23 M58 17 L59 23 M72 19 L71 25" stroke="#cdbd9c" stroke-width="0.8" /><circle cx="76" cy="24" r="2.2" fill="#c94a3a" opacity=".55" /></g>}
+      {n >= 3 && <g><path d="M14 30 L90 44" stroke="#2b2420" stroke-width="2" /><ellipse cx="60" cy="38" rx="7.5" ry="6" fill="#2b2420" /><ellipse cx="58" cy="36.5" rx="3" ry="1.6" fill="#5a4c42" /></g>}
+      {n >= 4 && <g stroke-linecap="round"><path d="M56 60 L66 66 M58 58 L64 70" stroke="#7a1f1a" stroke-width="2" /><path d="M24 64 L30 74" stroke="#7a1f1a" stroke-width="1.8" /></g>}
+    </svg>
+  );
+}
+
+let enemyBase = '';
+function enemyUrl(f: string): string { if (!enemyBase) enemyBase = `${import.meta.env.BASE_URL}enemies/`; return enemyBase + f; }
+
+/** 敵将の顔：卒業生なら生徒のときの顔のまま、名簿の敵将は顔画像（なければ似顔絵）、魔物は似顔絵 */
+export function OfficerFace({ o, size = 48, frame, dim, s: game }: { o: { faceImage?: string | null; face: FaceParts; scars?: number; alumniId?: string; status?: string } | null | undefined; size?: number; frame?: string; dim?: boolean; s?: GameState | null }) {
+  const g = game ?? getGame();
+  if (!o) return <span class="ofc-face unknown" style={{ width: size, height: size, fontSize: size * 0.5 }}>？</span>;
+  const gone = dim || (o.status !== undefined && o.status !== 'active');
+  if (o.alumniId && g?.students[o.alumniId]) return <span class="ofc-face" style={{ filter: gone ? 'grayscale(1)' : undefined }}><Portrait st={g.students[o.alumniId]} size={size} frame={frame ?? 'var(--accent)'} /></span>;
+  const zoom = size <= 64 ? 1.22 : size <= 120 ? 1.1 : 1.0;
+  const border = frame ? `${size >= 64 ? 3 : 2}px solid ${frame}` : '1.5px solid #8a7a66';
+  if (o.faceImage) {
+    return (
+      <span class="ofc-face" style={{ width: size, height: size, border, borderRadius: size <= 120 ? '22%' : '12px', filter: gone ? 'grayscale(1)' : undefined }}>
+        <span class="ofc-zoom" style={{ width: `${zoom * 100}%`, left: `${-(zoom - 1) * 50}%`, top: zoom > 1 ? '-3%' : '0' }}>
+          <img src={enemyUrl(o.faceImage)} alt="" loading="lazy" />
+          <ScarOverlay n={o.scars ?? 0} />
+        </span>
+      </span>
+    );
+  }
+  return (
+    <span class="ofc-face" style={{ width: size, height: size, border, borderRadius: '22%', filter: gone ? 'grayscale(1)' : undefined }}>
+      <span class="ofc-zoom" style={{ width: '100%', left: 0, top: 0 }}><FaceSvg face={o.face} size={size - 4} /><ScarOverlay n={o.scars ?? 0} /></span>
+    </span>
+  );
+}

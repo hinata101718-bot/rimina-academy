@@ -1,5 +1,6 @@
 // 1週間の処理：授業・個人指導・週末の交流・疲労・やる気・才能の判明・退学の予兆
 import { B, SKILLS } from '../data/balance';
+import { talentDiscovery, rollSides } from './discovery';
 import { TRAITS, TALENTS, DREAMS, SKILL_NAMES, PERSONALITIES, COUNTRY_NAMES } from '../data/people';
 import { CLASSES } from '../data/classes';
 import type { SkillId, CountryId } from './types';
@@ -105,6 +106,7 @@ export function revealTalent(s: GameState, st: Student, amount: number, lines?: 
   const msg = (text: string) => { notify(s, text, st.id); lines?.push(text); };
   if (before < B.talent.hint1 && after >= B.talent.hint1) msg(`才能のヒント：${st.given}は「${t.hint1}」`);
   if (before < B.talent.hint2 && after >= B.talent.hint2) msg(`才能のヒント：${st.given}は「${t.hint2}」`);
+  talentDiscovery(s, st, before, after);
   if (before < B.talent.full && after >= B.talent.full) {
     st.growthKnown = true;
     msg(`才能が判明：${st.given}は「${t.name}」だった！`);

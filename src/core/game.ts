@@ -9,6 +9,7 @@ import { Rng } from './rng';
 import { generateStudent } from './student';
 import { emptySkills, clamp } from './util';
 import { ensureRosters } from './officers';
+import { reputationRankUp } from './discovery';
 import { rollQuests } from './quests';
 import { autoTargets } from './week';
 
@@ -119,6 +120,11 @@ export function addMoney(s: GameState, amount: number): void {
   s.money = Math.max(0, Math.round(s.money + m));
 }
 export function addRep(s: GameState, d: number): void {
+  const before = s.reputation;
+  addRepRaw(s, d);
+  if (s.reputation > before) reputationRankUp(s, before, s.reputation);
+}
+function addRepRaw(s: GameState, d: number): void {
   s.reputation = clamp(Math.round((s.reputation + d) * 10) / 10, 0, B.school.reputationMax);
 }
 export function addFriendship(s: GameState, c: CountryId, d: number): void {

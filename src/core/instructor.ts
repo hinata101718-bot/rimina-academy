@@ -1,5 +1,6 @@
 // 教官：教えるほど上がる技能（③）、加齢・引退・後継（④）、副教官（⑤）。DOMに依存しない
 import { B, SKILLS, RANK_POINTS } from '../data/balance';
+import { skillRankUp } from './discovery';
 import { BACKGROUNDS, COUNTRY_SHORT, SKILL_NAMES, PERSONALITIES, TALENTS, DREAMS } from '../data/people';
 import { NAMES } from '../data/names';
 import type { SkillId, CountryId } from './types';
@@ -67,8 +68,10 @@ export function growTeachers(s: GameState, tutoredSkills: SkillId[], lines?: str
   for (const k of tutoredSkills) gain[k] = (gain[k] ?? 0) + I.growTutor;
   for (const [k, v] of Object.entries(gain) as [SkillId, number][]) {
     if (k === 'gun' && !s.world.gunUnlocked) continue;
+    const b0 = ins.skills[k] ?? 0;
     const up = growSkill(ins, k, v, caps[k]);
     if (up) {
+      skillRankUp(s, `教官（${ins.name}）`, k, b0, ins.skills[k]);
       const text = `教官（${ins.name}）の${SKILL_NAMES[k]}が ${up[1]} になった`;
       notify(s, text); lines?.push(text);
       if (up[1].replace('+', '') !== up[0].replace('+', '')) chronicle(s, text, 'school');
@@ -81,7 +84,7 @@ export function growTeachers(s: GameState, tutoredSkills: SkillId[], lines?: str
     if (t.points >= tcap) continue;
     const before = t.points;
     t.points = Math.min(tcap, Math.round((t.points + I.teacherGrow) * 100) / 100);
-    if (rankOf(before) !== rankOf(t.points)) { const text = `講師の${t.name}の${SKILL_NAMES[t.skill]}が ${rankOf(t.points)} になった`; notify(s, text); lines?.push(text); }
+    if (rankOf(before) !== rankOf(t.points)) { skillRankUp(s, `講師の${t.name}`, t.skill, before, t.points); const text = `講師の${t.name}の${SKILL_NAMES[t.skill]}が ${rankOf(t.points)} になった`; notify(s, text); lines?.push(text); }
   }
 }
 

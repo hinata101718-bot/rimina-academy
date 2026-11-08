@@ -5,8 +5,8 @@ import type { EndingKind } from '../core/state';
 import { ClassName } from './cards';
 import { useStore, navigate } from './store';
 import { StuRow } from './common';
-import { Portrait, FaceSvg } from './Portrait';
-import { LEADER_NAMES } from '../data/autobattle';
+import { Portrait, OfficerFace } from './Portrait';
+import { officerName, factionName, rankName } from '../core/officers';
 import { titleOf } from '../core/alumni';
 import { COUNTRY_SHORT, PATH_NAMES, COUNTRIES } from '../data/people';
 import { MONTH_NAMES } from '../core/util';
@@ -127,26 +127,21 @@ function Records({ s }: { s: GameState }) {
   );
 }
 
-const MEET_NAMES = { win: '勝ったが取り逃がす', lose: '敗れる', fled: '取り逃がす', fell: '討ち取る' };
-/** 因縁の敵将（逃した敵将。また戦場で会うことがある） */
+/** 因縁の敵将（6夜目からは「戦況」の敵将の名簿にまとめた。ここには会ったことのある敵将を短く） */
 function Nemeses({ s }: { s: GameState }) {
-  const list = [...(s.nemeses ?? [])].reverse();
+  const list = (s.officers ?? []).filter((o) => o.meets.length).sort((a, c) => c.meets.length - a.meets.length).slice(0, 8);
   return (
     <>
       <h3>因縁の敵将</h3>
-      {!list.length && <div class="muted small">まだいません。戦場で取り逃がした敵将は、ここに記録されます。</div>}
-      {list.map((n) => (
-        <div class="pcard" style={{ ['--band' as string]: n.country ? countryColor(n.country) : '#7a6a55' }}>
-          <div class="row nowrap gap8">
-            <span style={{ lineHeight: 0, borderRadius: '22%', overflow: 'hidden', border: '2px solid var(--accent)', flex: 'none', filter: n.status === 'defeated' ? 'grayscale(1)' : undefined }}><FaceSvg face={n.face} size={48} /></span>
-            <div class="grow">
-              <div class="row nowrap gap6"><b class="serif">{n.name}</b><span class={`flag ${n.status === 'active' ? 'red' : ''}`}>{n.status === 'active' ? '健在' : '決着'}</span></div>
-              <div class="small muted">{n.country ? COUNTRY_SHORT[n.country] : n.kind === 'monster' ? '魔物' : '盗賊'}・{LEADER_NAMES[n.personality as keyof typeof LEADER_NAMES] ?? ''}・<ClassName classId={n.classId} size={12} /> Lv{n.level}</div>
-            </div>
-          </div>
-          <ul class="list small" style={{ margin: '4px 0 0' }}>{n.meets.map((m) => <li>{m.year}年目 {MONTH_NAMES[m.month]}「{m.title}」：{MEET_NAMES[m.result]}</li>)}</ul>
+      {!list.length && <div class="muted small">まだいません。戦場で会った敵将は「戦況」の「敵将の名簿」に記録されます。</div>}
+      {list.map((o) => (
+        <div class="row nowrap gap6 ruled">
+          <OfficerFace o={o} size={36} s={s} />
+          <div class="grow" style={{ minWidth: 0 }}><b class="serif">{officerName(o)}</b> <span class="small muted">{o.kind === 'monster' ? '魔物' : `${factionName(o.faction)}・${rankName(o)}`}・{o.meets.length}回</span></div>
+          <span class={`flag ${o.status === 'active' ? 'red' : ''}`}>{o.status === 'active' ? '健在' : '決着'}</span>
         </div>
       ))}
+      <button class="btn block" style={{ minHeight: 44, marginTop: 6 }} onClick={() => navigate({ tab: 'war', page: 'officers' })}>敵将の名簿を開く ›</button>
     </>
   );
 }

@@ -1,5 +1,6 @@
 // 講師の雇用・施設
 import { B, SKILLS } from '../data/balance';
+import { pushRankUp } from './discovery';
 import { NAMES } from '../data/names';
 import { SKILL_NAMES } from '../data/people';
 import type { SkillId } from './types';
@@ -66,6 +67,7 @@ export function upgradeFacility(s: GameState, f: FacilityId): boolean {
   s.money -= c;
   s.facilities[f] = (s.facilities[f] ?? 0) + 1;
   chronicle(s, `${B.facilities[f].name}を段階${s.facilities[f]}に整備`, 'school');
+  pushRankUp(s, { icon: 'house', title: B.facilities[f].name, from: `段階${s.facilities[f] - 1}`, to: `段階${s.facilities[f]}`, p0: 0, p1: 1, note: '施設を直した' });
   return true;
 }
 

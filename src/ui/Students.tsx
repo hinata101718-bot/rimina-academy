@@ -5,24 +5,30 @@ import { growthRates } from '../core/growth';
 import { nextClasses, classUnlocked, meetsReq, passRate, canTakeExam, takeExam } from '../core/exam';
 import { rng } from '../core/flow';
 import { skillUnlocked } from '../core/week';
-import { StuRow, Back, Bar, moodIcon } from './common';
+import { StuRow, Back, Bar, moodIcon, Sheet } from './common';
+import { RankUpPlayer } from './RankUp';
+import { careerTitleOnly, sidesFor } from '../core/discovery';
+import { SIDES } from '../data/discovery';
 import { StuCard, SecTitle, MoodDots, studentFlags, countryColor, LvBadge, ClassName, CountryChip, Chip, Gauge, FatigueBar, SkillBox, FaceRow, MiniCard, Num } from './cards';
 import { Icon } from './icons';
 import { examCandidates, missingReqs, levelReq } from '../core/exam';
-import { Portrait } from './Portrait';
+import { OfficerFace, Portrait } from './Portrait';
 import { SKILL_NAMES, STAT_NAMES, PERSONALITIES, TRAITS, TALENTS, DREAMS, COUNTRY_NAMES, HOUSE_NAMES } from '../data/people';
 import { CLASSES } from '../data/classes';
 import { ABILITIES } from '../data/abilities';
 import { B, SKILLS, STATS, RANK_POINTS } from '../data/balance';
 import { rankOf, nextRankPoints, MONTH_NAMES } from '../core/util';
 import type { SkillId, Rank } from '../core/types';
-import type { GameState, Student } from '../core/state';
+import type { GameState, Student, RankUpItem } from '../core/state';
 import { supportRank, archiveOf } from '../core/support';
 import { TalkView } from './Talk';
 import { titleOf } from '../core/alumni';
 import { sfx } from './sound';
 import { ensureSpellPlan, usableSpells } from '../core/spells';
 import { WEAPONS } from '../data/weapons';
+import { rivalriesOf, officerById, officerName, stageName, factionName, rankName } from '../core/officers';
+import { FACTION_COLOR } from '../data/officers';
+import { OfficerSheet } from './Officers';
 
 export function StudentsTab() {
   const { s, route } = useStore();
@@ -71,7 +77,19 @@ export function talentText(st: Student): string {
   return '？';
 }
 
+/** 卒業生の昇進・兵種昇格：個人ページを開いたとき、前に見たときから変わっていれば演出する */
+function promotionItems(st: Student): RankUpItem[] {
+  if (st.status !== 'graduated' || !st.career || st.seenTitle === undefined) return [];
+  const out: RankUpItem[] = [];
+  const t = careerTitleOnly(titleOf(st));
+  if (st.seenTitle !== t) out.push({ icon: 'crown', title: `${st.given}の役職`, from: st.seenTitle || '—', to: t, p0: 0.2, p1: 1, studentId: st.id, note: '昇進！' });
+  if (st.seenClass && st.seenClass !== st.classId) out.push({ icon: 'exam', title: `${st.given}の兵種`, from: CLASSES[st.seenClass]?.name ?? '', to: CLASSES[st.classId]?.name ?? '', p0: 0.4, p1: 1, studentId: st.id, note: '兵種昇格！' });
+  return out;
+}
+
 function Detail({ s, st }: { s: GameState; st: Student }) {
+  const promo = promotionItems(st);
+  const markSeen = () => act((g) => { const x = g.students[st.id]; if (x) { x.seenTitle = careerTitleOnly(titleOf(x)); x.seenClass = x.classId; } });
   const es = effectiveStats(st);
   const gr = growthRates(st);
   const cls = CLASSES[st.classId];
@@ -87,6 +105,7 @@ function Detail({ s, st }: { s: GameState; st: Student }) {
   const supList = supports.map((sp) => ({ sp, o: s.students[sp.a === st.id ? sp.b : sp.a] })).filter((x) => x.o);
   return (
     <div>
+      {promo.length > 0 && <Sheet><RankUpPlayer s={s} items={promo} title="卒業生の昇進" onDone={markSeen} /></Sheet>}
       <Back to={() => history.length && navigate(grad ? { tab: 'yearbook' } : { tab: 'students' })} />
       <div class="pcard" style={{ ['--band' as string]: color }}>
         <div class="hero">
@@ -134,6 +153,7 @@ function Detail({ s, st }: { s: GameState; st: Student }) {
             {st.knownTraits.length > 0 && <div class="small muted">{st.knownTraits.map((t) => `${TRAITS[t].name}：${TRAITS[t].desc}`).join('／')}</div>}
             <div style={{ marginTop: 4 }}>才能：<b>{talentText(st)}</b></div>
           </div>
+          {st.status === 'enrolled' && <DiscoverCard st={st} />}
           <div class="card">
             <h3>能力</h3>
             <div class="statlist">
@@ -167,6 +187,7 @@ function Detail({ s, st }: { s: GameState; st: Student }) {
             {supList.length === 0 && <div class="muted">まだ特に親しい仲間はいない</div>}
             <FaceRow list={supList.map(({ sp, o }) => ({ st: o, label: `${supportRank(sp.value) ? `支援${supportRank(sp.value)}` : ''}${sp.kind !== 'none' ? { friend: '・友情', rival: '・好敵手', love: '・想い' }[sp.kind] : ''}` }))} />
           </div>
+          <RivalCard s={s} st={st} />
           <TalkArchive s={s} st={st} />
           <div class="card">
             <h3>記録</h3>
@@ -180,6 +201,50 @@ function Detail({ s, st }: { s: GameState; st: Student }) {
     </div>
   );
 }
+
+/** 分かったこと（6夜目）：まだ見えていない項目は「？」のまま残り、埋まっていく */
+function DiscoverCard({ st }: { st: Student }) {
+  const sides = sidesFor(st);
+  const found = (st.sides ?? []).map((id) => SIDES.find((d) => d.id === id)).filter(Boolean);
+  const talentStage = !st.talent ? (st.talentReveal >= 100 ? 3 : st.talentReveal >= B.talent.hint1 ? 1 : 0) : st.talentReveal >= B.talent.full ? 3 : st.talentReveal >= B.talent.hint2 ? 2 : st.talentReveal >= B.talent.hint1 ? 1 : 0;
+  const total = st.traits.length + 3 + 1 + sides.length;
+  const got = st.knownTraits.length + talentStage + (st.growthKnown ? 1 : 0) + found.length;
+  return (
+    <div class="card">
+      <h3>分かったこと <span class="small muted">{got}／{total}</span></h3>
+      <div class="dc-meter"><span style={{ width: `${Math.round((got / Math.max(1, total)) * 100)}%` }} /></div>
+      <div class="dc-row"><span class="dc-lab">特徴</span>{st.traits.map((t) => st.knownTraits.includes(t) ? <Chip tone="main">{TRAITS[t].name}</Chip> : <span class="dc-q">？</span>)}</div>
+      <div class="dc-row"><span class="dc-lab">才能</span>{[1, 2, 3].map((n) => <span class={`dc-step${n <= talentStage ? ' on' : ''}`}>{n === 3 ? '判明' : `ヒント${n}`}</span>)}<span class="small">{talentStage ? talentText(st) : ''}</span></div>
+      <div class="dc-row"><span class="dc-lab">成長の傾向</span>{st.growthKnown ? <Chip tone="main">分かった</Chip> : <span class="dc-q">？</span>}</div>
+      <div class="dc-row"><span class="dc-lab">意外な一面</span>{found.map((d) => <Chip tone="gold">{d!.label}</Chip>)}{sides.slice(found.length).map(() => <span class="dc-q">？</span>)}</div>
+    </div>
+  );
+}
+
+/** 宿敵の欄（6夜目）：因縁のある敵将の顔・二つ名・戦った回数・結果 */
+function RivalCard({ s, st }: { s: GameState; st: Student }) {
+  const list = rivalriesOf(s, st.id).map((rv) => ({ rv, o: officerById(s, rv.oid) })).filter((x) => x.o);
+  const [open, setOpen] = useState<string | null>(null);
+  const sel = open ? officerById(s, open) : null;
+  return (
+    <div class="card">
+      <h3>宿敵</h3>
+      {!list.length && <div class="muted small">まだいない。同じ敵将と何度も戦うと、因縁が生まれる。</div>}
+      {list.map(({ rv, o }) => (
+        <div class="row nowrap gap8 ruled tap" style={{ minHeight: 52 }} onClick={() => setOpen(o!.id)}>
+          <OfficerFace o={o} size={48} frame={FACTION_COLOR[o!.faction]} s={s} />
+          <div class="grow" style={{ minWidth: 0 }}>
+            <div class="row nowrap gap6"><b class="serif ofc-name" style={{ fontSize: 15 }}>{officerName(o!)}</b><span class={`flag ${rv.settled ? '' : 'red'}`}>{rv.settled ? '決着' : rv.vow ? '仇討ちの誓い' : stageName(rv.stage)}</span></div>
+            <div class="small muted">{o!.kind === 'monster' ? '魔物' : `${factionName(o!.faction)}・${rankName(o!)}`}・戦った回数 {rv.battles}回</div>
+            <div class="small">{rv.settled ? SETTLE_NAMES[rv.settled] : rv.vow && s.students[rv.vow] ? `${s.students[rv.vow].given}の仇` : o!.status !== 'active' ? (o!.endNote ?? '戦場を去った') : (rv.log[rv.log.length - 1]?.text ?? '')}</div>
+          </div>
+        </div>
+      ))}
+      {sel && <OfficerSheet s={s} o={sel} onClose={() => setOpen(null)} />}
+    </div>
+  );
+}
+const SETTLE_NAMES = { persuade: '説き伏せて、剣を置かせた', duel: '一騎打ちで破った', kill: '討ち取った', spare: '見逃した' };
 
 function NameLineBig({ st }: { st: Student }) {
   const len = st.given.length;

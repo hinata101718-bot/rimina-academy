@@ -15,6 +15,7 @@ import { createBattle, unitFromStudent, defaultWeaponFor, type Deploy } from './
 import { startPlayerPhase, setReinforcementFactory, weaponSkillId } from './battle/engine';
 import { startAutoBattle, applyAutoResults, setupLeader, officerAfterBattle, type AutoPlan } from './battle/auto';
 import { ensureRosters, yearlyOfficers } from './officers';
+import { rollSides, deferShows } from './discovery';
 import { monthlyWorld, yearlyWorld, questWorldEffect, tensionStage, activeAlumni } from './world';
 import { simulateAlumni, aidMoney, titleOf } from './alumni';
 import { prepareCareers, graduate, type CareerPlan } from './career';
@@ -42,8 +43,13 @@ export function battleCtx(s: GameState): BattleCtx {
 export function nextWeek(s: GameState): void {
   if (s.pending.length || s.battle || s.gameOver) return;
   const r = rng(s);
+  const from = s.pending.length;
+  const talked = new Set<string>([...s.plan.tutoring.filter((t) => t.kind !== 'skill').map((t) => t.studentId), ...s.consults]);
   const res = resolveWeek(s, r);
+  for (const t of res.talks) if (t.kind === 'interview' || t.kind === 'special') { talked.add(t.a); talked.add(t.b); }
+  rollSides(s, r, talked, res.lines);
   s.pending.push({ type: 'weekSummary', lines: res.lines.length ? res.lines : ['穏やかな一週間だった'], talks: res.talks, growth: res.growth });
+  deferShows(s, from);
   s.absWeek += 1;
   if (s.week >= 4) {
     s.quests = rollQuests(s);
@@ -96,6 +102,7 @@ export function finishBattle(s: GameState): void {
   const b = s.battle;
   if (!b || b.phase !== 'done') return;
   const r = rng(s);
+  const pendFrom = s.pending.length;
   const q = s.quests.find((x) => x.id === b.questId);
   const win = b.result === 'win';
   const lines: string[] = [];
@@ -209,6 +216,7 @@ export function finishBattle(s: GameState): void {
   const findings = [...battleFindings(s, growth, lines, s.pending.slice(firstTalk >= 0 ? firstTalk : s.pending.length)), ...officerFind];
   s.pending.splice(firstTalk >= 0 ? firstTalk : s.pending.length, 0, { type: 'battleResult', lines, grades, win, growth, mvp: auto.mvp ?? undefined, review: auto.review, title: b.title, findings });
   s.battle = null;
+  deferShows(s, pendFrom);
   if (q?.kind === 'schoolDefense' && win) checkEndings(s, r, 'month');
   endMonth(s);
 }

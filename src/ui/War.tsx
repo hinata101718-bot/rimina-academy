@@ -1,4 +1,6 @@
-import { useStore } from './store';
+import { useStore, navigate } from './store';
+import { OfficerRoster } from './Officers';
+import { sfx } from './sound';
 import { COUNTRIES, COUNTRY_NAMES, COUNTRY_SHORT, COUNTRY_COLOR } from '../data/people';
 import { PAIRS, relStage, REL_NAMES, STAGE_NAMES, tensionStage, activeAlumni, diplomats } from '../core/world';
 import { OBJECTIVE_NAMES, WEATHER_NAMES } from '../core/quests';
@@ -28,12 +30,20 @@ function MapSvg({ s }: { s: GameState }) {
 }
 
 export function WarTab() {
-  const { s } = useStore();
+  const { s, route } = useStore();
   if (!s) return null;
   const st = tensionStage(s.world.tension);
+  const seg = (
+    <div class="seg" style={{ marginBottom: 8 }}>
+      <button class={route.page !== 'officers' ? 'on' : ''} onClick={() => { sfx('move'); navigate({ tab: 'war' }); }}>大陸の様子</button>
+      <button class={route.page === 'officers' ? 'on' : ''} onClick={() => { sfx('move'); navigate({ tab: 'war', page: 'officers' }); }}>敵将の名簿</button>
+    </div>
+  );
+  if (route.page === 'officers') return <div><h2>戦況</h2>{seg}<OfficerRoster s={s} /></div>;
   return (
     <div>
       <h2>戦況</h2>
+      {seg}
       <div class="two">
         <div>
           <div class="card">

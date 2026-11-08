@@ -7,6 +7,8 @@ import { ensureSpellPlan, learnSpells } from './spells';
 import { ensureTeacherSince, instructorCaps } from './instructor';
 import { birthdayFor } from './student';
 import { ensureRosters, nemesisToOfficer } from './officers';
+import { careerTitleOnly } from './discovery';
+import { titleOf } from './alumni';
 import { Rng } from './rng';
 
 export interface SaveFile { app: 'rimina-academy'; version: number; savedAt: number; state: GameState }
@@ -136,6 +138,8 @@ function migrateTo5(s: GameState): void {
   for (const n of s.nemeses ?? []) if (!s.officers.some((o) => o.id === n.id)) s.officers.push(nemesisToOfficer(s, n, r));
   delete s.nemeses;
   ensureRosters(s, r);
+  // 卒業生の昇進の演出：今の肩書き・兵種を「見たもの」として記録する（読み込みのたびに全員分の演出が出ないように）
+  for (const st of Object.values(s.students ?? {})) if (st.status === 'graduated' && st.career) { st.seenTitle ??= careerTitleOnly(titleOf(st)); st.seenClass ??= st.classId; }
   const L = s.battle?.auto?.leader;
   if (L && L.nemesisId && !L.officerId && s.officers.some((o) => o.id === L.nemesisId)) {
     const o = s.officers.find((x) => x.id === L.nemesisId)!;
