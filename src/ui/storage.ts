@@ -67,14 +67,41 @@ export async function slotInfos(): Promise<SlotInfo[]> {
 }
 export async function lastSlot(): Promise<number | null> { const v = await get('last'); return v === null ? null : Number(v); }
 
-export function exportFile(s: GameState): void {
+/** 書き出すファイルの名前（iPhone の「ファイル」に保存しやすいよう、英数字だけ） */
+function exportName(s: GameState): string {
+  const d = new Date(); const p = (n: number) => String(n).padStart(2, '0');
+  return `rimina-save-y${s.year}-${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}-${p(d.getHours())}${p(d.getMinutes())}.json`;
+}
+/** タッチの端末（iPhone・iPad・Android）か */
+function touchDevice(): boolean { return typeof navigator !== 'undefined' && ((navigator.maxTouchPoints ?? 0) > 0 || /iPhone|iPad|iPod|Android/.test(navigator.userAgent)); }
+
+/**
+ * 14夜目：セーブをファイルに書き出す。
+ * iPhone・iPad（Safari・ホーム画面に追加したとき）は、共有の画面を開く（「"ファイル"に保存」を選べる）。
+ * ホーム画面に追加したアプリでは、ふつうのダウンロードが動かないことがあるため。
+ * 共有の画面が使えない端末では、今までどおりダウンロードする。
+ * 押した直後に呼ぶこと（共有の画面は、押した操作の中でしか開けない）
+ */
+export async function exportFile(s: GameState): Promise<'shared' | 'downloaded' | 'cancel'> {
+  const before = s.lastExport;
   s.lastExport = Date.now();
-  const blob = new Blob([serialize(s)], { type: 'application/json' });
+  const text = serialize(s);
+  const name = exportName(s);
+  const nav = navigator as Navigator & { canShare?: (d: { files: File[] }) => boolean; share?: (d: { files: File[]; title?: string }) => Promise<void> };
+  if (touchDevice() && typeof File !== 'undefined' && nav.share && nav.canShare) {
+    const file = new File([text], name, { type: 'application/json' });
+    if (nav.canShare({ files: [file] })) {
+      try { await nav.share({ files: [file], title: '辺境士官学校のセーブ' }); return 'shared'; }
+      catch (e) { if ((e as Error).name === 'AbortError') { s.lastExport = before; return 'cancel'; } /* 共有できなければダウンロードへ */ }
+    }
+  }
+  const blob = new Blob([text], { type: 'application/json' });
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
-  a.download = `rimina-save-${s.year}年目-${Date.now()}.json`;
+  a.download = name;
   document.body.appendChild(a); a.click(); a.remove();
   setTimeout(() => URL.revokeObjectURL(a.href), 3000);
+  return 'downloaded';
 }
 export function importFile(file: File): Promise<GameState> {
   return file.text().then((t) => deserialize(t));

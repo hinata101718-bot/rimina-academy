@@ -1743,3 +1743,4 @@ i.apt { font-style: normal; display: inline-flex; align-items: center; justify-c
 .legend-art { position: relative; margin-top: 10px; background: rgba(255,250,230,.75); border: 1px solid #a47b2c; border-radius: 4px; padding: 8px 10px; max-width: 400px; line-height: 1.7; }
 .legend-tap { position: relative; margin-top: 14px; opacity: .8; }
 @media (prefers-reduced-motion: reduce) { .legend-glow { animation: none; } }
+.transfer-box { width: 100%; box-sizing: border-box; height: 96px; font-size: 11px; font-family: monospace; word-break: break-all; margin: 6px 0; }

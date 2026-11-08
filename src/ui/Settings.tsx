@@ -1,3 +1,5 @@
+import { useState } from 'preact/hooks';
+import { encodeTransfer } from '../core/transfer';
 import { PROSE_NAMES } from '../data/warprose';
 import { FX_NAMES } from '../data/battlefx';
 import type { GameState } from '../core/state';
@@ -13,6 +15,12 @@ export function SettingsTab() {
   if (!s) return null;
   const set = (fn: (x: GameState["settings"]) => void) => act((g) => fn(g.settings));
   const days = Math.floor((Date.now() - s.lastExport) / 86400000);
+  return <SettingsBody s={s} set={set} days={days} />;
+}
+
+function SettingsBody({ s, set, days }: { s: GameState; set: (fn: (x: GameState['settings']) => void) => void; days: number }) {
+  const [msg, setMsg] = useState('');
+  const [code, setCode] = useState('');
   return (
     <div>
       <h2>設定</h2>
@@ -20,10 +28,19 @@ export function SettingsTab() {
         <h3>セーブ</h3>
         <div class="muted small">毎週の終わりと、戦闘中は毎ターン、自動で保存されます（セーブ枠{s.slot + 1}）。最後の書き出しから{days}日。</div>
         <div class="row" style={{ marginTop: 6 }}>
-          <button class="btn" onClick={() => { exportFile(s); emit(); saveSlot(s); }}>ファイルに書き出す</button>
+          <button class="btn" onClick={() => { exportFile(s).then((r) => { setMsg(r === 'shared' ? '共有の画面から保存しました。' : r === 'downloaded' ? 'ファイルを書き出しました。' : '書き出しをやめました。'); emit(); saveSlot(s); }); }}>ファイルに書き出す</button>
           <button class="btn ghost" onClick={async () => { await saveSlot(s); setGame(null); }}>タイトルに戻る</button>
         </div>
-        <div class="muted small">書き出したファイルは、タイトル画面の「書き出したファイルを読み込む」で元に戻せます（スマホ⇔パソコンの移動にも）。</div>
+        {msg && <div class="small">{msg}</div>}
+        <div class="muted small">iPhoneでは共有の画面が開きます。「"ファイル"に保存」を選ぶと、ファイルのアプリに残せます。書き出したファイルは、タイトル画面の「書き出したファイルを読み込む」で元に戻せます。</div>
+        <div class="small" style={{ marginTop: 10 }}><b>引き継ぎの文字</b></div>
+        <div class="muted small">セーブを長い文字にして、コピーできます。別の端末のタイトル画面で「引き継ぎの文字を貼りつける」を押して、貼りつけると続きから遊べます。</div>
+        {!code ? <button class="btn ghost" style={{ marginTop: 4 }} onClick={() => { setMsg(''); encodeTransfer(s).then(setCode); }}>引き継ぎの文字を作る</button> : <>
+          <textarea class="transfer-box" readOnly value={code} onFocus={(e) => (e.target as HTMLTextAreaElement).select()} />
+          <div class="row between nowrap"><span class="small muted">{code.length.toLocaleString()}文字</span><span class="row nowrap gap6">
+            <button class="btn small" onClick={() => { const done = () => setMsg('コピーしました。メモやメッセージに貼りつけて、別の端末へ送ってください。'); const fail = () => setMsg('コピーできませんでした。上の文字を長押しして、すべて選択してからコピーしてください。'); try { navigator.clipboard ? navigator.clipboard.writeText(code).then(done, fail) : fail(); } catch { fail(); } }}>コピーする</button>
+            <button class="btn ghost small" onClick={() => setCode('')}>閉じる</button></span></div>
+        </>}
       </div>
       <div class="card">
         <h3>難易度</h3>
@@ -77,7 +94,7 @@ export function SettingsTab() {
           <button class="btn small" onClick={() => act((g) => { const y = g.year; let k = 0; while (g.year === y && k++ < 60) autoWeek(g); })}>1年進める</button>
         </div>
       </details>
-      <div class="muted small" style={{ textAlign: 'center' }}>辺境士官学校 ―戦争が終わる日まで― 5夜目の版</div>
+      <div class="muted small" style={{ textAlign: 'center' }}>辺境士官学校 ―戦争が終わる日まで― 14夜目の版</div>
     </div>
   );
 }

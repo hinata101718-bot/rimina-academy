@@ -10,6 +10,7 @@ import { sfx, unlockAudio } from './sound';
 import { Portrait } from './Portrait';
 import type { GameState } from '../core/state';
 import { skipTutorial } from '../core/tutorial';
+import { decodeTransfer } from '../core/transfer';
 
 function isStandalone(): boolean {
   return (window.matchMedia?.('(display-mode: standalone)').matches) || (navigator as unknown as { standalone?: boolean }).standalone === true;
@@ -20,6 +21,8 @@ export function Title() {
   const [slots, setSlots] = useState<SlotInfo[]>([]);
   const [mode, setMode] = useState<'title' | 'new'>('title');
   const [slot, setSlot] = useState(0);
+  const [paste, setPaste] = useState(false);
+  const [pasted, setPasted] = useState('');
   const refresh = () => slotInfos().then(setSlots);
   useEffect(() => { refresh(); }, []);
   if (mode === 'new') return <Opening slot={slot} onCancel={() => setMode('title')} />;
@@ -51,7 +54,7 @@ export function Title() {
         ))}
         <label class="btn ghost block" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', marginTop: 10 }}>
           書き出したファイルを読み込む
-          <input type="file" accept="application/json,.json" style={{ display: 'none' }} onChange={async (e) => {
+          <input type="file" accept=".json,application/json,text/plain" style={{ display: 'none' }} onChange={async (e) => {
             const f = (e.target as HTMLInputElement).files?.[0];
             if (!f) return;
             try {
@@ -63,6 +66,24 @@ export function Title() {
             } catch (err) { alert('読み込めませんでした：' + (err as Error).message); }
           }} />
         </label>
+        {!paste ? <button class="btn ghost block" style={{ marginTop: 8 }} onClick={() => setPaste(true)}>引き継ぎの文字を貼りつける</button> : (
+          <div class="card" style={{ marginTop: 8 }}>
+            <div class="small">前の端末の「設定」で作った、RIMINA で始まる文字を貼りつけてください。</div>
+            <textarea class="transfer-box" value={pasted} placeholder="ここを長押しして「ペースト」" onInput={(e) => setPasted((e.target as HTMLTextAreaElement).value)} />
+            <div class="row nowrap gap6">
+              <button class="btn primary grow" disabled={!pasted.trim()} onClick={async () => {
+                try {
+                  const g = await decodeTransfer(pasted);
+                  const free = slots.find((x) => !x.exists)?.slot ?? 0;
+                  const target = Number(prompt(`どのセーブ枠に読み込みますか？　1から3の数字を入れてください`, String(free + 1))) - 1;
+                  if (!(target >= 0 && target <= 2)) return;
+                  g.slot = target; setGame(g);
+                } catch (err) { alert('読み込めませんでした：' + (err as Error).message); }
+              }}>読み込む</button>
+              <button class="btn ghost" onClick={() => { setPaste(false); setPasted(''); }}>やめる</button>
+            </div>
+          </div>
+        )}
       </div>
     </div></div>
   );

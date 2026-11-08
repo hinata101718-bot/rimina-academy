@@ -180,3 +180,19 @@ describe('武器のレアリティ', () => {
     expect((s.weaponSeen ?? []).length).toBeGreaterThan(3);
   });
 });
+
+import { encodeTransfer, decodeTransfer } from '../src/core/transfer';
+describe('引き継ぎの文字', () => {
+  it('セーブを縮めた文字にして、貼りつけると同じセーブに戻る（改行や空白が混ざっても読める）', async () => {
+    const s = deserialize(fixture('v13-day.json'));
+    const code = await encodeTransfer(s);
+    expect(code.startsWith('RIMINA1:')).toBe(true);
+    expect(code.length).toBeLessThan(fixture('v13-day.json').length / 3);
+    const broken = `  ${code.slice(0, 100)}\n${code.slice(100)}\n`;
+    const g = await decodeTransfer(broken);
+    expect(g.year).toBe(s.year);
+    expect(Object.keys(g.students).length).toBe(Object.keys(s.students).length);
+    await expect(decodeTransfer(code.slice(0, code.length - 50))).rejects.toThrow();
+    await expect(decodeTransfer('こんにちは')).rejects.toThrow();
+  });
+});
