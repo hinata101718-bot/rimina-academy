@@ -60,7 +60,7 @@ export const B = {
     lowStamina: 40,                // 体力がこれ未満で「疲」（＝疲労60以上）
     tea: { support: 6, motivation: 1, talkChance: 0.6 },
     dinner: { motivationChance: 0.5, support: 1 },
-    spar: { skill: 1.0 },          // 全部の技能に（skillPts×これ）
+    spar: { skill: 1.0, support: 4 },          // 全部の技能に（skillPts×これ）
     field: { skill: 0.9 },
     interview: { faceTrust: 1 },
     career: { trust: 3, faceTrust: 6 },

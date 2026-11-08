@@ -7,7 +7,7 @@ import type { GameState, Student, LessonCard, LessonDay, LessonRow, LessonEvent,
 import { Rng } from './rng';
 import { clamp, rankOf, pairKey } from './util';
 import { enrolled, available, notify } from './game';
-import { addSupport, addTrust, getSupport, supportRank, supportValue, buildTalk } from './support';
+import { addSupport, addTrust, getSupport, supportRank, supportValue, buildTalk, addRecent } from './support';
 import { gainExp, startGrowthLog, stopGrowthLog, snapGrowth, diffGrowth, growthRates } from './growth';
 import { learnSpells, learnedText } from './spells';
 import { teacherMul, facilityMulOf, talentMulOf, traitLessonMulOf, addSkill, revealTalent, changeMotivation, skillUnlocked, interviewStudent, endOfWeek, expBonusOf, startWeekStudents } from './week';
@@ -247,7 +247,7 @@ export function resolveLesson(s: GameState, r: Rng, idx: number, talkWith?: stri
     const bd = faces.some((st) => st.birthday && st.birthday.month === s.month && st.birthday.week === s.week);
     const fest = s.month === 8 ? 1.5 : 1;
     for (let i = 0; i < faces.length; i++) for (let j = i + 1; j < faces.length; j++) push(addSupport(s, r, faces[i].id, faces[j].id, D.tea.support, fest * (bd ? B.birthday.teaMul : 1)));
-    for (const st of faces) changeMotivation(st, D.tea.motivation);
+    for (const st of faces) { changeMotivation(st, D.tea.motivation); if (s.month === 8) addRecent(s, st, 'ev_festival', '収穫祭'); }
     if (bd) lines.push('お茶会は誕生日のお祝いも兼ねて、いつもよりにぎやかだった');
     lines.push(`お茶会（${faces.map((x) => x.given).join('・')}）。話がはずんだ`);
     if (!talks.length && faces.length >= 2 && r.chance(D.tea.talkChance + B.diningEventUp[s.facilities.dining ?? 0])) {
@@ -283,6 +283,8 @@ export function resolveLesson(s: GameState, r: Rng, idx: number, talkWith?: stri
     }
   } else if (l.special === 'spar') {
     lines.push('全学年で紅白戦。本番さながらの打ち合いになった');
+    // 顔の子どうしで手合わせ（支援会話「手合わせのあと」の種）
+    if (faces.length >= 2) { const [x, y] = faces; addRecent(s, x, 'ev_spar', '紅白戦', y.id); addRecent(s, y, 'ev_spar', '紅白戦', x.id); push(addSupport(s, r, x.id, y.id, D.spar.support)); }
   } else if (l.special === 'field') {
     lines.push('雨の中の野外演習。泥だらけになりながら、実戦の勘を磨いた');
   }

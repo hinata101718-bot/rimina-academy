@@ -235,7 +235,8 @@ export function dropOut(s: GameState, st: Student): void {
   s.pinned = s.pinned.filter((x) => x !== st.id);
   for (const o of enrolled(s)) {
     const sp = s.supports[[o.id, st.id].sort().join('|')];
-    if (sp && sp.value >= B.support.C) { changeMotivation(o, -1); addRecent(s, o, 'ev_loss', st.given, undefined); }
+    // 退学は「去った仲間」（亡くなった前提の会話）にはしない（7夜目）
+    if (sp && sp.value >= B.support.C) changeMotivation(o, -1);
   }
   for (const p of s.photos) void p;
 }
