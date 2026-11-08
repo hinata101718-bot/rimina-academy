@@ -34,7 +34,7 @@ import { rankOf } from '../core/util';
 import { usableSpells } from '../core/spells';
 import { armoryItem, armoryName, isStock, stockList } from '../core/loot';
 import { legendFits } from '../core/rarity';
-import { PROSE_DENSE, PROSE_BRUTAL, PROSE_FALL } from '../data/warprose';
+import { PROSE_DENSE, PROSE_BRUTAL, PROSE_FALL, PROSE_LIGHT, PROSE_GRUNT_KILL } from '../data/warprose';
 import { ARTS } from '../data/arts';
 import { officerArts, artsLabel } from '../core/arts';
 
@@ -342,6 +342,7 @@ function Gauge2({ m }: { m: number }) {
 }
 
 // ================= 戦いの記録（7夜目） =================
+const GRUNT_ICON: Record<string, string> = { sword: 'sword', lance: 'lance', axe: 'axe', bow: 'bow', magic: 'tome', holy: 'staff', staff: 'staff', gun: 'gun' };
 const GRUNT_MARK: Record<string, string> = { sword: '剣', lance: '槍', axe: '斧', bow: '弓', magic: '魔', holy: '聖', staff: '杖', gun: '銃' };
 type Speed = 'tap' | 'normal' | 'fast';
 
@@ -451,7 +452,8 @@ export function AutoBattleView() {
     return i >= 0 ? `${foe}${String.fromCharCode(65 + (i % 26))}` : u.name;
   };
   const sideOf = (uid: string) => (b.units.find((x) => x.uid === uid)?.side === 'enemy' ? 'foe' : 'ally');
-  const Face = ({ uid, size }: { uid: string; size: number }) => {
+  // 14夜目：顔はコンポーネントにせず、ただの関数で描く（描くたびに新しいコンポーネントになると、タップのたびに顔の絵が作り直されてチカチカしていた）
+  const Face = ({ uid, size }: { uid: string; size: number }): preact.JSX.Element => {
     const u = b.units.find((x) => x.uid === uid);
     if (!u) return <span class="bl-icon" style={{ width: size, height: size }}>？</span>;
     if (leader && uid === leader.uid) return <OfficerFace o={leaderFace(leader)} size={size} frame={leaderColor} s={s} />;
@@ -461,15 +463,16 @@ export function AutoBattleView() {
     const w = u.weaponId ? WEAPONS[u.weaponId]?.type : undefined;
     return <span class={`bl-icon ${u.side === 'enemy' ? 'foe' : ''}`} style={{ width: size, height: size, fontSize: Math.round(size * 0.42) }}>{w ? GRUNT_MARK[w] ?? '兵' : '兵'}</span>;
   };
-  /** 敵の顔：敵将・名のある兵は顔、雑兵も陣営の顔の絵から（同じ顔が並んでもよい）。魔物は印 */
+  /** 敵の顔（14夜目）：顔は名前のある者だけ（敵将・名を得た兵・卒業生）。名前のない雑兵は、兵種の印と陣営の色の札 */
   const faction = q?.kind === 'monster' ? null : q?.enemyCountry ?? 'bandit';
-  const FoeFace = ({ uid, size }: { uid: string; size: number }) => {
+  const FoeFace = ({ uid, size }: { uid: string; size: number }): preact.JSX.Element => {
     const u = b.units.find((x) => x.uid === uid);
-    if (!u || (leader && uid === leader.uid) || u.studentId || a.raised?.some((x) => x.uid === uid) || !faction) return <Face uid={uid} size={size} />;
-    const pool = ENEMY_FACES.filter((f) => f.startsWith(`${faction}_`));
-    if (!pool.length) return <Face uid={uid} size={size} />;
-    let h = 7; for (const c of uid + b.questId) h = (h * 31 + c.charCodeAt(0)) >>> 0;
-    return <OfficerFace o={{ faceImage: pool[h % pool.length], face: leader?.face ?? ({} as never), scars: 0 }} size={size} frame="#8f2a20" s={s} />;
+    if (u && a.raised?.some((x) => x.uid === uid)) return <span class="raised-glow">{Face({ uid, size })}</span>; // 名を得た兵は、その場で顔に（小さな光）
+    if (!u || (leader && uid === leader.uid) || u.studentId) return Face({ uid, size });
+    const w = u.weaponId ? WEAPONS[u.weaponId]?.type : u.weapons?.[0] ? WEAPONS[u.weapons[0]]?.type : undefined;
+    const col = faction ? FACTION_COLOR[faction as keyof typeof FACTION_COLOR] ?? '#8f2a20' : '#5b6b3a';
+    const sz = Math.round(size * 0.82);
+    return <span class="grunt-card" style={{ width: sz, height: sz, ['--fc' as string]: col }}><Icon name={GRUNT_ICON[w ?? ''] ?? 'sword'} size={Math.round(sz * 0.5)} /></span>;
   };
   const { hp, gone } = hpAt(b, items, pos);
   const allies = b.units.filter((u) => (u.side === 'player' || u.side === 'ally') && (a.hp0?.[u.uid] || hp[u.uid] !== undefined));
@@ -499,7 +502,7 @@ export function AutoBattleView() {
           const num = numFor(u.uid);
           return (
             <div class={`dq-mem${down(u) ? ' down' : ''}${u.uid === activeA ? ' act' : ''}${u.uid === activeD && act0?.k === 'atk' && (act0 as { hit: boolean }).hit ? ' hit' : ''}`} key={u.uid}>
-              <span class="dq-face"><Face uid={u.uid} size={allies.length > 8 ? 30 : allies.length > 5 ? 36 : 44} />{num && <span class={`dq-num${act0?.k === 'heal' ? ' heal' : ''}`} key={`${pos}`}>{num}</span>}</span>
+              <span class="dq-face">{Face({ uid: u.uid, size: allies.length > 8 ? 30 : allies.length > 5 ? 36 : 44 })}{num && <span class={`dq-num${act0?.k === 'heal' ? ' heal' : ''}`} key={`${pos}`}>{num}</span>}</span>
               <b class="dq-n">{nameOf(u.uid)}</b>
               <span class={`dq-hp${p <= 33 ? ' low' : p <= 60 ? ' mid' : ''}`}>HP {down(u) ? 0 : Math.max(0, v)}</span>
               <span class="rb-bar ally"><span class={p <= 33 ? 'low' : p <= 60 ? 'mid' : ''} style={{ width: `${down(u) ? 0 : p}%` }} /></span>
@@ -525,9 +528,9 @@ export function AutoBattleView() {
             const num = numFor(u.uid);
             return (
               <div class={`dq-foe${down(u) ? ' down' : ''}${L || u.boss ? ' lead' : ''}${isA ? ' act' : ''}${hitNow ? ' hit' : ''}`} key={u.uid}>
-                <span class={`dq-card${hitNow && fxLevel !== 'low' ? ` fx-hit w-${wt ?? 'none'}` : ''}`} key={hitNow ? `h${pos}` : 'n'}>
-                  <FoeFace uid={u.uid} size={Math.round(fsz * (L ? 1.25 : 1))} />
-                  {hitNow && fxLevel !== 'low' && <span class="fx-slash" />}
+                <span class={`dq-card${hitNow && fxLevel !== 'low' ? ` fx-hit w-${wt ?? 'none'}` : ''}`}>
+                  {FoeFace({ uid: u.uid, size: Math.round(fsz * (L ? 1.25 : 1)) })}
+                  {hitNow && fxLevel !== 'low' && <span class="fx-slash" key={`s${pos}`} />}
                   {num && isD && <span class={`dq-num big${(act0 as { crit?: boolean }).crit ? ' crit' : ''}`}>{num}</span>}
                 </span>
                 <span class="dq-fn">{nameOf(u.uid)}</span>
@@ -643,9 +646,14 @@ function sentences(s: GameState, b: BattleState, it: BItem, nameOf: (uid: string
   const fillP = (t: string) => t.replace(/\{a\}/g, A).replace(/\{d\}/g, D);
   const studentDown = e.kill && du && du.side !== 'enemy' && du.studentId;
   let prose = '';
+  // 14夜目：生々しい文は、名前のある者（敵将・名を得た兵・卒業生）が倒れたときだけ。ふだんの攻撃・必殺・雑兵の死は短くあっさり
+  const named = !!du && ((leader && du.uid === leader.uid) || !!du.studentId || !!b.auto?.raised?.some((x) => x.uid === du.uid));
   if (level !== 'normal' && !studentDown) {
-    const br = level === 'brutal' ? pick(PROSE_BRUTAL[wkey]?.[hitKind]) : '';
-    prose = br || (hitKind === 'miss' ? '' : pick(PROSE_DENSE[wkey]?.[hitKind] ?? PROSE_DENSE.none[hitKind]));
+    if (hitKind === 'kill' && named) {
+      const br = level === 'brutal' ? pick(PROSE_BRUTAL[wkey]?.kill) : '';
+      prose = br || pick(PROSE_DENSE[wkey]?.kill ?? PROSE_DENSE.none.kill);
+    } else if (hitKind === 'kill') prose = (Math.abs(salt) % 3 === 0) ? pick(PROSE_GRUNT_KILL) : '';
+    else if (hitKind !== 'miss' && Math.abs(salt) % 2 === 0) prose = pick(PROSE_LIGHT[wkey]?.[hitKind] ?? PROSE_LIGHT.none[hitKind]);
   }
   if (studentDown) {
     const oc = b.fallen.find((f) => f.studentId === du!.studentId)?.outcome;
@@ -654,7 +662,7 @@ function sentences(s: GameState, b: BattleState, it: BItem, nameOf: (uid: string
   if (!e.hit) out.push({ cls: 'narr', text: `${D}は ひらりとかわした！` });
   else out.push({ cls: 'dmg', text: `${e.crit ? '会心の一撃！ ' : ''}${D}に ${e.dmg}のダメージ！` });
   if (prose && !studentDown) out.push({ cls: hitKind === 'kill' || hitKind === 'crit' ? 'prose strong' : 'prose', text: fillP(prose) });
-  if (e.kill) out.push({ cls: du?.side === 'enemy' ? 'narr' : 'down', text: studentDown && prose ? prose.replace(/\{a\}/g, D) : du?.side === 'enemy' ? `${D}を倒した！` : `${D}は倒れた……` });
+  if (e.kill && !(prose && !studentDown && hitKind === 'kill' && !named)) out.push({ cls: du?.side === 'enemy' ? 'narr' : 'down', text: studentDown && prose ? prose.replace(/\{a\}/g, D) : du?.side === 'enemy' ? `${D}を倒した！` : `${D}は倒れた……` });
   else if (e.hit && e.hp1 > 0 && e.hp1 <= e.max * 0.25 && !prose) out.push({ cls: 'narr', text: `${D}はひざをついた……` });
   return out;
 }
@@ -703,9 +711,9 @@ function LogItem({ it, s, nameOf, sideOf, Face, leader, leaderColor, fx, fresh, 
   return (
     <div class={`bl-card ${sideOf(e.a)}${old ? ' old' : ''}${live ? ' fresh' : ''}${downStudent ? ' downed' : ''}`}>
       <div class="bl-row">
-        <Face uid={e.a} size={40} />
+        {Face({ uid: e.a, size: 40 })}
         <span class="bl-arrow">▶</span>
-        <span class={`bl-target ${fxCls}`}><Face uid={e.d} size={40} />{live && <span class="fx-slash" />}{live && heal && <span class="fx-sparks"><i /><i /><i /><i /><i /></span>}{atk?.kill && du?.side === 'enemy' && fx !== 'low' && <span class="fx-ministamp">撃破</span>}</span>
+        <span class={`bl-target ${fxCls}`}>{Face({ uid: e.d, size: 40 })}{live && <span class="fx-slash" />}{live && heal && <span class="fx-sparks"><i /><i /><i /><i /><i /></span>}{atk?.kill && du?.side === 'enemy' && fx !== 'low' && <span class="fx-ministamp">撃破</span>}</span>
         <div class="grow bl-txt">
           <div class="bl-names"><b class={sideOf(e.a)}>{nameOf(e.a)}</b> → <b class={sideOf(e.d)}>{nameOf(e.d)}</b>
             {atk?.crit && <span class="bl-tag crit">必殺</span>}
@@ -814,7 +822,7 @@ function FxOverlay({ s, b, fx, level, leader, leaderColor, nameOf, onTap }: { s:
   if (fx.k === 'crit') {
     const foe = b.units.find((u) => u.uid === fx.a)?.side === 'enemy';
     return (
-      <div class={`fx-over fx-cutin${foe ? ' foe' : ''}${level === 'big' ? ' big' : ''}${s.settings.battleProse === 'brutal' ? ' splat' : ''}`} onClick={tap}>
+      <div class={`fx-over fx-cutin${foe ? ' foe' : ''}${level === 'big' ? ' big' : ''}`} onClick={tap}>
         <div class="fx-lines" />
         <div class="fx-band"><span class="fx-bandface"><BigFace s={s} b={b} uid={fx.a} size={210} leader={leader} leaderColor={leaderColor} /></span></div>
         <div class="fx-crit-title">必殺！</div>
@@ -830,7 +838,7 @@ function FxOverlay({ s, b, fx, level, leader, leaderColor, nameOf, onTap }: { s:
     const g = b.auto?.raised?.find((x) => x.uid === fx.d);
     const sub = o ? `${factionName(o.faction)}・${rankName(o)}` : g ? `${g.given}・見込みのある兵` : du?.boss ? '敵の大将' : '';
     return (
-      <div class={`fx-over fx-kill${s.settings.battleProse === 'brutal' ? ' splat' : ''}`} onClick={tap}>
+      <div class={`fx-over fx-kill${s.settings.battleProse === 'brutal' && (o || g || du?.studentId) ? ' splat' : ''}`} onClick={tap}>
         <div class="fx-killface"><BigFace s={s} b={b} uid={fx.d} size={170} leader={leader} leaderColor="#222" gray /><span class="fx-cracks" /><i class="fx-frag f1" /><i class="fx-frag f2" /><i class="fx-frag f3" /><i class="fx-frag f4" /></div>
         <div class="stamp fx-killstamp">撃破</div>
         <div class="fx-killname serif">{nameOf(fx.d)}{sub ? `（${sub}）` : ''}</div>

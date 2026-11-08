@@ -21,6 +21,14 @@ export function canLearn(st: Student, a: ArtDef): boolean {
   const need: Rank = L[Math.max(0, i - step)] ?? a.rank;
   return (st.skills[a.skill] ?? 0) >= RANK_POINTS[need];
 }
+/** その子がこの技を覚えるランク（得意・手ほどきで早まる）。開花の技は null */
+export function needRank(st: Student, a: ArtDef): Rank | null {
+  if (a.bloom) return null;
+  const L: Rank[] = ['E', 'E+', 'D', 'C', 'B', 'A', 'S'];
+  const i = L.indexOf(a.rank);
+  const step = (st.apt?.good.includes(a.skill) ? 1 : 0) + ((st.taught ?? []).includes(a.id) ? 1 : 0);
+  return L[Math.max(0, i - step)] ?? a.rank;
+}
 /**
  * 14夜目：卒業生の講師が、自分の覚えた戦技・心得を授業で教える。
  * その科目の授業の日、目標の技能が合う子は、講師の技の手ほどきを受け、1つ前のランクで覚えられるようになる

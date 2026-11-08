@@ -1744,3 +1744,26 @@ i.apt { font-style: normal; display: inline-flex; align-items: center; justify-c
 .legend-tap { position: relative; margin-top: 14px; opacity: .8; }
 @media (prefers-reduced-motion: reduce) { .legend-glow { animation: none; } }
 .transfer-box { width: 100%; box-sizing: border-box; height: 96px; font-size: 11px; font-family: monospace; word-break: break-all; margin: 6px 0; }
+
+/* ---- 14夜目：ホームの作戦地図をなくし、机を詰める。時代の空気はろうそくの明かりで ---- */
+.desk > .desk-row:first-of-type { margin-top: 6px; }
+.desk-candle { position: absolute; top: -6px; right: 6px; width: 14px; height: 30px; border-radius: 3px 3px 2px 2px; background: linear-gradient(#f3ead2, #d6c7a0); box-shadow: 0 0 18px 8px rgba(255, 200, 110, .28); z-index: 1; pointer-events: none; }
+.desk-candle::before { content: ""; position: absolute; left: 3px; top: -13px; width: 8px; height: 13px; border-radius: 50% 50% 45% 45%; background: radial-gradient(circle at 50% 70%, #fff6c8, #ffb547 60%, rgba(255,120,40,.0) 75%); animation: candle 1.8s ease-in-out infinite; }
+.desk.st-tension .desk-candle { box-shadow: 0 0 18px 8px rgba(255, 160, 80, .32); }
+.desk.st-war .desk-candle { box-shadow: 0 0 22px 10px rgba(230, 90, 50, .38); }
+.desk.st-war .desk-candle::before { animation-duration: .7s; background: radial-gradient(circle at 50% 70%, #fff0c0, #ff7a3a 60%, rgba(220,60,30,0) 75%); }
+@keyframes candle { 0%, 100% { transform: scaleY(1) rotate(-2deg); } 50% { transform: scaleY(1.12) rotate(2deg); } }
+@media (prefers-reduced-motion: reduce) { .desk-candle::before { animation: none; } }
+/* 14夜目：戦技と心得の札 */
+.arts-sub { margin: 10px 0 4px; border-bottom: 1px dashed rgba(120,90,40,.35); padding-bottom: 2px; }
+.art-tile { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; width: 100%; text-align: left; min-height: 44px; box-sizing: border-box; padding: 6px 10px; margin: 4px 0; border-radius: 4px; border: 1px solid rgba(120,90,40,.35); border-left: 4px solid #b4542f; background: rgba(255,255,255,.45); color: inherit; cursor: pointer; }
+.art-tile.mind { border-left-color: #3f7a5a; }
+.art-tile.bloom { border-left-color: #c9a032; }
+.art-tile.none { border-left-color: #b9b0a0; color: #6b6255; cursor: default; }
+/* 14夜目：名前のない雑兵は顔なし。兵種の印と陣営の色の札 */
+.grunt-card { display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box; border-radius: 8px; background: linear-gradient(#3a2a20, #1d1510); border: 3px solid var(--fc, #8f2a20); color: #f0e2c4; line-height: 0; }
+.raised-glow { display: inline-block; line-height: 0; border-radius: 10px; animation: raisedGlow 1.6s ease-out 1; }
+@keyframes raisedGlow { 0% { box-shadow: 0 0 0 0 rgba(255, 230, 150, .95); } 100% { box-shadow: 0 0 0 14px rgba(255, 230, 150, 0); } }
+/* 14夜目：文の窓の高さを一定にして、行が増えても画面が上下に動かないように */
+.dq-msg { min-height: 132px; }
+@media (max-width: 380px) { .dq-msg { min-height: 118px; } }

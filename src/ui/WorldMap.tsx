@@ -1,6 +1,6 @@
 // 大陸の勢力図（13夜目）：地形の絵の上に、地域ごとに治める国の色。⚔・教え子の数・地域をタップで吹き出し・三国の帯・この前から変わったこと
 import { useEffect, useRef, useState } from 'preact/hooks';
-import { act } from './store';
+import { act, useStore } from './store';
 import { sfx } from './sound';
 import { Sheet } from './common';
 import { Portrait } from './Portrait';
@@ -92,7 +92,8 @@ export function MapCanvas({ owners, highlight, onTap }: { owners: Record<string,
 export function WorldMap({ s }: { s: GameState }) {
   const [sel, setSel] = useState<string | null>(null);
   const [zoom, setZoom] = useState(false);
-  const [play, setPlay] = useState(false);
+  const { route } = useStore();
+  const [play, setPlay] = useState(() => route.sub === 'play' && mapChanges(s).length > 0); // 14夜目：手帳の「勢力図が動いた」から
   const owners = Object.fromEntries(REGIONS.map((r) => [r.id, ownerOf(s, r.id)])) as Record<string, Owner>;
   const wars = new Set(warRegions(s));
   const changes = mapChanges(s);
