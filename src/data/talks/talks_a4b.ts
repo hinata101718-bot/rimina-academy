@@ -76,7 +76,7 @@ export const TALKS_A4B: TalkDef[] = [
       { by: 'a', say: 'g_laugh' },
       { by: 'b', say: 'daily_a_fav' },
       { by: 'a', say: group3('a', 'daily_a_fav_loud', 'daily_a_fav_quiet', 'daily_a_fav_steady') },
-      { by: 'b', say: 'daily_a_fav_b' },
+      { by: 'b', say: iff(grp('a', 'quiet'), 'daily_a_fav_b_same', 'daily_a_fav_b') },
       { by: 'a', say: 'daily_a_worry' },
       { by: 'b', say: iff(war, 'daily_a_war_b', 'daily_a_peace_b') },
       { by: 'a', say: 'daily_a_sorry' },
