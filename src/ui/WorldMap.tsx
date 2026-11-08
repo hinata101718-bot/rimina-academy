@@ -23,18 +23,14 @@ function loadMap(): Promise<void> {
     let n = 0;
     const fin = () => { if (++n === 2) done(); };
     const b = new Image(); b.onload = () => { baseImg = b; fin(); }; b.onerror = fin; b.src = `${BASE}art/worldmap.webp`;
-    const r = new Image();
-    r.onload = () => {
-      try {
-        const c = document.createElement('canvas'); c.width = MAP_SIZE.w; c.height = MAP_SIZE.h;
-        const g = c.getContext('2d')!; g.drawImage(r, 0, 0);
-        const d = g.getImageData(0, 0, MAP_SIZE.w, MAP_SIZE.h).data;
-        idxData = new Uint8ClampedArray(MAP_SIZE.w * MAP_SIZE.h);
-        for (let i = 0; i < idxData.length; i++) idxData[i] = d[i * 4];
-      } catch { /* 読めないときは色なし */ }
-      fin();
-    };
-    r.onerror = fin; r.src = `${BASE}art/worldmap-regions.png`;
+    // 地域の番号は、絵から読み取らずに、そのままの数の並び（.bin）で読む。
+    // iPhone の Safari や Brave は、のぞき見よけのために絵の読み取り（getImageData）にわざと乱れを混ぜることがあり、
+    // 絵から読むと地域がまだらになるため
+    fetch(`${BASE}art/worldmap-regions.bin`)
+      .then((res) => (res.ok ? res.arrayBuffer() : null))
+      .then((buf) => { if (buf && buf.byteLength === MAP_SIZE.w * MAP_SIZE.h) idxData = new Uint8ClampedArray(buf); })
+      .catch(() => { /* 読めないときは色なし */ })
+      .then(fin);
   });
   return loading;
 }
@@ -56,12 +52,16 @@ export function MapCanvas({ owners, highlight, onTap }: { owners: Record<string,
     g.clearRect(0, 0, c.width, c.height);
     if (baseImg) g.drawImage(baseImg, 0, 0, MAP_SIZE.w, MAP_SIZE.h);
     if (!idxData) return;
-    const img = g.getImageData(0, 0, MAP_SIZE.w, MAP_SIZE.h);
+    // 色の塗りは別の透明な絵に書いてから重ねる（地形の絵を読み取らない）
+    const W = MAP_SIZE.w, H = MAP_SIZE.h, A = 0.36;
+    const oc = document.createElement('canvas'); oc.width = W; oc.height = H;
+    const og = oc.getContext('2d'); if (!og) return;
+    const img = og.createImageData(W, H);
     const d = img.data;
     const ownerByIdx: (Owner | null)[] = [];
     for (const r of REGIONS) ownerByIdx[r.idx] = owners[r.id] ?? r.home;
     const hiIdx = highlight ? REGION_BY_ID[highlight]?.idx : -1;
-    const W = MAP_SIZE.w, H = MAP_SIZE.h, A = 0.36;
+    const put = (p: number, r: number, gg: number, b: number, a: number) => { d[p] = r; d[p + 1] = gg; d[p + 2] = b; d[p + 3] = Math.round(a * 255); };
     for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
       const i = y * W + x; const k = idxData[i];
       if (k === 255) continue;
@@ -72,12 +72,13 @@ export function MapCanvas({ owners, highlight, onTap }: { owners: Record<string,
       const nat = edge && ((right !== k && ownerByIdx[right] !== o) || (down !== k && ownerByIdx[down] !== o));
       let a = A;
       if (k === hiIdx) a = 0.55 + 0.25 * (((x + y) >> 3) & 1); // 変わった地域は斜線
-      d[p] = d[p] * (1 - a) + col[0] * a; d[p + 1] = d[p + 1] * (1 - a) + col[1] * a; d[p + 2] = d[p + 2] * (1 - a) + col[2] * a;
-      if (nat) { d[p] = 250; d[p + 1] = 225; d[p + 2] = 150; } // 国境は金の線
-      else if (edge && ((x + y) >> 2) % 2 === 0) { d[p] *= 0.5; d[p + 1] *= 0.5; d[p + 2] *= 0.5; } // 地域の境は点線
-      if (k === hiIdx && edge) { d[p] = 255; d[p + 1] = 240; d[p + 2] = 170; }
+      if (k === hiIdx && edge) put(p, 255, 240, 170, 1);
+      else if (nat) put(p, 250, 225, 150, 1); // 国境は金の線
+      else if (edge && ((x + y) >> 2) % 2 === 0) put(p, col[0] * 0.3, col[1] * 0.3, col[2] * 0.3, 0.7); // 地域の境は点線
+      else put(p, col[0], col[1], col[2], a);
     }
-    g.putImageData(img, 0, 0);
+    og.putImageData(img, 0, 0);
+    g.drawImage(oc, 0, 0);
   }, [ready, key]);
   return <canvas ref={ref} width={MAP_SIZE.w} height={MAP_SIZE.h} class="wm-canvas" onClick={(e) => {
     if (!onTap) return;
