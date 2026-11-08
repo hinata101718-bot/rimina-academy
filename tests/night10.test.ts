@@ -112,7 +112,9 @@ describe('② 武器は戦利品で', () => {
     const named = s.armory.filter((a) => a.named);
     const fell = (s.officers ?? []).filter((o) => o.kind !== 'monster' && o.meets.some((m) => m.result === 'fell')).length;
     expect(fell).toBeGreaterThan(0);
-    expect(named.length).toBeGreaterThan(0);
+    // 14夜目：卒業する子が愛用の銘入りの武器を持っていくので、年表の「手に入れた」も数える
+    const got = Object.values(s.students).filter((x) => x.history.some((h) => h.text.includes('」を手に入れた'))).length;
+    expect(named.length + got).toBeGreaterThan(0);
     for (const a of named) { expect(a.named!.name).toMatch(/の(剣|槍|大斧|弓|銃)$/); expect(a.named!.story.length).toBeGreaterThan(5); }
     expect(s.armory.some((a) => a.got)).toBe(true);
   });
