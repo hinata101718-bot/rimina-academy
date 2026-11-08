@@ -19,7 +19,7 @@ const pos = argv.filter((a) => !a.startsWith('--'));
 const YEARS = Number(pos[0] ?? 40);
 const RUNS = Number(pos[1] ?? 10);
 const POLICIES = (pos[2] ?? 'peace,unify,none').split(',') as CareerPolicy[];
-const POLICY_NAMES: Record<CareerPolicy, string> = { none: '何もしない（教え子を三国の軍へ送らない）', auto: 'おまかせ', peace: '和平狙い（文官を三国へ）', unify: '統一狙い（一番強い国へ武官を集める）' };
+const POLICY_NAMES: Record<CareerPolicy, string> = { none: '何もしない（教え子を三国の軍へ送らない）', neutral: '中立狙い（三国へ均等に・施設と評判を優先）', auto: 'おまかせ', peace: '和平狙い（文官を三国へ）', unify: '統一狙い（一番強い国へ武官を集める）' };
 
 interface YearRow { year: number; tension: number; stage: string; money: number; rep: number; students: number; grads: number; aliveGrads: number; deaths: number; alumniDead: number; power: string; rels: string; events: string[] }
 interface RunResult { policy: CareerPolicy; seed: number; bg: string; rows: YearRow[]; error: string | null; zeroMoneyYears: number; vassal: string | null; everVassal: boolean; gunYear: number | null; bigEvents: Record<string, number>; wins: number; losses: number; alumniDeaths: number; graduates: number; peaceTalks: number; roundYear: number | null; ms: number; endings: { kind: EndingKind; year: number; country?: string }[]; generations: number; instructorAges: number[] }

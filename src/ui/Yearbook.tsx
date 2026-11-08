@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'preact/hooks';
 import { loadHall } from './storage';
-import { ENDING_NAMES, endingTitle, type HallEntry, type HallStudent } from '../core/ending';
+import { ENDING_NAMES, ENDING_SUB, endingTitle, buildHallEntry, hallRecords, hallCompareRow, type HallEntry, type HallStudent } from '../core/ending';
 import type { EndingKind } from '../core/state';
 import { ClassName } from './cards';
 import { useStore, navigate } from './store';
@@ -143,12 +143,18 @@ function News({ s }: { s: GameState }) {
 function hallStu(h: HallStudent): Student {
   return { ...h, status: h.dead ? 'dead' : 'graduated', career: h.dead ? { alive: false } : null } as unknown as Student;
 }
+function HallFace({ g, size }: { g: HallStudent; size: number }) {
+  return <Portrait st={hallStu(g)} size={size} fixed frame={countryColor(g.origin)} />;
+}
 
 function Hall({ s }: { s: GameState }) {
   const [list, setList] = useState<HallEntry[] | null>(null);
   const [open, setOpen] = useState<string | null>(null);
   useEffect(() => { loadHall().then(setList); }, []);
   const reached = new Set<string>([...(list ?? []).flatMap((h) => h.endings.map((e) => e.kind)), ...(s.endings ?? []).map((e) => e.kind)]);
+  const page = list?.find((h) => h.id === open);
+  if (page) return <HallPage h={page} onBack={() => setOpen(null)} />;
+  const rows = [hallCompareRow(buildHallEntry(s), true), ...[...(list ?? [])].reverse().map((h) => hallCompareRow(h))];
   return (
     <div>
       <div class="card">
@@ -159,29 +165,95 @@ function Hall({ s }: { s: GameState }) {
       {list === null && <div class="empty-note">読み込み中……</div>}
       {list && !list.length && <div class="empty-note">まだ殿堂に入った学校はありません</div>}
       {list && [...list].reverse().map((h) => (
-        <div class="pcard tap" onClick={() => setOpen(open === h.id ? null : h.id)}>
+        <div class="pcard tap hallcard" onClick={() => setOpen(h.id)}>
           <div class="row between nowrap"><span class="ptitle">{h.instructor}教官のリミナ分校</span><span class="muted small">{h.years}年間</span></div>
           <div class="row gap4">{h.endings.map((e) => <span class="flag">{endingTitle(e.kind, e.country)}（{e.year}年目）</span>)}</div>
+          <div class="hall-faces">{h.graduates.filter((g) => !g.dead).slice(-6).map((g) => <HallFace g={g} size={36} />)}</div>
           <div class="small muted">卒業生 {h.graduates.filter((g) => g.title !== '在学中に戦死').length}人・{h.stats.battlesWon}勝{h.stats.battlesLost}敗・教官 {h.instructors.length}代</div>
-          {open === h.id && (
-            <div onClick={(e) => e.stopPropagation()}>
-              <h3>歴代の教官</h3>
-              {h.instructors.map((i) => <div class="small">{i.generation}代目 {i.name}（{i.from}〜{i.to}年目）</div>)}
-              <h3>卒業写真</h3>
-              {h.photos.map((p) => (
-                <div class="photo" style={{ marginBottom: 6 }}>
-                  <div class="photo-cap">{p.cohort}期生（{p.year}年目）</div>
-                  {p.ids.map((id) => h.graduates.find((g) => g.id === id)).filter((x): x is HallStudent => !!x).map((g) => <div class="seat"><Portrait st={hallStu(g)} size={40} />{g.dead && <div class="deadmark">✝</div>}<div>{g.given}</div></div>)}
-                </div>
-              ))}
-              <h3>卒業生</h3>
-              {h.graduates.slice(0, 200).map((g) => <div class="row nowrap gap6 small ruled"><Portrait st={hallStu(g)} size={30} /><b>{g.given}</b><span class="muted">{g.cohort}期生・Lv{g.level}・{g.title}</span></div>)}
-              <h3>年表</h3>
-              <ul class="list">{h.chronicle.slice(-80).map((c) => <li class="small">{c.year}年目　{c.text}</li>)}</ul>
-            </div>
-          )}
+          <div class="row between"><span /><span class="small" style={{ color: 'var(--main)' }}>この学校のページを開く ›</span></div>
         </div>
       ))}
+      {list && list.length > 0 && (
+        <div class="card">
+          <h3>学校どうしの記録</h3>
+          <div class="hall-compare">
+            <table class="stats compare">
+              <thead><tr><th>学校</th><th>年数</th><th>エンディング</th><th>卒業生</th><th>在学中の戦死</th><th>勝敗</th><th>教官</th><th>最高Lv</th><th>最高位</th></tr></thead>
+              <tbody>{rows.map((r) => (
+                <tr class={r.current ? 'current' : ''}><td>{r.current ? '今の学校' : r.name}</td><td>{r.years}年</td><td>{r.endings}</td><td>{r.graduates}人</td><td>{r.deaths}人</td><td>{r.wins}勝{r.losses}敗</td><td>{r.generations}代</td><td>{r.topLevel || '—'}</td><td>{r.topRank}</td></tr>
+              ))}</tbody>
+            </table>
+          </div>
+          <div class="muted small">表は横に動かせます。</div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** 殿堂：学校ごとのページ */
+function HallPage({ h, onBack }: { h: HallEntry; onBack: () => void }) {
+  const [i, setI] = useState(Math.max(0, h.photos.length - 1));
+  const [showAll, setShowAll] = useState(false);
+  const rec = hallRecords(h);
+  const byId = new Map(h.graduates.map((g) => [g.id, g]));
+  const p = h.photos[i];
+  const seats = p ? p.ids.map((id) => byId.get(id)).filter((x): x is HallStudent => !!x) : [];
+  const gradCount = h.graduates.filter((g) => g.title !== '在学中に戦死').length;
+  return (
+    <div class="hallpage">
+      <button class="btn" style={{ minHeight: 44 }} onClick={onBack}>‹ 殿堂の一覧へ</button>
+      <div class="card">
+        <div class="ptitle" style={{ fontSize: 20 }}>{h.instructor}教官のリミナ分校</div>
+        <div class="muted small">{h.years}年間・{new Date(h.savedAt).toLocaleDateString('ja-JP')}に殿堂入り</div>
+        <h3>到達したエンディング</h3>
+        {h.endings.length ? h.endings.map((e) => <div class="row between nowrap"><b>{endingTitle(e.kind, e.country)}</b><span class="muted small">{ENDING_SUB[e.kind]}・{e.year}年目</span></div>) : <div class="muted small">なし</div>}
+      </div>
+      <div class="card">
+        <h3>卒業写真</h3>
+        {p ? (
+          <>
+            <div class="row between nowrap photo-nav">
+              <button class="btn" disabled={i <= 0} onClick={() => setI(i - 1)} aria-label="前の期">◀</button>
+              <b class="photo-title">{p.cohort}期生（{p.year}年目）<span class="muted small">　{i + 1}／{h.photos.length}</span></b>
+              <button class="btn" disabled={i >= h.photos.length - 1} onClick={() => setI(i + 1)} aria-label="次の期">▶</button>
+            </div>
+            <div class="photo big">
+              {seats.map((g) => <div class="seat"><HallFace g={g} size={72} />{g.dead && <div class="deadmark">✝</div>}<div>{g.given}</div></div>)}
+            </div>
+            <div class="muted small" style={{ marginTop: 4 }}>{seats.length}人が巣立った（✝は戦場で倒れた者）</div>
+          </>
+        ) : <div class="muted small">卒業写真はありません</div>}
+      </div>
+      <div class="card">
+        <h3>記録</h3>
+        <table class="stats"><tbody>
+          <tr><td>卒業生の数</td><td>{gradCount}人</td></tr>
+          <tr><td>在学中の戦死</td><td>{h.stats.deaths}人</td></tr>
+          <tr><td>戦闘の勝敗</td><td>{h.stats.battlesWon}勝 {h.stats.battlesLost}敗</td></tr>
+          <tr><td>最多撃破（在学中）</td><td>{rec.topKills ? `${rec.topKills.name}（${rec.topKills.n}）` : '—'}</td></tr>
+          <tr><td>最高レベル</td><td>{rec.topLevel ? `${rec.topLevel.name}（Lv${rec.topLevel.n}）` : '—'}</td></tr>
+          <tr><td>最高位</td><td>{rec.topRank ? `${rec.topRank.name}（${rec.topRank.title}）` : '—'}</td></tr>
+          <tr><td>最初の元帥</td><td>{rec.firstMarshal ?? '—'}</td></tr>
+          <tr><td>最初の宰相</td><td>{rec.firstChancellor ?? '—'}</td></tr>
+          {COUNTRIES.some((c) => rec.sent[c]) && <tr><td>三国へ送り出した数</td><td>{COUNTRIES.map((c) => `${COUNTRY_SHORT[c]}${rec.sent[c] ?? 0}`).join('・')}</td></tr>}
+        </tbody></table>
+        {!h.v && <div class="muted small">古い殿堂のため、撃破数・最高位など一部の記録は残っていません。</div>}
+      </div>
+      <div class="card">
+        <h3>歴代の教官</h3>
+        {h.instructors.map((x) => <div class="row between nowrap ruled"><span>{x.generation}代目 <b>{x.name}</b></span><span class="muted small">{x.from}〜{x.to}年目</span></div>)}
+      </div>
+      <div class="card">
+        <h3>卒業生</h3>
+        {(showAll ? h.graduates : h.graduates.slice(0, 30)).map((g) => <div class="row nowrap gap6 small ruled hallgrad"><HallFace g={g} size={32} /><b>{g.given}</b><span class="muted">{g.cohort}期生・Lv{g.level}・{g.title}</span></div>)}
+        {!showAll && h.graduates.length > 30 && <button class="btn" style={{ minHeight: 44, width: '100%' }} onClick={() => setShowAll(true)}>残り{h.graduates.length - 30}人も見る</button>}
+      </div>
+      <div class="card">
+        <h3>年表</h3>
+        <ul class="list">{h.chronicle.slice(-80).map((c) => <li class="small">{c.year}年目　{c.text}</li>)}</ul>
+      </div>
+      <button class="btn" style={{ minHeight: 44 }} onClick={onBack}>‹ 殿堂の一覧へ</button>
     </div>
   );
 }

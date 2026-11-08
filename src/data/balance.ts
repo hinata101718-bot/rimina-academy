@@ -104,6 +104,8 @@ export const B = {
     startMoney: 800, startReputation: 10,
     donationPerRep: 12,
     aidPerRankPoint: 8, aidPerFriendship: 5,
+    // 友好度は年度末に「その国にいる卒業生の数」に見合う高さへ少しずつ戻る（4夜目）。目安＝20＋現役の卒業生1人につき3（上限100）
+    friendshipDrift: { base: 20, perAlumni: 2.5, rate: 0.4 },
     aidRichFrom: 3000, aidRichSpan: 12000, aidRichMin: 0.15, // 所持金が多いほど三国からの援助金は減る
     reputationMax: 100,
     deadlineYear: 3, deadlineRep: 40, independenceRep: 70,
@@ -232,6 +234,7 @@ export const B = {
       epidemicRate: 0.02,
       heroPower: 15,
       schoolDefenseChance: 0.15,
+      neutralDefenseChance: 0.05, // 中立宣言の条件が防衛戦以外そろっているとき、激戦期でなくても学校が狙われる（毎月）
       peaceRel: 0,
       peaceTension: 45,             // 関係がすべて0以上で、緊張度がこれ未満なら和平会議が開かれやすい
       peaceChance: 0.3,
@@ -270,7 +273,8 @@ export const B = {
     unifyYears: 2,               // 一国の国力が他の二国の合計を上回る状態が2年続く
     ceasefireWarYears: 8,        // 戦いの疲れ（激戦期1年=1、緊張期1年=0.5、平和期は−1）が8年分
     ceasefirePower: 35,          // 三国すべての国力が35以下
-    neutralRep: 100, neutralGrads: 150, neutralFriendship: 70,
+    neutralRep: 90, neutralGrads: 100, neutralFriendship: 60, // 学校の中立宣言（4夜目にゆるめた）
+    neutralRevealRep: 70,        // 評判70になるまで、戦況タブの「中立宣言への道」は「？？？」
     // 戦いの疲れ：長く戦うほど、三国とも国力が削れていく（強い国ほど大きく）
     exhaustWar: 1, exhaustTension: 0.5, exhaustPeace: -1, exhaustDrainFrom: 3, exhaustDrainPer: 0.03,
     // エンディングのあと「この学校を続ける」と平和な時代。まれに再び戦争

@@ -7,6 +7,7 @@ import { Rng } from './rng';
 import { chronicle, enrolled } from './game';
 import { activeAlumni, diplomats, recalcTension, PAIRS } from './world';
 import { titleOf } from './alumni';
+import { RANK_TITLES } from '../data/people';
 import { clamp } from './util';
 
 export const ENDING_NAMES: Record<EndingKind, string> = { peace: '和平の円卓', unify: '統一', ceasefire: '疲弊の停戦', neutral: '学校の中立宣言' };
@@ -46,13 +47,32 @@ export function endingReady(s: GameState, when: 'year' | 'month'): { kind: Endin
   // 和平の円卓（和平会議の月にも）
   if (w.peaceRoundYear && !done.has('peace') && !(s.endings ?? []).some((e) => e.kind === 'peace')) return { kind: 'peace' };
   // 学校の中立宣言（学校防衛戦に勝った月にも）
-  const grads = Object.values(s.students).filter((x) => x.status === 'graduated').length;
-  if (!done.has('neutral') && w.defenseWonYear === s.year && s.reputation >= E.neutralRep && grads >= E.neutralGrads && !w.vassal && COUNTRIES.every((c) => w.friendship[c] >= E.neutralFriendship)) return { kind: 'neutral' };
+  if (!done.has('neutral') && neutralProgress(s).every((x) => x.ok)) return { kind: 'neutral' };
   if (when !== 'year') return null;
   for (const c of COUNTRIES) if ((w.unifyYears?.[c] ?? 0) >= E.unifyYears && !done.has('unify')) return { kind: 'unify', country: c };
   if (!done.has('ceasefire') && (w.exhaustion ?? 0) >= E.ceasefireWarYears && COUNTRIES.every((c) => w.power[c] <= E.ceasefirePower)) return { kind: 'ceasefire' };
   return null;
 }
+/** 学校の中立宣言への道：条件ごとの達成状況（戦況タブに出す） */
+export interface NeutralStep { label: string; ok: boolean; now: string }
+export function neutralProgress(s: GameState): NeutralStep[] {
+  const E = B.ending;
+  const w = s.world;
+  const grads = Object.values(s.students).filter((x) => x.status === 'graduated').length;
+  const fmin = Math.min(...COUNTRIES.map((c) => w.friendship[c]));
+  return [
+    { label: `学校の評判 ${E.neutralRep}以上`, ok: s.reputation >= E.neutralRep, now: `いま${Math.floor(s.reputation)}` },
+    { label: `卒業生 ${E.neutralGrads}人以上`, ok: grads >= E.neutralGrads, now: `いま${grads}人` },
+    { label: `三国との友好度がすべて${E.neutralFriendship}以上`, ok: fmin >= E.neutralFriendship, now: COUNTRIES.map((c) => `${COUNTRY_SHORT[c]}${Math.round(w.friendship[c])}`).join('・') },
+    { label: '学校が独立している', ok: !w.vassal, now: w.vassal ? `${COUNTRY_SHORT[w.vassal]}の傘下` : '独立' },
+    { label: 'この年度に学校防衛戦で勝つ', ok: w.defenseWonYear === s.year, now: w.defenseWonYear === s.year ? '勝った' : 'まだ' },
+  ];
+}
+/** 中立宣言への道を見せてよいか（隠しエンドなので、評判が上がるまでは伏せる） */
+export function neutralRevealed(s: GameState): boolean {
+  return s.reputation >= B.ending.neutralRevealRep || (s.endings ?? []).some((e) => e.kind === 'neutral');
+}
+
 function lastRelapse(s: GameState): number | null {
   const r = [...s.chronicle].reverse().find((c) => c.text.startsWith('再び戦の気配'));
   return r ? r.year : null;
@@ -208,27 +228,95 @@ export function peaceEraYear(s: GameState, rng: Rng): string | null {
 // ---------------------------------------------------------------
 // 殿堂（前の学校の年鑑）
 // ---------------------------------------------------------------
-export interface HallStudent { id: string; given: string; family: string; gender: 'm' | 'f'; origin: Student['origin']; face: FaceParts; faceImage: string | null; cohort: number; title: string; dead: boolean; level: number; classId: string }
+export interface HallStudent {
+  id: string; given: string; family: string; gender: 'm' | 'f'; origin: Student['origin'];
+  /** 似顔絵（パーツ）。顔画像が見つからないときはこちらで描く */
+  face: FaceParts;
+  /** 顔画像のファイル名（保存した時点のもの） */
+  faceImage: string | null;
+  cohort: number; title: string; dead: boolean; level: number; classId: string;
+  // 4夜目から：記録のための項目（古い殿堂にはない）
+  kills?: number; rank?: number; path?: string; country?: CountryId | null; kind?: string;
+}
+export interface HallRecords {
+  topKills: { name: string; n: number } | null;
+  topLevel: { name: string; n: number } | null;
+  topRank: { name: string; title: string } | null;
+  firstMarshal: string | null; firstChancellor: string | null;
+  sent: Partial<Record<CountryId, number>>;
+}
 export interface HallEntry {
   id: string; savedAt: number; instructor: string; years: number;
+  /** 殿堂の形式（4夜目＝2） */
+  v?: number;
   endings: { kind: EndingKind; year: number; country?: CountryId }[];
   instructors: { name: string; generation: number; from: number; to: number }[];
   graduates: HallStudent[];
   photos: { cohort: number; year: number; ids: string[] }[];
   chronicle: { year: number; text: string }[];
   stats: GameState['stats'];
+  records?: HallRecords;
 }
 
-export function buildHallEntry(s: GameState): HallEntry {
+/** 殿堂に入れる。faceOf：顔画像の名前を決める関数（画面側から渡す。決まっていない子にもここで決めて残す） */
+export function buildHallEntry(s: GameState, faceOf?: (st: Student) => string | null): HallEntry {
   const grads = Object.values(s.students).filter((x) => x.status === 'graduated' || x.status === 'dead');
-  return {
-    id: `hall${Date.now()}`, savedAt: Date.now(), instructor: s.pastInstructors?.[0]?.name ?? s.instructor.name, years: s.year,
+  const graduates: HallStudent[] = grads.map((x) => {
+    let img = x.faceImage;
+    if (faceOf) { try { faceOf(x); img = x.faceImage ?? img; } catch { /* 顔画像がなくてもよい */ } }
+    return {
+      id: x.id, given: x.given, family: x.family, gender: x.gender, origin: x.origin, face: { ...x.face }, faceImage: img ?? null, cohort: x.cohort,
+      title: x.status === 'dead' ? '在学中に戦死' : titleOf(x), dead: x.status === 'dead' || !x.career?.alive, level: x.level, classId: x.classId,
+      kills: x.kills ?? 0, rank: x.career?.kind === 'army' ? x.career.rank : -1, path: x.career?.path, country: x.career?.country ?? null, kind: x.career?.kind,
+    };
+  });
+  const e: HallEntry = {
+    id: `hall${Date.now()}`, savedAt: Date.now(), instructor: s.pastInstructors?.[0]?.name ?? s.instructor.name, years: s.year, v: 2,
     endings: [...(s.endings ?? [])],
     instructors: [...(s.pastInstructors ?? []).map((p) => ({ name: p.name, generation: p.generation, from: p.from, to: p.to })), { name: s.instructor.name, generation: s.instructor.generation, from: s.instructor.since ?? 1, to: s.year }],
-    graduates: grads.map((x) => ({ id: x.id, given: x.given, family: x.family, gender: x.gender, origin: x.origin, face: x.face, faceImage: x.faceImage, cohort: x.cohort, title: x.status === 'dead' ? '在学中に戦死' : titleOf(x), dead: x.status === 'dead' || !x.career?.alive, level: x.level, classId: x.classId })),
-    photos: s.photos.map((p) => ({ cohort: p.cohort, year: p.year, ids: p.ids })),
+    graduates,
+    photos: s.photos.map((p) => ({ cohort: p.cohort, year: p.year, ids: [...p.ids] })),
     chronicle: s.chronicle.filter((c) => c.kind !== 'student').map((c) => ({ year: c.year, text: c.text })).slice(-300),
     stats: { ...s.stats },
+  };
+  e.records = hallRecords(e, s);
+  return e;
+}
+
+/** 殿堂の記録（最多撃破・最高位など）。古い殿堂は残っている項目から出す */
+export function hallRecords(h: HallEntry, s?: GameState): HallRecords {
+  if (h.records && !s) return h.records;
+  const g = h.graduates;
+  const best = <T>(list: T[], f: (x: T) => number) => list.reduce<T | null>((a, x) => (!a || f(x) > f(a) ? x : a), null);
+  const k = best(g.filter((x) => (x.kills ?? 0) > 0), (x) => x.kills ?? 0);
+  const lv = best(g, (x) => x.level);
+  const ranked = g.filter((x) => x.path && x.country && (x.rank ?? -1) >= 0);
+  const r = best(ranked, (x) => (x.rank ?? 0) * 10 + (x.path === 'warrior' ? 1 : 0));
+  const sent: Partial<Record<CountryId, number>> = {};
+  for (const x of g) if (x.kind === 'army' && x.country) sent[x.country] = (sent[x.country] ?? 0) + 1;
+  // 最初の元帥・宰相は、今の学校なら卒業の早い順に
+  const byCohort = [...g].sort((a, b) => a.cohort - b.cohort);
+  const marshal = byCohort.find((x) => x.path === 'warrior' && (x.rank ?? 0) >= 4);
+  const chancellor = byCohort.find((x) => x.path === 'civil' && (x.rank ?? 0) >= 3);
+  return {
+    topKills: k ? { name: k.given, n: k.kills ?? 0 } : null,
+    topLevel: lv ? { name: lv.given, n: lv.level } : null,
+    topRank: r ? { name: r.given, title: `${COUNTRY_SHORT[r.country!]}・${RANK_TITLES[r.path as keyof typeof RANK_TITLES]?.[Math.min(r.rank ?? 0, (RANK_TITLES[r.path as keyof typeof RANK_TITLES]?.length ?? 1) - 1)] ?? ''}` } : null,
+    firstMarshal: marshal?.given ?? null, firstChancellor: chancellor?.given ?? null,
+    sent,
+  };
+}
+
+/** 殿堂の学校どうしを比べる表の1行 */
+export interface HallCompareRow { id: string; name: string; current: boolean; years: number; endings: string; graduates: number; deaths: number; wins: number; losses: number; generations: number; topLevel: number; topRank: string }
+export function hallCompareRow(h: HallEntry, current = false): HallCompareRow {
+  const rec = hallRecords(h);
+  return {
+    id: h.id, name: `${h.instructor}教官`, current, years: h.years,
+    endings: h.endings.map((e) => endingTitle(e.kind, e.country)).join('・') || '—',
+    graduates: h.graduates.filter((g) => g.title !== '在学中に戦死').length,
+    deaths: h.stats.deaths, wins: h.stats.battlesWon, losses: h.stats.battlesLost,
+    generations: h.instructors.length, topLevel: rec.topLevel?.n ?? 0, topRank: rec.topRank?.title ?? '—',
   };
 }
 

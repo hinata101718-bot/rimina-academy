@@ -159,7 +159,7 @@ describe('エンディング', () => {
     expect(hall.endings[0].kind).toBe('peace');
     expect(JSON.parse(JSON.stringify(hall)).graduates.length).toBeGreaterThan(0);
   });
-  it('学校の中立宣言：評判100・卒業生150人・友好度70以上・独立・防衛戦に勝った年', () => {
+  it('学校の中立宣言：評判・卒業生・友好度・独立・防衛戦に勝った年（4夜目に条件をゆるめた）', () => {
     const s = base();
     s.reputation = 100; s.world.friendship = { kingdom: 80, empire: 75, alliance: 90 }; s.world.vassal = null; s.world.defenseWonYear = s.year;
     expect(endingReady(s, 'month')).toBeNull(); // 卒業生が足りない

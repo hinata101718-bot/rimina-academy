@@ -156,6 +156,13 @@ export function fillText(text: string, s: GameState, me: Student | null, you: St
   const dreamText = (st: Student | null) => (st && DREAMS.find((d) => d.id === st.dream)?.text) || '自分の道を見つけること';
   const traitName = (st: Student | null) => (!st ? '' : st.knownTraits[0] ? TRAITS[st.knownTraits[0]].name : PERSONALITIES[st.personality].name);
   const f = (st: Student | null, k: keyof ReturnType<typeof flavorOf>) => (st ? flavorOf(st)[k] : '');
+  // 面談用：恋人の名前・生きている卒業生（同じ出身を優先、新しい期から）・先代の先生
+  const loveName = (st: Student | null) => { if (!st) return ''; const o = s.students[loveOf(s, st.id) ?? '']; return o && o.status !== 'dead' ? o.given : '大切な人'; };
+  const seniorName = (st: Student | null) => {
+    if (!st) return '';
+    const g = Object.values(s.students).filter((x) => x.status === 'graduated' && x.career?.alive && !x.career.instructor && x.id !== s.instructor.studentId).sort((a, b) => b.cohort - a.cohort || (a.id < b.id ? -1 : 1));
+    return (g.find((x) => x.origin === st.origin) ?? g[0])?.given ?? '先輩';
+  };
   const rep = (st: Student | null, prefix: string, t: string) => t
     .replace(new RegExp(`\\{${prefix}Dream\\}`, 'g'), dreamText(st))
     .replace(new RegExp(`\\{${prefix}Country\\}`, 'g'), st ? COUNTRY_NAMES[st.origin] : '')
@@ -171,13 +178,15 @@ export function fillText(text: string, s: GameState, me: Student | null, you: St
     .replace(new RegExp(`\\{${prefix}Class\\}`, 'g'), st ? CLASSES[st.classId]?.name ?? '' : '')
     .replace(new RegExp(`\\{${prefix}Friend\\}`, 'g'), st ? bestFriend(s, st)?.given ?? '仲間' : '')
     .replace(new RegExp(`\\{${prefix}TalentSkill\\}`, 'g'), st ? SKILL_NAMES[(st.talent && TALENTS[st.talent].skill) || bestSkill(st)] : '')
+    .replace(new RegExp(`\\{${prefix}Love\\}`, 'g'), () => loveName(st))
+    .replace(new RegExp(`\\{${prefix}Senior\\}`, 'g'), () => seniorName(st))
     .replace(new RegExp(`\\{${prefix}Hint\\}`, 'g'), st && st.talent ? TALENTS[st.talent].hint1.replace(/気がする$/, '') : '');
   let out = rep(me, 'my', rep(you, 'your', me ? adaptPronoun(text, me) : text));
   out = out
     .replace(/\{me\}/g, me?.given ?? '').replace(/\{you\}/g, you?.given ?? '')
     .replace(/\{event\}/g, detail || 'あのこと')
     .replace(/\{season\}/g, SEASON_WORDS[s.month] ?? '').replace(/\{scene\}/g, SEASON_SCENE[s.month] ?? '中庭')
-    .replace(/\{teacher\}/g, s.instructor.name).replace(/\{school\}/g, 'リミナ分校')
+    .replace(/\{teacher\}/g, s.instructor.name).replace(/\{prevTeacher\}/g, s.pastInstructors?.[s.pastInstructors.length - 1]?.name ?? '先代の').replace(/\{school\}/g, 'リミナ分校')
     .replace(/ことのため/g, 'ため'); // 「騎士になることのため」→「騎士になるため」
   return out;
 }

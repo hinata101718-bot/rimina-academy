@@ -6,6 +6,7 @@ import { Bar, money } from './common';
 import { Icon } from './icons';
 import { countryColor, Stars, OBJECTIVE_ICON, WEATHER_ICON } from './cards';
 import type { GameState } from '../core/state';
+import { neutralProgress, neutralRevealed } from '../core/ending';
 
 const POS: Record<string, [number, number]> = { kingdom: [150, 50], empire: [70, 175], alliance: [240, 165] };
 const REL_COLOR = { war: '#b03a2e', tense: '#d08a2a', friendly: '#4f8f4a', allied: '#2f5fa8' };
@@ -63,6 +64,7 @@ export function WarTab() {
             <div class="muted small">文官の教え子が大使（文官の3段目）以上になると、和平会議を呼びかけられます。三国すべてに大使以上の教え子がいて、学校が独立していれば、和平会議は「和平の円卓」になります。和平会議はこれまでに{s.world.peaceTalksHeld}回。</div>
             {s.world.peaceRoundYear && <div class="tag">{s.world.peaceRoundYear}年目に和平の円卓が開かれた</div>}
           </div>
+          <NeutralCard s={s} />
           <div class="card">
             <h3>依頼掲示板（今月末）</h3>
             {s.quests.map((q) => (
@@ -80,6 +82,34 @@ export function WarTab() {
           </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+/** 中立宣言への道（隠しエンド：評判70までは伏せる） */
+function NeutralCard({ s }: { s: GameState }) {
+  const open = neutralRevealed(s);
+  const steps = neutralProgress(s);
+  return (
+    <div class="card">
+      <h3>{open ? '中立宣言への道' : '？？？への道'}</h3>
+      {open ? (
+        <>
+          {steps.map((x) => (
+            <div class="row between nowrap neutralstep">
+              <span><b class={x.ok ? 'okmark' : 'ngmark'}>{x.ok ? '✓' : '×'}</b> {x.label}</span>
+              <span class="muted small">{x.now}</span>
+            </div>
+          ))}
+          <div class="muted small">どの国にも属さない「学校の中立」を宣言できるかもしれません。条件がすべてそろった年度に、学校防衛戦に勝つと……。</div>
+          {(s.endings ?? []).some((e) => e.kind === 'neutral') && <div class="tag">学校の中立宣言をした</div>}
+        </>
+      ) : (
+        <>
+          {steps.map(() => <div class="row between nowrap neutralstep"><span><b class="ngmark">？</b> ？？？</span></div>)}
+          <div class="muted small">学校の名が大陸に広まれば、何かが見えてくるかもしれません。</div>
+        </>
+      )}
     </div>
   );
 }

@@ -272,6 +272,12 @@ export function yearEnd(s: GameState, graduated: string[]): void {
   // 評判：卒業生の昇進
   const promo = news.filter((n) => n.text.includes('昇進')).length;
   if (promo) addRep(s, Math.min(B.reputation.promotionMax, promo));
+  // 友好度：その国にいる卒業生が少ないと、少しずつ下がる（三国と均等に付き合うほど高く保てる）
+  for (const c of COUNTRIES) {
+    const D = B.school.friendshipDrift;
+    const target = Math.min(100, D.base + D.perAlumni * activeAlumni(s, c).length);
+    if (s.world.friendship[c] > target) s.world.friendship[c] -= (s.world.friendship[c] - target) * D.rate;
+  }
   // 評判は放っておくと少しずつ落ち着く（高いほど維持が難しい）
   if (s.reputation > B.reputation.decayFloor) addRep(s, -(s.reputation - B.reputation.decayFloor) * B.reputation.yearlyDecay);
   // 6. 教官の加齢（50歳から年度末に引退を選べる。65歳で必ず引退）

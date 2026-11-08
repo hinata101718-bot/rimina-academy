@@ -241,10 +241,14 @@ export function majorEvents(s: GameState, rng: Rng, yearEnd: boolean): string[] 
     fire('疫病の流行', ['大陸で疫病が流行している。今年は体調を崩す生徒が出やすい（疲労の限界が下がる）。']);
   }
   // 9. 学校防衛戦
-  if (w.era !== 'peace' && tensionStage(w.tension) === 'war' && !yearEnd && !w.schoolDefensePending && cd(s, 'defense') && s.month !== 5 && s.month !== 11 && rng.chance(B.world.events.schoolDefenseChance)) {
+  //    中立宣言の条件が防衛戦のほかすべてそろっていると、激戦期でなくても、学校の名声を快く思わない者に狙われることがある
+  const warDefense = tensionStage(w.tension) === 'war';
+  const neutralDefense = !warDefense && neutralAlmost(s);
+  if (w.era !== 'peace' && (warDefense || neutralDefense) && !yearEnd && !w.schoolDefensePending && cd(s, 'defense') && s.month !== 5 && s.month !== 11 && rng.chance(warDefense ? B.world.events.schoolDefenseChance : B.world.events.neutralDefenseChance)) {
     w.schoolDefensePending = true;
     setCd(s, 'defense', 20);
-    fire('学校に迫る戦火', ['国境の戦いが学校の近くまで迫っている。今月末は学校を守る戦い（学校防衛戦）になる。']);
+    if (warDefense) fire('学校に迫る戦火', ['国境の戦いが学校の近くまで迫っている。今月末は学校を守る戦い（学校防衛戦）になる。']);
+    else fire('学校を狙う影', ['どの国にも肩入れしない学校の名声を、快く思わない者たちがいる。兵を集めて学校へ向かっているらしい。', '今月末は学校を守る戦い（学校防衛戦）になる。']);
   }
   // 10. 英雄の出現
   for (const c of COUNTRIES) {
@@ -259,6 +263,13 @@ export function majorEvents(s: GameState, rng: Rng, yearEnd: boolean): string[] 
     }
   }
   return out;
+}
+
+/** 学校の中立宣言の条件のうち、学校防衛戦の勝利のほかがすべてそろっているか */
+export function neutralAlmost(s: GameState): boolean {
+  const E = B.ending;
+  const grads = Object.values(s.students).filter((x) => x.status === 'graduated').length;
+  return s.reputation >= E.neutralRep && grads >= E.neutralGrads && !s.world.vassal && COUNTRIES.every((c) => s.world.friendship[c] >= E.neutralFriendship);
 }
 
 function pushEventNews(s: GameState, title: string, lines: string[]) {

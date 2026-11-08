@@ -124,13 +124,18 @@ export function FaceSvg({ face, size = 48, dim = false }: { face: FaceParts; siz
   );
 }
 
-export function Portrait({ st, size = 48, game, frame }: { st: Student; size?: number; game?: GameState; frame?: string }) {
+/** 殿堂など、保存した顔をそのまま出したいとき：顔画像が今もあればそれを、なければ似顔絵で描く（別の顔に置き換えない） */
+export function fixedFaceImage(st: { faceImage: string | null }): string | null {
+  return st.faceImage && faceFiles.includes(st.faceImage) ? `${import.meta.env.BASE_URL}faces/${st.faceImage}` : null;
+}
+
+export function Portrait({ st, size = 48, game, frame, fixed }: { st: Student; size?: number; game?: GameState; frame?: string; fixed?: boolean }) {
   const g = game ?? getGame();
   const dead = st.status === 'dead' || (st.career && !st.career.alive);
   if (g?.settings.portrait === 'dot') {
     return <span class="dot-face" style={{ width: size, height: size, background: COUNTRY_COLOR[st.origin], fontSize: size * 0.42, opacity: dead ? 0.5 : 1, border: frame ? `2px solid ${frame}` : undefined, boxSizing: 'border-box' }}>{st.given[0]}</span>;
   }
-  const img = faceImageFor(st, g);
+  const img = fixed ? fixedFaceImage(st) : faceImageFor(st, g);
   if (img) {
     // 顔画像は胸から上の絵なので、小さい表示ほど顔のあたりを大きく切り抜く
     const zoom = size <= 64 ? 1.2 : size <= 120 ? 1.08 : 1.0;

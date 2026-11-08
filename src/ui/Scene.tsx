@@ -3,8 +3,8 @@ import { useEffect, useRef, useState } from 'preact/hooks';
 import type { GameState, SceneLine } from '../core/state';
 import { Portrait } from './Portrait';
 import { TeacherFace } from './Talk';
-import { ArtSlot } from './HomeDeco';
-import { sfx } from './sound';
+import { SceneArt } from './EndingArt';
+import { sfx, playBgm } from './sound';
 import { laneMul } from './anim';
 import { countryColor } from './cards';
 
@@ -22,6 +22,8 @@ export function ScenePlayer({ s, lines, onDone }: { s: GameState; lines: SceneLi
   const full = line?.text ?? '';
   const typing = shown < full.length;
   useEffect(() => {
+    // エンディングの最初の場面で、エンディングの曲（public/bgm/ending.mp3 があれば）と短い調べ
+    if (line?.art?.startsWith('ending_')) { sfx('ending'); playBgm('ending'); }
     setShown(0);
     if (timer.current) clearInterval(timer.current);
     const per = Math.max(8, Math.round(30 * laneMul('anim')));
@@ -43,7 +45,7 @@ export function ScenePlayer({ s, lines, onDone }: { s: GameState; lines: SceneLi
   const photo = line.photo !== undefined ? s.photos.find((p) => p.cohort === line.photo) : null;
   return (
     <div class="scene" onClick={tap}>
-      {line.art && <ArtSlot name={line.art} height={150} />}
+      {line.art && <SceneArt name={line.art} height={150} />}
       {line.title && <div class="scene-title">{line.title}</div>}
       {line.faces && line.faces.length > 0 && (
         <div class="scene-faces">{line.faces.map((id) => s.students[id]).filter(Boolean).map((x) => <div><Portrait st={x} size={line.faces!.length === 1 ? 110 : line.faces!.length <= 3 ? 84 : line.faces!.length > 6 ? 46 : 60} frame={countryColor(x.origin)} /><div class="small">{x.given}</div></div>)}</div>

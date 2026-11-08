@@ -26,6 +26,9 @@ const SOUNDS: Record<string, Note[]> = {
   tick: [[1568, 0, 0.06, 'square', 0.1], [2093, 0.04, 0.08, 'square', 0.08]],
   page: [[300, 0, 0.05, 'triangle', 0.1], [500, 0.03, 0.06, 'triangle', 0.06]],
   text: [[1200, 0, 0.02, 'square', 0.03]],
+  // エンディングの調べ（BGMのファイルがなくても流れる短いメロディ）
+  ending: [[392, 0, 0.45, 'triangle', 0.16], [523, 0.45, 0.45, 'triangle', 0.16], [587, 0.9, 0.45, 'triangle', 0.16], [659, 1.35, 0.9, 'triangle', 0.16],
+    [523, 2.3, 0.45, 'triangle', 0.14], [587, 2.75, 0.45, 'triangle', 0.14], [784, 3.2, 1.4, 'triangle', 0.16], [262, 0, 1.3, 'sine', 0.08], [330, 1.35, 1.3, 'sine', 0.08], [392, 3.2, 1.6, 'sine', 0.08]],
 };
 
 export function sfx(name: keyof typeof SOUNDS | string) {
@@ -49,7 +52,7 @@ export function sfx(name: keyof typeof SOUNDS | string) {
 
 let bgm: HTMLAudioElement | null = null;
 let bgmName = '';
-export function playBgm(name: 'peace' | 'tension' | 'war' | 'battle') {
+export function playBgm(name: 'peace' | 'tension' | 'war' | 'battle' | 'ending') {
   const g = getGame();
   if (!g?.settings.sound) { bgm?.pause(); return; }
   if (bgmName === name) return;

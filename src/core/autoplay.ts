@@ -84,7 +84,7 @@ export function autoBattle(s: GameState): void {
 }
 
 // ---------- 進路の方針（長期シミュレーション用） ----------
-export type CareerPolicy = 'auto' | 'peace' | 'unify' | 'none';
+export type CareerPolicy = 'auto' | 'peace' | 'unify' | 'none' | 'neutral';
 let careerPolicy: CareerPolicy = 'auto';
 export function setCareerPolicy(p: CareerPolicy): void { careerPolicy = p; }
 
@@ -100,6 +100,17 @@ export function autoCareerPlans(s: GameState, policy: CareerPolicy = careerPolic
       const rec: CareerChoice = st.offers.includes(top) ? top : autoRecommend(s, st);
       const path = suitablePath(st) === 'civil' ? 'warrior' : suitablePath(st);
       return { studentId: st.id, recommend: rec, path };
+    });
+  }
+  // 中立狙い：三国へ均等に（卒業生の少ない国から順に）。道は本人に向いたもの
+  if (policy === 'neutral') {
+    const n: Record<CountryId, number> = { kingdom: activeAlumni(s, 'kingdom').length, empire: activeAlumni(s, 'empire').length, alliance: activeAlumni(s, 'alliance').length };
+    return third.map((st) => {
+      const opts = (st.offers.length ? st.offers : []).slice().sort((a, b) => n[a] - n[b] || s.world.friendship[a] - s.world.friendship[b]);
+      const c = opts[0];
+      if (!c) return { studentId: st.id, recommend: autoRecommend(s, st), path: suitablePath(st) };
+      n[c] += 1;
+      return { studentId: st.id, recommend: c, path: suitablePath(st) };
     });
   }
   // 和平狙い：魅力の高い子から半分ほどを文官にして、文官の少ない国へ
@@ -124,7 +135,10 @@ export function autoPending(s: GameState): void {
     if (p.type === 'questBoard') {
       const real = s.quests.filter((q) => q.real);
       const lv = enrolled(s).reduce((a, x) => a + x.level, 0) / Math.max(1, enrolled(s).length);
-      const pick = real.filter((q) => q.danger <= (lv > 8 ? 3 : 2)).sort((a, b) => b.reward - a.reward)[0] ?? s.quests[0];
+      const ok = real.filter((q) => q.danger <= (lv > 8 ? 3 : 2));
+      // 中立狙い：友好度のいちばん低い国の依頼を優先（三国の依頼を均等に）
+      const pick = (careerPolicy === 'neutral' ? [...ok].sort((a, b) => questFriend(s, a.clientCountry) - questFriend(s, b.clientCountry) || b.reward - a.reward)[0] : undefined)
+        ?? ok.sort((a, b) => b.reward - a.reward)[0] ?? s.quests[0];
       startBattle(s, pick.id, autoDeploy(s));
       autoBattle(s);
       continue;
@@ -146,6 +160,7 @@ export function autoPending(s: GameState): void {
 }
 
 const AUTO_RETIRE_AGE = 60;
+function questFriend(s: GameState, c: CountryId | null): number { return c ? s.world.friendship[c] : 999; }
 /** 後継選び：講師→信頼の高い卒業生の順に3人まで頼み、だめなら外部の教官 */
 export function autoSuccessor(s: GameState): void {
   const r = rng(s);
@@ -172,7 +187,7 @@ export function autoManage(s: GameState): void {
   const order: FacilityId[] = ['training', 'chapel', 'library', 'dining', 'stable', 'range'];
   for (const f of order) {
     const c = facilityCost(s, f);
-    if (c !== null && s.money >= c + 1200) { upgradeFacility(s, f); break; }
+    if (c !== null && s.money >= c + (careerPolicy === 'neutral' ? 500 : 1200)) { upgradeFacility(s, f); break; }
   }
   // 講師
   if (s.teacherCandidates.length && s.money > 3000 && s.teachers.length < B.teachers.max - 1) {

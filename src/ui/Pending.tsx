@@ -1,7 +1,7 @@
 import { useState } from 'preact/hooks';
 import { useStore, act, navigate } from './store';
 import { Sheet, StuRow, money } from './common';
-import { Portrait } from './Portrait';
+import { Portrait, faceImageFor } from './Portrait';
 import { GrowthPlayer } from './Growth';
 import { ScenePlayer } from './Scene';
 import { retireInstructor, successorCandidates, askSuccessor, externalSuccessor } from '../core/instructor';
@@ -355,7 +355,7 @@ function EndingChoice({ s, kind, country }: { s: GameState; kind: EndingKind; co
       <button class="btn accent block" style={{ marginTop: 8 }} disabled={busy} onClick={async () => {
         if (!confirm('この学校の年鑑を殿堂に保存して、タイトル画面に戻ります。よろしいですか？')) return;
         setBusy(true); sfx('graduation');
-        await addHall(buildHallEntry(s)); await unlockStarts();
+        await addHall(buildHallEntry(s, (st) => faceImageFor(st, s))); await unlockStarts();
         act((g) => continueSchool(g));
         await saveSlot(s);
         setGame(null);

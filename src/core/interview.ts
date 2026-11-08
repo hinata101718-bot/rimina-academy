@@ -1,10 +1,11 @@
 // 先生との面談を「会話の場面」として組み立てる。支援会話と同じ「話題×流れ×口調」の仕組み
 import { B } from '../data/balance';
-import { INTERVIEWS, IV_NARR, TEACHER_PHRASES, type InterviewTopic, type TeacherBg } from '../data/talks/interviews';
+import { INTERVIEWS, IV_NARR, IV_AVOID_RECENT, TEACHER_PHRASES, type InterviewDef, type InterviewTopic, type TeacherBg } from '../data/talks/interviews';
 import type { TalkLine } from './types';
 import type { GameState, Student, TalkLog, TalkLineLog } from './state';
 import { Rng } from './rng';
-import { condOk, fillText, phrase, withTalkFlags, archiveTalk, addTrust, bestFriend } from './support';
+import { condOk, fillText, phrase, withTalkFlags, archiveTalk, addTrust, bestFriend, loveOf } from './support';
+import { tensionStage } from './world';
 import { clamp } from './util';
 
 function bgOf(s: GameState): TeacherBg {
@@ -26,14 +27,26 @@ function renderIv(s: GameState, rng: Rng, lines: TalkLine[], st: Student): TalkL
   return out;
 }
 
-/** 面談の会話を組み立てて、記録に残す */
-export function buildInterview(s: GameState, rng: Rng, st: Student, topic: InterviewTopic, flags: string[] = []): TalkLog | null {
-  const defs = INTERVIEWS.filter((d) => d.topic === topic);
-  if (!defs.length) return null;
-  const def = rng.pick(defs);
-  return withTalkFlags(flags, () => {
+/** 面談で自動でつく目印（話題の出しわけと、先生のセリフの分岐に使う） */
+export const IV_AUTO_FLAGS = ['alumni_teacher', 'gen2', 'has_love', 'has_alumni', 'unrest'] as const;
+export function interviewFlags(s: GameState, st: Student): string[] {
+  const out: string[] = [];
+  // 教官がこの学校の卒業生（2代目以降で、生徒から教官になった）
+  if (s.instructor.studentId) out.push('alumni_teacher');
+  if (s.instructor.generation > 1) out.push('gen2');
+  const love = s.students[loveOf(s, st.id) ?? ''];
+  if (love && love.status !== 'dead') out.push('has_love');
+  if (Object.values(s.students).some((x) => x.status === 'graduated' && x.career?.alive && !x.career.instructor && x.id !== s.instructor.studentId)) out.push('has_alumni');
+  if (tensionStage(s.world.tension) !== 'peace') out.push('unrest');
+  return out;
+}
+
+/** 決まった面談の流れを、この生徒で組み立てて記録に残す */
+export function buildInterviewDef(s: GameState, rng: Rng, st: Student, def: InterviewDef, flags: string[] = []): TalkLog {
+  const all = [...new Set([...flags, ...interviewFlags(s, st)])];
+  return withTalkFlags(all, () => {
     const t: TalkLog = {
-      a: st.id, b: 'teacher', rank: '', title: def.title, kind: topic.startsWith('x') ? 'special' : 'interview',
+      a: st.id, b: 'teacher', rank: '', title: def.title, kind: def.topic.startsWith('x') ? 'special' : 'interview',
       lines: renderIv(s, rng, def.lines, st),
     };
     if (def.choice) {
@@ -45,6 +58,25 @@ export function buildInterview(s: GameState, rng: Rng, st: Student, topic: Inter
     archiveTalk(s, t);
     return t;
   });
+}
+
+/** この生徒に今出せる面談の流れ（when の条件を満たすもの。なければ条件なしのもの） */
+export function interviewCandidates(s: GameState, st: Student, topic: InterviewTopic, flags: string[] = []): InterviewDef[] {
+  const defs = INTERVIEWS.filter((d) => d.topic === topic);
+  const all = [...new Set([...flags, ...interviewFlags(s, st)])];
+  const ok = withTalkFlags(all, () => defs.filter((d) => condOk(d.when, st, st, null, s)));
+  return ok.length ? ok : defs.filter((d) => !d.when);
+}
+
+/** 面談の会話を組み立てて、記録に残す */
+export function buildInterview(s: GameState, rng: Rng, st: Student, topic: InterviewTopic, flags: string[] = []): TalkLog | null {
+  const cands = interviewCandidates(s, st, topic, flags);
+  if (!cands.length) return null;
+  // 最近同じ生徒と話した題は、できるだけ避ける
+  const recent = new Set((st.archive ?? []).slice(-IV_AVOID_RECENT).map((id) => s.archive?.[id]).filter((t) => t && t.b === 'teacher').map((t) => t!.title));
+  const fresh = cands.filter((d) => !recent.has(d.title));
+  const def = rng.pick(fresh.length ? fresh : cands);
+  return buildInterviewDef(s, rng, st, def, flags);
 }
 
 /** 面談の返事を選んだ（効果は小さく、正解はない） */
