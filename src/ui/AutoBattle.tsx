@@ -125,14 +125,14 @@ export function SquadEditor({ s, draft, setDraft, limit, exclude, usedArms, ques
     <Sheet title={squadNo !== undefined ? `第${squadNo + 1}部隊：${q.title}` : `出撃前：${q.title}`} onClose={onBack}>
       {quests.length > 1 && (
         <div class="sq-quests">
-          {quests.map((x) => <button class={`sq-q${x.id === q.id ? ' on' : ''}`} onClick={() => { if (x.id === q.id) return; sfx('move'); setDraft({ ...draft, questId: x.id, strats: recommendStrats(s, x, ids, plan.planner, plan.captain) }); }}><b>{x.title}</b><small>{x.real ? `実戦・危険度${'★'.repeat(x.danger)}` : x.kind === 'exhibition' ? '演武会' : '演習'}</small></button>)}
+          {quests.map((x) => <button class={`sq-q${x.id === q.id ? ' on' : ''}`} onClick={() => { if (x.id === q.id) return; sfx('move'); setDraft({ ...draft, questId: x.id, strats: recommendStrats(s, x, ids, plan.planner, plan.captain) }); }}><b>{x.title}</b><small>{x.real ? `実戦・危険度${'★'.repeat(x.danger)}${x.hot ? '・争いの地' : ''}` : x.kind === 'exhibition' ? '演武会' : '演習'}</small></button>)}
         </div>
       )}
       <div class="pcard" style={{ ['--band' as string]: q.clientCountry ? countryColor(q.clientCountry) : 'var(--main)' }}>
         <div class="infogrid">
           <div><Icon name={OBJECTIVE_ICON[q.objective]} size={17} />{OBJECTIVE_NAMES[q.objective]}</div>
           <div><Icon name={WEATHER_ICON[q.weather]} size={17} />{WEATHER_NAMES[q.weather]}・{mapName}</div>
-          <div>危険度 <Stars n={q.danger} /></div>
+          <div>危険度 <Stars n={q.danger} />{q.hot && <span class="flag red" style={{ marginLeft: 4 }}>争いの地</span>}</div>
           <div class={q.real ? '' : 'muted'}>{q.real ? <><Icon name="skull" size={17} />戦死あり</> : '誰も死なない'}</div>
         </div>
         <div class="small muted">地形：{(MAP_TAGS[q.template] ?? []).map((x) => TAG_NAMES[x]).join('・')}{q.weather === 'rain' ? '　雨：移動しにくく、銃は使えない。火計は不発' : q.weather === 'fog' ? '　霧：弓・魔法・銃が届きにくい。夜襲が効く' : ''}</div>

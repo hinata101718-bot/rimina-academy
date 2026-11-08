@@ -48,7 +48,7 @@ export const OFFICER = {
   /** 宿敵の段階：何度戦えば（直接ぶつかった回数）次の段階か */
   stageAt: [2, 3, 5] as [number, number, number],
   /** 倒れた敵将が、深手を負いながら逃げのびる確率（階級ごと）。敵将を倒せば勝ちの戦いでは×0.6 */
-  survive: [0.55, 0.5, 0.45] as [number, number, number], surviveBossMul: 0.6,
+  survive: [0.66, 0.62, 0.6] as [number, number, number], surviveBossMul: 0.6, // 14夜目：0.55/0.5/0.45 → 逃げのびて宿敵になりやすく
   /** 仇討ちの誓いを立てる人数（倒された子1人につき） */
   vowMax: 2,
   /** 仇討ちの誓い：その敵将との戦いでの補正 */

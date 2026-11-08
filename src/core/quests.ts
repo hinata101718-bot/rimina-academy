@@ -1,6 +1,7 @@
 // 月末の依頼掲示板
 import { questRewardWeapon } from './loot';
-import { questRegion } from './regions';
+import { questRegion, warRegions, ownerOf } from './regions';
+import { REGION_BY_ID } from '../data/regions';
 import { B } from '../data/balance';
 import { COUNTRY_NAMES, COUNTRY_SHORT, COUNTRIES } from '../data/people';
 import { QUEST_KINDS } from '../data/quests';
@@ -88,6 +89,20 @@ export function rollQuests(s: GameState): Quest[] {
   for (const q of quests) { const w = questRewardWeapon(s, q, r); if (w) q.rewardWeapon = w; }
   // 13夜目：依頼の場所を勢力図の地域に
   for (const q of quests) if (q.real) { const rg = questRegion(s, q, r); if (rg) q.region = rg; }
+  // 14夜目：争いの地（戦いの最中の地域・依頼主の国から取られた地域・ときどき荒野）の依頼は、危険度が1つ上がる
+  const wars = new Set(warRegions(s));
+  for (const q of quests) {
+    if (!q.real || q.small || !q.region) continue;
+    const rg = REGION_BY_ID[q.region]; if (!rg) continue;
+    const taken = !!q.clientCountry && rg.home === q.clientCountry && ownerOf(s, q.region) !== q.clientCountry;
+    const wild = rg.home === 'wild' && r.chance(B.regions.wildHot);
+    const peaceHot = !wild && s.world.era === 'peace' && r.chance(B.regions.peaceHot);
+    if (!wars.has(q.region) && !taken && !wild && !peaceHot) continue;
+    q.hot = true;
+    if (q.danger < 3) q.danger += 1; else q.level += B.regions.hotLevel;
+    q.level += 1;
+    if (!peaceHot) q.reward = Math.round((q.reward * B.regions.hotReward) / 10) * 10; // 平和な時代の手ごわい依頼は、報酬はそのまま
+  }
   return quests;
 }
 

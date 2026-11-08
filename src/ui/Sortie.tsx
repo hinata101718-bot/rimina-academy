@@ -31,7 +31,7 @@ export function QuestCard({ x, onClick, tag }: { x: Quest; onClick?: () => void;
       <div class="infogrid">
         <div><Icon name={OBJECTIVE_ICON[x.objective]} size={17} />{OBJECTIVE_NAMES[x.objective]}{x.defendTurns && x.objective === 'defend' ? `（${x.defendTurns}ターン）` : ''}</div>
         <div><Icon name={WEATHER_ICON[x.weather]} size={17} />{WEATHER_NAMES[x.weather]}</div>
-        <div>危険度 <Stars n={x.danger} /></div>
+        <div>危険度 <Stars n={x.danger} />{x.hot && <span class="flag red" style={{ marginLeft: 4 }}>争いの地</span>}</div>
         <div><Icon name="coin" size={17} />{x.reward ? <Num v={x.reward.toLocaleString()} unit="G" /> : '報酬なし'}</div>
         {x.rewardWeapon && WEAPONS[x.rewardWeapon] && <div class="q-rw"><Icon name="sword" size={17} />報酬：{WEAPONS[x.rewardWeapon].name}</div>}
         <div><Icon name="target" size={17} />目安 <LvBadge lv={x.level} /></div>
