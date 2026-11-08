@@ -21,7 +21,7 @@ import type { BLog, BattleState } from '../core/battle/types';
 import { STRIKE_VERB, ATTACK_SHOUT } from '../data/autobattle_text';
 import { COUNTRY_SHORT } from '../data/people';
 import { officerById, rivalryOf, stageName, isScout, factionName, rankName, officerName } from '../core/officers';
-import { OFFICER_TRAITS, FACTION_COLOR } from '../data/officers';
+import { OFFICER_TRAITS, FACTION_COLOR, ENEMY_FACES } from '../data/officers';
 import { SCAR_TEXT, SCOUT_TEXT } from '../data/officers_text';
 import { MONTH_NAMES } from '../core/util';
 import { TACTICS, TACTIC_OPTIONS, ROLES, ROLE_IDS, LEADER_NAMES, AUTO, type TacticId, type RoleId } from '../data/autobattle';
@@ -352,6 +352,14 @@ export function AutoBattleView() {
   const [speed, setSpeed0] = useState<Speed>(s?.settings.battleLog ?? 'tap');
   const setSpeed = (v: Speed) => { setSpeed0(v); act((g) => { g.settings.battleLog = v; }); };
   const [logOpen, setLogOpen] = useState(false);
+  // 1つの行動の文は、1行ずつ順に出す（タップすると残りをすぐ出す）
+  const [lineN, setLineN] = useState(1);
+  useEffect(() => {
+    setLineN(1);
+    const ms = 260 * (({ 1: 1.3, 2: 1, 3: 0.65 } as Record<number, number>)[s?.settings.animSpeed ?? 2] ?? 1);
+    const t1 = setTimeout(() => setLineN(2), ms), t2 = setTimeout(() => setLineN(3), ms * 2), t3 = setTimeout(() => setLineN(4), ms * 3);
+    return () => { clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); };
+  }, [pos]);
   const fxLevel: FxLevel = s?.settings.battleFx ?? 'big';
   // 大きな演出（必殺・撃破・倒れた子・宿命の対決・策の発動）。出ている間は止め、タップで早送り
   const [fxq, setFxq] = useState<FxShow[]>([]);
@@ -448,6 +456,16 @@ export function AutoBattleView() {
     const w = u.weaponId ? WEAPONS[u.weaponId]?.type : undefined;
     return <span class={`bl-icon ${u.side === 'enemy' ? 'foe' : ''}`} style={{ width: size, height: size, fontSize: Math.round(size * 0.42) }}>{w ? GRUNT_MARK[w] ?? '兵' : '兵'}</span>;
   };
+  /** 敵の顔：敵将・名のある兵は顔、雑兵も陣営の顔の絵から（同じ顔が並んでもよい）。魔物は印 */
+  const faction = q?.kind === 'monster' ? null : q?.enemyCountry ?? 'bandit';
+  const FoeFace = ({ uid, size }: { uid: string; size: number }) => {
+    const u = b.units.find((x) => x.uid === uid);
+    if (!u || (leader && uid === leader.uid) || u.studentId || a.raised?.some((x) => x.uid === uid) || !faction) return <Face uid={uid} size={size} />;
+    const pool = ENEMY_FACES.filter((f) => f.startsWith(`${faction}_`));
+    if (!pool.length) return <Face uid={uid} size={size} />;
+    let h = 7; for (const c of uid + b.questId) h = (h * 31 + c.charCodeAt(0)) >>> 0;
+    return <OfficerFace o={{ faceImage: pool[h % pool.length], face: leader?.face ?? ({} as never), scars: 0 }} size={size} frame="#8f2a20" s={s} />;
+  };
   const { hp, gone } = hpAt(b, items, pos);
   const allies = b.units.filter((u) => (u.side === 'player' || u.side === 'ally') && (a.hp0?.[u.uid] || hp[u.uid] !== undefined));
   const foes = b.units.filter((u) => u.side === 'enemy' && (a.hp0?.[u.uid] || hp[u.uid] !== undefined)).sort((x, y) => Number(y.uid === leader?.uid || !!y.boss) - Number(x.uid === leader?.uid || !!x.boss));
@@ -455,63 +473,72 @@ export function AutoBattleView() {
   // 今の文（いちばん新しい項目）と、ターン・場面の見出し
   let cur: BItem | null = null; let turn: Extract<BItem, { k: 'turn' }> | null = null; let title = '';
   for (let i = 0; i < Math.min(pos, total); i++) { const it = items[i]; if (it.k === 'turn') turn = it; else if (it.k === 'title') title = it.text; else if (it.k !== 'sync') cur = it; }
-  const shown = items.slice(0, pos).filter((x) => x.k !== 'sync' && x.k !== 'turn' && x.k !== 'title');
   const texts = (it: BItem) => sentences(s, b, it, nameOf, leader);
-  const now = cur ? texts(cur) : [{ cls: 'narr', text: `${b.title}。${leader ? `敵将${leader.name}が待ち受けている。` : '戦いが始まる。'}` }];
-  const prev = shown.length >= 2 ? texts(shown[shown.length - 2]) : [];
-  const windowLines = [...prev.slice(-Math.max(0, 3 - now.length)).map((x) => ({ ...x, old: true })), ...now.map((x) => ({ ...x, old: false }))].slice(-3);
+  const now = cur ? texts(cur) : [{ cls: 'narr', text: `${b.title}。` }, { cls: 'leader', text: leader ? `敵将${leader.name}が待ち受けている。` : '戦いが始まる。' }];
   const act0 = cur && (cur.k === 'atk' || cur.k === 'heal') ? cur.e : null;
   const activeA = act0?.a, activeD = act0?.d;
   const alive = foes.filter((u) => !down(u)).length;
-  const fsz = foes.length > 10 ? 34 : foes.length > 6 ? 42 : 52;
-  const asz = allies.length > 8 ? 28 : allies.length > 4 ? 34 : 44;
-  const wkey = `${pos}`;
+  const n = foes.length;
+  const fsz = n <= 3 ? 104 : n <= 5 ? 84 : n <= 8 ? 64 : n <= 12 ? 52 : 42;
+  const tpl = q ? MAPS[q.template] : null;
+  const indoor = q ? (MAP_TAGS[q.template] ?? []).includes('keep') : false;
+  const numFor = (uid: string) => (act0 && act0.d === uid ? (act0.k === 'heal' ? `+${(act0 as { amt: number }).amt}` : !act0.hit ? 'MISS' : `−${act0.dmg}`) : null);
+  const tapAny = () => { if (fxNow) { dismissFx(); return; } if (speed !== 'tap' || atChoice) return; if (lineN < now.length) { setLineN(now.length); return; } tapNext(); };
+  const stop = (e: Event) => e.stopPropagation();
   return (
-    <div class="ab-view rb-view">
-      <div class="rb-top">
-        <span class="rb-turn">{turn ? `ターン${turn.turn}・${turn.side === 'player' ? '味方の番' : '敵の番'}` : '開戦'}</span>
-        {q && <span class="rb-where small"><Icon name={WEATHER_ICON[q.weather]} size={14} />{MAPS[q.template]?.name ?? ''}・{WEATHER_NAMES[q.weather]}</span>}
-        <span class="rb-count small">敵 {alive}／{foes.length}</span>
-      </div>
-      {s.sortie && s.sortie.squads.length > 1 && <div class="small rb-squad"><b>{SQUAD_LABEL[s.sortie.idx]}</b>（{s.sortie.idx + 1}／{s.sortie.squads.length}）{a.plan?.captain && s.students[a.plan.captain] ? `・部隊長 ${s.students[a.plan.captain].given}` : ''}{title ? `・${title}` : ''}</div>}
-      <div class="rb-foes">
-        {foes.slice(0, 14).map((u) => {
-          const v = hp[u.uid] ?? u.maxHp;
-          const L = leader && u.uid === leader.uid;
-          return (
-            <div class={`rb-foe${down(u) ? ' down' : ''}${u.uid === activeA || u.uid === activeD ? ' on' : ''}${L ? ' lead' : ''}`}>
-              <span class="rb-circ"><Face uid={u.uid} size={fsz} /></span>
-              <span class="rb-fn">{nameOf(u.uid)}</span>
-              <span class="rb-bar"><span style={{ width: `${down(u) ? 0 : Math.max(0, Math.min(100, (v / Math.max(1, u.maxHp)) * 100))}%` }} /></span>
-            </div>
-          );
-        })}
-        {foes.length > 14 && <span class="small muted">ほか{foes.length - 14}人</span>}
-      </div>
-      <div class="rb-stage" onClick={() => { if (speed === 'tap') tapNext(); }}>
-        <Stage s={s} b={b} it={cur} key={wkey} Face={Face} nameOf={nameOf} leader={leader} fx={fxLevel} />
-      </div>
-      <div class="rb-window" onClick={() => { if (speed === 'tap') tapNext(); else setSpeed('tap'); }}>
-        {windowLines.map((l) => <div class={`rb-line ${l.cls}${l.old ? ' old' : ''}`}>{l.tag && <span class={`rb-tag ${l.cls}`}>{l.tag}</span>}{l.text}</div>)}
-        {!atLogEnd && speed === 'tap' && !fxNow && <span class="rb-tap">▼ タップ</span>}
-      </div>
-      <div class={`rb-allies${allies.length > 8 ? ' many' : ''}`}>
+    <div class="ab-view rb-view dq" onClick={tapAny}>
+      <div class="dq-party">
         {allies.slice(0, 12).map((u) => {
           const v = hp[u.uid] ?? u.maxHp;
           const p = Math.max(0, Math.min(100, (v / Math.max(1, u.maxHp)) * 100));
+          const num = numFor(u.uid);
           return (
-            <div class={`rb-ally${down(u) ? ' down' : ''}${u.uid === activeA || u.uid === activeD ? ' on' : ''}`}>
-              <Face uid={u.uid} size={asz} />
-              <b class="rb-an">{nameOf(u.uid)}</b>
-              <span class="rb-hp">{down(u) ? '―' : `${Math.max(0, v)}/${u.maxHp}`}</span>
+            <div class={`dq-mem${down(u) ? ' down' : ''}${u.uid === activeA ? ' act' : ''}${u.uid === activeD && act0?.k === 'atk' && (act0 as { hit: boolean }).hit ? ' hit' : ''}`} key={u.uid}>
+              <span class="dq-face"><Face uid={u.uid} size={allies.length > 8 ? 30 : allies.length > 5 ? 36 : 44} />{num && <span class={`dq-num${act0?.k === 'heal' ? ' heal' : ''}`} key={`${pos}`}>{num}</span>}</span>
+              <b class="dq-n">{nameOf(u.uid)}</b>
+              <span class={`dq-hp${p <= 33 ? ' low' : p <= 60 ? ' mid' : ''}`}>HP {down(u) ? 0 : Math.max(0, v)}</span>
               <span class="rb-bar ally"><span class={p <= 33 ? 'low' : p <= 60 ? 'mid' : ''} style={{ width: `${down(u) ? 0 : p}%` }} /></span>
-              {u.studentId && a.roles?.[u.studentId] && <span class="rb-row">{ROW_NAMES[(rowOf(a, u.studentId))]}</span>}
             </div>
           );
         })}
       </div>
+      <div class="dq-turn serif">― {turn ? `ターン${turn.turn}・${turn.side === 'player' ? '味方の番' : '敵の番'}` : '開戦'} ―</div>
+      <div class="dq-info small">
+        {s.sortie && s.sortie.squads.length > 1 && <span><b>{SQUAD_LABEL[s.sortie.idx]}</b>{a.plan?.captain && s.students[a.plan.captain] ? `・部隊長 ${s.students[a.plan.captain].given}` : ''}</span>}
+        <span>{tpl?.name ?? ''}{q ? (indoor ? '・屋内' : `・${WEATHER_NAMES[q.weather]}`) : ''}{title ? `・${title}` : ''}</span>
+        <span>敵 {alive}／{n}</span>
+      </div>
+      <div class={`dq-field${n > 8 ? ' many' : ''}`}>
+        {act0 && <div class="rb-label">{nameOf(act0.a)} ▶ {nameOf(act0.d)}</div>}
+        <div class="dq-foes">
+          {foes.slice(0, 14).map((u) => {
+            const v = hp[u.uid] ?? u.maxHp;
+            const L = !!leader && u.uid === leader.uid;
+            const isA = u.uid === activeA, isD = u.uid === activeD;
+            const hitNow = isD && act0?.k === 'atk' && (act0 as { hit: boolean }).hit;
+            const wt = act0?.w ? WEAPONS[act0.w]?.type : undefined;
+            const num = numFor(u.uid);
+            return (
+              <div class={`dq-foe${down(u) ? ' down' : ''}${L || u.boss ? ' lead' : ''}${isA ? ' act' : ''}${hitNow ? ' hit' : ''}`} key={u.uid}>
+                <span class={`dq-card${hitNow && fxLevel !== 'low' ? ` fx-hit w-${wt ?? 'none'}` : ''}`} key={hitNow ? `h${pos}` : 'n'}>
+                  <FoeFace uid={u.uid} size={Math.round(fsz * (L ? 1.25 : 1))} />
+                  {hitNow && fxLevel !== 'low' && <span class="fx-slash" />}
+                  {num && isD && <span class={`dq-num big${(act0 as { crit?: boolean }).crit ? ' crit' : ''}`}>{num}</span>}
+                </span>
+                <span class="dq-fn">{nameOf(u.uid)}</span>
+                <span class="rb-bar"><span style={{ width: `${down(u) ? 0 : Math.max(0, Math.min(100, (v / Math.max(1, u.maxHp)) * 100))}%` }} /></span>
+              </div>
+            );
+          })}
+          {n > 14 && <span class="small muted">ほか{n - 14}人</span>}
+        </div>
+      </div>
+      <div class="dq-msg">
+        {now.slice(0, Math.max(1, lineN)).map((l) => <div class={`dq-line ${l.cls}`}>{l.tag && <span class={`rb-tag ${l.cls}`}>{l.tag}</span>}{l.text}</div>)}
+        {!atLogEnd && speed === 'tap' && !fxNow && lineN >= now.length && <span class="dq-tri">▼</span>}
+      </div>
       {atChoice && a.choice && !fxNow && (
-        <div class="ab-choice rb-choice">
+        <div class="ab-choice rb-choice" onClick={stop}>
           <div class={`ab-cprompt${a.choice.duo ? ' duo' : ''}`}><Icon name={a.choice.duo ? 'flame' : a.choice.kind === 'wait' ? 'scroll' : 'bell'} size={18} /> {a.choice.duo ? '宿命の対決' : a.choice.kind === 'wait' ? '策を切る' : 'ここぞの判断'}</div>
           {a.choice.duo && a.choice.actor && s.students[a.choice.actor] && leader && (
             <div class="ab-duo small">
@@ -530,25 +557,27 @@ export function AutoBattleView() {
         </div>
       )}
       {fxNow && <FxOverlay s={s} b={b} fx={fxNow} level={fxLevel} leader={leader} leaderColor={leaderColor} nameOf={nameOf} onTap={dismissFx} />}
-      {atEnd && <button class="btn primary block ab-endbtn" onClick={() => { sfx('ok'); act((g) => finishBattle(g)); }}>{nextSquad ? `${SQUAD_LABEL[nextIdx]}の戦いへ` : s.sortie && s.sortie.idx < s.sortie.squads.length - 1 ? 'ほかの部隊の結果を待つ' : '結果を見る'}</button>}
+      {atEnd && <button class="btn primary block ab-endbtn" onClick={(e) => { stop(e); sfx('ok'); act((g) => finishBattle(g)); }}>{nextSquad ? `${SQUAD_LABEL[nextIdx]}の戦いへ` : s.sortie && s.sortie.idx < s.sortie.squads.length - 1 ? 'ほかの部隊の結果を待つ' : '結果を見る'}</button>}
       {!atEnd && !atChoice && (
-        <div class="rb-ctrl">
-          <button class={`btn${speed === 'tap' ? ' primary' : ''}`} onClick={() => { if (speed === 'tap') tapNext(); else setSpeed('tap'); }}>タップで</button>
+        <div class="rb-ctrl" onClick={stop}>
+          <button class={`btn${speed === 'tap' ? ' primary' : ''}`} onClick={() => { if (speed === 'tap') tapAny(); else setSpeed('tap'); }}>タップで</button>
           <button class={`btn${speed !== 'tap' ? ' primary' : ''}`} onClick={() => setSpeed(speed === 'normal' ? 'fast' : 'normal')}>{speed === 'fast' ? '自動で（速く）' : '自動で'}</button>
           <button class="btn" onClick={() => { sfx('move'); setLogOpen(true); }}>文を見返す</button>
           <button class="btn" onClick={() => { if (!confirm(`残りの判断はおすすめを選んで、${nextSquad ? 'この部隊の戦いを終えます' : '結果まで進めます'}。よろしいですか？`)) return; sfx('ok'); act((g) => { skipAuto(g, battleCtx(g)); finishBattle(g); }); }}>結果へ</button>
         </div>
       )}
       {logOpen && (
-        <Sheet title="これまでの文" onClose={() => setLogOpen(false)}>
-          <div class="rb-log">
-            {items.slice(0, pos).filter((x) => x.k !== 'sync').map((it) => {
-              if (it.k === 'turn') return <div class={`bl-turn ${it.side}`}>ターン{it.turn}・{it.side === 'player' ? '味方の番' : '敵の番'}</div>;
-              if (it.k === 'title') return <div class="bl-turn title">― {it.text} ―</div>;
-              return <div class="rb-logitem">{texts(it).map((l) => <div class={`rb-line ${l.cls}`}>{l.tag && <span class={`rb-tag ${l.cls}`}>{l.tag}</span>}{l.text}</div>)}</div>;
-            })}
-          </div>
-        </Sheet>
+        <div onClick={stop}>
+          <Sheet title="これまでの文" onClose={() => setLogOpen(false)}>
+            <div class="rb-log">
+              {items.slice(0, pos).filter((x) => x.k !== 'sync').map((it) => {
+                if (it.k === 'turn') return <div class={`bl-turn ${it.side}`}>ターン{it.turn}・{it.side === 'player' ? '味方の番' : '敵の番'}</div>;
+                if (it.k === 'title') return <div class="bl-turn title">― {it.text} ―</div>;
+                return <div class="rb-logitem">{texts(it).map((l) => <div class={`rb-line ${l.cls}`}>{l.tag && <span class={`rb-tag ${l.cls}`}>{l.tag}</span>}{l.text}</div>)}</div>;
+              })}
+            </div>
+          </Sheet>
+        </div>
       )}
     </div>
   );
@@ -558,50 +587,6 @@ function rowOf(a: NonNullable<BattleState['auto']>, id: string): 'front' | 'back
   return a.plan?.rows?.[id] ?? defaultRow(a.roles[id]);
 }
 
-/** まんなか：いま攻撃している子と受けている子だけを大きく。ふだんの攻撃は揺れと数字だけ */
-function Stage({ s, b, it, Face, nameOf, leader, fx }: { s: GameState; b: BattleState; it: BItem | null; Face: (p: { uid: string; size: number }) => preact.JSX.Element; nameOf: (uid: string) => string; leader: LeaderInfo | null; fx: FxLevel }) {
-  if (!it) return <div class="rb-empty serif">― {b.title} ―</div>;
-  if (it.k === 'atk' || it.k === 'heal') {
-    const e = it.e;
-    const atk = e.k === 'atk' ? e : null;
-    const heal = e.k === 'heal';
-    const live = fx !== 'low';
-    const du = b.units.find((u) => u.uid === e.d);
-    return (
-      <>
-        <div class="rb-label">{nameOf(e.a)} ▶ {nameOf(e.d)}</div>
-        <div class="rb-duo">
-          <div class={`rb-card ${sideCls(b, e.a)}`}><Face uid={e.a} size={104} /><b>{nameOf(e.a)}</b></div>
-          <span class="rb-arrow">▶</span>
-          <div class={`rb-card ${sideCls(b, e.d)}${atk?.hit && live ? ' shake' : ''}${atk?.kill ? ' ko' : ''}`}>
-            <Face uid={e.d} size={104} /><b>{nameOf(e.d)}</b>
-            {heal ? <span class="rb-num heal">+{(e as { amt: number }).amt}</span> : atk && !atk.hit ? <span class="rb-num miss">MISS</span> : <span class={`rb-num${atk?.crit ? ' crit' : ''}`}>−{atk?.dmg ?? 0}</span>}
-            {atk?.kill && du?.side === 'enemy' && live && <span class="fx-ministamp">撃破</span>}
-          </div>
-        </div>
-      </>
-    );
-  }
-  if (it.k === 'group') {
-    return (
-      <>
-        <div class="rb-label">{nameOf(it.names[0]).replace(/[A-Z]$/, '')}たち</div>
-        <div class="rb-duo"><div class="rb-card foe"><span class="bl-icon foe" style={{ width: 96, height: 96, fontSize: 30 }}>{it.count}人</span><b>まとめて攻撃</b></div>{it.total > 0 && <span class="rb-num">−{it.total}</span>}</div>
-      </>
-    );
-  }
-  if (it.k === 'band') {
-    const l = it.line;
-    const st = s.students[l.by];
-    if (l.by === 'leader' && leader) return <div class="rb-duo"><div class="rb-card foe"><Face uid={leader.uid} size={110} /><b>{leader.name}</b></div></div>;
-    if (st) { const u = b.units.find((x) => x.studentId === st.id); return <div class="rb-duo"><div class="rb-card ally">{u ? <Face uid={u.uid} size={110} /> : <Portrait st={st} size={110} />}<b>{st.given}</b></div></div>; }
-    if (l.by === 'strat' || l.by === 'stratng') return <div class={`rb-stratmark ${l.by}`}><span class="serif">策</span></div>;
-    if (l.by === 'loot') return <div class="rb-lootmark"><Icon name="sword" size={56} /></div>;
-    if (l.by.startsWith('raise:')) { const g = b.auto?.raised?.[Number(l.by.slice(6))]; return g ? <div class="rb-duo"><div class="rb-card foe"><OfficerFace o={{ faceImage: g.faceImage, face: g.face, scars: 0 }} size={110} frame="#8f2a20" s={s} /><b>{g.given}</b></div></div> : null; }
-    return <div class="rb-empty serif">⚡</div>;
-  }
-  return null;
-}
 function sideCls(b: BattleState, uid: string): string { return b.units.find((x) => x.uid === uid)?.side === 'enemy' ? 'foe' : 'ally'; }
 
 /** 文の窓の文（1つの項目を1〜3文に）。cls＝色（strat＝黄・leader＝赤・ally・foe・narr） */
@@ -630,15 +615,16 @@ function sentences(s: GameState, b: BattleState, it: BItem, nameOf: (uid: string
   const A = nameOf(e.a), D = nameOf(e.d);
   const w = e.w ? WEAPONS[e.w] : null;
   const side = sideCls(b, e.a) === 'foe' ? 'foe' : 'ally';
-  if (e.k === 'heal') return e.a === e.d ? [{ cls: side, text: `${A}は${e.w === 'elixir' ? '特効薬' : '傷薬'}を使った。` }, { cls: 'heal', text: `HPが${e.amt}回復した！` }]
-    : [{ cls: side, text: `${A}は${w?.name ?? '杖'}をかざした。` }, { cls: 'heal', text: `${D}のHPが${e.amt}回復した！` }];
+  if (e.k === 'heal') return e.a === e.d ? [{ cls: side, text: `${A}は${e.w === 'elixir' ? '特効薬' : '傷薬'}を使った！` }, { cls: 'heal', text: `${A}のHPが ${e.amt}回復した！` }]
+    : [{ cls: side, text: `${A}は${w?.name ?? '杖'}を唱えた！` }, { cls: 'heal', text: `${D}のHPが ${e.amt}回復した！` }];
   const out: WLine[] = [];
-  const head = e.role === 'counter' ? '反撃！ ' : e.role === 'follow' ? '追撃！ ' : e.role === 'duel' ? '一騎打ち！ ' : '';
+  // 10夜目の途中：1回の行動＝2行（ドラクエのような流れ）。反撃・追撃も同じ形
   const isMagic = w?.type === 'magic' || w?.type === 'holy';
-  out.push({ cls: side, text: `${head}${A}の${isMagic ? `${w!.name}！` : '攻撃！'}${e.eff ? '（特効）' : e.tri > 0 ? '（相性がいい）' : e.tri < 0 ? '（相性が悪い）' : ''}` });
+  const verb = e.role === 'counter' ? '反撃' : e.role === 'follow' ? '追撃' : e.role === 'duel' ? '一騎打ち' : '攻撃';
+  out.push({ cls: side, text: isMagic && e.role !== 'counter' && e.role !== 'follow' ? `${A}は${w!.name}を唱えた！` : `${A}の${verb}！${e.eff ? '　特効！' : ''}` });
   const du = b.units.find((u) => u.uid === e.d);
-  if (!e.hit) out.push({ cls: 'narr', text: `${D}はひらりとかわした！` });
-  else out.push({ cls: 'dmg', text: `${e.crit ? '必殺の一撃！ ' : ''}${D}に${e.dmg}のダメージ！` });
+  if (!e.hit) out.push({ cls: 'narr', text: `${D}は ひらりとかわした！` });
+  else out.push({ cls: 'dmg', text: `${e.crit ? '会心の一撃！ ' : ''}${D}に ${e.dmg}のダメージ！` });
   if (e.kill) out.push({ cls: du?.side === 'enemy' ? 'narr' : 'down', text: du?.side === 'enemy' ? `${D}を倒した！` : `${D}は倒れた……` });
   else if (e.hit && e.hp1 > 0 && e.hp1 <= e.max * 0.25) out.push({ cls: 'narr', text: `${D}はひざをついた……` });
   return out;

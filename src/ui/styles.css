@@ -1527,3 +1527,44 @@ i.apt { font-style: normal; display: inline-flex; align-items: center; justify-c
 @media (max-width: 400px) { .sq-leadnote { padding-left: 0; } }
 .ofc-trait.style { background: #3a2a1c; color: #f1d38a; border-color: #8a6a3a; }
 .ofc-mini span:not(.w):not(.st):not(.q) { background: #3a2a1c; color: #f1d38a; }
+/* 10夜目の途中：ドラクエのような戦いの画面（見本 battle-rpg2.png） */
+.rb-view.dq { gap: 5px; }
+.dq-party { flex: none; display: grid; grid-template-columns: repeat(auto-fit, minmax(68px, 1fr)); gap: 4px; background: #120c08; border: 3px double #e8dcc0; border-radius: 10px; padding: 5px; max-height: 30vh; overflow-y: auto; }
+.dq-mem { position: relative; display: flex; flex-direction: column; align-items: center; gap: 1px; padding: 4px 2px; border: 2px solid transparent; border-radius: 8px; line-height: 1.15; transition: background .2s; }
+.dq-mem.act { border-color: #5a8ad8; background: rgba(60, 100, 180, .35); box-shadow: 0 0 8px rgba(90, 140, 230, .7); }
+.dq-mem.hit { border-color: #d8503a; background: rgba(160, 40, 30, .45); animation: fxShake .4s; }
+.dq-mem.down { opacity: .4; filter: grayscale(1); }
+.dq-face { position: relative; line-height: 0; }
+.dq-n { font-size: 12px; color: #fff; white-space: nowrap; max-width: 72px; overflow: hidden; text-overflow: ellipsis; }
+.dq-hp { font-size: 11px; color: #8fe08a; }
+.dq-hp.mid { color: #e8c45a; } .dq-hp.low { color: #ff8a70; }
+.dq-num { position: absolute; left: 50%; top: 40%; transform: translate(-50%, -50%); font-family: var(--mincho); font-weight: 900; font-size: 26px; color: #fff; text-shadow: 2px 2px 0 #a8321f, 0 0 6px #000; animation: fxPop .5s cubic-bezier(.2, 1.8, .4, 1) both; white-space: nowrap; pointer-events: none; z-index: 3; }
+.dq-num.heal { text-shadow: 2px 2px 0 #1f6a32, 0 0 6px #000; color: #c8ffd0; }
+.dq-num.big { font-size: 44px; top: 30%; }
+.dq-num.big.crit { font-size: 56px; color: #ffe0a0; }
+.dq-turn { flex: none; text-align: center; color: #e8c45a; letter-spacing: .3em; font-size: 15px; }
+.dq-info { flex: none; display: flex; justify-content: space-between; gap: 6px; color: #d9c59c; flex-wrap: wrap; }
+.dq-field { flex: 1; min-height: 160px; position: relative; display: flex; align-items: center; justify-content: center; border: 2px solid #8a6a3a; border-radius: 12px; background: radial-gradient(ellipse at 50% 35%, #56653f, #2b3322 80%); box-shadow: inset 0 0 20px rgba(0,0,0,.5); overflow: hidden; padding: 28px 6px 8px; }
+.dq-foes { display: flex; flex-wrap: wrap; justify-content: center; align-items: flex-end; gap: 6px 8px; }
+.dq-foe { display: flex; flex-direction: column; align-items: center; gap: 3px; transition: transform .25s, opacity .4s; }
+.dq-foe.act { transform: translateY(8px) scale(1.06); }
+.dq-foe.act .dq-card > :first-child { box-shadow: 0 0 0 3px #f1d38a, 0 0 16px 5px rgba(240, 200, 90, .8); }
+.dq-foe.lead .dq-card > :first-child { box-shadow: 0 0 0 3px #d6ae4f; }
+.dq-foe.hit .dq-card > :first-child { box-shadow: 0 0 0 3px #e0503a, 0 0 14px 4px rgba(230, 80, 50, .8); }
+.dq-foe.down { opacity: .25; filter: grayscale(1); }
+.dq-card { position: relative; line-height: 0; border-radius: 10px; }
+.dq-card.fx-hit > :first-child { animation: fxShake .4s; }
+.dq-fn { font-size: 12px; font-weight: bold; color: #fff; text-shadow: 0 1px 2px #000; white-space: nowrap; max-width: 110px; overflow: hidden; text-overflow: ellipsis; }
+.dq-foe .rb-bar { min-width: 44px; }
+.dq-msg { position: relative; flex: none; min-height: 96px; background: #120c08; color: #fff; border: 3px double #e8dcc0; border-radius: 10px; padding: 10px 14px 20px; font-family: var(--mincho); }
+.dq-line { font-size: 18px; line-height: 1.6; animation: abIn .18s; }
+.dq-line.foe { color: #ff9a8a; }
+.dq-line.dmg { color: #f6d27a; font-weight: bold; font-size: 19px; }
+.dq-line.heal { color: #9ef0a8; font-weight: bold; }
+.dq-line.down { color: #c8b8e8; font-weight: bold; }
+.dq-line.leader { color: #ff9a8a; font-weight: bold; }
+.dq-line.strat, .dq-line.loot { color: #f1d38a; }
+.dq-line.stratng { color: #b5ac9c; }
+.dq-line.narr { color: #e8e0d0; }
+.dq-tri { position: absolute; right: 14px; bottom: 6px; color: #e8c45a; font-size: 18px; animation: abBlink 1.1s infinite; }
+@media (max-width: 380px) { .dq-line { font-size: 16px; } .dq-line.dmg { font-size: 17px; } }
