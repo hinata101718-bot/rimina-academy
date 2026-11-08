@@ -1,4 +1,7 @@
 // 戦闘の結果（9夜目）：生徒ごとの評価（称号・名場面・ひとこと・戦績・伸び・宿敵）、3部隊の結果をまとめた1枚、新しい策を覚えた演出
+import { rarityOf, itemName, itemMod } from '../core/rarity';
+import { RARITY_COLOR, RARITY_NAME, AFFIXES } from '../data/rarity';
+import type { ArmoryItem } from '../core/state';
 import { useEffect, useState } from 'preact/hooks';
 import { Sheet } from './common';
 import { Portrait, OfficerFace } from './Portrait';
@@ -128,11 +131,13 @@ export function LootView({ s, items, onDone }: { s: GameState; items: LootItem[]
   return (
     <div class="dc-wrap stage3 lt-wrap" onClick={() => { if (!lit) setLit(true); else next(); }}>
       <div class="dc-title">戦利品{items.length > 1 ? `（${i + 1}／${items.length}）` : ''}</div>
-      <div class={`lt-card${lit ? ' lit' : ''}${x.named ? ' named' : ''}`} key={i}>
+      <div class={`lt-card rar-${rarityOf(x)}${lit ? ' lit' : ''}${x.named ? ' named' : ''}`} key={i} style={{ ['--rar' as string]: RARITY_COLOR[rarityOf(x)] }}>
+        <span class="rar-tag">{RARITY_NAME[rarityOf(x)]}</span>
         <span class="lt-icon"><Icon name={({ sword: 'sword', lance: 'lance', axe: 'axe', bow: 'bow', gun: 'gun' } as Record<string, string>)[w?.type ?? ''] ?? 'sword'} size={44} /></span>
-        <b class="serif">{x.named?.name ?? w?.name}</b>
+        <b class="serif">{itemName(x)}</b>
         {x.named && <small>銘入り・{w?.name}</small>}
-        <small class="muted">{w ? `威力${w.might + (x.named?.might ?? 0)}・命中${w.hit + (x.named?.hit ?? 0)}・必要な技能${w.rank}` : ''}</small>
+        {(x.affix ?? []).length > 0 && <small>{(x.affix ?? []).map((k) => `${AFFIXES[k].name}：${AFFIXES[k].text}`).join('　')}</small>}
+        <small class="muted">{w ? `威力${w.might + (itemMod(x as ArmoryItem).dmg ?? 0)}・命中${w.hit + (itemMod(x as ArmoryItem).hit ?? 0)}・必要な技能${w.rank}` : ''}</small>
       </div>
       <div class={`dc-text${lit ? ' show' : ''}`}><p>{x.from}</p>{x.named && <p class="small">{x.named.story}</p>}</div>
       {by && <div class="row nowrap gap6 ns-by"><Portrait st={by} size={40} frame={countryColor(by.origin)} /><span class="small">{by.given}が手に入れた</span></div>}

@@ -20,6 +20,7 @@ import { autoTargets } from './week';
 import { fx } from './mentor';
 import { startNewsDesk } from './newspaper';
 import { markYear } from './review';
+import { ensureLegends } from './rarity';
 
 export function defaultSettings(): Settings {
   return {
@@ -80,6 +81,7 @@ export function newGame(opts: { name: string; background: string; seed: number; 
   s.officers = []; s.rivalries = {};
   s.strats = [...START_STRATS];
   ensureRosters(s, r);
+  ensureLegends(s, r); // 14夜目：伝説の武器の行方
   startNewsDesk(s);
   if (opts.tutorial) s.tutorial = { tour: 0, seen: [] }; // 14夜目：最初の1時間の案内
   s.quests = rollQuests(s);

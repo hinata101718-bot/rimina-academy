@@ -63,6 +63,7 @@ export function bestArmoryWeapon(s: GameState, st: Student, used: Set<string>, s
     const w = WEAPONS[a.weaponId];
     if (!w || (w.type === 'staff') !== staff || !canEquip(st, a.weaponId)) continue;
     const score = armScore(st, a);
+    if (score < 0) continue;
     if (!best || score > best.score) best = { uid: a.uid, score };
   }
   return best?.uid ?? null;

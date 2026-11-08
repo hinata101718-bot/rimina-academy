@@ -84,7 +84,7 @@ export function rollSides(s: GameState, rng: Rng, talked: Set<string>, lines?: s
 /** 処理待ちの並びを整える：from 以降に積まれた演出（発見・ランクアップ）を、後ろへ回す */
 export function deferShows(s: GameState, from: number): void {
   const moved: Pending[] = [];
-  s.pending = s.pending.filter((p, i) => { if (i >= from && (p.type === 'discovery' || p.type === 'rankup' || p.type === 'newStrat')) { moved.push(p); return false; } return true; });
+  s.pending = s.pending.filter((p, i) => { if (i >= from && (p.type === 'discovery' || p.type === 'rankup' || p.type === 'newStrat' || p.type === 'legend' || p.type === 'guide')) { moved.push(p); return false; } return true; });
   s.pending.push(...moved);
 }
 

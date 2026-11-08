@@ -185,6 +185,8 @@ export interface ArmoryItem { uid: string; weaponId: string; engraved?: string;
   named?: { name: string; story: string; officerId?: string; by?: string; year: number; might: number; hit: number; crit: number };
   /** 手に入れたわけ（雑兵の落とし物・依頼の報酬・国から） */
   got?: { kind: LootItem['kind']; year: number; text: string };
+  /** 14夜目：添え名（data/rarity.ts の AFFIXES）・伝説の武器の id・使った子ごとの回数（愛用の武器） */
+  affix?: string[]; legend?: string; uses?: Record<string, number>;
 }
 
 export interface Instructor {
@@ -406,6 +408,8 @@ export type Pending =
   | { type: 'event'; title: string; lines: string[] }
   /** 14夜目：案内役（管理人）の短い説明。はじめて出たときだけ */
   | { type: 'guide'; key: string; title: string; lines: string[] }
+  /** 14夜目：伝説の武器が手に入った（大きな演出） */
+  | { type: 'legend'; id: string; uid: string }
   /** 14夜目：1年の振り返り（年度末、卒業式のあと） */
   | { type: 'yearReview'; year: number }
   | { type: 'entrance' }
@@ -440,7 +444,7 @@ export interface BattleReport {
   loot?: LootItem[];
 }
 /** 戦利品（10夜目） */
-export interface LootItem { uid?: string; weaponId: string; from: string; kind: 'drop' | 'named' | 'reward' | 'gift'; named?: ArmoryItem['named'] }
+export interface LootItem { uid?: string; weaponId: string; from: string; kind: 'drop' | 'named' | 'reward' | 'gift' | 'legend'; affix?: string[]; legend?: string; named?: ArmoryItem['named'] }
 /** 戦闘後の生徒ごとの評価（9夜目） */
 export interface StudentEval {
   id: string; grade: string;
@@ -544,6 +548,9 @@ export interface Settings {
 
 export interface Applicant { student: Student }
 
+/** 伝説の武器の行方（14夜目）。none＝行方知れず、officer＝敵将が持つ、school＝武器庫、alumni＝卒業生が持っていった */
+export interface LegendState { holder: 'none' | 'officer' | 'school' | 'alumni'; officerId?: string; studentId?: string; uid?: string; log: { year: number; text: string }[] }
+
 /** 1年の振り返り（14夜目）。年鑑に残る。rebuilt＝古いセーブで年表から作った（数字の一部がない） */
 export interface YearReview {
   year: number; title: string;
@@ -629,6 +636,9 @@ export interface GameState {
   sortie?: Sortie | null;
   /** 学校で使える策（9夜目。data/stratagems.ts の id） */
   strats?: string[];
+  /** 14夜目：伝説の武器の行方（id → いまの持ち主）と、武器の図鑑（手に入れたことのある武器・伝説の武器の id） */
+  legends?: Record<string, LegendState>;
+  weaponSeen?: string[];
   /** 14夜目：年ごとの振り返りと、年のはじめの控え */
   reviews?: YearReview[];
   yearMark?: YearMark;

@@ -33,6 +33,7 @@ import { B, RANK_POINTS } from '../data/balance';
 import { rankOf } from '../core/util';
 import { usableSpells } from '../core/spells';
 import { armoryItem, armoryName, isStock, stockList } from '../core/loot';
+import { legendFits } from '../core/rarity';
 import { PROSE_DENSE, PROSE_BRUTAL, PROSE_FALL } from '../data/warprose';
 import { ARTS } from '../data/arts';
 import { officerArts, artsLabel } from '../core/arts';
@@ -254,7 +255,7 @@ export function SquadEditor({ s, draft, setDraft, limit, exclude, usedArms, ques
               <div class="row ruled">
                 <select value={d.armoryUid ?? ''} onChange={(e) => setDeploy(deploy.map((x) => x.studentId === st.id ? { ...x, armoryUid: (e.target as HTMLSelectElement).value || null } : x))}>
                   <option value="">武器なし</option>
-                  {arms.map((a) => <option value={a.uid}>{armoryName(a)}{isStock(a.uid) ? '（学校の備え）' : a.engraved ? `（${a.engraved}の遺品）` : a.named ? '（銘入り）' : ''}</option>)}
+                  {arms.map((a) => <option value={a.uid} disabled={!!a.legend && !legendFits(st, a.legend)}>{armoryName(a)}{isStock(a.uid) ? '（学校の備え）' : a.engraved ? `（${a.engraved}の遺品）` : a.legend ? (legendFits(st, a.legend) ? '（伝説）' : '（伝説・持ち主を選ぶ）') : a.named ? '（ユニーク）' : '（レア）'}</option>)}
                 </select>
                 <select value={d.item ?? ''} onChange={(e) => setDeploy(deploy.map((x) => x.studentId === st.id ? { ...x, item: ((e.target as HTMLSelectElement).value || null) as Deploy['item'] } : x))}>
                   <option value="">道具なし</option>

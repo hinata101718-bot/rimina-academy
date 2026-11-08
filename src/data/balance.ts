@@ -63,11 +63,16 @@ export const B = {
     namedSteelLv: 18, namedSilverLv: 32,
     named: { might: 1, hit: 5, crit: 0 },
     /** 12夜目：ふつうの隊長を討ったとき、銘入りの武器が手に入る見込み（宿敵・因縁・幹部以上・将軍は必ず） */
-    namedChance: 0.3,
+    namedChance: 0.12, // 14夜目：0.3→0.12（ユニークが1年に2〜3本になるように）
     /** 依頼の報酬に武器がつく確率（実戦・危険度2以上） */
     questChance: 0.18,
     /** 評判の段階が上がったとき、国から届く武器 */
     giftOnRank: true,
+    /** 14夜目：レアに添え名がつく確率、落とし物が「変わった武器」（キルソード・手槍など）になる確率 */
+    rareAffixChance: 0.5, specialChance: 0.15,
+    /** 14夜目：伝説の武器。はじめに敵の将軍が持っている数、年に一度の「古戦場で見つかる」見込み、
+     *  生涯の宿敵との決着のあとに見つかる見込み、戦争を終わらせたときに三国から贈られるか */
+    legendHeld: 4, legendFind: 0.015, legendRival: 0.35, legendEnding: true,
   },
   // ---- 生徒 ----
   student: {

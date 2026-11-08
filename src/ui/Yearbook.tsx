@@ -15,6 +15,7 @@ import { NewsView } from './Pending';
 import { MiniCard, CountryChip, countryColor } from './cards';
 import { Icon } from './icons';
 import { ReviewList } from './Review';
+import { LegendWhereabouts } from './Legend';
 
 export function YearbookTab() {
   const { s } = useStore();
@@ -30,7 +31,7 @@ export function YearbookTab() {
       {tab === 'photos' && <Photos s={s} />}
       {tab === 'review' && <ReviewList s={s} />}
       {tab === 'chronicle' && <Chronicle s={s} />}
-      {tab === 'records' && <Records s={s} />}
+      {tab === 'records' && <><Records s={s} /><LegendWhereabouts s={s} /></>}
       {tab === 'news' && <News s={s} />}
       {tab === 'hall' && <Hall s={s} />}
     </div>

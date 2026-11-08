@@ -5,6 +5,8 @@ import type { WeaponType } from './types';
 import type { GameState, ArmoryItem, LootItem, Quest, Student } from './state';
 import type { BattleState, Unit } from './battle/types';
 import { Rng } from './rng';
+import { itemName, rollAffix, legendOfOfficer, legendLoot, unclaimedLegend, legendTaken, seeWeapon, itemMod, modScore, legendFits } from './rarity';
+import { tip } from './tutorial';
 
 /** 学校の備え（鉄の武器。数の制限なし）。出撃の割り当てでは uid を「stock:武器id」で表す */
 export const STOCK: Partial<Record<WeaponType, string>> = { sword: 'iron_sword', lance: 'iron_lance', axe: 'iron_axe', bow: 'iron_bow', gun: 'matchlock' };
@@ -18,12 +20,14 @@ export function armoryItem(s: GameState, uid: string | null | undefined): Armory
   return s.armory.find((a) => a.uid === uid) ?? null;
 }
 /** 武器の名前（銘入りは銘） */
-export function armoryName(a: ArmoryItem | null | undefined): string { return a ? a.named?.name ?? WEAPONS[a.weaponId]?.name ?? '' : ''; }
+export function armoryName(a: ArmoryItem | null | undefined): string { return a ? itemName(a) : ''; } // 14夜目：伝説の名・銘・添え名つき
 /** 学校の備えで使える鉄の武器（銃は銃の登場後） */
 export function stockList(s: GameState): ArmoryItem[] {
   return Object.values(STOCK).filter((id): id is string => !!id && (id !== 'matchlock' || s.world.gunUnlocked)).map((id) => ({ uid: stockUid(id), weaponId: id }));
 }
 
+/** 変わった武器（宝箱・落とし物でまれに） */
+const SPECIALS: Partial<Record<WeaponType, string[]>> = { sword: ['killing_edge', 'gale_blade'], lance: ['javelin', 'piercer'], axe: ['hand_axe', 'reaper_axe'], bow: ['longbow', 'piercing_bow'] };
 const TYPE_NAME: Record<string, string> = { sword: '剣', lance: '槍', axe: '大斧', bow: '弓', gun: '銃' };
 
 /** 種類と段階（鋼・銀・名匠）の武器 */
@@ -58,9 +62,11 @@ export function rollLoot(s: GameState, b: BattleState, q: Quest | undefined, nam
       const t = wtype(u);
       if (!t || !r.chance(L.dropChance)) continue;
       const tier = u.level >= L.masterLv && r.chance(L.masterChance) ? 'master' : u.level >= L.silverLv && r.chance(L.silverChance) ? 'silver' : 'steel';
-      const id = tierOf(t, tier);
+      // 14夜目：ときどき「変わった武器」（キルソード・手槍など）。レアには添え名がつくことがある
+      const sp = SPECIALS[t];
+      const id = sp?.length && r.chance(L.specialChance) ? r.pick(sp) : tierOf(t, tier);
       if (!id || (t === 'gun' && !s.world.gunUnlocked)) continue;
-      out.push({ weaponId: id, kind: 'drop', from: `${names(u.uid)}が落とした` });
+      out.push({ weaponId: id, kind: 'drop', from: `${names(u.uid)}が落とした`, ...(r.chance(L.rareAffixChance) ? { affix: rollAffix(r, 1) } : {}) });
       n++;
     }
     // 14夜目：最初の依頼では、戦利品を一度は見せる
@@ -88,12 +94,18 @@ export function rollLoot(s: GameState, b: BattleState, q: Quest | undefined, nam
         const kst = killer ? s.students[killer] : null;
         const name = `${given}の${TYPE_NAME[t]}`;
         const story = `${ep}${o ? `${given}` : leader.name}が戦場で振るっていた${TYPE_NAME[t]}。${s.year}年目、${kst ? `${kst.given}が` : ''}討ち取って手に入れた。`;
-        out.push({ weaponId: id, kind: 'named', from: `${leader.name}を討ち取った`, named: { name, story, officerId: o?.id, by: kst?.id, year: s.year, ...L.named } });
+        out.push({ weaponId: id, kind: 'named', from: `${leader.name}を討ち取った`, affix: rollAffix(r, 2), named: { name, story, officerId: o?.id, by: kst?.id, year: s.year, ...L.named } });
       }
     }
+    // 14夜目：敵将が伝説の武器を持っていたら、討てば取りもどせる
+    const lg = legendOfOfficer(s, o?.id);
+    if (fell && lg) out.push(legendLoot(lg, `${leader.name}を討ち取り、取りもどした`));
+    // 生涯の宿敵との決着のあと、ときどき伝説の武器が見つかる
+    const rv3 = o ? Object.values(s.rivalries ?? {}).some((rv) => rv.oid === o.id && rv.stage >= 3) : false;
+    if (rv3 && (fell || leader.settled) && b.result === 'win' && !lg && r.chance(L.legendRival)) { const id = unclaimedLegend(s, r); if (id) out.push(legendLoot(id, `宿敵${leader.name}との決着の地で見つかった`)); }
   }
   // 依頼の報酬
-  if (q?.rewardWeapon && b.result === 'win' && WEAPONS[q.rewardWeapon]) out.push({ weaponId: q.rewardWeapon, kind: 'reward', from: `${q.client}からの報酬` });
+  if (q?.rewardWeapon && b.result === 'win' && WEAPONS[q.rewardWeapon]) out.push({ weaponId: q.rewardWeapon, kind: 'reward', from: `${q.client}からの報酬`, ...(r.chance(L.rareAffixChance) ? { affix: rollAffix(r, 1) } : {}) });
   b.loot = out;
   return out;
 }
@@ -104,7 +116,10 @@ export function takeLoot(s: GameState, loot: LootItem[]): LootItem[] {
     if (x.uid) continue;
     const uid = `w${s.nextId++}`;
     x.uid = uid;
-    s.armory.push({ uid, weaponId: x.weaponId, named: x.named, got: { kind: x.kind, year: s.year, text: x.from } });
+    const item = { uid, weaponId: x.weaponId, named: x.named, ...(x.affix?.length ? { affix: x.affix } : {}), ...(x.legend ? { legend: x.legend } : {}), got: { kind: x.kind, year: s.year, text: x.from } };
+    s.armory.push(item);
+    seeWeapon(s, item);
+    if (item.legend) { legendTaken(s, item, x.from); tip(s, 'legend'); }
     // 敵将を討った子の年表に（宿敵を討った武器は物語になる）
     const by = x.named?.by ? s.students[x.named.by] : null;
     if (by && x.named) by.history.push({ year: s.year, text: `${x.from.replace(/を討ち取った$/, '')}を討ち、「${x.named.name}」を手に入れた` });
@@ -133,6 +148,8 @@ export function armScore(st: Student, a: ArmoryItem): number {
   const w = WEAPONS[a.weaponId];
   if (!w) return -1;
   const skill = (w.type === 'holy' || w.type === 'staff' ? 'faith' : w.type) as keyof Student['skills'];
-  return (st.skills[skill] ?? 0) + (w.might + (a.named?.might ?? 0)) * 5 + (a.named ? 3 : 0);
+  // 14夜目：伝説の武器は持ち主を選ぶ。添え名・銘・心得の上乗せも考えに入れる
+  if (a.legend && !legendFits(st, a.legend)) return -1;
+  return (st.skills[skill] ?? 0) + w.might * 5 + modScore(itemMod(a)) + (a.named || a.legend ? 3 : 0);
 }
 void ARMS;

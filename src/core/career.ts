@@ -1,4 +1,5 @@
 // 進路（声かけ・希望・推薦の三者）と卒業式
+import { favoriteItem, itemName, graduateWith } from './rarity';
 import { ARM_SKILLS } from '../data/balance';
 import { B } from '../data/balance';
 import { careerTitleOnly } from './discovery';
@@ -109,6 +110,9 @@ export function graduate(s: GameState, rng: Rng, plans: CareerPlan[]): { id: str
     // 一番使った武器を持っていく（魔法は本人のものなので、剣・槍・斧・弓などの武器だけ）
     const fav = Object.entries(st.weaponUse).filter(([id]) => WEAPONS[id] && !WEAPONS[id].spell).sort((a, b) => b[1] - a[1])[0];
     st.keepsake = fav ? WEAPONS[fav[0]]?.name ?? null : null;
+    // 14夜目：ユニーク以上の愛用の武器（武器庫の品）は、名前ごと持っていく（後輩に託すときは武器庫に残す）
+    const favItem = favoriteItem(s, st);
+    if (favItem) st.keepsake = itemName(favItem);
     if (country && kind === 'army') addFriendship(s, country, B.career.friendshipPerGrad);
     if (mood === 'match') addTrust(st, 5);
     st.farewell = farewell(s, rng, st, choice, mood);
@@ -122,11 +126,12 @@ export function graduate(s: GameState, rng: Rng, plans: CareerPlan[]): { id: str
       const best = ARM_SKILLS.filter((x) => x !== 'gun').sort((x, y) => (st.skills[y] ?? 0) - (st.skills[x] ?? 0))[0];
       const what = k === 'weapon' ? `愛用の${st.keepsake}` : k === 'note' ? `${SKILL_NAMES[best]}のノート` : '言葉';
       if (k === 'note') kohai.skills[best] = Math.min(700, (kohai.skills[best] ?? 0) + B.career.senpaiNote);
-      if (k === 'weapon') { kohai.history.push({ year: s.year, text: `${st.given}先輩から、愛用の${st.keepsake}を託された` }); st.keepsake = null; }
+      if (k === 'weapon') { kohai.history.push({ year: s.year, text: `${st.given}先輩から、愛用の${st.keepsake}を託された` }); if (favItem) { (favItem.uses ??= {})[kohai.id] = Math.max(favItem.uses[kohai.id] ?? 0, (favItem.uses[st.id] ?? 0)); favItem.got = { kind: favItem.got?.kind ?? 'drop', year: s.year, text: `${st.given}先輩が${kohai.given}に託した` }; } st.keepsake = null; }
       else kohai.history.push({ year: s.year, text: `${st.given}先輩から${k === 'note' ? `${what}を託された` : '「次は、お前が誰かの背中になれ」と言葉を託された'}` });
       st.history.push({ year: s.year, text: `後輩の${kohai.given}に${what}を託した` });
       addTrust(kohai, 2);
     }
+    if (favItem && st.keepsake) graduateWith(s, st, favItem);
     // 10夜目：気づかずに卒業した芽（年鑑と個人ページに「実は〇〇の芽があった」）
     if (st.bud && !st.bud.done) st.history.push({ year: s.year, text: st.bud.gold ? '実は、金の芽（英雄の器）を持っていた' : `実は、${SKILL_NAMES[st.bud.skill!]}に眠った芽があった` });
     s.stats.graduates += 1;

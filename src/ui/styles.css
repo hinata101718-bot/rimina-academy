@@ -1715,3 +1715,31 @@ i.apt { font-style: normal; display: inline-flex; align-items: center; justify-c
 .rv-world { padding-left: 1.2em; margin: 0; line-height: 1.8; }
 .rv-closing { line-height: 1.8; }
 .rv-row { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; width: 100%; text-align: left; min-height: 44px; }
+
+/* ---- 14夜目：武器のレアリティ ---- */
+.rar-tag { display: inline-block; font-size: 11px; font-weight: 700; color: #fff; background: var(--rar, #8c8a84); border-radius: 3px; padding: 1px 6px; letter-spacing: .05em; vertical-align: middle; }
+.wcard.rar-rare { border-left: 4px solid #3f74b8; }
+.wcard.rar-unique { border-left: 4px solid #8a4fb0; background-image: linear-gradient(90deg, rgba(138,79,176,.10), transparent 60%); }
+.wcard.rar-legend { border-left: 4px solid #c9a032; background-image: linear-gradient(90deg, rgba(201,160,50,.22), transparent 70%); box-shadow: 0 0 0 1px rgba(201,160,50,.5); }
+.wcard.unknown { opacity: .55; filter: grayscale(.8); }
+.wcard { cursor: pointer; }
+.shelf { border-top: 2px solid var(--rar); margin-top: 10px; padding-top: 4px; }
+.lt-card { position: relative; border-color: var(--rar, currentColor) !important; }
+.lt-card .rar-tag { position: absolute; top: 6px; left: 6px; }
+.lt-card.rar-rare.lit { box-shadow: 0 0 18px rgba(63,116,184,.7); }
+.lt-card.rar-unique.lit { box-shadow: 0 0 22px rgba(138,79,176,.8); }
+.lt-card.rar-legend.lit { box-shadow: 0 0 28px rgba(230,190,70,.95); }
+.legend-wrap { position: fixed; inset: 0; z-index: 60; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 20px 16px; box-sizing: border-box; background: radial-gradient(circle at 50% 40%, #fff3c4 0%, #e3b84a 35%, #6b4a10 100%); color: #2b1d05; text-align: center; cursor: pointer; overflow: hidden; animation: lgIn .8s ease-out; }
+@keyframes lgIn { from { opacity: 0; filter: brightness(2.5); } to { opacity: 1; filter: none; } }
+.legend-glow { position: absolute; inset: -30%; background: conic-gradient(from 0deg, rgba(255,255,255,.0), rgba(255,255,255,.35), rgba(255,255,255,0) 30%); animation: lgSpin 9s linear infinite; pointer-events: none; }
+@keyframes lgSpin { to { transform: rotate(360deg); } }
+.legend-title { letter-spacing: .4em; position: relative; }
+.legend-icon { position: relative; margin: 10px 0; filter: drop-shadow(0 0 10px #fff6c8); }
+.legend-name { position: relative; font-size: 26px; margin: 4px 0 10px; text-shadow: 0 1px 0 #fff6d0; }
+.legend-lore { position: relative; max-width: 400px; line-height: 1.8; }
+.legend-lore p { margin: 6px 0; }
+.legend-lore p.new { animation: lgLine .7s ease-out; }
+@keyframes lgLine { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+.legend-art { position: relative; margin-top: 10px; background: rgba(255,250,230,.75); border: 1px solid #a47b2c; border-radius: 4px; padding: 8px 10px; max-width: 400px; line-height: 1.7; }
+.legend-tap { position: relative; margin-top: 14px; opacity: .8; }
+@media (prefers-reduced-motion: reduce) { .legend-glow { animation: none; } }

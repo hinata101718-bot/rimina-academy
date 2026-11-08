@@ -130,3 +130,53 @@ describe('1年の振り返り', () => {
     expect(s.reviews!.find((x) => x.year === 3)!.grads.length).toBeGreaterThan(0);
   });
 });
+
+import { rarityOf, itemName, itemMod, legendFits, ensureLegends, legendLoot, favoriteItem } from '../src/core/rarity';
+import { takeLoot, armScore } from '../src/core/loot';
+import { LEGENDS } from '../src/data/rarity';
+
+describe('武器のレアリティ', () => {
+  it('鉄＝ノーマル、鋼・銀など＝レア、銘入り＝ユニーク、伝説＝レジェンド。添え名で名前と強さが変わる', () => {
+    expect(rarityOf({ weaponId: 'iron_sword' })).toBe('normal');
+    expect(rarityOf({ weaponId: 'silver_lance' })).toBe('rare');
+    expect(rarityOf({ weaponId: 'steel_axe', named: { name: 'x' } })).toBe('unique');
+    expect(rarityOf({ weaponId: 'master_sword', legend: 'aurora' })).toBe('legend');
+    const a = { uid: 'w1', weaponId: 'silver_lance', affix: ['keen', 'sure'] };
+    expect(itemName(a)).toBe('鋭い確かな銀の槍');
+    expect(itemMod(a)).toMatchObject({ crit: 5, hit: 10 });
+  });
+  it('今の武器庫の武器は、そのままレアリティがつく（13夜目のセーブ）', () => {
+    const s = deserialize(fixture('v13-day.json'));
+    const r = new Set(s.armory.map((a) => rarityOf(a)));
+    expect(r.has('rare') || r.has('unique')).toBe(true);
+    expect(Object.keys(s.legends ?? {}).length).toBe(LEGENDS.length);
+    expect((s.weaponSeen ?? []).length).toBeGreaterThan(0);
+  });
+  it('伝説の武器は12振り。はじめに敵の将軍が何振りか持つ。手に入ると演出が出て、学校の武器庫に。持ち主を選ぶ', () => {
+    const s = newGame({ name: 'テスト', background: 'knight', seed: 2 });
+    expect(Object.values(s.legends!).filter((v) => v.holder === 'officer').length).toBeGreaterThan(0);
+    s.legends!.asteria = { holder: 'none', log: [] };
+    takeLoot(s, [legendLoot('asteria', 'テストで見つけた')]);
+    const a = s.armory.find((x) => x.legend === 'asteria')!;
+    expect(a).toBeTruthy();
+    expect(s.legends!.asteria.holder).toBe('school');
+    expect(s.pending.some((p) => p.type === 'legend' && p.id === 'asteria')).toBe(true);
+    const st = enrolled(s)[0];
+    st.skills.bow = 0;
+    expect(legendFits(st, 'asteria')).toBe(false);
+    expect(armScore(st, a)).toBe(-1);
+    st.skills.bow = 300;
+    expect(legendFits(st, 'asteria')).toBe(true);
+    // いちばん使った子が卒業のとき持っていく
+    a.uses = { [st.id]: 5 };
+    expect(favoriteItem(s, st)?.uid).toBe(a.uid);
+  });
+  it('長く遊ぶと、レア・ユニークが手に入り、図鑑が埋まっていく', () => {
+    const s = newGame({ name: 'テスト', background: 'knight', seed: 6 });
+    ensureLegends(s);
+    autoYears(s, 4);
+    const r = s.armory.map((a) => rarityOf(a));
+    expect(r.filter((x) => x === 'rare').length).toBeGreaterThan(3);
+    expect((s.weaponSeen ?? []).length).toBeGreaterThan(3);
+  });
+});

@@ -41,6 +41,7 @@ import { TRAITS } from '../data/people';
 import type { BattleCtx } from './battle/engine';
 import { supportValue, bestFriend } from './support';
 import { closeYear, markYear } from './review';
+import { yearlyLegends, unclaimedLegend, legendLoot } from './rarity';
 import { tip, checkTips, firstTalk as tutorialTalk, tutorialMonth } from './tutorial';
 import { NIGHT_AFTER_DEATH, FRIEND_GRIEF, TEACHER_GRIEF, KEEPSAKE, RECOVERY } from '../data/aftermath_war';
 
@@ -302,6 +303,8 @@ export function finishBattle(s: GameState): void {
     if (st.status !== 'enrolled') continue;
     const snap = snapGrowth(st);
     st.battles += 1;
+    // 14夜目：武器庫の武器を使った回数（卒業のとき、愛用の武器を持っていく）
+    if (u.armoryUid) { const a = s.armory.find((x) => x.uid === u.armoryUid); if (a) (a.uses ??= {})[st.id] = (a.uses[st.id] ?? 0) + 1; }
     st.kills += u.kills;
     for (const [w, n] of Object.entries(u.usedWeapon)) {
       st.weaponUse[w] = (st.weaponUse[w] ?? 0) + n;
@@ -631,7 +634,15 @@ export function yearEnd(s: GameState, graduated: string[]): void {
     paper.politics?.push({ country: 'seed', stance: '次の戦争の火種', text: omen.map((x) => x.replace('【大事件】', '')).join('。') });
     if (omen.some((x) => x.startsWith('【大事件】'))) { const h = omen[omen.length - 1].replace('【大事件】', ''); paper.headline = `${s.year}年目 後期号：${h}`; if (paper.front) { paper.front.sub = paper.front.head; paper.front.head = h; } }
   }
+  const endN = (s.endings ?? []).length;
   checkEndings(s, r, 'year');
+  // 14夜目：伝説の武器の行方。戦争を終わらせた年は、三国から1振り贈られる
+  {
+    const found = yearlyLegends(s, r);
+    const gift = B.loot.legendEnding && (s.endings ?? []).length > endN ? unclaimedLegend(s, r) : null;
+    const loot = [...(found ? [found] : []), ...(gift ? [legendLoot(gift, '戦争を終わらせた学校へ、三国から贈られた')] : [])];
+    if (loot.length) takeLoot(s, loot);
+  }
   // 13夜目：勢力図（戦争中の国境の地域が動く。統一なら大陸が一色に）
   yearlyRegions(s, r);
   // 14夜目：1年の振り返り（卒業式と新聞のあと。エンディングの年は、エンディングのあとに）

@@ -22,6 +22,7 @@ import { learnArts } from './arts';
 import { ensureRegions, borderOf, setOwner } from './regions';
 import { RANK_POINTS } from '../data/balance';
 import { rebuildReviews } from './review';
+import { seeWeapon, ensureLegends } from './rarity';
 
 export interface SaveFile { app: 'rimina-academy'; version: number; savedAt: number; state: GameState }
 
@@ -404,10 +405,15 @@ function migrateTo13(s: GameState): void {
  */
 function migrateTo14(s: GameState): void {
   rebuildReviews(s);
+  // 武器のレアリティ：今の武器はそのまま（鉄＝ノーマル、鋼・銀・名匠など＝レア、銘入り＝ユニーク）。図鑑に載せ、伝説の武器の行方を決める
+  for (const a of s.armory ?? []) seeWeapon(s, a);
+  ensureLegends(s);
   s.pending ??= [];
   s.pending.push({ type: 'event', title: '14夜目の新しいこと', lines: NIGHT14_LINES });
 }
 const NIGHT14_LINES = [
+  '武器に4つのレアリティ（ノーマル・レア・ユニーク・レジェンド）がつきました。今ある武器もそのまま使えます（鉄の武器はノーマル、鋼・銀などはレア、銘入りはユニーク）。レアやユニークには「鋭い」「確かな」などの添え名がつくことがあります。',
+  '大陸には12振りの伝説の武器があり、そのいくつかは敵の将軍が持っています。年鑑の「記録」の「伝説の武器の行方」で確かめられます。',
   '年度末（卒業式のあと）に「1年の振り返り」が出るようになりました。年鑑の「振り返り」で、これまでの年も読み返せます（前の年の分は、年表から作れるところまで作りました）。',
   'はじめて遊ぶ人のために、最初のひと月を管理人が案内するようになりました（新しく始めたときだけ）。設定の「案内を見なおす」で、はじめて出たものの説明をもう一度見られます。',
 ];
