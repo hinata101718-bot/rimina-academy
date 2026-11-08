@@ -65,7 +65,7 @@ function TodayPage({ s }: { s: GameState }) {
       {s.month === 3 && <ArtSlot name="event_camp" />}
       {s.month === 8 && <ArtSlot name="event_festival" />}
       {guideOn && <div class="guide">{GUIDE[Math.min(GUIDE.length - 1, s.week - 1)]}</div>}
-      {firstLessonDay(s) && !s.pending.length && <div class="guide-tip row nowrap gap8" style={{ margin: '8px 0' }}><GuideSeal size={36} /><span class="serif small">今日は札が3枚だけです。どれを選んでも、みんな伸びますぞ。札に顔が出ている子は、とくによく伸びます。</span></div>}
+      {firstLessonDay(s) && !s.pending.length && <div class="guide-tip" style={{ margin: '8px 0', display: 'flex', gap: 8, alignItems: 'center' }}><GuideSeal size={36} /><span class="serif small" style={{ flex: 1, minWidth: 0, whiteSpace: 'normal' }}>今日は札が3枚だけです。どれを選んでも、みんな伸びますぞ。札に顔が出ている子は、とくによく伸びます。</span></div>}
       {!s.pending.length && !s.battle && <LessonBoard s={s} />}
     </div>
   );
@@ -194,6 +194,7 @@ function Facilities({ s }: { s: GameState }) {
 
 function Armory({ s }: { s: GameState }) {
   const [view, setView] = useState<'shelf' | 'book'>('shelf');
+  const [allRare, setAllRare] = useState(false);
   const [open, setOpen] = useState<string | null>(null);
   const typeName: Record<string, string> = { sword: '剣', lance: '槍', axe: '斧', bow: '弓', magic: '魔道', holy: '信仰', staff: '杖', gun: '銃' };
   const stock = stockList(s);
@@ -230,7 +231,8 @@ function Armory({ s }: { s: GameState }) {
           <div class={`shelf rar-${r}`} style={{ ['--rar' as string]: RARITY_COLOR[r] }}>
             <h3><span class="rar-tag">{RARITY_NAME[r]}</span> <span class="muted small">{list.length}振り</span></h3>
             {!list.length && <div class="empty-note">{r === 'legend' ? '大陸に12振りしかない伝説の武器です。敵の将軍が持っていることもあります' : r === 'unique' ? '敵将を討ち取ると、その敵将の名を刻んだ武器が手に入ることがあります' : '敵兵の落とし物や依頼の報酬で、鋼・銀・名匠の武器が手に入ります'}</div>}
-            <div class="weapongrid">{list.map(card)}</div>
+            <div class="weapongrid">{(r === 'rare' && !allRare ? list.slice(0, 12) : list).map(card)}</div>
+            {r === 'rare' && !allRare && list.length > 12 && <button class="btn ghost small block" onClick={() => setAllRare(true)}>ほかのレアの武器 {list.length - 12}振りを見る ▼</button>}
           </div>
         ); })}
         {shelf('normal').length > 0 && <><h3>卒業生の遺品</h3><div class="weapongrid">{shelf('normal').map(card)}</div></>}
