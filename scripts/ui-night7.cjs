@@ -61,6 +61,7 @@ const only = process.env.ONLY ? process.env.ONLY.split(',') : null;
     for (let i = 0; i < 30; i++) { if (await p.$('.levelup')) break; await p.mouse.click(195, 500); await p.waitForTimeout(250); }
     await p.waitForTimeout(1200);
     await shot('10-levelup');
+    for (let i = 0; i < 40; i++) { if (!(await p.$('.levelup, .learn'))) { const sk0 = await p.$('.sheet button:has-text("スキップ")'); if (sk0) { await sk0.click(); await p.waitForTimeout(250); continue; } if (!(await p.$('.growth'))) break; } await p.mouse.click(195, 400); await p.waitForTimeout(300); }
     for (let i = 0; i < 6; i++) { const sk = await p.$('.sheet button:has-text("スキップ")'); if (!sk) break; await sk.click(); await p.waitForTimeout(250); }
     await shot('11-result');
   }
