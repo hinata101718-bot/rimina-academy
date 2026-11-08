@@ -13,7 +13,10 @@ const out = process.argv[2] ?? 'shots';
 const base = () => deserialize(readFileSync(new URL('../tests/fixtures/v3-save.json', import.meta.url), 'utf8'));
 const grads = (s: GameState, n: number) => {
   const g = Object.values(s.students).filter((x) => x.status === 'graduated');
-  for (let i = g.length; i < n; i++) { const o = g[i % g.length]; s.students[`sg${i}`] = { ...o, id: `sg${i}`, given: o.given, career: o.career ? { ...o.career } : null }; }
+  // 三国へ順に送ったことにする（中立宣言の「教え子の数が釣り合っている」を満たすように）
+  const cs = ['kingdom', 'empire', 'alliance'] as const;
+  for (const x of g) if (x.career) x.career = { ...x.career, kind: 'home', country: null };
+  for (let i = g.length; i < n; i++) { const o = g[i % g.length]; s.students[`sg${i}`] = { ...o, id: `sg${i}`, given: o.given, career: { ...(o.career ?? {}), alive: true, retired: false, kind: 'army', country: cs[i % 3], path: 'warrior', rank: 1 } as never }; }
 };
 // 入学試験（新年度の最初の週に出る志願者を、もう一度用意する）
 { const s = base(); prepareEntrance(s); s.pending = s.pending.filter((p) => p.type === 'entrance'); writeFileSync(`${out}/entrance.json`, serialize(s)); }
@@ -22,6 +25,9 @@ const grads = (s: GameState, n: number) => {
 // 学校の中立宣言
 { const s = base(); s.endings = []; s.reputation = 95; s.world.friendship = { kingdom: 80, empire: 72, alliance: 88 }; s.world.vassal = null; s.world.defenseWonYear = s.year; s.world.peaceRoundYear = null; grads(s, 100);
   s.pending = []; checkEndings(s, rng(s), 'month'); writeFileSync(`${out}/ending.json`, serialize(s)); }
+// 戦況タブの「中立宣言への道」（評判95、防衛戦だけまだ）
+{ const s = base(); s.endings = []; s.reputation = 95; s.world.friendship = { kingdom: 80, empire: 72, alliance: 88 }; s.world.vassal = null; s.world.defenseWonYear = null as never; grads(s, 100); s.pending = [];
+  writeFileSync(`${out}/war.json`, serialize(s)); }
 // 支援A会話と面談（処理待ちの会話として）
 { const s = base(); const [a, b] = enrolled(s); const sp = getSupport(s, a.id, b.id); sp.kind = 'friend'; sp.value = 0; sp.seen = []; sp.lastRank = 'B';
   const t = buildTalk(s, rng(s), sp, 'A'); const iv = buildInterviewDef(s, rng(s), a, INTERVIEWS.find((d) => d.id === 'recent_study')!, []);

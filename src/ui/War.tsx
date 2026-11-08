@@ -96,9 +96,9 @@ function NeutralCard({ s }: { s: GameState }) {
       {open ? (
         <>
           {steps.map((x) => (
-            <div class="row between nowrap neutralstep">
-              <span><b class={x.ok ? 'okmark' : 'ngmark'}>{x.ok ? '✓' : '×'}</b> {x.label}</span>
-              <span class="muted small">{x.now}</span>
+            <div class="neutralstep">
+              <div><b class={x.ok ? 'okmark' : 'ngmark'}>{x.ok ? '✓' : '×'}</b> {x.label}</div>
+              <div class="muted small neutralnow">{x.now}</div>
             </div>
           ))}
           <div class="muted small">どの国にも属さない「学校の中立」を宣言できるかもしれません。条件がすべてそろった年度に、学校防衛戦に勝つと……。</div>
@@ -106,7 +106,7 @@ function NeutralCard({ s }: { s: GameState }) {
         </>
       ) : (
         <>
-          {steps.map(() => <div class="row between nowrap neutralstep"><span><b class="ngmark">？</b> ？？？</span></div>)}
+          {steps.map(() => <div class="neutralstep"><b class="ngmark">？</b> ？？？</div>)}
           <div class="muted small">学校の名が大陸に広まれば、何かが見えてくるかもしれません。</div>
         </>
       )}
