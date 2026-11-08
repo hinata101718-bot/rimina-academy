@@ -101,7 +101,10 @@ function sideStats(b: BattleState, a: Unit, d: Unit, ax: number, ay: number, sup
   const sa = supportBonus(b, a, sup), sd = supportBonus(b, d, sup);
   let might = w.might + tri * B.battle.triangleMight;
   if (effective) might *= B.battle.effectiveMul;
-  let atk = (magical ? a.stats.mag : a.stats.str) + might + sa.dmg + sumAb(a, 'dmg') + (a.mod?.dmg ?? 0);
+  // 敵将の弱点・強み（6夜目）
+  let fHit = 0, fDmg = 0;
+  for (const fm of d.foeMods ?? []) if ((!fm.types || fm.types.includes(w.type)) && (!fm.moveTypes || fm.moveTypes.includes(moveTypeOf(a)))) { fHit += fm.hit ?? 0; fDmg += fm.dmg ?? 0; }
+  let atk = (magical ? a.stats.mag : a.stats.str) + might + sa.dmg + sumAb(a, 'dmg') + (a.mod?.dmg ?? 0) + fDmg;
   if (a.hp <= a.maxHp / 2) atk += sumAb(a, 'lowHpAtk');
   const dTile = terrainDef(tile(b, d.x, d.y));
   let defStat = magical ? d.stats.res : d.stats.def + dTile.def;
@@ -115,7 +118,7 @@ function sideStats(b: BattleState, a: Unit, d: Unit, ax: number, ay: number, sup
   dmg = Math.max(0, Math.round(dmg));
   const pa = a.personality ? PERSONALITIES[a.personality as PersonalityId] : null;
   const pd = d.personality ? PERSONALITIES[d.personality as PersonalityId] : null;
-  let hit = w.hit + a.stats.skl * 2 + a.stats.lck / 2 + tri * B.battle.triangleHit + sa.hit + sumAb(a, 'hit') + (pa?.hit ?? 0) + (a.aimed ? B.battle.aimHit : 0) + (a.mod?.hit ?? 0);
+  let hit = w.hit + a.stats.skl * 2 + a.stats.lck / 2 + tri * B.battle.triangleHit + sa.hit + sumAb(a, 'hit') + (pa?.hit ?? 0) + (a.aimed ? B.battle.aimHit : 0) + (a.mod?.hit ?? 0) + fHit;
   if (b.real) hit += sumAb(a, 'realBattleHit');
   let avo = d.stats.spd * 2 + d.stats.lck + dTile.avo + sd.avo + sumAb(d, 'avo') + (pd?.avo ?? 0) + (d.mod?.avo ?? 0);
   if (adjacentEnemies(b, d).length >= 3) avo += sumAb(d, 'surroundedAvo');

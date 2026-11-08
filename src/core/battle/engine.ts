@@ -183,6 +183,7 @@ function strike(b: BattleState, ctx: BattleCtx, a: Unit, d: Unit, out: Strike[])
   d.hp -= dmg; a.dmgDealt += dmg; d.dmgTaken += dmg; a.hits += 1;
   if (a.side !== 'enemy') a.expGain += B.battle.exp.hit;
   if (a.side !== 'enemy' && !isFriendly(a, d)) (b.hitBy[d.uid] ??= []).includes(a.uid) || b.hitBy[d.uid].push(a.uid);
+  if (a.side === 'enemy' && d.studentId) { const l = ((b.struck ??= {})[a.uid] ??= []); if (!l.includes(d.studentId)) l.push(d.studentId); }
   out.push({ by: a.uid, hit: true, crit, dmg });
   log(b, `${a.name}→${d.name} ${crit ? '必殺！' : ''}${dmg}ダメージ`, crit ? 'crit' : 'hit');
   b.feed?.push({ t: crit ? 'crit' : 'hit', a: a.uid, d: d.uid, turn: b.turn, dmg });
@@ -215,7 +216,7 @@ function defeat(b: BattleState, ctx: BattleCtx, d: Unit, by: Unit | null): void 
       const deathP = (100 - inj) * ctx.deathMul;
       outcome = rngOf(b).next() * 100 < deathP ? 'dead' : 'injured';
     }
-    b.fallen.push({ studentId: d.studentId, outcome });
+    b.fallen.push({ studentId: d.studentId, outcome, ...(by ? { by: by.uid } : {}) });
     b.feed?.push({ t: 'fallen', a: d.uid, d: by?.uid ?? '', turn: b.turn });
     log(b, outcome === 'dead' ? `${d.name}が戦死した……` : outcome === 'injured' ? `${d.name}が重傷を負い、運ばれていった` : `${d.name}は戦闘から外れた`, 'info');
   }
@@ -507,6 +508,7 @@ export function enemyAct(b: BattleState, ctx: BattleCtx, e: Unit, attackOnly = f
         let score = exp * 3 + (kill ? 1000 + f.atk.hit * 2 : 0) + (staffOf(t) ? 40 : 0) + (100 - (t.hp / t.maxHp) * 100) * 0.3;
         if (t.escort) score += B.battle.escortAggro;
         if (e.side !== 'enemy' && b.focus && t.uid === b.focus) score += B.battle.focusAggro;
+        if (e.grudge && t.uid === e.grudge) score += B.battle.focusAggro;
         const cautious = e.side !== 'enemy' ? 2.2 : 0.8;
         score -= f.def.canAttack ? f.def.dmg * f.def.count * (f.def.hit / 100) * cautious : 0;
         if (e.side !== 'enemy' && f.def.canAttack && f.def.dmg * f.def.count >= e.hp && f.def.hit > 0 && !kill) score -= 400;

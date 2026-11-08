@@ -48,6 +48,8 @@ const PATHS: Record<string, JSX.Element> = {
   door: <><path d="M6 21V4h12v17M3 21h18" /><circle cx="14.5" cy="13" r=".8" /></>,
   heal: <><path d="M12 5v14M5 12h14" /></>,
   shield: <><path d="M12 3l8 3v6c0 4.5-3.5 8-8 9-4.5-1-8-4.5-8-9V6z" /></>,
+  flame: <><path d="M12 21c-4 0-6.5-2.6-6.5-6.2 0-3.4 2.6-5.2 3.6-8.3.4 1.9 1.4 3 2.5 3.5-.2-2.8.9-5.2 3-7 .3 3.4 2.4 5 3.3 7.4.6 1.5.6 2.7.6 4.4 0 3.6-2.5 6.2-6.5 6.2z" /><path d="M12 21c-1.7 0-2.8-1.2-2.8-2.8 0-1.8 1.4-2.6 2-4.2.9 1 2.1 1.7 2.8 3 .5 1.6-.3 4-2 4z" /></>,
+  scout: <><circle cx="10.5" cy="10.5" r="6" /><path d="M15 15l5.5 5.5M8 10.5a2.5 2.5 0 0 1 2.5-2.5" /></>,
 };
 
 export function Icon({ name, size = 20, stroke = 1.7 }: { name: keyof typeof PATHS | string; size?: number; stroke?: number }) {

@@ -8,6 +8,7 @@ import { Rng } from './rng';
 import { enrolled } from './game';
 import { relKey, clamp } from './util';
 import { tensionStage } from './world';
+import { headEffect, factionOfQuest } from './officers';
 
 export function partyLevel(s: GameState): number {
   const lv = enrolled(s).map((st) => st.level).sort((a, b) => b - a).slice(0, 6);
@@ -49,8 +50,10 @@ export function rollQuests(s: GameState): Quest[] {
     }
     const enemy = client && k.enemyCountry ? hostileTo(s, client) : null;
     const danger = r.int(k.danger[0], k.danger[1]);
-    const level = Math.max(1, lv + (danger - 2) * 2 + r.int(-1, 1));
-    const reward = clamp(Math.round((k.reward + level * 35 + danger * 120) / 10) * 10, B.quests.reward[0], B.quests.reward[1]);
+    // 敵の陣営の頭の性格で、敵の強さ・報酬が少し変わる（6夜目）
+    const he = headEffect(s, factionOfQuest({ kind: k.kind, enemyCountry: enemy } as Quest));
+    const level = Math.max(1, lv + (danger - 2) * 2 + r.int(-1, 1) + he.level);
+    const reward = clamp(Math.round((k.reward + level * 35 + danger * 120) * he.reward / 10) * 10, B.quests.reward[0], B.quests.reward[1]);
     const weather = r.weighted(['clear', 'rain', 'fog'] as const, (w) => ({ clear: 6, rain: 2.5, fog: 1.5 })[w]);
     const objective = r.pick(k.objectives);
     const clientName = client ? `${COUNTRY_SHORT[client]}・${r.pick(k.clients)}` : r.pick(k.clients);

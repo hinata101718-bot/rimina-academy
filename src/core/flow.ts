@@ -13,7 +13,8 @@ import { gainExp, startGrowthLog, stopGrowthLog, snapGrowth, diffGrowth } from '
 import { learnSpells } from './spells';
 import { createBattle, unitFromStudent, defaultWeaponFor, type Deploy } from './battle/setup';
 import { startPlayerPhase, setReinforcementFactory, weaponSkillId } from './battle/engine';
-import { startAutoBattle, applyAutoResults, type AutoPlan } from './battle/auto';
+import { startAutoBattle, applyAutoResults, setupLeader, officerAfterBattle, type AutoPlan } from './battle/auto';
+import { ensureRosters, yearlyOfficers } from './officers';
 import { monthlyWorld, yearlyWorld, questWorldEffect, tensionStage, activeAlumni } from './world';
 import { simulateAlumni, aidMoney, titleOf } from './alumni';
 import { prepareCareers, graduate, type CareerPlan } from './career';
@@ -57,6 +58,7 @@ export function startBattle(s: GameState, questId: string, deploys: Deploy[]): v
   if (!q) return;
   const r = rng(s);
   s.battle = createBattle(s, q, deploys, r.int(1, 2 ** 30));
+  setupLeader(s, q, s.battle);
   setReinforcementFactory((b) => {
     const st = b.reinforcement ? s.students[b.reinforcement] : null;
     if (!st) return null;
@@ -202,8 +204,9 @@ export function finishBattle(s: GameState): void {
     reveal: (st, v) => revealTalent(s, st, v),
     motivation: (st, d) => changeMotivation(st, d),
   });
+  const officerFind = officerAfterBattle(s, b, r, lines);
   const firstTalk = s.pending.findIndex((p) => p.type === 'talk');
-  const findings = battleFindings(s, growth, lines, s.pending.slice(firstTalk >= 0 ? firstTalk : s.pending.length));
+  const findings = [...battleFindings(s, growth, lines, s.pending.slice(firstTalk >= 0 ? firstTalk : s.pending.length)), ...officerFind];
   s.pending.splice(firstTalk >= 0 ? firstTalk : s.pending.length, 0, { type: 'battleResult', lines, grades, win, growth, mvp: auto.mvp ?? undefined, review: auto.review, title: b.title, findings });
   s.battle = null;
   if (q?.kind === 'schoolDefense' && win) checkEndings(s, r, 'month');
@@ -258,6 +261,7 @@ export function startMonth(s: GameState): void {
   lines.push(...monthlyWorld(s, r));
   checkEndings(s, r, 'month');
   lines.push(...startMonthStudents(s, r));
+  ensureRosters(s, r);
   s.quests = rollQuests(s);
   // 月の始めの自動の重点科目（未設定なら前月のまま）
   for (const g of [1, 2, 3]) if (!s.focus[g]) s.focus[g] = ['sword', 'lance'];
@@ -297,6 +301,8 @@ export function yearEnd(s: GameState, graduated: string[]): void {
   const news = simulateAlumni(s, r);
   // 4. 戦況
   const world = yearlyWorld(s, r);
+  // 敵将の名簿（6夜目）：年をとる・引退・権力争い・卒業生が敵将に・手紙
+  const officerNews = yearlyOfficers(s, r);
   // お金：援助金と寄付
   const aid = aidMoney(s);
   const aidTotal = COUNTRIES.reduce((a, c) => a + aid[c], 0);
@@ -355,6 +361,7 @@ export function yearEnd(s: GameState, graduated: string[]): void {
       `三国の国力：王国${Math.round(s.world.power.kingdom)}・帝国${Math.round(s.world.power.empire)}・同盟${Math.round(s.world.power.alliance)}`,
       `学校の収入：援助金${aidTotal}G・寄付${donation}G（所持金 ${before}G → ${s.money}G）`,
       ...deadline,
+      ...(officerNews.length ? ['【敵将の動き】', ...officerNews.slice(0, 6)] : []),
     ],
     alumni: news.filter((n) => n.big).slice(0, 12).map((n) => ({ id: n.id, text: n.text })),
     tension: Math.round(s.world.tension),

@@ -8,6 +8,7 @@ import type { Rank, SkillId, Stats, CountryId } from './types';
 import { Rng } from './rng';
 import { generateStudent } from './student';
 import { emptySkills, clamp } from './util';
+import { ensureRosters } from './officers';
 import { rollQuests } from './quests';
 import { autoTargets } from './week';
 
@@ -66,6 +67,9 @@ export function newGame(opts: { name: string; background: string; seed: number; 
     }
   }
   for (let g = 1; g <= 3; g++) s.focus[g] = ['sword', 'lance'];
+  // 敵将の名簿（6夜目）
+  s.officers = []; s.rivalries = {};
+  ensureRosters(s, r);
   s.quests = rollQuests(s);
   return s;
 }

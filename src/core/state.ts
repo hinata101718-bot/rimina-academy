@@ -104,6 +104,11 @@ export interface Student {
   /** 最後に魔法を覚えた週・兵種が変わった週（自動の戦闘の出来事に使う） */
   lastSpellWeek?: number;
   lastClassWeek?: number;
+  /** 個人ページで最後に見た肩書き・兵種（卒業生の昇進の演出に使う。6夜目） */
+  seenTitle?: string;
+  seenClass?: string;
+  /** 会話や面談で分かった「意外な一面」（6夜目） */
+  sides?: string[];
 }
 
 export interface Support { a: string; b: string; value: number; kind: 'none' | 'friend' | 'rival' | 'love'; seen: string[]; lastRank: '' | 'C' | 'B' | 'A' }
@@ -196,6 +201,8 @@ export interface Quest {
   weather: 'clear' | 'rain' | 'fog';
   real: boolean;
   defendTurns?: number;
+  /** 偵察を出した（6夜目）。scoutFree は斥候がいて出撃の人数が減らないとき */
+  scouted?: boolean; scoutFree?: boolean;
 }
 
 export interface Mail { id: string; year: number; month: number; from: string; title: string; body: string; read: boolean; studentId?: string }
@@ -214,6 +221,68 @@ export interface Nemesis {
   status: 'active' | 'defeated';
 }
 
+/** 敵将（6夜目：名簿・記憶・因縁）。5夜目の因縁の敵将（Nemesis）は、読み込むときにこの形に変換する */
+export interface OfficerMeet {
+  year: number; month: number; title: string;
+  result: 'win' | 'lose' | 'fled' | 'fell' | 'spared' | 'persuaded' | 'yielded';
+  /** 直接ぶつかった生徒 */
+  foes?: string[];
+  /** 記憶に残った出来事（口上で触れる） */
+  note?: string;
+}
+export interface EnemyOfficer {
+  id: string;
+  given: string;
+  family: string;
+  /** 二つ名（「ハンナ殺しの」など） */
+  epithet?: string;
+  faction: 'kingdom' | 'empire' | 'alliance' | 'bandit' | 'monster';
+  kind: 'army' | 'bandit' | 'monster';
+  country: CountryId | null;
+  /** 階級：0=将軍・頭目 1=幹部 2=隊長 */
+  rank: number;
+  gender: Gender;
+  age: number;
+  personality: string;
+  face: FaceParts;
+  /** public/enemies/ の顔画像（卒業生のときは生徒の顔を使うので null） */
+  faceImage: string | null;
+  classId: string;
+  level: number;
+  /** 逃げて傷を負った回数（顔に重ねる傷跡・包帯・眼帯） */
+  scars: number;
+  traits: string[];
+  knownTraits: string[];
+  meets: OfficerMeet[];
+  status: 'active' | 'dead' | 'retired' | 'defeated';
+  /** 執着している生徒（負けた相手） */
+  grudge?: string | null;
+  /** 倒した生徒 */
+  victims: { id: string; name: string; year: number; dead: boolean }[];
+  /** 卒業生が敵将になったとき、その生徒のid */
+  alumniId?: string;
+  /** 名簿に入った年 */
+  joined: number;
+  /** 去った年・理由（年鑑用） */
+  endYear?: number; endNote?: string;
+  /** 魔物の頭（名簿の外） */
+  title?: string;
+}
+/** 生徒と敵将の因縁（宿敵）。段階：1=因縁 2=宿敵 3=生涯の宿敵 */
+export interface Rivalry {
+  sid: string; oid: string;
+  battles: number;
+  stage: number;
+  /** 仇討ちの誓い（殺された・重傷にされた仲間のid） */
+  vow?: string | null;
+  log: { year: number; month: number; text: string }[];
+  settled?: 'persuade' | 'duel' | 'kill' | 'spare' | null;
+  settledYear?: number;
+}
+
+/** 手応えの演出（ゲージが伸びて「ランクアップ！」）。6夜目 */
+export interface RankUpItem { icon: string; title: string; from: string; to: string; p0: number; p1: number; studentId?: string; note?: string }
+
 export type EndingKind = 'peace' | 'unify' | 'ceasefire' | 'neutral';
 
 /** 画面に出す「処理待ち」 */
@@ -231,7 +300,11 @@ export type Pending =
   | { type: 'retire'; forced: boolean }
   | { type: 'successor' }
   | { type: 'scene'; title: string; lines: SceneLine[]; after?: 'ending' }
-  | { type: 'ending'; kind: EndingKind; country?: CountryId };
+  | { type: 'ending'; kind: EndingKind; country?: CountryId }
+  /** 手応えの演出（教官の腕前・施設・評判・卒業生の昇進など） */
+  | { type: 'rankup'; items: RankUpItem[] }
+  /** 発見の演出（隠れた才能のヒント1→ヒント2→判明、意外な一面） */
+  | { type: 'discovery'; studentId: string; stage: 1 | 2 | 3 | 4; title: string; text: string; name?: string };
 
 /** 戦闘で伸びた・分かったこと（結果の画面にまとめて出す） */
 export interface BattleFinding { id?: string; icon: string; text: string }
@@ -345,6 +418,10 @@ export interface GameState {
   declinedSuccessors?: string[];
   /** 因縁の敵将（逃した敵将。5夜目） */
   nemeses?: Nemesis[];
+  /** 敵将の名簿（6夜目。因縁の敵将もここに入る） */
+  officers?: EnemyOfficer[];
+  /** 生徒と敵将の因縁（キーは 生徒id|敵将id） */
+  rivalries?: Record<string, Rivalry>;
   /** 自動の戦闘で直近に使った文・出来事（同じ並びを避ける） */
   autoMemory?: { lines: string[]; events: string[]; n?: number };
   nextId: number;

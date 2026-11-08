@@ -43,6 +43,10 @@ export interface Unit {
   face?: unknown;
   /** 自動の戦闘：作戦・役割・やる気などによる補正 */
   mod?: { hit?: number; avo?: number; dmg?: number; def?: number; crit?: number };
+  /** この敵を攻撃したときの補正（敵将の弱点・強み。6夜目） */
+  foeMods?: { types?: string[]; moveTypes?: string[]; hit?: number; dmg?: number }[];
+  /** この敵将が狙う相手（味方のuid。6夜目：執着） */
+  grudge?: string;
 }
 
 export interface BattleLogEntry { text: string; kind?: 'crit' | 'kill' | 'miss' | 'hit' | 'heal' | 'info' | 'level' }
@@ -73,7 +77,11 @@ export interface BattleState {
   snapshots: string[];      // ターン開始時の状態（巻き戻し用）
   log: BattleLogEntry[];
   retreated: string[];
-  fallen: { studentId: string; outcome: 'dead' | 'injured' | 'out' }[];
+  fallen: { studentId: string; outcome: 'dead' | 'injured' | 'out'; by?: string }[];
+  /** 敵uid→その敵が攻撃を当てた生徒id（6夜目：敵将とぶつかった子を数える） */
+  struck?: Record<string, string[]>;
+  /** 敵将（6夜目。手動の戦闘でも使う。自動の戦闘の古いセーブは auto.leader） */
+  leader?: import('./auto').LeaderInfo | null;
   reinforcementsAt: number; // 援軍の卒業生が現れるターン
   reinforcement: string | null; // 援軍として現れる卒業生のid
   enemyAlumni: string | null;

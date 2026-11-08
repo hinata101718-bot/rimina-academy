@@ -1,0 +1,520 @@
+// 宿敵の仕組み（6夜目）：敵将の名簿と勢力図・敵将の記憶・生徒側の因縁・弱点・卒業生の宿敵。DOMに依存しない
+import { OFFICER, ROSTER_FACTIONS, FACTION_NAMES, RANK_NAMES, ENEMY_FACES, ageBand, QUEST_RANK, OFFICER_CLASSES, OFFICER_TRAITS, TRAIT_IDS, EPITHET_VICTIM, EPITHET_WEAPON, EPITHET_PERSONALITY, EPITHET_MANY, HEAD_EFFECT, RIVAL_STAGE_NAMES, ALUMNI_PERSONALITY, SCOUT_CLASSES, type FactionId, type AgeBand } from '../data/officers';
+import { MEMORY_TEXT, OFFICER_NEWS, LETTER_TEXT, TRAIT_REVEAL, EXPLOIT_TEXT } from '../data/officers_text';
+import { LEADER_NAMES, BANDIT_EPITHETS, type LeaderPersonality } from '../data/autobattle';
+import { NAMES } from '../data/names';
+import { COUNTRY_SHORT, RANK_TITLES } from '../data/people';
+import { CLASSES } from '../data/classes';
+import { WEAPONS } from '../data/weapons';
+import { B } from '../data/balance';
+import type { GameState, EnemyOfficer, Rivalry, Nemesis, Quest, Student, BattleFinding, OfficerMeet } from './state';
+import type { BattleState, Unit } from './battle/types';
+import type { CountryId, Gender } from './types';
+import { Rng } from './rng';
+import { generateFace } from './student';
+import { chronicle, mail } from './game';
+import { supportValue, getSupport } from './support';
+import { MONTH_NAMES } from './util';
+
+// ---------- 小さな道具 ----------
+function hash(s: string): number { let h = 7; for (const c of s) h = (h * 31 + c.charCodeAt(0)) | 0; return Math.abs(h); }
+function fill(t: string, v: Record<string, string>): string { return t.replace(/\{(\w+)\}/g, (m, k) => v[k] ?? m); }
+
+export function officers(s: GameState): EnemyOfficer[] { return (s.officers ??= []); }
+export function officerById(s: GameState, id: string | undefined | null): EnemyOfficer | null { return id ? officers(s).find((o) => o.id === id) ?? null : null; }
+export function activeOf(s: GameState, f: FactionId): EnemyOfficer[] { return officers(s).filter((o) => o.faction === f && o.status === 'active'); }
+
+/** 表示する名前（二つ名つき）。軍は「ヴォルグ・ハイン」→二つ名がつくと「ハンナ殺しのヴォルグ」 */
+export function officerName(o: Pick<EnemyOfficer, 'given' | 'family' | 'epithet' | 'kind' | 'title'>): string {
+  if (o.title) return o.title;
+  if (o.epithet) return `${o.epithet}${o.given}`;
+  return o.kind === 'army' && o.family ? `${o.given}・${o.family}` : o.given;
+}
+export function fullName(o: EnemyOfficer): string { return o.kind === 'army' && o.family ? `${o.given}・${o.family}` : o.given; }
+export function rankName(o: Pick<EnemyOfficer, 'kind' | 'rank' | 'title'>): string {
+  if (o.kind === 'monster') return '魔物の主';
+  return RANK_NAMES[o.kind === 'army' ? 'army' : 'bandit'][Math.max(0, Math.min(2, o.rank))];
+}
+export function factionName(f: FactionId): string { return FACTION_NAMES[f]; }
+
+/** 女性の敵将・年配の敵将の一人称（口上の言い回しを合わせる） */
+export function voice(text: string, o: Pick<EnemyOfficer, 'gender' | 'age' | 'personality'> | null | undefined): string {
+  if (!o) return text;
+  if (o.gender === 'f') return text.replace(/俺/g, o.personality === 'young' || o.personality === 'cunning' ? 'あたし' : '私');
+  if (ageBand(o.age) === 'old') return text.replace(/俺/g, 'わし');
+  return text;
+}
+
+// ---------- 顔 ----------
+/** 顔画像を選ぶ：陣営・性別・年代が合うもの。今いる敵将どうしで同じ顔にならないように */
+export function pickFace(s: GameState, faction: FactionId, gender: Gender, band: AgeBand, r: Rng, salt = ''): string | null {
+  if (faction === 'monster') return null;
+  const used = new Set(officers(s).filter((o) => o.status === 'active' && o.faceImage).map((o) => o.faceImage!));
+  const mine = ENEMY_FACES.filter((f) => f.startsWith(`${faction}_`));
+  const tiers = [
+    mine.filter((f) => f.startsWith(`${faction}_${gender}_${band}_`) && !used.has(f)),
+    mine.filter((f) => f.startsWith(`${faction}_${gender}_`) && !used.has(f)),
+    mine.filter((f) => !used.has(f)),
+    mine.filter((f) => f.startsWith(`${faction}_${gender}_`)),
+  ];
+  const list = tiers.find((t) => t.length) ?? [];
+  if (!list.length) return null;
+  return list[(hash(salt) + r.int(0, list.length - 1)) % list.length];
+}
+/** 顔画像のファイル名から性別・年代を読む */
+export function parseEnemyFace(f: string): { gender: Gender; band: AgeBand } | null {
+  const m = f.match(/^[a-z]+_([mf])_(young|middle|old)_/);
+  return m ? { gender: m[1] as Gender, band: m[2] as AgeBand } : null;
+}
+
+// ---------- 敵将を作る ----------
+const ARMY_PERS: LeaderPersonality[] = ['arrogant', 'veteran', 'cunning', 'proud', 'young', 'cold'];
+const BANDIT_PERS: LeaderPersonality[] = ['arrogant', 'cunning', 'young', 'veteran', 'cold'];
+function persForAge(r: Rng, kind: 'army' | 'bandit', band: AgeBand): LeaderPersonality {
+  const list = (kind === 'army' ? ARMY_PERS : BANDIT_PERS).filter((p) => !(p === 'young' && band === 'old') && !(p === 'veteran' && band === 'young'));
+  return r.pick(list);
+}
+
+function takenNames(s: GameState): Set<string> {
+  const t = new Set(Object.values(s.students).map((x) => x.given));
+  for (const o of officers(s)) if (o.status === 'active') t.add(o.given);
+  return t;
+}
+
+export function newOfficer(s: GameState, r: Rng, faction: FactionId, rank: number): EnemyOfficer {
+  const kind: 'army' | 'bandit' = faction === 'bandit' ? 'bandit' : 'army';
+  const band: AgeBand = rank === 0 ? r.pick(['middle', 'old', 'old'] as const) : rank === 1 ? r.pick(['young', 'middle', 'middle', 'old'] as const) : r.pick(['young', 'young', 'middle'] as const);
+  let gender: Gender = r.chance(0.3) ? 'f' : 'm';
+  const id = `of${s.nextId++}`;
+  const faceImage = pickFace(s, faction, gender, band, r, id);
+  const pf = faceImage ? parseEnemyFace(faceImage) : null;
+  if (pf) gender = pf.gender;
+  const realBand = pf?.band ?? band;
+  const age = r.int(...OFFICER.ageRange[realBand]);
+  const origin = faction === 'bandit' ? 'frontier' : faction;
+  const nl = NAMES[origin as keyof typeof NAMES];
+  const taken = takenNames(s);
+  let given = r.pick(gender === 'f' ? nl.female : nl.male);
+  for (let k = 0; k < 10 && taken.has(given); k++) given = r.pick(gender === 'f' ? nl.female : nl.male);
+  const pers = persForAge(r, kind, realBand);
+  const traits = r.shuffle([...TRAIT_IDS]).slice(0, OFFICER.traitCount);
+  return {
+    id, given, family: kind === 'army' ? r.pick(nl.family) : '', epithet: kind === 'bandit' ? r.pick(BANDIT_EPITHETS) : undefined,
+    faction, kind, country: kind === 'army' ? faction as CountryId : null, rank, gender, age, personality: pers,
+    face: generateFace(r, origin as 'frontier', gender), faceImage, classId: r.pick(OFFICER_CLASSES[kind]),
+    level: Math.max(1, Math.round(3 + s.year * 0.6 + (2 - rank) * 2)), scars: 0, traits, knownTraits: [], meets: [], status: 'active', grudge: null, victims: [], joined: s.year,
+  };
+}
+
+/** 名簿を満たす（ゲーム開始・読み込み・月の初め・年度末）。上が空いていれば下から昇格させる */
+export function ensureRosters(s: GameState, r: Rng, report?: string[]): void {
+  for (const f of ROSTER_FACTIONS) fillFaction(s, f, r, report);
+}
+function rankScore(o: EnemyOfficer): number { return o.level + o.victims.length * 3 + o.meets.length; }
+function fillFaction(s: GameState, f: FactionId, r: Rng, report?: string[]): void {
+  const kind = f === 'bandit' ? 'bandit' : 'army';
+  for (let rank = 0; rank <= 1; rank++) {
+    let guard = 0;
+    while (activeOf(s, f).filter((o) => o.rank === rank).length < OFFICER.roster[rank] && guard++ < 4) {
+      const cands = activeOf(s, f).filter((o) => o.rank === rank + 1);
+      if (!cands.length) break;
+      const win = r.weighted(cands, (o) => 1 + rankScore(o));
+      win.rank = rank;
+      const rn = RANK_NAMES[kind][rank];
+      if (rank === 0 && cands.length >= 2 && r.chance(0.5)) {
+        // 権力争い：負けた者は去る
+        const loser = r.pick(cands.filter((o) => o !== win));
+        if (r.chance(0.4)) { loser.status = 'retired'; loser.endYear = s.year; loser.endNote = '権力争いに敗れて去った'; }
+        const t = fill(OFFICER_NEWS.struggle, { faction: FACTION_NAMES[f], name: officerName(win), rank: rn, loser: officerName(loser) });
+        chronicle(s, t, 'world'); report?.push(t);
+      } else {
+        const t = fill(rank === 0 ? OFFICER_NEWS.head : OFFICER_NEWS.promote, { faction: FACTION_NAMES[f], name: officerName(win), rank: rn, pers: LEADER_NAMES[win.personality as LeaderPersonality] ?? '' });
+        if (s.year > 1 || s.month > 0) { chronicle(s, t, 'world'); report?.push(t); }
+      }
+    }
+  }
+  for (let rank = 0; rank <= 2; rank++) {
+    while (activeOf(s, f).filter((o) => o.rank === rank).length < OFFICER.roster[rank] && activeOf(s, f).length < OFFICER.rosterMax) officers(s).push(newOfficer(s, r, f, rank));
+  }
+}
+
+/** 5夜目の因縁の敵将を、名簿の敵将に変換する（陣営に合う顔を割り当てる） */
+export function nemesisToOfficer(s: GameState, n: Nemesis, r: Rng): EnemyOfficer {
+  const faction: FactionId = n.kind === 'monster' ? 'monster' : n.kind === 'bandit' ? 'bandit' : (n.country ?? 'kingdom');
+  let given = n.name, family = '', epithet: string | undefined;
+  if (n.kind === 'army' && n.name.includes('・')) [given, family] = n.name.split('・');
+  if (n.kind === 'bandit') { const ep = BANDIT_EPITHETS.find((e) => n.name.startsWith(e)); if (ep) { epithet = ep; given = n.name.slice(ep.length); } }
+  const origin = faction === 'bandit' || faction === 'monster' ? 'frontier' : faction;
+  const nl = NAMES[origin as keyof typeof NAMES];
+  const gender: Gender = nl.female.includes(given) ? 'f' : 'm';
+  const band: AgeBand = n.personality === 'veteran' ? 'old' : n.personality === 'young' ? 'young' : 'middle';
+  const faceImage = n.kind === 'monster' ? null : pickFace(s, faction, gender, band, r, n.id);
+  const pf = faceImage ? parseEnemyFace(faceImage) : null;
+  const fled = n.meets.filter((m) => m.result === 'fled').length;
+  return {
+    id: n.id, given, family, epithet, faction, kind: n.kind, country: n.country, rank: n.level >= 15 ? 1 : 2,
+    gender: pf?.gender ?? gender, age: r.int(...OFFICER.ageRange[pf?.band ?? band]), personality: n.personality, face: n.face, faceImage,
+    classId: n.classId, level: n.level, scars: Math.min(3, fled), traits: r.shuffle([...TRAIT_IDS]).slice(0, OFFICER.traitCount), knownTraits: [],
+    meets: n.meets.map((m) => ({ ...m })), status: n.status === 'active' ? 'active' : 'defeated', grudge: null, victims: [], joined: n.meets[0]?.year ?? s.year,
+    title: n.kind === 'monster' ? n.name : undefined,
+  };
+}
+
+// ---------- 依頼と敵将 ----------
+export function factionOfQuest(q: Quest): FactionId | null {
+  if (q.kind === 'drill' || q.kind === 'exhibition') return null;
+  if (q.kind === 'monster') return 'monster';
+  return q.enemyCountry ?? 'bandit';
+}
+export function headOf(s: GameState, f: FactionId): EnemyOfficer | null { return activeOf(s, f).find((o) => o.rank === 0) ?? null; }
+export function headEffect(s: GameState, f: FactionId | null) {
+  const h = f ? headOf(s, f) : null;
+  return HEAD_EFFECT[(h?.personality as LeaderPersonality) ?? 'beast'] ?? HEAD_EFFECT.beast;
+}
+
+/** 依頼の敵将を名簿から選ぶ（状態は変えない）。依頼の大きさで階級が変わる */
+export function pickOfficerForQuest(s: GameState, q: Quest, r: Rng, deployIds: string[]): EnemyOfficer | null {
+  const f = factionOfQuest(q);
+  if (!f || f === 'monster') return null;
+  const pool = activeOf(s, f).filter((o) => !o.alumniId || alumniUsable(s, o));
+  if (!pool.length) return null;
+  const want = QUEST_RANK[q.kind] ?? { rank: 2, up: 0.2 };
+  let rank = want.rank;
+  if (q.danger >= 3 && r.chance(want.up)) rank = Math.max(0, rank - 1);
+  let cands = pool.filter((o) => o.rank === rank);
+  for (let d = 1; !cands.length && d <= 2; d++) cands = pool.filter((o) => Math.abs(o.rank - rank) === d);
+  if (!cands.length) cands = pool;
+  const rv = s.rivalries ?? {};
+  return r.weighted(cands, (o) => (o.meets.length ? OFFICER.metWeight : 1)
+    * (o.grudge && deployIds.includes(o.grudge) ? OFFICER.grudgeWeight : 1)
+    * (deployIds.some((id) => (rv[rivalKey(id, o.id)]?.stage ?? 0) >= 1 && !rv[rivalKey(id, o.id)]?.settled) ? OFFICER.rivalWeight : 1));
+}
+function alumniUsable(s: GameState, o: EnemyOfficer): boolean {
+  const st = s.students[o.alumniId!];
+  return !!st && st.status === 'graduated' && !!st.career?.alive && !st.career.retired && st.career.kind === 'army';
+}
+
+/** 戦場での敵将のレベル（依頼の敵より少し強く、生徒を倒したり傷を負うほど強くなる） */
+export function officerLevel(o: EnemyOfficer, base: number): number {
+  const grow = Math.min(OFFICER.growthCap, o.victims.length * OFFICER.victimLevel + o.scars * OFFICER.scarLevel);
+  return Math.max(1, Math.round(base + OFFICER.rankLevel[Math.max(0, Math.min(2, o.rank))] - 1 + grow));
+}
+
+export interface TraitHit { id: string; active: boolean; exploited: boolean }
+/**
+ * 敵将の隠れた特徴・傷を、戦場の敵将のユニットに付ける。突いた弱点（知っていて条件を満たした）を返す
+ */
+export function applyOfficerTraits(b: BattleState, o: EnemyOfficer, u: Unit, tactic: string | null): TraitHit[] {
+  const out: TraitHit[] = [];
+  const sc = Math.min(3, o.scars);
+  if (sc) { u.stats.spd = Math.max(1, u.stats.spd + OFFICER.scarStats.spd * sc); u.stats.def += OFFICER.scarStats.def * sc; }
+  const mods = (u.mod ??= {});
+  const add = (k: 'hit' | 'avo' | 'def', v?: number) => { if (v) mods[k] = (mods[k] ?? 0) + v; };
+  for (const id of o.traits) {
+    const t = OFFICER_TRAITS[id];
+    if (!t) continue;
+    const known = o.knownTraits.includes(id);
+    let active = false;
+    if (t.foe) { (u.foeMods ??= []).push({ ...t.foe }); if (known && t.weak) u.foeMods.push({ types: t.foe.types, moveTypes: t.foe.moveTypes, hit: OFFICER.exploitMod.hit, dmg: OFFICER.exploitMod.dmg }); active = true; }
+    if (t.self) { add('hit', t.self.hit); add('avo', t.self.avo); add('def', t.self.def); if (t.self.spd) u.stats.spd = Math.max(1, u.stats.spd + t.self.spd); active = true; }
+    if (t.weather && b.weather === t.weather.w) { add('hit', t.weather.hit); add('avo', t.weather.avo); active = true; }
+    if (t.tactic && tactic === t.tactic.t) { add('hit', t.tactic.hit); add('avo', t.tactic.avo); add('def', t.tactic.def); active = true; }
+    if (t.men) for (const e of b.units) if (e.side === 'enemy' && e !== u) { e.mod ??= {}; e.mod.hit = (e.mod.hit ?? 0) + (t.men.hit ?? 0); }
+    out.push({ id, active, exploited: known && t.weak && active && !t.foe ? true : false });
+  }
+  return out;
+}
+
+export function isScout(classId: string): boolean { return SCOUT_CLASSES.includes(classId); }
+
+// ---------- 宿敵（生徒側の因縁） ----------
+export function rivalKey(sid: string, oid: string): string { return `${sid}|${oid}`; }
+export function rivalryOf(s: GameState, sid: string, oid: string): Rivalry | null { return s.rivalries?.[rivalKey(sid, oid)] ?? null; }
+export function ensureRivalry(s: GameState, sid: string, oid: string): Rivalry {
+  const k = rivalKey(sid, oid);
+  return ((s.rivalries ??= {})[k] ??= { sid, oid, battles: 0, stage: 0, vow: null, log: [], settled: null });
+}
+export function rivalriesOf(s: GameState, sid: string): Rivalry[] {
+  return Object.values(s.rivalries ?? {}).filter((r) => r.sid === sid && (r.stage >= 1 || r.vow || r.settled)).sort((a, c) => c.stage - a.stage || c.battles - a.battles);
+}
+export function stageName(n: number): string { return RIVAL_STAGE_NAMES[Math.max(0, Math.min(3, n))]; }
+function stageFor(rv: Rivalry): number {
+  let st = 0;
+  OFFICER.stageAt.forEach((n, i) => { if (rv.battles >= n) st = i + 1; });
+  if (rv.vow) st = Math.max(st, 1);
+  return st;
+}
+
+// ---------- 口上（記憶） ----------
+export function whenText(s: GameState, year: number, month: number): string {
+  const d = s.year - year;
+  return d <= 0 ? `今年の${MONTH_NAMES[month]}` : d === 1 ? `去年の${MONTH_NAMES[month]}` : `${d}年前の${MONTH_NAMES[month]}`;
+}
+/** 過去の出来事に触れる口上。出撃している生徒（ids）を見て選ぶ */
+export function memoryLine(s: GameState, o: EnemyOfficer, ids: string[], r: Rng): { text: string; target?: string } | null {
+  const last = o.meets[o.meets.length - 1];
+  if (!last) return null;
+  const nm = (id?: string | null) => (id && s.students[id] ? s.students[id].given : '');
+  if (o.grudge && ids.includes(o.grudge)) return { text: voice(fill(r.pick(MEMORY_TEXT.grudge), { a: nm(o.grudge) }), o), target: o.grudge };
+  const when = whenText(s, last.year, last.month);
+  const v = o.victims[o.victims.length - 1];
+  if (v && r.chance(0.55)) return { text: voice(fill(r.pick(MEMORY_TEXT.victim), { v: v.name, when: whenText(s, v.year, 0).replace(/の.*$/, '') }), o) };
+  if (last.result === 'fled' || o.scars) {
+    const foe = (last.foes ?? []).find((id) => ids.includes(id)) ?? (last.foes ?? [])[0];
+    if (foe && nm(foe)) return { text: voice(fill(r.pick(MEMORY_TEXT.scar), { a: nm(foe), when, title: last.title }), o), target: foe };
+    return { text: voice(fill(r.pick(MEMORY_TEXT.scarAny), { when, title: last.title }), o) };
+  }
+  if (last.result === 'lose') return { text: voice(fill(r.pick(MEMORY_TEXT.won), { when, title: last.title }), o) };
+  return { text: voice(fill(r.pick(MEMORY_TEXT.lost), { when, title: last.title }), o) };
+}
+
+// ---------- 戦いのあと ----------
+export interface OfficerBattleInfo {
+  officerId?: string; uid: string; fled?: boolean;
+  settled?: 'persuade' | 'duel' | 'kill' | 'spare' | null; settleBy?: string; duelWon?: boolean;
+  traitHits?: TraitHit[]; scouted?: boolean;
+}
+
+/** 戦いのあと：敵将の記憶（昇進・二つ名・傷・執着）、宿敵・仇討ちの誓い、特徴が分かる。結果の画面に出す「分かったこと」を返す */
+export function afterOfficerBattle(s: GameState, b: BattleState, o: EnemyOfficer, L: OfficerBattleInfo, r: Rng, lines: string[]): BattleFinding[] {
+  const out: BattleFinding[] = [];
+  const lu = b.units.find((u) => u.uid === L.uid);
+  if (!lu) return out;
+  const fn = officerName(o);
+  const fname = FACTION_NAMES[o.faction];
+  const fell = !!lu.dead && !L.fled && !b.retreated.includes(lu.uid);
+  const sidOf = (uid: string) => b.units.find((u) => u.uid === uid)?.studentId;
+  const enrolledId = (id?: string) => !!id && s.students[id]?.status === 'enrolled';
+  // 直接ぶつかった生徒
+  const foes = [...new Set([...(b.hitBy[lu.uid] ?? []).map(sidOf), ...(b.struck?.[lu.uid] ?? [])].filter((x): x is string => !!x && !!s.students[x]))];
+  if (L.settleBy && !foes.includes(L.settleBy)) foes.push(L.settleBy);
+  // 敵将が倒した生徒（自分の手で、または率いた戦いで戦死）
+  const victims = b.fallen.filter((f) => (f.by === lu.uid || (f.outcome === 'dead' && !fell)) && f.outcome !== 'out' && s.students[f.studentId] && b.units.some((u) => u.studentId === f.studentId && u.side === 'player'));
+  const settled = L.settled === 'kill' && !fell ? null : (L.settled ?? null);
+  const result: EnemyOfficer['meets'][number]['result'] = settled === 'persuade' ? 'persuaded' : settled === 'spare' ? 'spared' : settled === 'duel' && L.duelWon ? 'yielded' : fell ? 'fell' : b.result === 'win' ? 'fled' : 'lose';
+  const meet: OfficerMeet = { year: s.year, month: s.month, title: b.title, result, foes: foes.slice(0, 6) };
+  o.meets.push(meet);
+  if (o.meets.length > 16) o.meets.splice(0, o.meets.length - 16);
+  if (!o.alumniId) { o.level = Math.max(o.level, lu.level); o.classId = lu.classId; }
+  // 宿敵の段階（直接ぶつかった子）
+  for (const id of foes) {
+    if (!enrolledId(id) && !s.students[id]?.career) continue;
+    const rv = ensureRivalry(s, id, o.id);
+    if (rv.settled) continue;
+    rv.battles += 1;
+    const st0 = rv.stage, st1 = stageFor(rv);
+    rv.stage = Math.max(st0, st1);
+    if (rv.stage > st0 && rv.stage >= 1) {
+      const t = fill(OFFICER_NEWS.rival, { a: s.students[id].given, name: fn, stage: stageName(rv.stage) });
+      rv.log.push({ year: s.year, month: s.month, text: `${stageName(rv.stage)}になった` });
+      out.push({ id, icon: 'flame', text: t });
+      if (rv.stage >= 2) chronicle(s, t, 'student');
+    }
+  }
+  // 決着
+  if (settled && L.settleBy) {
+    const rv = ensureRivalry(s, L.settleBy, o.id);
+    const won = settled !== 'duel' || L.duelWon;
+    if (won) {
+      rv.settled = settled; rv.settledYear = s.year;
+      const t = fill(OFFICER_NEWS.settle[settled], { a: s.students[L.settleBy].given, name: fn });
+      rv.log.push({ year: s.year, month: s.month, text: t });
+      chronicle(s, t, 'school'); out.push({ id: L.settleBy, icon: 'star', text: t });
+      // ほかの子の因縁も終わる
+      for (const x of Object.values(s.rivalries ?? {})) if (x.oid === o.id && !x.settled) { x.settled = settled; x.settledYear = s.year; }
+    }
+  }
+  if (fell) {
+    o.status = 'dead'; o.endYear = s.year; o.endNote = `「${b.title}」で討ち取られた`;
+    const t = fill(OFFICER_NEWS.fell, { faction: fname, name: fn });
+    chronicle(s, t, 'school');
+    for (const x of Object.values(s.rivalries ?? {})) if (x.oid === o.id && !x.settled) { x.settled = 'kill'; x.settledYear = s.year; }
+    if (o.alumniId) { /* 卒業生の戦死は finishBattle で */ }
+  } else if (settled === 'persuade' || settled === 'spare' || (settled === 'duel' && L.duelWon)) {
+    o.status = settled === 'duel' ? 'defeated' : 'retired'; o.endYear = s.year;
+    o.endNote = settled === 'persuade' ? '教え子に説かれ、剣を置いた' : settled === 'spare' ? '見逃され、戦場を去った' : '一騎打ちに敗れ、退いた';
+    const alum = o.alumniId ? s.students[o.alumniId] : null;
+    if (alum?.career && settled !== 'duel') { alum.career.retired = true; alum.history.push({ year: s.year, text: settled === 'persuade' ? '先生の教え子たちに説かれ、剣を置いた' : '戦場で教え子たちに見逃され、軍を退いた' }); }
+  } else {
+    // 生きのびた：傷・執着・昇進・二つ名
+    if (b.result === 'win' || L.fled || lu.hp < lu.maxHp * 0.5) {
+      o.scars = Math.min(4, o.scars + 1);
+      if (o.scars >= 2 && !o.traits.includes('old_wound')) o.traits.push('old_wound');
+      const top = (b.hitBy[lu.uid] ?? []).map((uid) => b.units.find((u) => u.uid === uid)).filter((u): u is Unit => !!u?.studentId && enrolledId(u.studentId)).sort((a, c) => c.dmgDealt - a.dmgDealt)[0];
+      if (top?.studentId) { o.grudge = top.studentId; meet.note = `scar:${top.studentId}`; }
+    }
+    if (victims.length) {
+      for (const f of victims) o.victims.push({ id: f.studentId, name: s.students[f.studentId].given, year: s.year, dead: f.outcome === 'dead' });
+      const score = o.victims.reduce((a, v) => a + (v.dead ? 1 : 0.5), 0);
+      const old = officerName(o);
+      if (score >= OFFICER.epithetAt) {
+        const ep = makeEpithet(o, victims[victims.length - 1].outcome === 'dead', s.students[victims[victims.length - 1].studentId].given, lu, r, score);
+        if (ep && ep !== o.epithet) {
+          o.epithet = ep;
+          const t = fill(OFFICER_NEWS.epithet, { faction: fname, old, name: officerName(o) });
+          chronicle(s, t, 'world'); lines.push(t); out.push({ icon: 'skull', text: t });
+        }
+      }
+      if (o.rank > 0 && activeOf(s, o.faction).filter((x) => x.rank === o.rank - 1).length <= OFFICER.roster[o.rank - 1] && (o.rank > 1 || !headOf(s, o.faction))) {
+        o.rank -= 1;
+        const t = fill(OFFICER_NEWS.promote, { faction: fname, name: officerName(o), rank: rankName(o) });
+        chronicle(s, t, 'world'); lines.push(t); out.push({ icon: 'skull', text: t });
+      } else o.level += 1;
+    }
+  }
+  // 仇討ちの誓い：倒された子の恋人と、支援のいちばん深い子（2人まで）
+  for (const f of victims) {
+    const close = Object.values(s.students).filter((y) => y.status === 'enrolled' && y.id !== f.studentId && (getSupport(s, y.id, f.studentId).kind === 'love' || supportValue(s, y.id, f.studentId) >= B.support.B))
+      .sort((a, c) => Number(getSupport(s, c.id, f.studentId).kind === 'love') - Number(getSupport(s, a.id, f.studentId).kind === 'love') || supportValue(s, c.id, f.studentId) - supportValue(s, a.id, f.studentId)).slice(0, OFFICER.vowMax);
+    for (const y of close) {
+      if (o.status !== 'active') continue;
+      const rv = ensureRivalry(s, y.id, o.id);
+      if (rv.vow) continue;
+      rv.vow = f.studentId; rv.stage = Math.max(1, rv.stage);
+      const t = fill(OFFICER_NEWS.vow, { a: y.given, v: s.students[f.studentId].given, name: officerName(o) });
+      rv.log.push({ year: s.year, month: s.month, text: t });
+      chronicle(s, t, 'student'); out.push({ id: y.id, icon: 'flame', text: t });
+    }
+  }
+  // 特徴が分かる（1戦闘に1つまで）
+  if (o.status === 'active' || fell) {
+    const unknown = o.traits.filter((t) => !o.knownTraits.includes(t));
+    const hits = new Map((L.traitHits ?? []).map((h) => [h.id, h]));
+    const scout = b.units.some((u) => u.side === 'player' && isScout(u.classId));
+    for (const id of r.shuffle(unknown)) {
+      const active = hits.get(id)?.active ?? false;
+      const p = (active ? OFFICER.revealActive : OFFICER.revealBase) + (scout ? OFFICER.revealScout : 0);
+      if (r.chance(p)) {
+        o.knownTraits.push(id);
+        const who = foes.map((x) => s.students[x]).find(Boolean);
+        const t = fill(TRAIT_REVEAL[id] ?? '{leader}の特徴「{trait}」が分かった', { leader: fn, a: who?.given ?? '仲間', trait: OFFICER_TRAITS[id].name });
+        lines.push(t); out.push({ icon: 'lantern', text: `${fn}の特徴「${OFFICER_TRAITS[id].name}」が分かった` });
+        break;
+      }
+    }
+  }
+  for (const h of L.traitHits ?? []) if (h.exploited || (h.active && o.knownTraits.includes(h.id) && OFFICER_TRAITS[h.id]?.weak && wasHitWith(b, lu, h.id))) out.push({ icon: 'target', text: fill(EXPLOIT_TEXT, { leader: fn, trait: OFFICER_TRAITS[h.id].name }) });
+  return out;
+}
+/** 武器・移動の弱点を、実際に突いたか（その武器・兵種の子が敵将に攻撃した） */
+function wasHitWith(b: BattleState, lu: Unit, id: string): boolean {
+  const t = OFFICER_TRAITS[id];
+  if (!t.foe) return false;
+  return (b.hitBy[lu.uid] ?? []).some((uid) => {
+    const u = b.units.find((x) => x.uid === uid);
+    if (!u) return false;
+    const w = u.weaponId ? WEAPONS[u.weaponId] : null;
+    const mt = (CLASSES[u.classId] ?? CLASSES.novice).moveType;
+    return (!t.foe!.types || (!!w && t.foe!.types.includes(w.type)) || Object.keys(u.usedWeapon).some((k) => t.foe!.types!.includes(WEAPONS[k]?.type ?? ''))) && (!t.foe!.moveTypes || t.foe!.moveTypes.includes(mt));
+  });
+}
+
+function makeEpithet(o: EnemyOfficer, dead: boolean, victim: string, lu: Unit, r: Rng, score: number): string {
+  if (score >= 3) return r.pick(EPITHET_MANY);
+  const w = lu.weaponId ? WEAPONS[lu.weaponId]?.type : null;
+  const roll = r.next();
+  if (roll < 0.55) return fill(r.pick(dead ? EPITHET_VICTIM.dead : EPITHET_VICTIM.injured), { v: victim });
+  if (roll < 0.8 && w && EPITHET_WEAPON[w]) return r.pick(EPITHET_WEAPON[w]);
+  return r.pick(EPITHET_PERSONALITY[o.personality as LeaderPersonality] ?? EPITHET_PERSONALITY.cold);
+}
+
+// ---------- 特徴が分かる（偵察・手紙） ----------
+export function revealOne(o: EnemyOfficer, r: Rng): string | null {
+  const unknown = o.traits.filter((t) => !o.knownTraits.includes(t));
+  if (!unknown.length) return null;
+  const id = r.pick(unknown);
+  o.knownTraits.push(id);
+  return id;
+}
+
+// ---------- 年度末 ----------
+/** 年度末：敵将が年をとる・引退・権力争い・卒業生が敵将になる・卒業生からの手紙。新聞に載せる文を返す */
+export function yearlyOfficers(s: GameState, r: Rng): string[] {
+  const report: string[] = [];
+  for (const o of officers(s)) {
+    if (o.status !== 'active' || o.kind === 'monster') continue;
+    if (o.alumniId) {
+      const st = s.students[o.alumniId];
+      if (!alumniUsable(s, o)) { o.status = st?.career?.alive === false ? 'dead' : 'retired'; o.endYear = s.year; o.endNote = st?.career?.alive === false ? '戦場で倒れた' : '軍を離れた'; continue; }
+      o.level = st.level; o.classId = st.classId; o.age = st.age;
+      continue;
+    }
+    o.age += 1;
+    o.level += o.rank === 2 ? 1 : r.chance(0.6) ? 1 : 0;
+    if (o.age >= OFFICER.retireAge && r.chance(OFFICER.retireChance)) {
+      o.status = 'retired'; o.endYear = s.year; o.endNote = '年をとって引退した';
+      const t = fill(OFFICER_NEWS.retire, { faction: FACTION_NAMES[o.faction], name: officerName(o) });
+      chronicle(s, t, 'world'); report.push(t);
+    }
+  }
+  // 卒業生が敵将になる
+  for (const st of Object.values(s.students)) {
+    const c = st.career;
+    if (st.status !== 'graduated' || !c?.alive || c.retired || c.kind !== 'army' || !c.country || c.path === 'civil' || c.rank < OFFICER.alumniRank) continue;
+    if (officers(s).some((o) => o.alumniId === st.id)) continue;
+    if (activeOf(s, c.country).filter((o) => o.alumniId).length >= OFFICER.alumniMax || !r.chance(OFFICER.alumniChance)) continue;
+    const o = alumniOfficer(s, st, c.country, c.rank >= 3 ? 1 : 2);
+    officers(s).push(o);
+    const t = fill(OFFICER_NEWS.alumni, { a: `${st.given}（${st.cohort}期生）`, faction: FACTION_NAMES[c.country], rank: rankName(o) });
+    chronicle(s, t, 'student'); report.push(t);
+    st.history.push({ year: s.year, text: `${FACTION_NAMES[c.country]}の${rankName(o)}になった（敵将の名簿に載る）` });
+  }
+  ensureRosters(s, r, report);
+  // 三国の軍の頭の性格で、戦況の動きが少し変わる（好戦的な頭は緊張を高める）
+  let dt = 0;
+  for (const f of ['kingdom', 'empire', 'alliance'] as const) dt += headEffect(s, f).tension * 0.5;
+  s.world.tension = Math.max(0, Math.min(100, s.world.tension + dt));
+  // 卒業生からの手紙（敵将の特徴）
+  let sent = 0;
+  const writers = r.shuffle(Object.values(s.students).filter((st) => st.status === 'graduated' && st.career?.alive && !st.career.retired && st.career.kind === 'army' && st.trust >= 20));
+  for (const w of writers) {
+    if (sent >= OFFICER.letterMax) break;
+    if (!r.chance(OFFICER.letterChance)) continue;
+    const met = officers(s).filter((o) => o.status === 'active' && o.meets.length && o.traits.some((t) => !o.knownTraits.includes(t)) && o.alumniId !== w.id);
+    if (!met.length) continue;
+    const o = r.weighted(met, (x) => (x.faction === w.career!.country ? 3 : 1) + x.meets.length);
+    const id = revealOne(o, r)!;
+    const T = OFFICER_TRAITS[id];
+    mail(s, `${w.given}（${w.cohort}期生）`, LETTER_TEXT.title, fill(r.pick(LETTER_TEXT.body), { place: w.career!.country ? `${COUNTRY_SHORT[w.career!.country]}の陣中` : '戦場', leader: officerName(o), faction: FACTION_NAMES[o.faction], desc: T.desc, trait: T.name, a: w.given }), w.id);
+    sent++;
+  }
+  // 宿敵にならなかった記録を整理する
+  for (const [k, rv] of Object.entries(s.rivalries ?? {})) {
+    const o = officerById(s, rv.oid);
+    const st = s.students[rv.sid];
+    if (rv.stage === 0 && !rv.vow && (rv.settled || !o || o.status !== 'active' || !st || st.status !== 'enrolled')) delete s.rivalries![k];
+  }
+  // 名簿の古い記録を整理（去った敵将は新しい40人まで）
+  const gone = officers(s).filter((o) => o.status !== 'active');
+  if (gone.length > 40) { const keep = new Set(gone.slice(-40)); s.officers = officers(s).filter((o) => o.status === 'active' || keep.has(o)); }
+  return report;
+}
+
+export function alumniOfficer(s: GameState, st: Student, country: CountryId, rank: number): EnemyOfficer {
+  return {
+    id: `of${s.nextId++}`, given: st.given, family: st.family, faction: country, kind: 'army', country, rank, gender: st.gender, age: st.age,
+    personality: ALUMNI_PERSONALITY[st.personality] ?? 'proud', face: st.face, faceImage: null, classId: st.classId, level: st.level, scars: 0,
+    traits: new Rng({ rng: hash(st.id) }).shuffle([...TRAIT_IDS]).slice(0, OFFICER.traitCount), knownTraits: [], meets: [], status: 'active', grudge: null, victims: [], alumniId: st.id, joined: s.year,
+  };
+}
+
+/** 卒業生の敵将の肩書き（国の役職） */
+export function alumniRankTitle(st: Student): string {
+  const c = st.career;
+  if (!c || c.kind !== 'army') return '';
+  const t = RANK_TITLES[c.path];
+  return t[Math.min(c.rank, t.length - 1)];
+}
+
+/** 倒れた敵将が深手を負いながら逃げのびるか（名簿の敵将だけ。決着の指示「討ち取る」のときは逃げられない） */
+export function survives(o: EnemyOfficer, objective: string, r: Rng): boolean {
+  if (o.kind === 'monster') return false;
+  let p = OFFICER.survive[Math.max(0, Math.min(2, o.rank))];
+  if (objective === 'boss' || objective === 'seize') p *= OFFICER.surviveBossMul;
+  return r.chance(p);
+}
+
+/** 名簿の見え方：0=会ったことがない 1=一度会った 2=何度も会った */
+export function knowledge(o: EnemyOfficer): number { return o.meets.length === 0 ? 0 : o.meets.length === 1 ? 1 : 2; }
+
+void ageBand;

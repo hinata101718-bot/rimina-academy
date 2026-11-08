@@ -6,6 +6,8 @@ import { WEAPONS } from '../data/weapons';
 import { ensureSpellPlan, learnSpells } from './spells';
 import { ensureTeacherSince, instructorCaps } from './instructor';
 import { birthdayFor } from './student';
+import { ensureRosters, nemesisToOfficer } from './officers';
+import { Rng } from './rng';
 
 export interface SaveFile { app: 'rimina-academy'; version: number; savedAt: number; state: GameState }
 
@@ -28,6 +30,7 @@ export function migrate(s: GameState, from: number): GameState {
   if (from < 2) migrateTo2(s, oldSettings as Partial<GameState['settings']>);
   if (from < 3) migrateTo3(s);
   if (from < 4) migrateTo4(s);
+  if (from < 5) migrateTo5(s);
   s.heirs ??= [];
   s.archive ??= {};
   s.notices ??= [];
@@ -117,4 +120,37 @@ function migrateTo4(s: GameState): void {
       ...(s.battle ? ['いま途中の戦闘は、これまでどおり自分で指揮して続けられます。'] : []),
     ],
   });
+}
+
+/**
+ * 5夜目の版（version 4）→ 6夜目の版（version 5）
+ * - 因縁の敵将（Nemesis）を、敵将の名簿（EnemyOfficer）に変換する。陣営に合う顔画像を割り当てる
+ * - 三国の軍と盗賊団の名簿を作る（足りない分を新しく）
+ * - 生徒と敵将の因縁（宿敵）の記録を足す
+ * - 戦闘の途中のセーブ：自動の戦闘の敵将は、因縁の敵将なら名簿の敵将につなぐ
+ */
+function migrateTo5(s: GameState): void {
+  const r = new Rng({ rng: (s.rng ^ 0x6e696768) | 0 });
+  s.officers ??= [];
+  s.rivalries ??= {};
+  for (const n of s.nemeses ?? []) if (!s.officers.some((o) => o.id === n.id)) s.officers.push(nemesisToOfficer(s, n, r));
+  delete s.nemeses;
+  ensureRosters(s, r);
+  const L = s.battle?.auto?.leader;
+  if (L && L.nemesisId && !L.officerId && s.officers.some((o) => o.id === L.nemesisId)) {
+    const o = s.officers.find((x) => x.id === L.nemesisId)!;
+    L.officerId = o.id; L.faceImage = o.faceImage; L.scars = o.scars;
+  }
+  if (s.officers.length) {
+    s.pending ??= [];
+    s.pending.push({
+      type: 'event', title: '敵将の名簿ができました',
+      lines: [
+        '三国の軍と盗賊団には、それぞれ幹部の名簿ができました。「戦況」の「敵将の名簿」で見られます。会うほど、敵将のことが分かっていきます。',
+        '敵将は、こちらとの出来事を覚えています。生徒を倒した敵将は昇進して二つ名がつき、逃げた敵将は傷を負って戻ってきます。',
+        '何度も戦った生徒と敵将は「宿敵」になり、決着をつける場面が来ることがあります。',
+        ...((s.officers.filter((o) => o.meets.length).length) ? ['これまでの「因縁の敵将」も、名簿に載っています。'] : []),
+      ],
+    });
+  }
 }

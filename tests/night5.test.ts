@@ -23,9 +23,11 @@ describe('4夜目の版のセーブ（形式3）', () => {
   it('ふつうの時のセーブを読み込むと形式4になり、設定は自動の戦闘。1年遊べる', () => {
     const s = deserialize(fixture('v4-save.json'));
     expect(s.version).toBe(SAVE_VERSION);
-    expect(SAVE_VERSION).toBe(4);
+    expect(SAVE_VERSION).toBeGreaterThanOrEqual(4);
     expect(s.settings.manualBattle).toBe(false);
-    expect(s.nemeses).toEqual([]);
+    // 6夜目：因縁の敵将は敵将の名簿（officers）に入る
+    expect(s.nemeses).toBeUndefined();
+    expect((s.officers ?? []).every((o) => o.meets.length === 0)).toBe(true);
     expect(s.pending.some((p) => p.type === 'event' && p.title.includes('自動'))).toBe(true);
     const won = s.stats.battlesWon + s.stats.battlesLost;
     autoYears(s, 1);
@@ -226,38 +228,38 @@ describe('自動の戦闘', () => {
     }
   });
 
-  it('敵将を取り逃がすと因縁の敵将になり、年鑑に残る。のちにまた現れる', () => {
+  it('敵将を取り逃がすと因縁の敵将になり、名簿に残る。のちにまた現れる（6夜目：名簿の敵将として）', () => {
     const s = deserialize(fixture('v3-save.json'));
-    s.nemeses = [];
-    let made = false;
-    for (let seed = 1; seed < 60 && !made; seed++) {
+    let o: import('../src/core/state').EnemyOfficer | undefined;
+    for (let seed = 1; seed < 60 && !o; seed++) {
       const q = boardOf(s, seed, (x) => x.real && !!x.enemyCountry);
+      if (!q.enemyCountry) continue;
       const d = autoDeploy(s);
       startAutoQuest(s, q.id, d, defaultPlan(s, q, d));
       skipAuto(s, battleCtx(s));
       const L = s.battle!.auto!.leader!;
       const lu = s.battle!.units.find((u) => u.uid === L.uid)!;
-      if (!lu.dead) { lu.dead = true; s.battle!.retreated.push(lu.uid); L.fled = true; }
+      if (!lu.dead || L.settled) { lu.dead = true; s.battle!.retreated.push(lu.uid); L.fled = true; L.settled = null; }
       finishBattle(s);
-      made = (s.nemeses ?? []).length > 0;
+      o = (s.officers ?? []).find((x) => x.id === L.officerId && x.status === 'active' && x.meets.length === 1);
     }
-    expect(made).toBe(true);
-    const n = s.nemeses![0];
-    expect(n.status).toBe('active');
-    expect(n.meets.length).toBe(1);
-    // 同じ国の敵の依頼で、また現れる（確率を1にして確かめる）
-    const keep = AUTO.nemesisChance;
-    AUTO.nemesisChance = 1;
-    try {
-      const q = boardOf(s, 99, (x) => x.real && x.enemyCountry === n.country);
-      if (q.enemyCountry === n.country) {
-        const d = autoDeploy(s);
-        startAutoQuest(s, q.id, d, defaultPlan(s, q, d));
-        expect(s.battle!.auto!.leader!.name).toBe(n.name);
+    expect(o).toBeTruthy();
+    expect(o!.meets[0].result).toBe('fled');
+    // 同じ陣営の敵の依頼で、また現れることがある（会ったことのある敵将は選ばれやすい）
+    let again = false;
+    for (let seed = 100; seed < 200 && !again; seed++) {
+      const q = boardOf(s, seed, (x) => x.real && x.enemyCountry === o!.faction);
+      if (q.enemyCountry !== o!.faction) continue;
+      const d = autoDeploy(s);
+      startAutoQuest(s, q.id, d, defaultPlan(s, q, d));
+      if (s.battle!.auto!.leader!.officerId === o!.id) {
+        again = true;
         expect(s.battle!.auto!.leader!.again).toBe(true);
         expect(s.battle!.auto!.scenes[0].lines.some((l) => l.by === 'leader')).toBe(true);
       }
-    } finally { AUTO.nemesisChance = keep; }
+      s.battle = null;
+    }
+    expect(again).toBe(true);
   });
 
   it('場面を進める処理を何度呼んでも壊れない', () => {

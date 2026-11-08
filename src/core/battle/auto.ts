@@ -7,7 +7,7 @@ import { CLASSES } from '../../data/classes';
 import { WEAPONS } from '../../data/weapons';
 import { NAMES } from '../../data/names';
 import { COUNTRY_SHORT, TRAITS } from '../../data/people';
-import type { GameState, Quest, Student, FaceParts, Nemesis } from '../state';
+import type { GameState, Quest, Student, FaceParts, EnemyOfficer } from '../state';
 import type { BattleState, Unit, FeedEntry } from './types';
 import type { PersonalityId } from '../types';
 import { Rng } from '../rng';
@@ -15,15 +15,35 @@ import { createBattle, enemyUnit, type Deploy } from './setup';
 import { autoPlayerPhase, endPlayerPhase, startPlayerPhase, rewind, canRewind, commandRate, finish, checkEnd, enemyAct, type BattleCtx } from './engine';
 import { forecast, weaponOf, staffOf, dist } from './calc';
 import { generateFace } from '../student';
+import { revealOne, survives, pickOfficerForQuest, officerById, officerName, officerLevel, applyOfficerTraits, memoryLine, rivalryOf, voice, headOf, headEffect, factionOfQuest, afterOfficerBattle, rankName, fullName, isScout, type TraitHit } from '../officers';
+import { OFFICER, OFFICER_TRAITS, FACTION_NAMES } from '../../data/officers';
+import { SCAR_TEXT, SCAR_RETURN, VOW_SAY, VOW_NARR, RIVAL_SAY, RIVAL_LEADER, SETTLE_TEXT, SETTLE_RESULT, SETTLE_LEADER, SETTLE_SAY, ALUMNI_LEADER, HEAD_TEXT, GRUDGE_CHOICE, GRUDGE_RESULT } from '../../data/officers_text';
+import { unitFromStudent, defaultWeaponFor } from './setup';
+import { bestFriend } from '../support';
+import type { BattleFinding } from '../state';
 import { getSupport, supportValue } from '../support';
 import { enrolled, available, chronicle } from '../game';
 
 // ---------- 型 ----------
 export interface AutoLine { by: string; text: string }
-export interface AutoScene { title: string; lines: AutoLine[]; faces: string[]; momentum: number; hurt: string[]; down: string[] }
+export interface AutoScene { title: string; lines: AutoLine[]; faces: string[]; momentum: number; hurt: string[]; down: string[]; /** 宿敵の決着：二人だけの場面（生徒id） */ duo?: string }
 export interface AutoChoiceOpt { id: string; label: string; note: string; actor?: string }
-export interface AutoChoice { kind: 'help' | 'push' | 'duel' | 'persuade' | 'route'; prompt: string; actor?: string; options: AutoChoiceOpt[]; recommended: number }
-export interface LeaderInfo { uid: string; name: string; personality: LeaderPersonality; face: FaceParts; classId: string; nemesisId?: string; again: boolean; fled?: boolean }
+export interface AutoChoice { kind: 'help' | 'push' | 'duel' | 'persuade' | 'route' | 'settle' | 'grudge'; prompt: string; actor?: string; options: AutoChoiceOpt[]; recommended: number; /** 二人だけの特別な場面（宿敵の決着） */ duo?: boolean }
+export interface LeaderInfo {
+  uid: string; name: string; personality: LeaderPersonality; face: FaceParts; classId: string; nemesisId?: string; again: boolean; fled?: boolean;
+  /** 6夜目：名簿の敵将 */
+  officerId?: string; faceImage?: string | null; alumniId?: string; scars?: number; rank?: string;
+  /** 宿敵の決着（選んだもの）と、決着をつけた生徒 */
+  settled?: 'persuade' | 'duel' | 'kill' | 'spare' | null; settleBy?: string; duelWon?: boolean;
+  /** 隠れた特徴が表に出たか・突いたか */
+  traitHits?: TraitHit[];
+  /** 執着している生徒（味方のuid） */
+  target?: string;
+  /** 逃げない（討ち取る指示・仲間を見捨てない） */
+  noFlee?: boolean;
+}
+/** 敵将（自動の戦闘は auto.leader、手動の戦闘は leader） */
+export function leaderOf(b: BattleState): LeaderInfo | null { return b.auto?.leader ?? b.leader ?? null; }
 export type AutoEffect =
   | { kind: 'support'; a: string; b: string; v: number }
   | { kind: 'trust'; id: string; v: number }
@@ -56,6 +76,20 @@ export interface AutoState {
 }
 
 export interface AutoPlan { tactic: TacticId; roles: Record<string, RoleId> }
+/** 卒業生の思い出（口上に使う） */
+function alumniLines(s: GameState, st: Student, r: Rng): string[] {
+  const out: string[] = [];
+  const country = st.career?.country ? COUNTRY_SHORT[st.career.country] : '';
+  const t = st.career?.path ? (st.career.path === 'warrior' ? ['兵士', '小隊長', '部隊長', '将軍', '元帥'] : ['参謀見習い', '作戦参謀', '参謀長', '軍師'])[Math.min(st.career.rank, 4)] ?? '' : '';
+  out.push(fill(r.pick(ALUMNI_LEADER.open), { country, rankName: t }));
+  const fr = bestFriend(s, st);
+  const pool: string[] = [];
+  if (fr) pool.push(fill(r.pick(ALUMNI_LEADER.friend), { friend: fr.given }));
+  if (st.farewell) pool.push(fill(r.pick(ALUMNI_LEADER.farewell), { farewell: st.farewell.replace(/^「|」$/g, '').slice(0, 40) }));
+  if ((st.trustTalks ?? []).length) pool.push(ALUMNI_LEADER.interview[0]);
+  if (pool.length) out.push(r.pick(pool));
+  return out;
+}
 
 // ---------- 小さな道具 ----------
 function rngOf(b: BattleState): Rng { return new Rng(b as unknown as { rng: number }); }
@@ -185,41 +219,93 @@ export function enemyIntel(s: GameState, b: BattleState): EnemyIntel {
 }
 
 // ---------- 敵将 ----------
-function leaderKind(q: Quest): Nemesis['kind'] { return q.kind === 'monster' ? 'monster' : q.enemyCountry ? 'army' : 'bandit'; }
-function makeLeader(s: GameState, q: Quest, b: BattleState, r: Rng): void {
-  if (!b.auto || q.kind === 'drill' || q.kind === 'exhibition') return;
+function leaderKind(q: Quest): EnemyOfficer['kind'] { return q.kind === 'monster' ? 'monster' : q.enemyCountry ? 'army' : 'bandit'; }
+function makeLeader(s: GameState, q: Quest, b: BattleState, r: Rng, tactic: string | null = null): LeaderInfo | null {
+  if (q.kind === 'drill' || q.kind === 'exhibition') return null;
   const enemies = b.units.filter((u) => u.side === 'enemy' && !u.persuadable);
-  if (!enemies.length) return;
+  if (!enemies.length) return null;
   let u = enemies.find((e) => e.boss) ?? [...enemies].sort((a, c) => c.level - a.level)[0];
   const kind = leaderKind(q);
-  // 因縁の敵将の再登場
-  const nem = (s.nemeses ?? []).filter((n) => n.status === 'active' && n.kind === kind && (kind !== 'army' || n.country === q.enemyCountry));
-  let again: Nemesis | null = null;
-  if (q.real && nem.length && r.chance(AUTO.nemesisChance)) again = r.pick(nem);
-  let name: string; let pers: LeaderPersonality; let face: FaceParts;
-  if (again) {
-    name = again.name; pers = again.personality as LeaderPersonality; face = again.face;
-    const lv = Math.max(u.level, again.level + AUTO.nemesisLevelUp);
-    const nu = enemyUnit(r, u.uid, again.classId, lv, u.x, u.y, s.world.gunUnlocked, true);
-    nu.ai = u.ai; nu.boss = u.boss || true;
-    b.units = b.units.map((x) => (x === u ? nu : x));
-    u = nu;
-  } else if (kind === 'monster') {
-    name = r.pick(MONSTER_LEADERS); pers = 'beast'; face = generateFace(r, 'frontier', 'm');
+  const deployIds = b.units.filter((x) => x.side === 'player' && x.studentId).map((x) => x.studentId!);
+  const swap = (nu: Unit) => { nu.ai = u.ai; nu.boss = u.boss; b.units = b.units.map((x) => (x === u ? nu : x)); u = nu; };
+  let info: LeaderInfo;
+  if (kind === 'monster') {
+    // 魔物の頭：名簿はないが、逃がした頭はまた現れる（今まで通り）
+    const nem = (s.officers ?? []).filter((o) => o.status === 'active' && o.faction === 'monster');
+    const again = q.real && nem.length && r.chance(AUTO.nemesisChance) ? r.pick(nem) : null;
+    if (again) {
+      swap(enemyUnit(r, u.uid, again.classId, Math.max(u.level, again.level + AUTO.nemesisLevelUp), u.x, u.y, s.world.gunUnlocked, true));
+      info = { uid: u.uid, name: officerName(again), personality: 'beast', face: again.face, classId: u.classId, officerId: again.id, again: true, scars: again.scars };
+    } else info = { uid: u.uid, name: r.pick(MONSTER_LEADERS), personality: 'beast', face: generateFace(r, 'frontier', 'm'), classId: u.classId, again: false };
   } else {
-    const origin = q.enemyCountry ?? 'frontier';
-    const g = r.chance(0.3) ? 'f' : 'm';
-    const nl = NAMES[origin];
-    // 生徒・卒業生と同じ名前は避ける
-    const taken = new Set(Object.values(s.students).map((x) => x.given));
-    let given = r.pick(g === 'f' ? nl.female : nl.male);
-    for (let k = 0; k < 8 && taken.has(given); k++) given = r.pick(g === 'f' ? nl.female : nl.male);
-    name = kind === 'bandit' ? `${r.pick(BANDIT_EPITHETS)}${given}` : `${given}・${r.pick(nl.family)}`;
-    pers = r.pick(kind === 'bandit' ? ['arrogant', 'cunning', 'young', 'veteran'] as const : ['arrogant', 'veteran', 'cunning', 'proud', 'young', 'cold'] as const);
-    face = generateFace(r, origin, g);
+    // 依頼の敵将は、編成を変えても同じ（依頼ごとに決まった種で選ぶ。偵察で分かったことがむだにならない）
+    const o = officerForQuest(s, q);
+    if (o) {
+      const alum = o.alumniId ? s.students[o.alumniId] : null;
+      if (alum) {
+        const nu = unitFromStudent(alum, 'enemy', u.uid, u.x, u.y, [defaultWeaponFor(alum)]);
+        nu.name = `${alum.given}（卒業生）`; nu.persuadable = true;
+        swap(nu);
+        b.enemyAlumni ??= alum.id;
+      } else swap(enemyUnit(r, u.uid, o.classId, officerLevel(o, u.level), u.x, u.y, s.world.gunUnlocked, u.boss));
+      const hits = applyOfficerTraits(b, o, u, tactic);
+      info = { uid: u.uid, name: officerName(o), personality: o.personality as LeaderPersonality, face: o.face, classId: u.classId, officerId: o.id, faceImage: o.faceImage, alumniId: o.alumniId, again: o.meets.length > 0, scars: o.scars, rank: rankName(o), traitHits: hits };
+      if (o.traits.includes('loyal')) info.noFlee = true;
+      // 執着：負けた相手の生徒を狙う
+      const tgt = o.grudge ? b.units.find((x) => x.side === 'player' && x.studentId === o.grudge) : null;
+      if (tgt) { u.grudge = tgt.uid; info.target = tgt.uid; if (b.objective !== 'boss' && b.objective !== 'seize') u.ai = 'charge'; }
+      if (o.traits.includes('hothead') && b.objective !== 'seize') u.ai = 'charge';
+      // 生徒側の因縁：仇討ちの誓い・宿敵
+      for (const p of b.units) {
+        if (p.side !== 'player' || !p.studentId) continue;
+        const rv = rivalryOf(s, p.studentId, o.id);
+        if (!rv || rv.settled) continue;
+        if (rv.vow) addMod(p, OFFICER.vowMod);
+        if (rv.stage >= 2) addMod(p, OFFICER.rivalMod);
+      }
+    } else {
+      // 名簿が空のとき（ふつうは起きない）：名もない敵将
+      const origin = q.enemyCountry ?? 'frontier';
+      const g = r.chance(0.3) ? 'f' : 'm';
+      const nl = NAMES[origin];
+      const given = r.pick(g === 'f' ? nl.female : nl.male);
+      info = { uid: u.uid, name: kind === 'bandit' ? `${r.pick(BANDIT_EPITHETS)}${given}` : `${given}・${r.pick(nl.family)}`, personality: r.pick(['arrogant', 'veteran', 'cunning', 'proud', 'young', 'cold'] as const), face: generateFace(r, origin, g), classId: u.classId, again: false };
+    }
   }
-  u.name = name;
-  b.auto.leader = { uid: u.uid, name, personality: pers, face, classId: u.classId, nemesisId: again?.id, again: !!again };
+  if (!info.alumniId) u.name = info.name;
+  return info;
+}
+
+/** この依頼の敵将（名簿から。編成によらず同じ） */
+export function officerForQuest(s: GameState, q: Quest): EnemyOfficer | null {
+  const ids = Object.values(s.students).filter((x) => x.status === 'enrolled').map((x) => x.id);
+  return pickOfficerForQuest(s, q, new Rng({ rng: questSeed(s, q) ^ 0x2f6b5a }), ids);
+}
+
+/** 手動の戦闘でも敵将を立てる（口上・弱点・記憶が効く） */
+/** 偵察：出撃前に一手使って、敵将の特徴を1つ知る（斥候の兵種の子が出撃するなら人数は減らない）。分かった特徴のidを返す */
+export function scoutQuest(s: GameState, questId: string, free: boolean): string | null {
+  const q = s.quests.find((x) => x.id === questId);
+  if (!q || q.scouted) return null;
+  const o = officerForQuest(s, q);
+  if (!o) return null;
+  q.scouted = true; q.scoutFree = free;
+  return revealOne(o, new Rng({ rng: questSeed(s, q) ^ 0x5c0 }));
+}
+
+export function setupLeader(s: GameState, q: Quest, b: BattleState): void {
+  const r = rngOf(b);
+  b.leader = makeLeader(s, q, b, r, null);
+  const L = b.leader;
+  if (L) {
+    const o = officerById(s, L.officerId);
+    const ids = b.units.filter((x) => x.side === 'player' && x.studentId).map((x) => x.studentId!);
+    const mem = o && !o.alumniId ? memoryLine(s, o, ids, r) : null;
+    const text = mem?.text ?? pickText(s, r, LEADER_TEXT[L.personality][L.again ? 'again' : 'open']);
+    if (text && L.personality !== 'beast') b.log.push({ text: `敵将 ${L.name}：「${fill(text, { leader: L.name })}」`, kind: 'info' });
+    if (o?.knownTraits.length) b.log.push({ text: `分かっている特徴：${o.knownTraits.map((t) => OFFICER_TRAITS[t]?.name).join('・')}`, kind: 'info' });
+  }
+  b.rng = r.h.rng;
 }
 
 // ---------- 戦闘の組み立て ----------
@@ -243,7 +329,8 @@ function buildBattle(s: GameState, q: Quest, deploys: Deploy[], plan: AutoPlan, 
   b.auto = newAuto(plan);
   b.feed = [];
   const r = rngOf(b);
-  makeLeader(s, q, b, r);
+  b.auto.leader = makeLeader(s, q, b, r, plan.tactic);
+  b.rng = r.h.rng;
   applyPlan(s, b, q, plan);
   if (TACTICS[plan.tactic].focusBoss && b.auto.leader) b.focus = b.auto.leader.uid;
   b.auto.startHp = {
@@ -460,7 +547,7 @@ function leaderLine(s: GameState, b: BattleState, r: Rng, key: keyof (typeof LEA
   if (!L) return null;
   const t = pickText(s, r, LEADER_TEXT[L.personality][key]);
   if (!t) return null;
-  return { by: L.personality === 'beast' ? 'narr' : 'leader', text: fill(t, { leader: L.name }) };
+  return { by: L.personality === 'beast' ? 'narr' : 'leader', text: voice(fill(t, { leader: L.name }), officerById(s, L.officerId)) };
 }
 
 /** 開戦の場面 */
@@ -475,15 +562,57 @@ function openingScene(s: GameState, b: BattleState, q: Quest): AutoScene {
   const top = intel.types[0];
   const mk = intel.matchup >= 0.8 ? 'good' : intel.matchup <= -0.8 ? 'bad' : 'even';
   const L = b.auto!.leader;
-  if (L) { const l = leaderLine(s, b, r, L.again ? 'again' : 'open'); if (l) lines.push(l); }
-  if (b.enemyAlumni && s.students[b.enemyAlumni]) lines.push({ by: 'narr', text: fill(pickText(s, r, CLASH_TEXT.alumniFoe), { a: s.students[b.enemyAlumni].given }) });
-  const ev = takeEvent(s, b, r, 'open');
-  const faces = deployed(s, b).map((x) => x.st.id);
-  if (ev.length) lines.push(...ev);
-  else { const d = deployed(s, b); if (d.length) { const x = r.pick(d); lines.push(say(s, r, 'open', x.st)); } }
+  const o = L ? officerById(s, L.officerId) : null;
+  const faces: string[] = deployed(s, b).map((x) => x.st.id);
+  const special: AutoLine[] = [];
+  if (L) {
+    const ids = deployed(s, b).map((x) => x.st.id);
+    const alum = o?.alumniId ? s.students[o.alumniId] : null;
+    if (alum) {
+      const al = alumniLines(s, alum, r);
+      lines.push({ by: 'leader', text: al[0] });
+      if (al[1]) special.push({ by: 'leader', text: al[1] });
+    } else if (o && o.meets.length && o.kind !== 'monster') {
+      if (o.scars) lines.push({ by: 'narr', text: fill(r.pick(SCAR_RETURN), { leader: L.name, scar: SCAR_TEXT[Math.min(4, o.scars)] }) });
+      const mem = memoryLine(s, o, ids, r);
+      if (mem) { lines.push({ by: 'leader', text: mem.text }); if (mem.target) faces.unshift(mem.target); }
+      else { const l = leaderLine(s, b, r, 'again'); if (l) lines.push(l); }
+    } else { const l = leaderLine(s, b, r, L.again ? 'again' : 'open'); if (l) lines.push(l); }
+    // 生徒側の因縁：仇討ちの誓い／宿敵との再会
+    if (o) {
+      const vow = deployed(s, b).map((x) => ({ x, rv: rivalryOf(s, x.st.id, o.id) })).find((v) => v.rv?.vow && !v.rv.settled && s.students[v.rv.vow]);
+      const rival = deployed(s, b).map((x) => ({ x, rv: rivalryOf(s, x.st.id, o.id) })).filter((v) => (v.rv?.stage ?? 0) >= 2 && !v.rv!.settled).sort((p, c) => c.rv!.stage - p.rv!.stage)[0];
+      if (vow) {
+        const v = { a: vow.x.st.given, v: s.students[vow.rv!.vow!].given, leader: L.name };
+        special.push({ by: 'narr', text: fill(r.pick(VOW_NARR), v) }, { by: vow.x.st.id, text: fill(VOW_SAY[vow.x.st.personality], v) });
+        faces.unshift(vow.x.st.id); spot(b.auto!, vow.x.st.id, 2);
+      } else if (rival) {
+        const v = { a: rival.x.st.given, leader: L.name };
+        special.push({ by: rival.x.st.id, text: fill(RIVAL_SAY[rival.x.st.personality], v) }, { by: 'leader', text: voice(fill(r.pick(RIVAL_LEADER), v), o) });
+        faces.unshift(rival.x.st.id); spot(b.auto!, rival.x.st.id, 1);
+      }
+      // 陣営の頭の性格（たまに）
+      const f = factionOfQuest(q);
+      const head = f ? headOf(s, f) : null;
+      if (!special.length && head && head.id !== o.id && r.chance(0.25)) {
+        const ht = r.pick(HEAD_TEXT[head.personality as LeaderPersonality] ?? ['']);
+        if (ht) special.push({ by: 'narr', text: fill(ht, { faction: FACTION_NAMES[head.faction], head: officerName(head) }) });
+      }
+    }
+  }
+  if (b.enemyAlumni && s.students[b.enemyAlumni] && b.enemyAlumni !== L?.alumniId) lines.push({ by: 'narr', text: fill(pickText(s, r, CLASH_TEXT.alumniFoe), { a: s.students[b.enemyAlumni].given }) });
+  let ev: AutoLine[] = [];
+  if (special.length) lines.push(...special.slice(0, 2));
+  else {
+    ev = takeEvent(s, b, r, 'open');
+    if (ev.length) lines.push(...ev);
+    else { const d = deployed(s, b); if (d.length) { const x = r.pick(d); lines.push(say(s, r, 'open', x.st)); } }
+  }
   // 相性の一言は、場面が長くなりすぎないときだけ（5行まで）
   if (top && mk !== 'even' && lines.length < 5) lines.splice(2, 0, { by: 'narr', text: fill(pickText(s, r, MATCHUP_TEXT[mk]), { foe: `${top.name}${top.type === 'magic' ? 'の使い手' : '兵'}` }) });
-  while (lines.length > 5) lines.splice(L && lines[2]?.by === 'leader' ? 1 : 2, 1);
+  // 長すぎるときは、地形の文 → 依頼の文の順に削る
+  if (lines.length > 5) lines.splice(1, 1);
+  while (lines.length > 5) lines.splice(lines[0].by === 'narr' && lines.length > 5 ? 0 : 2, 1);
   b.rng = r.h.rng;
   return sceneOf(b, '開戦', lines, ev.length ? [ev[1].by, ...faces] : faces);
 }
@@ -518,7 +647,8 @@ function endScene(s: GameState, b: BattleState): AutoScene {
   const fledBoss = win && !!L?.fled && (b.objective === 'boss' || b.objective === 'seize');
   if (!a.retreatedAll) lines.push({ by: 'narr', text: pickText(s, r, win ? (fledBoss ? END_TEXT.bossFled : END_TEXT.win[b.objective] ?? END_TEXT.win.rout) : END_TEXT.lose) });
   const lu = L ? b.units.find((u) => u.uid === L.uid) : null;
-  if (L && lu) {
+  if (L && lu && L.settled && L.settled !== 'kill') { /* 決着の場面で語り終えている */ }
+  else if (L && lu) {
     if (lu.dead && !L.fled && !b.retreated.includes(lu.uid)) { const l = leaderLine(s, b, r, 'fall'); if (l) lines.push(l); }
     else if (win || L.fled) { L.fled = true; const l = leaderLine(s, b, r, 'flee'); if (l) lines.push(l); }
     else { const l = leaderLine(s, b, r, 'duelWin'); if (l) lines.push(l); }
@@ -552,7 +682,40 @@ function makeChoice(s: GameState, b: BattleState, ctx: BattleCtx, second: boolea
   // 敵将の一騎打ち
   const L = a.leader;
   const lu = L ? b.units.find((u) => u.uid === L.uid && !u.dead) : null;
-  if (L && lu && !done('duel') && r.chance(LEADER_DUEL[L.personality]) && mine.length) {
+  const o = L ? officerById(s, L.officerId) : null;
+  // 宿敵の決着（二人だけの特別な場面）
+  if (L && lu && o && o.kind !== 'monster' && !done('settle')) {
+    const riv = mine.map((x) => ({ x, rv: rivalryOf(s, x.st.id, o.id) })).filter((v) => v.rv && !v.rv.settled && (v.rv.stage >= 2 || !!v.rv.vow) && v.x.u.hp > v.x.u.maxHp * 0.3).sort((p, c) => c.rv!.stage - p.rv!.stage || Number(!!c.rv!.vow) - Number(!!p.rv!.vow))[0];
+    if (riv) {
+      const T = SETTLE_TEXT;
+      const st = riv.x.st;
+      const pc = persuadeChance(s, o, st, riv.rv!.stage);
+      const od = duelOdds(b, ctx, riv.x.u, lu);
+      const lab = (p: number) => (p >= 0.62 ? '優勢' : p >= 0.4 ? '五分' : '苦しい');
+      const v = { a: st.given, leader: L.name };
+      const say0 = voice(fill(r.pick(SETTLE_LEADER[L.personality] ?? SETTLE_LEADER.proud), v), o);
+      const opts: AutoChoiceOpt[] = [];
+      if (L.personality !== 'beast') opts.push({ id: 'persuade', actor: st.id, label: fill(T.persuade, v), note: fill(T.persuadeNote, { chance: lab(pc) }) });
+      if (weaponOf(riv.x.u)) opts.push({ id: `duel:${riv.x.u.uid}`, actor: st.id, label: T.duel, note: fill(T.duelNote, { ...v, chance: lab(od) }) });
+      opts.push({ id: 'kill', label: T.kill, note: fill(T.killNote, v) });
+      opts.push({ id: 'spare', label: T.spare, note: fill(T.spareNote, v) });
+      const best = od >= 0.55 && weaponOf(riv.x.u) ? opts.findIndex((x) => x.id.startsWith('duel')) : pc >= 0.5 ? 0 : opts.findIndex((x) => x.id === 'kill');
+      cands.push({ w: 12, c: { kind: 'settle', actor: st.id, duo: true, prompt: `${fill(T.prompt, v)}\n${L.name}「${say0}」`, recommended: Math.max(0, best), options: opts } });
+    }
+  }
+  // 執着：敵将が負けた相手の子を狙っている
+  const tu = L?.target ? b.units.find((u) => u.uid === L.target && !u.dead) : null;
+  if (L && lu && tu?.studentId && !done('grudge') && s.students[tu.studentId]) {
+    const T = GRUDGE_CHOICE;
+    const v = { a: s.students[tu.studentId].given, leader: L.name };
+    cands.push({ w: 6, c: { kind: 'grudge', actor: tu.studentId, prompt: fill(T.prompt, v), recommended: tu.hp < tu.maxHp * 0.6 ? 0 : 1, options: [
+      { id: 'guard', label: fill(T.guard, v), note: fill(T.guardNote, v) },
+      { id: 'face', label: fill(T.face, v), note: fill(T.faceNote, v), actor: tu.studentId },
+      { id: 'bait', label: fill(T.bait, v), note: fill(T.baitNote, v) },
+    ] } });
+  }
+  const duelP = !L ? 0 : o?.traits.includes('duel_bound') ? 1 : LEADER_DUEL[L.personality] + (L.personality === 'beast' ? 0 : headEffect(s, o?.faction ?? null).duel);
+  if (L && lu && !done('duel') && !done('settle') && L.personality !== 'beast' && r.chance(duelP) && mine.length) {
     const T = CHOICE_TEXT.duel;
     const champs = mine.filter((x) => weaponOf(x.u) && x.u.hp > x.u.maxHp * 0.5).map((x) => ({ ...x, p: duelOdds(b, ctx, x.u, lu) })).sort((p, q) => q.p - p.p).slice(0, 2);
     if (champs.length) {
@@ -734,20 +897,31 @@ export function chooseAuto(s: GameState, idx: number, ctx: BattleCtx): void {
         spot(a, st.id, 1);
       } else { lines.push({ by: 'narr', text: CHOICE_RESULT.duelDraw[0] }); spot(a, st.id, 2); }
     }
+  } else if (c.kind === 'settle' && actorSt && a.leader) {
+    settleChoice(s, b, r, ctx, o.id, actorSt, lines, faces);
+  } else if (c.kind === 'grudge' && actorSt && actorU && a.leader) {
+    const v = { a: actorSt.given, leader: a.leader.name };
+    faces.push(actorSt.id);
+    if (o.id === 'guard') { addMod(actorU, OFFICER.grudgeGuardMod); a.careful.push(actorU.uid); for (const x of mine) if (x.u !== actorU) addMod(x.u, { hit: -2 }); lines.push({ by: 'narr', text: fill(GRUDGE_RESULT.guard[0], v) }); }
+    else if (o.id === 'face') { addMod(actorU, OFFICER.grudgeFaceMod); lines.push({ by: 'narr', text: fill(GRUDGE_RESULT.face[0], v) }); lines.push(say(s, r, 'duel', actorSt)); a.effects.push({ kind: 'motivation', id: actorSt.id, v: 1 }); spot(a, actorSt.id, 2); }
+    else { for (const x of mine) if (x.u !== actorU) addMod(x.u, OFFICER.grudgeBaitMod); lines.push({ by: 'narr', text: fill(GRUDGE_RESULT.bait[0], v) }); spot(a, actorSt.id, 1); }
   } else if (c.kind === 'persuade' && actorSt) {
     const u = b.units.find((x) => x.studentId === actorSt.id && x.persuadable);
     faces.push(actorSt.id);
     if (o.id === 'talk' && u) {
       const v = { a: actorSt.given };
-      if (actorSt.trust >= 80 && r.chance(0.6)) { u.side = 'ally'; u.persuadable = false; lines.push({ by: 'narr', text: fill(CHOICE_RESULT.persuadeAlly[0], v) }); }
-      else if (actorSt.trust >= 60) { u.dead = true; u.hp = 0; u.persuadable = false; b.retreated.push(u.uid); lines.push({ by: 'narr', text: fill(CHOICE_RESULT.persuadeLeave[0], v) }); }
-      else lines.push({ by: 'narr', text: fill(CHOICE_RESULT.persuadeFail[0], v) });
+      const isLeader = a.leader?.uid === u.uid;
+      if (actorSt.trust >= 80 && r.chance(0.6)) { u.side = 'ally'; u.persuadable = false; lines.push({ by: 'narr', text: fill(CHOICE_RESULT.persuadeAlly[0], v) }); if (isLeader) { a.leader!.settled = 'persuade'; lines.push({ by: 'leader', text: ALUMNI_LEADER.persuadeOk[0] }); } }
+      else if (actorSt.trust >= 60) { u.dead = true; u.hp = 0; u.persuadable = false; b.retreated.push(u.uid); lines.push({ by: 'narr', text: fill(CHOICE_RESULT.persuadeLeave[0], v) }); if (isLeader) { a.leader!.settled = 'persuade'; lines.push({ by: 'leader', text: ALUMNI_LEADER.persuadeOk[0] }); } }
+      else { lines.push({ by: 'narr', text: fill(CHOICE_RESULT.persuadeFail[0], v) }); if (isLeader) lines.push({ by: 'leader', text: ALUMNI_LEADER.persuadeNg[0] }); }
       checkEnd(b);
     } else lines.push({ by: 'narr', text: CHOICE_RESULT.fight[0] });
   }
   a.choice = null;
-  // 選択の結果も1つの場面として見せる
-  a.scenes.push(sceneOf(b, '指示', lines, faces));
+  // 選択の結果も1つの場面として見せる（宿敵の決着は二人だけの特別な場面）
+  const sc = sceneOf(b, c.kind === 'settle' ? SETTLE_TEXT.title : '指示', lines, faces);
+  if (c.kind === 'settle') { sc.duo = c.actor; sc.lines = lines.filter((l) => l.text).slice(0, 6); }
+  a.scenes.push(sc);
   // 選択の効果が巻き戻しで消えないよう、今のターンの記録を取り直す
   if (b.snapshots.length) b.snapshots[b.snapshots.length - 1] = JSON.stringify({ ...b, snapshots: [] });
   b.rng = r.h.rng;
@@ -788,6 +962,90 @@ function aimLines(s: GameState, b: BattleState, r: Rng, ctx: BattleCtx, uid: str
   else lines.push({ by: 'narr', text: fill(CHOICE_RESULT.aimNg[0], { a: st.given }) });
 }
 
+/** 倒れた敵将が、深手を負いながら逃げのびる（名簿の敵将。決着の「討ち取る」・一騎打ちのあとは逃げられない） */
+export function leaderEscape(s: GameState, b: BattleState): void {
+  const L = leaderOf(b);
+  if (!L || L.fled || L.settled || L.noFlee) return;
+  const lu = b.units.find((u) => u.uid === L.uid);
+  const o = officerById(s, L.officerId);
+  if (!lu || !o || !lu.dead || b.retreated.includes(lu.uid) || !b.real) return;
+  const r = rngOf(b);
+  if (survives(o, b.objective, r)) { L.fled = true; b.retreated.push(lu.uid); }
+}
+/** 逃げる確率：性格・特徴（逃げ足が速い／仲間を見捨てない）・陣営の頭・方針「速攻で敵将を」 */
+function fleeChance(s: GameState, b: BattleState, L: LeaderInfo): number {
+  const o = officerById(s, L.officerId);
+  let p = LEADER_FLEE[L.personality] * 0.5;
+  if (o) {
+    for (const t of o.traits) { const f = OFFICER_TRAITS[t]?.flee; if (f !== undefined) p *= f; }
+    p += headEffect(s, o.faction).flee * 0.5;
+    if (o.traits.includes('cautious') && b.auto?.tactic === 'boss') p = 0;
+  }
+  return Math.max(0, Math.min(0.9, p));
+}
+/** 宿敵を説き伏せられる見込み */
+export function persuadeChance(s: GameState, o: { personality: string; alumniId?: string }, st: Student, stage: number): number {
+  let p = (OFFICER.persuadeBase[o.personality as LeaderPersonality] ?? 0.2) + stage * OFFICER.persuadePerStage;
+  if (o.alumniId) { const al = s.students[o.alumniId]; if (al) p += al.trust / 200; }
+  p += (st.stats.cha ?? 0) / 100;
+  return Math.max(0.05, Math.min(0.9, p));
+}
+/** 宿敵の決着の選択 */
+function settleChoice(s: GameState, b: BattleState, r: Rng, ctx: BattleCtx, id: string, st: Student, lines: AutoLine[], faces: string[]) {
+  const a = b.auto!;
+  const L = a.leader!;
+  const lu = b.units.find((u) => u.uid === L.uid)!;
+  const su = b.units.find((u) => u.studentId === st.id && u.side === 'player');
+  const o = officerById(s, L.officerId);
+  const v = { a: st.given, leader: L.name };
+  const mine = deployed(s, b).filter((x) => !x.u.dead);
+  faces.push(st.id);
+  lines.push({ by: 'narr', text: fill(r.pick(SETTLE_TEXT.narr), v) });
+  L.settleBy = st.id;
+  const rout = () => { const rest = b.units.filter((e) => e.side === 'enemy' && !e.dead && !e.persuadable); for (const e of rest.slice(0, Math.floor(rest.length * AUTO.duelRout))) { e.dead = true; b.retreated.push(e.uid); } };
+  if (id === 'persuade') {
+    const rv = o ? rivalryOf(s, st.id, o.id) : null;
+    const ok = r.next() < persuadeChance(s, o ?? { personality: L.personality }, st, rv?.stage ?? 2);
+    lines.push(say(s, r, 'helped', st));
+    if (ok) {
+      lines.push({ by: 'narr', text: fill(r.pick(SETTLE_RESULT.persuadeOk), v) });
+      if (o?.alumniId) lines.push({ by: 'leader', text: ALUMNI_LEADER.persuadeOk[0] });
+      lu.dead = true; lu.persuadable = false; b.retreated.push(lu.uid); L.settled = 'persuade';
+      lines.push({ by: st.id, text: r.pick(SETTLE_SAY.persuade) });
+      rout(); spot(a, st.id, 4);
+      a.effects.push({ kind: 'trust', id: st.id, v: 3 }, { kind: 'motivation', id: st.id, v: 1 });
+      checkEnd(b);
+    } else { lines.push({ by: 'narr', text: fill(SETTLE_RESULT.persuadeNg[0], v) }); addMod(lu, { hit: 5 }); spot(a, st.id, 1); }
+  } else if (id.startsWith('duel:') && su) {
+    const res = duel(b, ctx, su, lu);
+    if (res === 'win') {
+      lines.push({ by: 'narr', text: fill(SETTLE_RESULT.duelWin[0], v) });
+      lines.push({ by: st.id, text: r.pick(SETTLE_SAY.duel) });
+      lu.dead = true; b.retreated.push(lu.uid); L.settled = 'duel'; L.duelWon = true; su.expGain += B.battle.exp.kill + 10; su.kills += 1;
+      rout(); spot(a, st.id, 5);
+      a.effects.push({ kind: 'trust', id: st.id, v: 2 }, { kind: 'motivation', id: st.id, v: 1 });
+      checkEnd(b);
+    } else if (res === 'lose') {
+      lines.push({ by: 'narr', text: fill(SETTLE_RESULT.duelLose[0], v) });
+      a.careful.push(su.uid); spot(a, st.id, 1);
+    } else { lines.push({ by: 'narr', text: SETTLE_RESULT.duelDraw[0] }); spot(a, st.id, 2); }
+  } else if (id === 'kill') {
+    lines.push({ by: 'narr', text: fill(SETTLE_RESULT.kill[0], v) });
+    b.focus = lu.uid; L.noFlee = true; L.settled = 'kill';
+    for (const x of mine) addMod(x.u, OFFICER.killMod);
+    if (su) addMod(su, OFFICER.killSelfMod);
+    spot(a, st.id, 2);
+  } else {
+    lines.push({ by: 'narr', text: fill(SETTLE_RESULT.spare[0], v) });
+    lines.push({ by: st.id, text: r.pick(SETTLE_SAY.spare) });
+    lu.dead = true; b.retreated.push(lu.uid); L.settled = 'spare';
+    a.effects.push({ kind: 'trust', id: st.id, v: 2 });
+    spot(a, st.id, 3);
+    checkEnd(b);
+  }
+  void mine;
+}
+
 // ---------- 進め方 ----------
 /** 自動の戦闘を始める（開戦の場面まで作って止まる） */
 export function startAutoBattle(s: GameState, q: Quest, deploys: Deploy[], plan: AutoPlan, ctx: BattleCtx, seed = questSeed(s, q)): void {
@@ -797,6 +1055,8 @@ export function startAutoBattle(s: GameState, q: Quest, deploys: Deploy[], plan:
   const mem = (s.autoMemory ??= { lines: [], events: [] });
   mem.n = ((mem.n ?? 0) + 1) % 100000;
   b.auto!.scenes.push(openingScene(s, b, q));
+  // 開戦の場面が巻き戻しで消えないよう、最初のターンの記録を取り直す
+  if (b.snapshots.length) b.snapshots[b.snapshots.length - 1] = JSON.stringify({ ...b, snapshots: [] });
   advanceAuto(s, ctx);
 }
 
@@ -810,6 +1070,7 @@ export function advanceAuto(s: GameState, ctx: BattleCtx): void {
     const a: AutoState = b.auto;
     if (b.phase === 'done') {
       a.seg = 3;
+      leaderEscape(s, b);
       a.scenes.push(endScene(s, b));
       break;
     }
@@ -820,6 +1081,7 @@ export function advanceAuto(s: GameState, ctx: BattleCtx): void {
     a2.exposed = [];
     if (b.phase !== 'done' && b.turn > b.maxTurns) finish(b, 'lose');
     if (b.phase === 'done' || a2.seg === 2) {
+      leaderEscape(s, b);
       // 早く決着しても「ぶつかり合い」は見せる（場面は3つ以上）
       if (a2.seg === 0 && (b.feed ?? []).length) a2.scenes.push(midScene(s, b, 'ぶつかり合い', q));
       a2.seg = 3;
@@ -832,7 +1094,7 @@ export function advanceAuto(s: GameState, ctx: BattleCtx): void {
     const L = a2.leader;
     const lu = L ? b.units.find((u) => u.uid === L.uid && !u.dead) : null;
     const r = rngOf(b);
-    if (a2.seg === 2 && L && lu && momentum(b) >= 0.65 && b.real && r.chance(LEADER_FLEE[L.personality] * 0.5)) {
+    if (a2.seg === 2 && L && lu && !L.noFlee && !L.settled && momentum(b) >= 0.65 && b.real && r.chance(fleeChance(s, b, L))) {
       lu.dead = true; b.retreated.push(lu.uid); L.fled = true;
       checkEnd(b);
     }
@@ -889,29 +1151,6 @@ export function applyAutoResults(s: GameState, b: BattleState, r: Rng, lines: st
   if (q?.kind === 'exhibition') for (const [id, v] of Object.entries(a.spot)) { const st = s.students[id]; if (st?.status === 'enrolled') st.exhibitionScore += v * AUTO.exhibitionBonus; }
   const mvp = mvpOf(s, b);
   if (mvp) { const st = s.students[mvp]; st.history.push({ year: s.year, text: `「${b.title}」でMVP` }); }
-  // 因縁の敵将
-  const L = a.leader;
-  if (L && q?.real) {
-    const lu = b.units.find((u) => u.uid === L!.uid);
-    const fell = !!lu?.dead && !L!.fled && !b.retreated.includes(lu.uid);
-    s.nemeses ??= [];
-    let n = L!.nemesisId ? s.nemeses.find((x) => x.id === L!.nemesisId) : undefined;
-    const meet = { year: s.year, month: s.month, title: b.title, result: fell ? 'fell' as const : b.result === 'win' ? 'win' as const : 'lose' as const };
-    if (fell) {
-      if (n) { n.status = 'defeated'; n.meets.push(meet); lines.push(fill(RESULT_TEXT.nemesisEnd[0], { leader: L!.name })); chronicle(s, `因縁の敵将「${L!.name}」を討ち取った`, 'school'); }
-    } else if (q) {
-      if (!n) {
-        n = { id: `nm${s.nextId++}`, name: L!.name, personality: L!.personality, face: L!.face, classId: lu?.classId ?? L!.classId, level: lu?.level ?? q.level, kind: leaderKind(q), country: q.enemyCountry, meets: [], status: 'active' };
-        s.nemeses.push(n);
-        chronicle(s, `「${b.title}」で敵将${L!.name}を取り逃がした`, 'school');
-      }
-      n.meets.push({ ...meet, result: 'fled' });
-      n.level = lu?.level ?? n.level;
-      if (n.meets.length >= AUTO.nemesisMax) n.status = 'defeated';
-      lines.push(fill(RESULT_TEXT.nemesisNew[0], { leader: L!.name }));
-    }
-    if (s.nemeses.length > 30) s.nemeses = s.nemeses.filter((x) => x.status === 'active').slice(-20).concat(s.nemeses.filter((x) => x.status !== 'active').slice(-10));
-  }
   // 講評
   const review: string[] = [];
   const pk = (l: string[]) => r.pick(l);
@@ -927,5 +1166,41 @@ export function applyAutoResults(s: GameState, b: BattleState, r: Rng, lines: st
 }
 
 function traitName(t: string): string { return TRAITS[t]?.name ?? t; }
+
+/** 戦いのあと：敵将の記録（名簿の敵将は記憶・昇進・二つ名・傷・宿敵、名もない敵将は逃げたら因縁として残す）。手動の戦闘でも呼ぶ */
+export function officerAfterBattle(s: GameState, b: BattleState, r: Rng, lines: string[]): BattleFinding[] {
+  const L = leaderOf(b);
+  const q = s.quests.find((x) => x.id === b.questId);
+  if (!L || !q?.real) return [];
+  if (!b.auto) leaderEscape(s, b);
+  const lu = b.units.find((u) => u.uid === L.uid);
+  if (!lu) return [];
+  const fell = !!lu.dead && !L.fled && !b.retreated.includes(lu.uid);
+  let o = officerById(s, L.officerId ?? L.nemesisId);
+  if (!o) {
+    // 名もない敵将・魔物の頭：取り逃がしたら因縁の敵将として残す（5夜目と同じ）
+    if (fell) return [];
+    const kind = leaderKind(q);
+    const faction = kind === 'monster' ? 'monster' : kind === 'bandit' ? 'bandit' : (q.enemyCountry ?? 'kingdom');
+    let given = L.name, family = '';
+    if (kind === 'army' && L.name.includes('・')) [given, family] = L.name.split('・');
+    o = { id: `of${s.nextId++}`, given, family, faction, kind, country: q.enemyCountry, rank: 2, gender: 'm', age: 35, personality: L.personality, face: L.face, faceImage: null, classId: lu.classId, level: lu.level, scars: 0, traits: [], knownTraits: [], meets: [], status: 'active', grudge: null, victims: [], joined: s.year, title: kind === 'monster' ? L.name : undefined };
+    (s.officers ??= []).push(o);
+    L.officerId = o.id;
+    chronicle(s, `「${b.title}」で敵将${L.name}を取り逃がした`, 'school');
+  }
+  const had = o.meets.length;
+  if (o.kind === 'monster') {
+    o.meets.push({ year: s.year, month: s.month, title: b.title, result: fell ? 'fell' : b.result === 'win' ? 'fled' : 'lose' });
+    o.level = lu.level;
+    if (fell) { o.status = 'dead'; o.endYear = s.year; if (had) { lines.push(fill(RESULT_TEXT.nemesisEnd[0], { leader: L.name })); chronicle(s, `因縁の敵将「${L.name}」を討ち取った`, 'school'); } }
+    else { o.scars = Math.min(4, o.scars + 1); lines.push(fill(RESULT_TEXT.nemesisNew[0], { leader: L.name })); if (o.meets.length >= AUTO.nemesisMax) o.status = 'defeated'; }
+    return [];
+  }
+  const out = afterOfficerBattle(s, b, o, L, r, lines);
+  if (fell && had) lines.push(fill(RESULT_TEXT.nemesisEnd[0], { leader: L.name }));
+  else if (!fell && o.status === 'active' && (b.result === 'win' || L.fled)) lines.push(fill(RESULT_TEXT.nemesisNew[0], { leader: officerName(o) }));
+  return out;
+}
 
 export type { FeedEntry };
