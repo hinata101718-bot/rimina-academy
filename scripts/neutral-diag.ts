@@ -2,7 +2,8 @@
 import { newGame } from '../src/core/game';
 import { autoYears, setCareerPolicy, setAutoEnding, type CareerPolicy } from '../src/core/autoplay';
 import { continueSchool } from '../src/core/ending';
-import { BACKGROUNDS } from '../src/data/people';
+import { BACKGROUNDS, COUNTRIES } from '../src/data/people';
+import { activeAlumni } from '../src/core/world';
 setAutoEnding((s) => continueSchool(s));
 const argv = process.argv.slice(2);
 const pols = (argv[0] ?? 'neutral,peace,unify,none').split(',') as CareerPolicy[];
@@ -20,7 +21,7 @@ for (const p of pols) {
       const won = w.defenseWonYear === g.year - 1; if (w.defenseWonYear && w.defenseWonYear !== lastDef) { defWins++; lastDef = w.defenseWonYear; }
       const fmin = Math.min(w.friendship.kingdom, w.friendship.empire, w.friendship.alliance);
       if (g.reputation >= 90 && grads >= 100 && fmin >= 60 && !w.vassal) condYears++;
-      trace.push(`${g.year - 1}:${Math.round(g.reputation)}/${grads}/${Math.round(w.friendship.kingdom)},${Math.round(w.friendship.empire)},${Math.round(w.friendship.alliance)}${won ? '/D' : ''}${w.era === 'peace' ? 'P' : ''}`);
+      trace.push(`${g.year - 1}:${Math.round(g.reputation)}/${grads}/${Math.round(w.friendship.kingdom)},${Math.round(w.friendship.empire)},${Math.round(w.friendship.alliance)}/a${COUNTRIES.map((c) => activeAlumni(g, c).length).join(',')}${won ? '/D' : ''}${w.era === 'peace' ? 'P' : ''}`);
     });
     const e = (s.endings ?? []).find((x) => x.kind === 'neutral');
     if (e) { hits++; yrs.push(e.year); }

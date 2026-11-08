@@ -110,7 +110,9 @@ export function autoCareerPlans(s: GameState, policy: CareerPolicy = careerPolic
       const c = opts[0];
       if (!c) return { studentId: st.id, recommend: autoRecommend(s, st), path: suitablePath(st) };
       n[c] += 1;
-      return { studentId: st.id, recommend: c, path: suitablePath(st) };
+      // 和平の円卓より先に中立を目指すので、文官ではなく武官・参謀に
+      const path = suitablePath(st) === 'civil' ? 'strategist' : suitablePath(st);
+      return { studentId: st.id, recommend: c, path };
     });
   }
   // 和平狙い：魅力の高い子から半分ほどを文官にして、文官の少ない国へ
