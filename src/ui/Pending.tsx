@@ -35,6 +35,7 @@ import type { Deploy } from '../core/battle/setup';
 import { sfx } from './sound';
 import { AutoPrep, AutoResultHead } from './AutoBattle';
 import { RankUpPlayer, DiscoveryView } from './RankUp';
+import { LessonResultView } from './Lessons';
 import { Icon } from './icons';
 import { countryColor, CountryChip, Chip, Stars, Num, LvBadge, MiniCard, NameLine, OBJECTIVE_ICON, WEATHER_ICON } from './cards';
 import { rankOf } from '../core/util';
@@ -48,6 +49,7 @@ export function PendingView() {
   const done = () => act((g) => { g.pending.shift(); });
   switch (p.type) {
     case 'weekSummary': return <WeekSummary lines={p.lines} talks={p.talks} growth={p.growth} onDone={done} />;
+    case 'lessonResult': return <Sheet><LessonResultView key={`${p.day}${p.lesson}${s.absWeek}`} s={s} p={p} onDone={done} /></Sheet>;
     case 'talk': return <Sheet title={p.talk.kind === 'support' || !p.talk.kind ? '支援会話' : '面談'}><TalkPlayer s={s} t={p.talk} onDone={done} onChoice={(k) => act((g) => chooseReply(g, p.talk, k))} /></Sheet>;
     case 'event': return <Sheet title={p.title}><div class="paper">{p.lines.map((l) => <p>{l}</p>)}</div><button class="btn primary block" style={{ marginTop: 10 }} onClick={done}>閉じる</button></Sheet>;
     case 'battleResult': return <BattleResult s={s} p={p} onDone={done} />;

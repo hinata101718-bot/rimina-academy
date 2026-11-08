@@ -1,20 +1,20 @@
-// 1週間の処理：授業・個人指導・週末の交流・疲労・やる気・才能の判明・退学の予兆
+// 生徒の育ち方の共通部分（授業の倍率・技能・才能の判明・やる気・面談・退学の予兆・月の始め）。
+// 7夜目：授業は日ごとの授業カード（lessons.ts）に。週末・個人指導はなくなった
 import { B, SKILLS } from '../data/balance';
 import { talentDiscovery, rollSides } from './discovery';
 import { TRAITS, TALENTS, DREAMS, SKILL_NAMES, PERSONALITIES, COUNTRY_NAMES } from '../data/people';
 import { CLASSES } from '../data/classes';
 import type { SkillId, CountryId } from './types';
-import type { GameState, Student, TalkLog, WeekendAction, GrowthEntry } from './state';
+import type { GameState, Student, TalkLog } from './state';
 import { Rng } from './rng';
 import { rankLetter, clamp, rankOf } from './util';
 import { enrolled, available, notify, addRep, chronicle } from './game';
-import { addSupport, addTrust, addRecent, getSupport, buildTalk, supportRank } from './support';
-import { gainExp, startGrowthLog, stopGrowthLog, snapGrowth, diffGrowth } from './growth';
+import { addSupport, addTrust, addRecent } from './support';
 import { learnSpells, learnedText } from './spells';
 import { buildInterview, consultFlag, specialInterview } from './interview';
 import type { InterviewTopic } from '../data/talks/interviews';
 import { examCandidates } from './exam';
-import { growTeachers, viceOf, viceTargets, viceWeekend, viceTutorPicks } from './instructor';
+import { viceOf, viceTargets } from './instructor';
 
 export type Policy = 'balance' | 'talent' | 'dream' | 'combat';
 
@@ -41,15 +41,6 @@ export function autoTargets(s: GameState, st: Student, policy: Policy = 'balance
   return [first, second as SkillId];
 }
 
-export function tutoringSlots(s: GameState): number {
-  let n = B.tutoring.baseSlots;
-  if (s.instructor.age >= B.tutoring.oldTiredAge && s.week === 1 && ((s.absWeek * 7919) % 100) / 100 < B.tutoring.oldTiredChance) n -= 1;
-  return clamp(n, 1, B.tutoring.maxSlots);
-}
-export function weekendSlots(s: GameState): number {
-  return B.weekend.baseActions + (s.month === 8 ? B.weekend.festivalExtra : 0) + 1; // 基本2回（1〜2回のうち多いほう）
-}
-
 /** 担当者の技能ランクによる倍率 */
 export function teacherMul(s: GameState, k: SkillId): number {
   let best = s.instructor.skills[k] ?? 0;
@@ -65,7 +56,7 @@ export function bestTeacher(s: GameState, k: SkillId): string {
   return `${name}（${rankOf(best)}）`;
 }
 
-function facilityMul(s: GameState, k: SkillId): number {
+export function facilityMulOf(s: GameState, k: SkillId): number {
   let m = 1;
   for (const [fid, def] of Object.entries(B.facilities)) {
     if ((def.skills as SkillId[]).includes(k)) m += def.skillUp[s.facilities[fid] ?? 0];
@@ -73,15 +64,15 @@ function facilityMul(s: GameState, k: SkillId): number {
   return m;
 }
 export function fatigueMul(st: Student): number { return st.fatigue >= B.fatigue.slowAt ? B.fatigue.slowMul : 1; }
-function talentMul(st: Student, k: SkillId): number {
+export function talentMulOf(st: Student, k: SkillId): number {
   if (!st.talent) return 1;
   const t = TALENTS[st.talent];
   if (t.hero) return 1.2;
   return t.skill === k ? t.skillMul ?? 1 : 1;
 }
-function traitLessonMul(st: Student, tutoring: boolean): number {
+export function traitLessonMulOf(st: Student): number {
   let m = 1;
-  for (const t of st.traits) { const d = TRAITS[t]; m *= tutoring ? d.tutorMul ?? 1 : d.lessonMul ?? 1; }
+  for (const t of st.traits) m *= TRAITS[t].lessonMul ?? 1;
   return m;
 }
 
@@ -116,200 +107,45 @@ export function revealTalent(s: GameState, st: Student, amount: number, lines?: 
   if (after >= 50) for (const tr of st.traits) if (!st.knownTraits.includes(tr)) { st.knownTraits.push(tr); msg(`${st.given}の特徴「${TRAITS[tr].name}」が分かった`); break; }
 }
 
-function expBonus(s: GameState): number { return Math.min(B.talent.expBonusMax, s.instructor.experience / B.talent.expDiv); }
+export function expBonusOf(s: GameState): number { return Math.min(B.talent.expBonusMax, s.instructor.experience / B.talent.expDiv); }
 
 export function changeMotivation(st: Student, d: number): void { st.motivation = clamp(st.motivation + d, 0, 4); }
 
-function addFatigue(s: GameState, st: Student, amount: number): void {
-  const mul = s.month === 3 ? B.fatigue.campMul : 1;
-  st.fatigue = clamp(st.fatigue + amount * mul, 0, s.world.epidemic ? B.fatigue.epidemicCap + 20 : 100);
-}
-
-// ---------- 自動設定 ----------
-
-export function autoPlan(s: GameState, rng: Rng): void {
-  const list = enrolled(s).filter(available);
+/** 月の始め：「自動で決める」の子の目標技能（担任のいる学年は担任の方針で） */
+export function autoMonthTargets(s: GameState): void {
   for (const st of enrolled(s)) {
     if (!st.targetsAuto) continue;
     const v = viceOf(s, st.grade);
     st.targets = v ? viceTargets(s, st, v.v.policy, v.st, autoTargets) : autoTargets(s, st);
   }
-  const slots = tutoringSlots(s);
-  if (s.plan.tutoring.length === 0) {
-    // 相談 → 退学の予兆 → やる気の低い子 → 注目されていない子
-    const chosen: string[] = [];
-    const push = (st: Student, kind: 'skill' | 'talk' | 'consult') => {
-      if (chosen.length >= slots || chosen.includes(st.id) || !available(st)) return;
-      chosen.push(st.id);
-      s.plan.tutoring.push({ studentId: st.id, kind, skill: kind === 'skill' ? st.targets[0] : undefined });
-    };
-    for (const id of s.consults) if (s.students[id]) push(s.students[id], 'consult');
-    for (const st of list) if (st.dropoutSign) push(st, 'talk');
-    for (const st of list) if (st.motivation <= 1) push(st, 'talk');
-    for (const st of [...list].sort((a, b) => a.lastAttention - b.lastAttention)) push(st, 'skill');
-  }
-  if (s.plan.weekend.length === 0) {
-    const avgFat = list.reduce((a, st) => a + st.fatigue, 0) / Math.max(1, list.length);
-    const n = weekendSlots(s);
-    // 副教官（担任）が担当学年の週末を組む
-    for (const g of [1, 2, 3]) {
-      const v = viceOf(s, g);
-      if (!v || s.plan.weekend.length >= n) continue;
-      const w = viceWeekend(s, rng, g, v.v.policy, v.st);
-      if (w && !(w.kind === 'rest' && s.plan.weekend.some((x) => x.kind === 'rest'))) s.plan.weekend.push(w);
-    }
-    for (let i = s.plan.weekend.length; i < n; i++) {
-      if (avgFat >= 40 && !s.plan.weekend.some((w) => w.kind === 'rest')) { s.plan.weekend.push({ kind: 'rest' }); continue; }
-      const roll = rng.int(0, 2);
-      if (roll === 0 && list.length >= 2) {
-        const ids = rng.shuffle(list.map((x) => x.id)).slice(0, Math.min(3, list.length));
-        s.plan.weekend.push({ kind: 'tea', ids });
-      } else if (roll === 1 && list.length >= 2) {
-        const [a, b] = rng.shuffle(list.map((x) => x.id));
-        s.plan.weekend.push({ kind: 'spar', ids: [a, b], skill: s.students[a].targets[0] });
-      } else {
-        const grades = [...new Set(list.map((x) => x.grade))];
-        if (grades.length) s.plan.weekend.push({ kind: 'dinner', grade: rng.pick(grades) });
-        else s.plan.weekend.push({ kind: 'rest' });
-      }
-    }
-  }
 }
 
-// ---------- 1週間の解決 ----------
-
-export interface WeekResult { lines: string[]; talks: TalkLog[]; growth: GrowthEntry[] }
-
-export function resolveWeek(s: GameState, rng: Rng): WeekResult {
+/** 週の初め（月曜日）：誕生日の週 */
+export function startWeekStudents(s: GameState): string[] {
   const lines: string[] = [];
-  const talks: TalkLog[] = [];
-  autoPlan(s, rng);
-  const camp = s.month === 3;
-  const festival = s.month === 8;
-  const before = new Map(enrolled(s).map((st) => [st.id, { skills: { ...st.skills }, level: st.level, mot: st.motivation }]));
-  const snaps = new Map(enrolled(s).map((st) => [st.id, snapGrowth(st)]));
-  const tutored = new Map<string, string>();
-  startGrowthLog();
-
-  // 誕生日の週
-  const bdays = enrolled(s).filter((st) => st.birthday && st.birthday.month === s.month && st.birthday.week === s.week);
-  for (const st of bdays) {
+  for (const st of enrolled(s).filter((x) => x.birthday && x.birthday.month === s.month && x.birthday.week === s.week)) {
     changeMotivation(st, B.birthday.motivation);
     addTrust(st, B.birthday.trust);
     lines.push(`今週は${st.given}の誕生日。みんなで小さなお祝いをした（やる気↑）`);
   }
-
-  // 授業
-  for (const st of enrolled(s)) {
-    if (!available(st)) continue;
-    const focus = s.focus[st.grade] ?? ['sword', 'lance'];
-    const gains: Partial<Record<SkillId, number>> = {};
-    for (const k of focus) if (skillUnlocked(s, k)) gains[k] = (gains[k] ?? 0) + B.lesson.focusPoints;
-    for (const k of st.targets) if (skillUnlocked(s, k)) gains[k] = (gains[k] ?? 0) + B.lesson.targetPoints;
-    for (const [k, base] of Object.entries(gains) as [SkillId, number][]) {
-      const mul = teacherMul(s, k) * facilityMul(s, k) * B.motivationMul[st.motivation] * fatigueMul(st) * talentMul(st, k) * traitLessonMul(st, false) * (camp ? B.lesson.campMul : 1);
-      addSkill(st, k, base * mul);
-    }
-    gainExp(s, rng, st, B.lesson.expPerWeek);
-    addFatigue(s, st, B.fatigue.lesson);
-    revealTalent(s, st, B.talent.weeklyReveal + B.talent.libraryReveal[s.facilities.library ?? 0] + expBonus(s), lines);
-  }
-
-  // 個人指導
-  for (const t of s.plan.tutoring) {
-    const st = s.students[t.studentId];
-    if (!st || !available(st)) continue;
-    st.lastAttention = s.absWeek;
-    tutored.set(st.id, t.kind === 'skill' ? '個人指導' : t.kind === 'consult' ? '相談' : '面談');
-    if (t.kind === 'skill') {
-      const k = t.skill ?? st.targets[0];
-      const mul = teacherMul(s, k) * facilityMul(s, k) * B.motivationMul[st.motivation] * fatigueMul(st) * talentMul(st, k) * traitLessonMul(st, true);
-      const g = addSkill(st, k, B.tutoring.skillPoints * mul);
-      revealTalent(s, st, B.tutoring.reveal + expBonus(s), lines);
-      addFatigue(s, st, B.fatigue.tutoring);
-      gainExp(s, rng, st, B.tutoring.exp);
-      addTrust(st, B.tutoring.trust);
-      const dream = DREAMS.find((d) => d.id === st.dream)!;
-      if (dream.skills.includes(k) && rng.chance(0.3)) changeMotivation(st, 1);
-      lines.push(`個人指導：${st.given}の${SKILL_NAMES[k]}が+${Math.round(g)}`);
-    } else {
-      const r = interview(s, rng, st, t.kind === 'consult');
-      lines.push(...r.lines);
-      if (r.talk) talks.push(r.talk);
-    }
-  }
-  // 副教官（担任）の個人指導（副教官1人につき1回、伸びは教官より小さい）
-  const taken = new Set(s.plan.tutoring.map((x) => x.studentId));
-  for (const p of viceTutorPicks(s, taken)) {
-    const st = p.st, k = p.k;
-    st.lastAttention = s.absWeek;
-    const mul = teacherMul(s, k) * facilityMul(s, k) * B.motivationMul[st.motivation] * fatigueMul(st) * talentMul(st, k) * traitLessonMul(st, true) * B.vice.tutorMul;
-    const g = addSkill(st, k, B.tutoring.skillPoints * mul);
-    revealTalent(s, st, B.tutoring.reveal * B.vice.tutorMul, lines);
-    addFatigue(s, st, B.fatigue.tutoring);
-    gainExp(s, rng, st, B.tutoring.exp * B.vice.tutorMul);
-    tutored.set(st.id, `担任（${p.teacher.name}）の指導`);
-    lines.push(`担任の${p.teacher.name}が${st.given}に${SKILL_NAMES[k]}を指導（+${Math.round(g)}）`);
-  }
-  // 教官・講師の技能は教えるほど上がる
-  growTeachers(s, s.plan.tutoring.filter((x) => x.kind === 'skill').map((x) => x.skill ?? s.students[x.studentId]?.targets[0]).filter(Boolean) as SkillId[], lines);
-  s.consults = [];
-  // 信頼が深まった子との特別な面談
-  const sp = specialInterview(s, rng, enrolled(s).filter(available));
-  if (sp) { talks.push(sp); lines.push(`${s.students[sp.a]?.given}と「${sp.title}」について語り合った（特別な面談）`); }
-
-  // 週末
-  for (const w of s.plan.weekend) talks.push(...doWeekend(s, rng, w, lines, festival));
-
-  // 回復・体調
-  for (const st of enrolled(s)) {
-    const rec = B.fatigue.naturalRecovery + B.fatigue.chapelRecovery[s.facilities.chapel ?? 0];
-    if (st.sickWeeks > 0) { st.sickWeeks -= 1; if (st.sickWeeks === 0) lines.push(`${st.given}の体調が戻った`); continue; }
-    if (st.injuredWeeks > 0) { st.injuredWeeks -= 1; st.fatigue = Math.max(0, st.fatigue - rec); if (st.injuredWeeks === 0) lines.push(`${st.given}のけがが治った`); continue; }
-    st.fatigue = clamp(st.fatigue - rec, 0, 100);
-    const cap = s.world.epidemic ? B.fatigue.epidemicCap : B.fatigue.sickAt;
-    if (st.fatigue >= cap) {
-      st.sickWeeks = 1; st.fatigue = B.fatigue.sickReset;
-      lines.push(`${st.given}が体調を崩した（1週間休み）`);
-      notify(s, `${st.given}が体調不良で休み`, st.id);
-    }
-    // やる気：疲れが続くと下がる
-    if (st.fatigue >= B.fatigue.slowAt && rng.chance(0.25) && !rng.chance(B.diningMotivationKeep[s.facilities.dining ?? 0])) changeMotivation(st, -1);
-    if (st.fatigue >= B.fatigue.warnAt) notify(s, `${st.given}の疲労が${Math.round(st.fatigue)}`, st.id);
-    st.lowMotivWeeks = st.motivation === 0 ? st.lowMotivWeeks + 1 : 0;
-  }
-
-  // 退学の予兆
-  lines.push(...processDropout(s, rng));
-
-  // まとめ：技能ランクの変化・覚えた魔法・成長の記録
-  const growth: GrowthEntry[] = [];
-  for (const st of enrolled(s)) {
-    const b = before.get(st.id); if (!b) continue;
-    let rankUp = false;
-    for (const k of SKILLS) {
-      const r0 = rankOf(b.skills[k]), r1 = rankOf(st.skills[k]);
-      if (r0 !== r1) { lines.push(`${st.given}の${SKILL_NAMES[k]}が${r1}に上がった`); rankUp = true; }
-    }
-    const learned = learnSpells(s, st);
-    for (const id of learned) lines.push(learnedText(st, id));
-    if (st.level > b.level) lines.push(`${st.given}がLv${st.level}になった`);
-    const snap = snaps.get(st.id);
-    if (snap && (tutored.has(st.id) || rankUp || st.level > b.level || learned.length)) {
-      const why = tutored.get(st.id) ?? (st.level > b.level ? 'レベルアップ' : learned.length ? '魔法' : 'ランクアップ');
-      growth.push(diffGrowth(st, snap, learned, why));
-    }
-    if (st.motivation < b.mot && st.motivation <= 1) { lines.push(`${st.given}のやる気が下がっている`); notify(s, `${st.given}のやる気が「${B.motivationLabel[st.motivation]}」`, st.id); }
-  }
-
-  stopGrowthLog();
-  // 次の週の相談
-  rollConsults(s, rng);
-  s.plan = { tutoring: [], weekend: [] };
-  return { lines, talks, growth };
+  return lines;
 }
 
-function interview(s: GameState, rng: Rng, st: Student, consult: boolean): { lines: string[]; talk: TalkLog | null } {
+/** 週の終わり（金曜の授業のあと）：けがの回復・やる気・退学の予兆・次の週の相談 */
+export function endOfWeek(s: GameState, rng: Rng): string[] {
+  const lines: string[] = [];
+  for (const st of enrolled(s)) {
+    if (st.sickWeeks > 0) { st.sickWeeks -= 1; if (st.sickWeeks === 0) lines.push(`${st.given}の体調が戻った`); }
+    if (st.injuredWeeks > 0) { st.injuredWeeks -= 1; if (st.injuredWeeks === 0) lines.push(`${st.given}のけがが治った`); }
+    if (st.fatigue >= B.fatigue.warnAt) notify(s, `${st.given}の体力が${Math.round(100 - st.fatigue)}`, st.id);
+    st.lowMotivWeeks = st.motivation === 0 ? st.lowMotivWeeks + 1 : 0;
+  }
+  lines.push(...processDropout(s, rng));
+  rollConsults(s, rng);
+  return lines;
+}
+
+export function interviewStudent(s: GameState, rng: Rng, st: Student, consult: boolean, force?: InterviewTopic): { lines: string[]; talk: TalkLog | null } {
   const out: string[] = [];
   let topic: InterviewTopic = 'recent';
   const flags: string[] = [];
@@ -330,7 +166,7 @@ function interview(s: GameState, rng: Rng, st: Student, consult: boolean): { lin
   } else if (st.motivation <= 1) {
     topic = 'worry';
     out.push(`面談：${st.given}の悩みを聞いた`);
-  } else if (st.grade === 3 && rng.chance(0.6)) {
+  } else if (force === 'career' || st.grade === 3 && rng.chance(0.6)) {
     topic = 'career';
     const d = DREAMS.find((x) => x.id === st.dream)!;
     out.push(`面談：${st.given}と進路の話をした${d.text ? `（夢は${d.text}）` : ''}`);
@@ -347,46 +183,6 @@ function interview(s: GameState, rng: Rng, st: Student, consult: boolean): { lin
   st.lastAttention = s.absWeek;
   const talk = buildInterview(s, rng, st, topic, flags);
   return { lines: out, talk };
-}
-
-function doWeekend(s: GameState, rng: Rng, w: WeekendAction, lines: string[], festival: boolean): TalkLog[] {
-  const talks: TalkLog[] = [];
-  const sm = festival ? 1.5 : 1;
-  const push = (t: TalkLog | null) => { if (t) talks.push(t); };
-  if (w.kind === 'rest') {
-    for (const st of enrolled(s)) st.fatigue = clamp(st.fatigue - B.fatigue.rest, 0, 100);
-    lines.push('週末：みんなでゆっくり休んだ');
-  } else if (w.kind === 'tea') {
-    const ids = w.ids.filter((id) => s.students[id] && available(s.students[id]));
-    // 誕生日の子がいるお茶会は、支援が上がりやすい
-    const bd = ids.some((id) => { const b = s.students[id].birthday; return b && b.month === s.month && b.week === s.week; });
-    for (let i = 0; i < ids.length; i++) for (let j = i + 1; j < ids.length; j++) push(addSupport(s, rng, ids[i], ids[j], B.weekend.teaSupport, sm * (bd ? B.birthday.teaMul : 1)));
-    if (bd) lines.push('お茶会は誕生日のお祝いも兼ねて、いつもよりにぎやかだった');
-    for (const id of ids) { const st = s.students[id]; changeMotivation(st, 1); st.fatigue = clamp(st.fatigue - B.fatigue.tea, 0, 100); if (festival) addRecent(s, st, 'ev_festival', '収穫祭'); }
-    lines.push(`週末：お茶会（${ids.map((id) => s.students[id].given).join('・')}）`);
-    // 会話が起きやすい
-    if (!talks.length && ids.length >= 2 && rng.chance(B.weekend.teaTalkChance + B.diningEventUp[s.facilities.dining ?? 0])) {
-      const [a, b] = rng.shuffle([...ids]);
-      const sp = getSupport(s, a, b);
-      const r = supportRank(sp.value);
-      if (r) push(buildTalk(s, rng, sp, r));
-    }
-  } else if (w.kind === 'spar') {
-    const [a, b] = w.ids;
-    const A = s.students[a], Bs = s.students[b];
-    if (A && Bs && available(A) && available(Bs)) {
-      push(addSupport(s, rng, a, b, B.weekend.sparSupport, sm));
-      for (const st of [A, Bs]) { addSkill(st, w.skill, B.weekend.sparSkill * B.motivationMul[st.motivation]); addFatigue(s, st, B.fatigue.spar); }
-      addRecent(s, A, 'ev_spar', SKILL_NAMES[w.skill], b); addRecent(s, Bs, 'ev_spar', SKILL_NAMES[w.skill], a);
-      lines.push(`週末：${A.given}と${Bs.given}が${SKILL_NAMES[w.skill]}で手合わせ`);
-    }
-  } else if (w.kind === 'dinner') {
-    const list = enrolled(s).filter((st) => st.grade === w.grade && available(st));
-    for (const st of list) if (rng.chance(B.weekend.dinnerMotivationChance)) changeMotivation(st, 1);
-    for (let i = 0; i < list.length; i++) for (let j = i + 1; j < list.length; j++) push(addSupport(s, rng, list[i].id, list[j].id, 1.5, sm));
-    lines.push(`週末：${w.grade}年生の食事会。にぎやかな夜になった`);
-  }
-  return talks;
 }
 
 function rollConsults(s: GameState, rng: Rng): void {
@@ -406,7 +202,6 @@ function rollConsults(s: GameState, rng: Rng): void {
 export function declineConsult(s: GameState, id: string): void {
   const st = s.students[id];
   s.consults = s.consults.filter((x) => x !== id);
-  s.plan.tutoring = s.plan.tutoring.filter((t) => !(t.studentId === id && t.kind === 'consult'));
   if (st) changeMotivation(st, -1);
 }
 
@@ -534,8 +329,4 @@ export function doSpotlight(s: GameState, rng: Rng, id: string): string {
   return `${res}（やる気↑・信頼↑・${SKILL_NAMES[k]}+10）${learned.map((id) => learnedText(st, id)).join('')}`;
 }
 
-export function hasFocusOverlap(s: GameState, st: Student): boolean {
-  const f = s.focus[st.grade] ?? [];
-  return st.targets.some((k) => f.includes(k));
-}
 export type { CountryId };

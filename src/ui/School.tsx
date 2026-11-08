@@ -1,7 +1,8 @@
 import { useState } from 'preact/hooks';
 import { useStore, navigate, act } from './store';
 import { enrolled, available } from '../core/game';
-import { tutoringSlots, weekendSlots, declineConsult, doSpotlight, bestTeacher, skillUnlocked } from '../core/week';
+import { doSpotlight, bestTeacher, skillUnlocked } from '../core/week';
+import { LessonBoard, TargetsPage } from './Lessons';
 import { examCandidates } from '../core/exam';
 import { rng } from '../core/flow';
 import { StuRow, Back, money, Bar, moodIcon } from './common';
@@ -23,18 +24,16 @@ import { SkillBox, skillIcon, countryColor, LvBadge, ClassName, MoodDots, Fatigu
 import { supportRank, supportValue } from '../core/support';
 
 const GUIDE = [
-  'まずは「やること一覧」を上から順に見ていきましょう。全部やらなくても「次の週へ」を押せば、残りは自動で決まります。',
-  '個人指導で生徒を1人ずつ伸ばせます。面談をすると、やる気と教官への信頼が上がります。',
-  '週末の交流では、お茶会や手合わせで生徒どうしの仲（支援）が深まります。仲が深まると戦闘で助け合えます。',
-  '今週が終わると月末の戦闘です。最初は「演習」がおすすめ。演習では誰も死にません。',
+  '毎日、授業のカードを1つ選びます。全員が伸び、顔が出ている子は特に伸びます。迷ったら「今週はおまかせ」で金曜まで進められます。',
+  '顔に「目」の印がある子は、今月の目標技能の授業です。仲の良い子どうしが同じカードに出ると「友情タッグ」でさらに伸びます。',
+  'お茶会・面談などの交流もカードで出ます。体力が減ってきたら「休講」で休ませましょう。',
+  '4週目の金曜が終わると月末の戦闘です。最初は「演習」がおすすめ。演習では誰も死にません。',
 ];
 
 export function SchoolTab() {
   const { s, route } = useStore();
   if (!s) return null;
-  if (route.page === 'lessons') return <Lessons s={s} />;
-  if (route.page === 'tutoring') return <Tutoring s={s} />;
-  if (route.page === 'weekend') return <Weekend s={s} />;
+  if (route.page === 'lessons' || route.page === 'targets') return <TargetsPage s={s} />;
   if (route.page === 'facilities') return <Facilities s={s} />;
   if (route.page === 'armory') return <Armory s={s} />;
   if (route.page === 'mail') return <Mailbox s={s} />;
@@ -44,21 +43,17 @@ export function SchoolTab() {
 
 function Home({ s }: { s: GameState }) {
   const list = enrolled(s);
-  const slots = tutoringSlots(s);
   const todo: { text: string; go: () => void; red?: boolean; icon?: string }[] = [];
-  const left = slots - s.plan.tutoring.length;
-  if (s.week === 1) todo.push({ text: `今月の重点科目：${[1, 2, 3].filter((g) => list.some((x) => x.grade === g)).map((g) => `${g}年 ${(s.focus[g] ?? []).map((k) => SKILL_NAMES[k]).join('・')}`).join(' ／ ')}`, go: () => navigate({ tab: 'school', page: 'lessons' }), icon: 'lesson' });
-  todo.push({ icon: 'students', text: left > 0 ? `個人指導 あと${left}回` : '個人指導 設定済み', go: () => navigate({ tab: 'school', page: 'tutoring' }), red: left > 0 });
-  todo.push({ icon: 'heart', text: s.plan.weekend.length ? `週末の交流 ${s.plan.weekend.length}件 設定済み` : '週末の交流 未設定', go: () => navigate({ tab: 'school', page: 'weekend' }), red: !s.plan.weekend.length });
-  for (const id of s.consults) { const st = s.students[id]; if (st) todo.push({ icon: 'talk', text: `相談：${st.given}「先生、少しいいですか」`, go: () => navigate({ tab: 'school', page: 'tutoring' }), red: true }); }
+  if (s.week === 1 && (s.day ?? 1) === 1) todo.push({ text: '今月の目標技能を決めよう（自動の子は決まっています）', go: () => navigate({ tab: 'school', page: 'targets' }), icon: 'lesson', red: true });
+  for (const id of s.consults) { const st = s.students[id]; if (st) todo.push({ icon: 'talk', text: `相談：${st.given}「先生、少しいいですか」（面談のカードで話せます）`, go: () => navigate({ tab: 'students', page: 'detail', id }), red: true }); }
   const ex = examCandidates(s);
   if (ex.length) todo.push({ icon: 'exam', text: `兵種試験を受けられる生徒が${ex.length}人（${ex.map((x) => x.given).join('・')}）`, go: () => navigate({ tab: 'students', page: 'exam' }), red: true });
   for (const st of list) {
-    if (st.dropoutSign) todo.push({ icon: 'bell', text: `退学の予兆：${st.given}（面談で話を聞こう）`, go: () => navigate({ tab: 'students', page: 'detail', id: st.id }), red: true });
-    if (st.fatigue >= B.fatigue.warnAt && available(st)) todo.push({ icon: 'bell', text: `疲れがたまっている：${st.given}（疲労${Math.round(st.fatigue)}）`, go: () => navigate({ tab: 'students', page: 'detail', id: st.id }) });
+    if (st.dropoutSign) todo.push({ icon: 'bell', text: `退学の予兆：${st.given}（面談のカードで話を聞こう）`, go: () => navigate({ tab: 'students', page: 'detail', id: st.id }), red: true });
+    if (st.fatigue >= B.fatigue.warnAt && available(st)) todo.push({ icon: 'bell', text: `体力が少ない：${st.given}（体力${Math.round(100 - st.fatigue)}。休講で回復）`, go: () => navigate({ tab: 'students', page: 'detail', id: st.id }) });
     if (st.motivation <= 0) todo.push({ icon: 'bell', text: `やる気がとても低い：${st.given}`, go: () => navigate({ tab: 'students', page: 'detail', id: st.id }) });
   }
-  for (const st of list) if (st.birthday && st.birthday.month === s.month && st.birthday.week === s.week) todo.push({ icon: 'cake', text: `今週は${st.given}の誕生日（お茶会に招くと仲が深まりやすい）`, go: () => navigate({ tab: 'school', page: 'weekend' }) });
+  for (const st of list) if (st.birthday && st.birthday.month === s.month && st.birthday.week === s.week) todo.push({ icon: 'cake', text: `今週は${st.given}の誕生日（お茶会のカードに出やすい）`, go: () => navigate({ tab: 'students', page: 'detail', id: st.id }) });
   const unread = s.mail.filter((m) => !m.read).length;
   if (unread) todo.push({ icon: 'mail', text: `郵便受けに未読の手紙が${unread}通`, go: () => navigate({ tab: 'school', page: 'mail' }) });
   const [spotMsg, setSpotMsg] = useState('');
@@ -67,7 +62,9 @@ function Home({ s }: { s: GameState }) {
     <div>
       <MonthCalendar s={s} />
       {s.month === 3 && <ArtSlot name="event_camp" />}
+      {s.month === 8 && <ArtSlot name="event_festival" />}
       {guideOn && <div class="guide">{GUIDE[Math.min(GUIDE.length - 1, s.week - 1)]}</div>}
+      {!s.pending.length && !s.battle && <LessonBoard s={s} />}
       <div class="two">
         <div>
           {s.spotlight.length > 0 && (
@@ -106,7 +103,7 @@ function Home({ s }: { s: GameState }) {
                     <Portrait st={st} size={60} frame={c} />
                     <NameLine st={st} size={15} family={false} />
                     <div class="small row nowrap gap4" style={{ justifyContent: 'center' }}><MoodDots m={st.motivation} /></div>
-                    <div class="small row nowrap gap4" style={{ width: '100%' }}>疲労<FatigueBar f={st.fatigue} /></div>
+                    <div class="small row nowrap gap4" style={{ width: '100%' }}>体力<FatigueBar f={st.fatigue} /></div>
                     {f && <span class={`flag ${f.tone}`}>{f.text}</span>}
                   </div>
                 ); })}
@@ -122,7 +119,7 @@ function Home({ s }: { s: GameState }) {
           <div class="card">
             <h3>学校のこと</h3>
             <div class="grid2">
-              <button class="btn ghost iconbtn" onClick={() => navigate({ tab: 'school', page: 'lessons' })}><Icon name="lesson" /> 授業</button>
+              <button class="btn ghost iconbtn" onClick={() => navigate({ tab: 'school', page: 'targets' })}><Icon name="lesson" /> 目標技能</button>
               <button class="btn ghost iconbtn" onClick={() => navigate({ tab: 'school', page: 'facilities' })}><Icon name="house" /> 施設・講師</button>
               <button class="btn ghost iconbtn" onClick={() => navigate({ tab: 'school', page: 'armory' })}><Icon name="sword" /> 武器庫</button>
               <button class="btn ghost iconbtn" onClick={() => navigate({ tab: 'school', page: 'mail' })}><Icon name="mail" /> 郵便受け{unread ? `（${unread}）` : ''}</button>
@@ -133,141 +130,6 @@ function Home({ s }: { s: GameState }) {
         </div>
       </div>
       <div style={{ height: 50 }} />
-    </div>
-  );
-}
-
-function Lessons({ s }: { s: GameState }) {
-  const grades = [1, 2, 3].filter((g) => enrolled(s).some((x) => x.grade === g));
-  const skills = SKILLS.filter((k) => skillUnlocked(s, k));
-  return (
-    <div>
-      <Back to={() => navigate({ tab: 'school' })} />
-      <h2>授業（重点科目）</h2>
-      <div class="muted">学年ごとに、今月の重点科目を2つ選びます。学年全員が少しずつ伸びます。生徒ごとの「目標技能」は生徒の画面で変えられます。</div>
-      {grades.map((g) => (
-        <div class="card">
-          <h3>{g}年生{viceOf(s, g) ? `（担任：${viceOf(s, g)!.t.name}）` : ''}</h3>
-          {viceOf(s, g) && <div class="muted small">担任が毎月の始めに重点科目を決めます。ここで変えると、その月はあなたの決定が優先されます。</div>}
-          {[0, 1].map((i) => (
-            <div class="row" style={{ marginBottom: 6 }}>
-              <span>重点{i + 1}</span>
-              <select value={s.focus[g]?.[i]} onChange={(e) => act((x) => { const f = [...(x.focus[g] ?? ['sword', 'lance'])] as [SkillId, SkillId]; f[i] = (e.target as HTMLSelectElement).value as SkillId; x.focus[g] = f; })}>
-                {skills.map((k) => <option value={k}>{SKILL_NAMES[k]}（担当：{bestTeacher(s, k)}）</option>)}
-              </select>
-            </div>
-          ))}
-        </div>
-      ))}
-      <div class="card">
-        <h3>時間割（自動）</h3>
-        <table class="stats"><tbody>
-          {['月', '火', '水', '木', '金'].map((d, i) => (
-            <tr><td>{d}</td>{grades.map((g) => { const f = s.focus[g] ?? ['sword', 'lance']; return <td>{g}年：{i % 2 === 0 ? SKILL_NAMES[f[0]] : SKILL_NAMES[f[1]]}{i === 4 ? '・自習（目標技能）' : ''}</td>; })}</tr>
-          ))}
-        </tbody></table>
-        <div class="muted small">担当者の技能ランクが高いほどよく伸びます。担当者のいない科目は伸びが半分です。</div>
-      </div>
-    </div>
-  );
-}
-
-function Tutoring({ s }: { s: GameState }) {
-  const slots = tutoringSlots(s);
-  const list = enrolled(s);
-  const used = s.plan.tutoring;
-  const [kind, setKind] = useState<'skill' | 'talk'>('skill');
-  const add = (id: string, k: 'skill' | 'talk' | 'consult', skill?: SkillId) => act((g) => {
-    if (g.plan.tutoring.length >= tutoringSlots(g)) return;
-    g.plan.tutoring.push({ studentId: id, kind: k, skill });
-    if (k === 'consult') g.consults = g.consults.filter((x) => x !== id);
-  });
-  return (
-    <div>
-      <Back to={() => navigate({ tab: 'school' })} />
-      <h2>個人指導（あと{slots - used.length}回）</h2>
-      {(s.vice ?? []).length > 0 && <div class="muted small">ほかに、副教官（担任）が担当学年の生徒を毎週{(s.vice ?? []).length}人、自動で指導します。</div>}
-      {used.length > 0 && (
-        <div class="card">
-          <h3>今週の予定</h3>
-          {used.map((t, i) => { const st = s.students[t.studentId]; return (
-            <div class="row between"><span>{st?.given}：{t.kind === 'skill' ? `技能指導（${SKILL_NAMES[t.skill ?? 'sword']}）` : t.kind === 'consult' ? '相談にのる' : '面談'}</span>
-              <button class="btn ghost small" onClick={() => act((g) => { g.plan.tutoring.splice(i, 1); if (t.kind === 'consult') g.consults.push(t.studentId); })}>取り消す</button></div>
-          ); })}
-        </div>
-      )}
-      {s.consults.length > 0 && (
-        <div class="card">
-          <h3>相談に来ている生徒</h3>
-          {s.consults.map((id) => { const st = s.students[id]; if (!st) return null; return (
-            <StuRow st={st} sub="「先生、少しいいですか」" right={<div class="row">
-              <button class="btn small primary" disabled={used.length >= slots} onClick={(e) => { e.stopPropagation(); sfx('ok'); add(id, 'consult'); }}>受ける</button>
-              <button class="btn small ghost" onClick={(e) => { e.stopPropagation(); if (confirm('断るとやる気が少し下がります。断りますか？')) act((g) => declineConsult(g, id)); }}>断る</button>
-            </div>} />
-          ); })}
-        </div>
-      )}
-      <div class="seg" style={{ margin: '8px 0' }}>
-        <button class={kind === 'skill' ? 'on' : ''} onClick={() => setKind('skill')}>技能指導</button>
-        <button class={kind === 'talk' ? 'on' : ''} onClick={() => setKind('talk')}>面談</button>
-      </div>
-      <div class="muted small">{kind === 'skill' ? '1人の技能を大きく伸ばします（疲労+10）。才能も見えてきやすくなります。' : 'やる気が上がり、教官への信頼が深まります。退学の予兆も消せます。'}</div>
-      <div class="card">
-        {list.map((st) => (
-          <div>
-            <StuRow st={st} onClick={() => undefined} sub={`${moodIcon(st)} やる気${B.motivationLabel[st.motivation]}・疲労${Math.round(st.fatigue)}・信頼${Math.round(st.trust)}${st.dropoutSign ? '・⚠退学の予兆' : ''}${!available(st) ? '・休み中' : ''}`}
-              right={kind === 'talk' ? <button class="btn small" disabled={!available(st) || used.length >= slots} onClick={() => { sfx('ok'); add(st.id, 'talk'); }}>面談</button> : undefined} />
-            {kind === 'skill' && available(st) && (
-              <div class="row" style={{ marginLeft: 54, marginBottom: 6 }}>
-                {st.targets.map((k) => <button class="btn small" disabled={used.length >= slots} onClick={() => { sfx('ok'); add(st.id, 'skill', k); }}>{SKILL_NAMES[k]} {rankOf(st.skills[k])}</button>)}
-              </div>
-            )}
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function Weekend({ s }: { s: GameState }) {
-  const n = weekendSlots(s);
-  const list = enrolled(s).filter(available);
-  const [mode, setMode] = useState<'tea' | 'spar' | null>(null);
-  const [pick, setPick] = useState<string[]>([]);
-  const [skill, setSkill] = useState<SkillId>('sword');
-  const add = (w: WeekendAction) => act((g) => { if (g.plan.weekend.length < weekendSlots(g)) g.plan.weekend.push(w); });
-  const name = (w: WeekendAction) => w.kind === 'rest' ? '休養（全員の疲労回復）' : w.kind === 'tea' ? `お茶会：${w.ids.map((id) => s.students[id]?.given).join('・')}` : w.kind === 'spar' ? `手合わせ：${w.ids.map((id) => s.students[id]?.given).join('と')}（${SKILL_NAMES[w.skill]}）` : `${w.grade}年生の食事会`;
-  return (
-    <div>
-      <Back to={() => navigate({ tab: 'school' })} />
-      <h2>週末の交流（{s.plan.weekend.length}／{n}）</h2>
-      {s.month === 8 && <ArtSlot name="event_festival" />}
-      {s.month === 8 && <div class="guide">収穫祭の月です。交流が1回多く、支援が上がりやすくなっています。</div>}
-      {s.plan.weekend.map((w, i) => <div class="card row between"><span>{name(w)}</span><button class="btn ghost small" onClick={() => act((g) => { g.plan.weekend.splice(i, 1); })}>取り消す</button></div>)}
-      {s.plan.weekend.length < n && !mode && (
-        <div class="grid2">
-          <button class="btn" onClick={() => { sfx('ok'); add({ kind: 'rest' }); }}>休養</button>
-          <button class="btn" onClick={() => { setMode('tea'); setPick([]); }}>お茶会</button>
-          <button class="btn" onClick={() => { setMode('spar'); setPick([]); }}>手合わせ</button>
-          {[1, 2, 3].filter((g) => list.some((x) => x.grade === g)).map((g) => <button class="btn" onClick={() => { sfx('ok'); add({ kind: 'dinner', grade: g }); }}>{g}年の食事会</button>)}
-        </div>
-      )}
-      <div class="muted small" style={{ marginTop: 6 }}>休養＝全員の疲労−25／お茶会＝2〜3人を招いて仲を深める・やる気↑／手合わせ＝2人の仲と技能↑・疲労↑／食事会＝学年全員のやる気↑</div>
-      {mode && (
-        <div class="card">
-          <h3>{mode === 'tea' ? 'お茶会に招く生徒（2〜3人）' : '手合わせする2人'}</h3>
-          {mode === 'spar' && <div class="row">技能：<select value={skill} onChange={(e) => setSkill((e.target as HTMLSelectElement).value as SkillId)}>{SKILLS.filter((k) => skillUnlocked(s, k)).map((k) => <option value={k}>{SKILL_NAMES[k]}</option>)}</select></div>}
-          {list.map((st) => {
-            const on = pick.includes(st.id);
-            const sup = pick.filter((x) => x !== st.id).map((x) => { const v = supportValue(s, x, st.id); return `${s.students[x].given}と${supportRank(v) || '—'}`; }).join(' ');
-            return <StuRow st={st} onClick={() => setPick(on ? pick.filter((x) => x !== st.id) : [...pick, st.id].slice(-(mode === 'tea' ? 3 : 2)))} sub={`${st.birthday && st.birthday.month === s.month && st.birthday.week === s.week ? '🎂今週が誕生日・' : ''}${PERSONALITIES[st.personality].name}${sup ? `・支援 ${sup}` : ''}`} right={<span style={{ fontSize: 22 }}>{on ? '☑' : '☐'}</span>} />;
-          })}
-          <div class="row">
-            <button class="btn ghost" onClick={() => setMode(null)}>やめる</button>
-            <button class="btn primary grow" disabled={pick.length < 2} onClick={() => { sfx('ok'); add(mode === 'tea' ? { kind: 'tea', ids: pick } : { kind: 'spar', ids: [pick[0], pick[1]], skill }); setMode(null); }}>決定</button>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
@@ -284,7 +146,7 @@ function Facilities({ s }: { s: GameState }) {
       <div class="muted">所持金 {money(s.money)}・施設の維持費 毎月{money(upkeepCost(s))}（段階1つにつき{B.upkeepPerLevel}G）</div>
       {ids.map((f) => {
         const lv = s.facilities[f] ?? 0; const cost = facilityCost(s, f); const def = B.facilities[f];
-        const eff = f === 'library' ? '魔道の伸び↑・才能が早く分かる' : f === 'chapel' ? '信仰の伸び↑・疲労が回復しやすい' : f === 'dining' ? 'やる気が下がりにくい・交流の会話が増える' : f === 'stable' ? '騎乗・飛行の伸び↑・騎兵/天馬の兵種試験が受けられる' : f === 'range' ? '銃・弓の伸び↑' : '剣・槍・斧の伸び↑';
+        const eff = f === 'library' ? '魔道の伸び↑・才能が早く分かる' : f === 'chapel' ? '信仰の伸び↑・体力が回復しやすい' : f === 'dining' ? 'やる気が下がりにくい・交流の会話が増える' : f === 'stable' ? '騎乗・飛行の伸び↑・騎兵/天馬の兵種試験が受けられる' : f === 'range' ? '銃・弓の伸び↑' : '剣・槍・斧の伸び↑';
         return (
           <div class="pcard" style={{ ['--band' as string]: lv >= 3 ? 'var(--gold)' : lv > 0 ? 'var(--main)' : '#cfc6b2' }}>
             <div class="row between nowrap">

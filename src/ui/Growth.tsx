@@ -36,6 +36,8 @@ export function GrowthPlayer({ s, entries, onDone, title }: { s: GameState; entr
   const [rows, setRows] = useState<SkillRow[]>([]);
   const [lvShow, setLvShow] = useState<LevelShow | null>(null);
   const [learn, setLearn] = useState<string | null>(null);
+  const [trainUp, setTrainUp] = useState<StatId[] | null>(null);
+  const [waiting, setWaiting] = useState(false);
   const [done, setDone] = useState(false);
   const [all, setAll] = useState(false);
   const seq = useRef<Seq | null>(null);
@@ -46,12 +48,14 @@ export function GrowthPlayer({ s, entries, onDone, title }: { s: GameState; entr
     const q = new Seq();
     seq.current = q;
     const snd = (n: string) => { if (!q.cancelled) sfx(n); };
+    // タップするまで止まる（レベルアップ・ランクアップ・魔法・鍛錬の+1。7夜目）
+    const hold = async () => { if (q.cancelled) return; setWaiting(true); await q.waitTap(); setWaiting(false); };
     (async () => {
       for (let i = 0; i < list.length; i++) {
         if (q.cancelled) break;
         const e = list[i];
         const st = s.students[e.id];
-        setCur(i); setLvShow(null); setLearn(null);
+        setCur(i); setLvShow(null); setLearn(null); setTrainUp(null);
         setExpLv(e.lv0); setExpDur(0); setExpPct(e.exp0);
         let rs: SkillRow[] = e.skills.map((x) => ({ k: x.k, pct: segPct(x.p0), rank: rankOf(x.p0), label: '', dur: 0 }));
         setRows(rs);
@@ -67,8 +71,9 @@ export function GrowthPlayer({ s, entries, onDone, title }: { s: GameState; entr
             await q.sleep(B.anim.skillGauge * (100 - from) / 100);
             const r0 = rankOf(p); p = nextRankPoints(p)!; const r1 = rankOf(p);
             snd('pass');
-            rs = rs.map((r, z) => (z === j ? { ...r, pct: 0, dur: 0, rank: r1, label: `${SKILL_NAMES[sk.k]} ${r0}→${r1}` } : r)); setRows(rs);
-            await q.sleep(500);
+            rs = rs.map((r, z) => (z === j ? { ...r, pct: 0, dur: 0, rank: r1, label: `${SKILL_NAMES[sk.k]} ${r0}→${r1}!` } : r)); setRows(rs);
+            await q.sleep(300);
+            await hold();
           }
           const to = segPct(sk.p1);
           const d = q.dur(B.anim.skillGauge * Math.max(0.2, (to - segPct(p)) / 100));
@@ -88,7 +93,8 @@ export function GrowthPlayer({ s, entries, onDone, title }: { s: GameState; entr
           await q.sleep(650);
           const n = STATS.filter((k) => up.gains[k]).length;
           for (let z = 1; z <= n; z++) { show.lit = z; setLvShow({ ...show }); snd('tick'); await q.sleep(B.anim.levelStat); }
-          await q.sleep(1300);
+          await q.sleep(300);
+          await hold();
           setLvShow(null);
           setExpLv(up.level); setExpDur(0); setExpPct(0); pct = 0;
           await q.sleep(120);
@@ -96,8 +102,10 @@ export function GrowthPlayer({ s, entries, onDone, title }: { s: GameState; entr
         setExpDur(q.dur(B.anim.expGauge * Math.max(0.15, (e.exp1 - pct) / 100))); setExpPct(e.exp1); setExpLv(e.lv1);
         await q.sleep(B.anim.expGauge * Math.max(0.15, (e.exp1 - pct) / 100));
         // 魔法を覚えた
-        for (const id of e.spells) { setLearn(id); snd('pass'); await q.sleep(B.anim.learn); }
+        for (const id of e.spells) { setLearn(id); snd('pass'); await q.sleep(400); await hold(); }
         setLearn(null);
+        // 鍛錬ゲージの+1
+        if ((e.train ?? []).length) { setTrainUp(e.train!); snd('level'); await q.sleep(400); await hold(); setTrainUp(null); }
         await q.sleep(420);
       }
       if (!q.cancelled) setDone(true);
@@ -112,7 +120,7 @@ export function GrowthPlayer({ s, entries, onDone, title }: { s: GameState; entr
   const e = list[Math.min(cur, list.length - 1)];
   const st = s.students[e.id];
   return (
-    <div class="growth" onPointerDown={() => seq.current?.speedUp()}>
+    <div class="growth" onPointerDown={() => seq.current?.tap()}>
       {title && <div class="muted small">{title}（{Math.min(cur + 1, list.length)}／{list.length}人）</div>}
       <div class="gcard">
         <div class="row">
@@ -138,14 +146,15 @@ export function GrowthPlayer({ s, entries, onDone, title }: { s: GameState; entr
           <button class="btn ghost" onClick={(ev) => { ev.stopPropagation(); seq.current?.cancel(); onDone(); }}>スキップ</button>
         </>}
       </div>
-      <div class="muted small" style={{ textAlign: 'center' }}>{done ? '' : '画面をタップで早送り'}</div>
-      {lvShow && <LevelUp show={lvShow} />}
-      {learn && <div class="learn"><div><div class="small muted">新しい魔法</div><b>{st.given}は {WEAPONS[learn]?.name} を覚えた！</b><div class="small">{WEAPONS[learn]?.desc}</div></div></div>}
+      <div class={`small ${waiting ? 'ru-next' : 'muted'}`} style={{ textAlign: 'center' }}>{done ? '' : waiting ? 'タップで次へ ▼' : '画面をタップで早送り'}</div>
+      {lvShow && <LevelUp show={lvShow} waiting={waiting} />}
+      {learn && <div class="learn"><div><div class="small muted">新しい魔法</div><b>{st.given}は {WEAPONS[learn]?.name} を覚えた！</b><div class="small">{WEAPONS[learn]?.desc}</div>{waiting && <div class="small ru-next">タップで次へ ▼</div>}</div></div>}
+      {trainUp && <div class="learn train"><div><div class="small muted">鍛錬の成果</div><Portrait st={st} size={56} /><b>{st.given}の{[...new Set(trainUp)].map((k) => `${STAT_NAMES[k]}+${trainUp.filter((x) => x === k).length}`).join('・')}！</b><div class="small">授業でためた鍛錬ゲージが満タンになった</div>{waiting && <div class="small ru-next">タップで次へ ▼</div>}</div></div>}
     </div>
   );
 }
 
-function LevelUp({ show }: { show: LevelShow }) {
+function LevelUp({ show, waiting }: { show: LevelShow; waiting?: boolean }) {
   const gained = STATS.filter((k) => show.gains[k]);
   return (
     <div class="levelup">
@@ -163,6 +172,7 @@ function LevelUp({ show }: { show: LevelShow }) {
           })}
         </div>
         {!gained.length && <div class="muted small" style={{ textAlign: 'center' }}>今回は能力が上がらなかった……</div>}
+        {waiting && <div class="small ru-next" style={{ textAlign: 'center' }}>タップで次へ ▼</div>}
       </div>
     </div>
   );
@@ -184,10 +194,16 @@ export function GrowthList({ s, entries, onDone }: { s: GameState; entries: Grow
             {e.lv1 > e.lv0 && <div>{STATS.filter((k) => gains[k]).map((k) => `${STAT_NAMES[k]}+${gains[k]}`).join(' ') || '能力の変化なし'}</div>}
             {e.skills.length > 0 && <div>{e.skills.map((x) => `${SKILL_NAMES[x.k]}${rankOf(x.p0) !== rankOf(x.p1) ? ` ${rankOf(x.p0)}→${rankOf(x.p1)}` : ` +${Math.round(x.p1 - x.p0)}`}`).join('・')}</div>}
             {e.spells.length > 0 && <div><b>{e.spells.map((id) => WEAPONS[id]?.name).join('・')}</b> を覚えた</div>}
+            {(e.train ?? []).length > 0 && <div>鍛錬：{[...new Set(e.train)].map((k) => `${STAT_NAMES[k]}+${e.train!.filter((x) => x === k).length}`).join(' ')}</div>}
           </div>
         );
       })}
       {onDone && <button class="btn primary block" onClick={() => { sfx('ok'); onDone(); }}>次へ</button>}
     </div>
   );
+}
+
+/** 授業の結果のあとの「成長の瞬間」（ランクアップ・レベルアップ・魔法・鍛錬の+1）。タップするまで止まる */
+export function GrowthMoments({ s, entries, onDone }: { s: GameState; entries: GrowthEntry[]; onDone: () => void }) {
+  return <GrowthPlayer s={s} entries={entries} onDone={onDone} title="成長の瞬間" />;
 }

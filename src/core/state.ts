@@ -1,5 +1,5 @@
 // ゲームの状態（セーブされるもの）の型
-import type { CountryId, Origin, House, Gender, PersonalityId, SkillId, Stats, Path, SpellSlot } from './types';
+import type { CountryId, Origin, House, Gender, PersonalityId, SkillId, Stats, StatId, Path, SpellSlot } from './types';
 import type { Difficulty, DifficultyMods } from '../data/balance';
 import type { BattleState } from './battle/types';
 
@@ -109,7 +109,29 @@ export interface Student {
   seenClass?: string;
   /** 会話や面談で分かった「意外な一面」（6夜目） */
   sides?: string[];
+  /** 鍛錬ゲージ（能力ごと、0〜100。満タンで+1。7夜目） */
+  train?: Partial<Stats>;
+  /** 鍛錬ゲージで上がった能力の合計（個人ページ・シミュレーション用） */
+  trainGain?: Partial<Stats>;
+  /** 体調を崩して休む残りの日数（7夜目。週単位の sickWeeks は古いセーブ用） */
+  sickDays?: number;
 }
+
+/** 日ごとの授業カード（7夜目） */
+export interface LessonCard {
+  /** LessonDef.id */
+  id: string;
+  /** 顔が出ている生徒 */
+  faces: string[];
+  /** 友情タッグの組（支援C以上・恋人・ライバル） */
+  tags: [string, string][];
+  /** 相談したい子（面談のカード） */
+  consult?: string[];
+}
+export interface LessonDay { key: number; cards: LessonCard[]; rain?: boolean }
+/** 授業の結果で伸びた子の1行 */
+export interface LessonRow { id: string; face: boolean; tag?: boolean; target?: boolean; skills: { k: SkillId; p0: number; p1: number }[]; train: { k: StatId; g0: number; g1: number; up: number }[] }
+export interface LessonEvent { kind: string; ids: string[]; lines: TalkLineLog[] }
 
 export interface Support { a: string; b: string; value: number; kind: 'none' | 'friend' | 'rival' | 'love'; seen: string[]; lastRank: '' | 'C' | 'B' | 'A' }
 
@@ -288,6 +310,8 @@ export type EndingKind = 'peace' | 'unify' | 'ceasefire' | 'neutral';
 /** 画面に出す「処理待ち」 */
 export type Pending =
   | { type: 'weekSummary'; lines: string[]; talks: TalkLog[]; growth?: GrowthEntry[] }
+  /** 授業の結果（7夜目）。others＝顔が出ていない子の人数 */
+  | { type: 'lessonResult'; lesson: string; day: number; faces: string[]; tags: [string, string][]; rows: LessonRow[]; events: LessonEvent[]; growth: GrowthEntry[]; lines: string[]; talks: TalkLog[]; others: number }
   | { type: 'questBoard' }
   | { type: 'battleResult'; lines: string[]; grades: { id: string; grade: string; note: string }[]; win: boolean; growth?: GrowthEntry[]; mvp?: string; review?: string[]; title?: string; findings?: BattleFinding[]; officerId?: string }
   | { type: 'event'; title: string; lines: string[] }
@@ -318,6 +342,8 @@ export interface GrowthEntry {
   skills: { k: SkillId; p0: number; p1: number }[];
   spells: string[];
   why?: string;
+  /** 鍛錬ゲージで+1になった能力（7夜目） */
+  train?: StatId[];
 }
 
 /** 会話の1行。by は生徒のid、'teacher'（先生）、'narr'（地の文） */
@@ -376,7 +402,13 @@ export interface GameState {
   year: number;   // 1..
   month: number;  // 0=4月 ... 11=3月
   week: number;   // 1..4
+  /** 曜日 1..5（月〜金。7夜目） */
+  day?: number;
   absWeek: number;
+  /** 今日の授業カード（7夜目） */
+  today?: LessonDay | null;
+  /** 古いセーブの重点科目・週末の予定（最初の日のカードに出す。7夜目） */
+  carry?: { skills: SkillId[]; social: string[] } | null;
   money: number;
   reputation: number;
   facilities: Record<string, number>;

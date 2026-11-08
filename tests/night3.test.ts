@@ -7,29 +7,29 @@ import { autoYears, autoWeek, autoPending, autoBattle } from '../src/core/autopl
 import { meetsReq, missingReqs, levelReq, takeExam, examCandidates } from '../src/core/exam';
 import { rng } from '../src/core/flow';
 import { CLASSES } from '../src/data/classes';
-import { growTeachers, instructorCaps, retireInstructor, successorCandidates, askSuccessor, setVice, viceEligible, externalSuccessor } from '../src/core/instructor';
+import { growTeacherSkill, instructorCaps, retireInstructor, successorCandidates, askSuccessor, setVice, viceEligible, externalSuccessor } from '../src/core/instructor';
 import { yearEnd } from '../src/core/flow';
-import { resolveWeek } from '../src/core/week';
+import { resolveLesson, todayCards } from '../src/core/lessons';
 import { Rng } from '../src/core/rng';
 import { RANK_POINTS, SAVE_VERSION } from '../src/data/balance';
 
 const fixture = (name: string) => readFileSync(new URL(`./fixtures/${name}`, import.meta.url), 'utf8');
 
 describe('兵種試験のレベル条件', () => {
-  it('初級Lv5・中級Lv10・上級Lv20・最上級Lv30', () => {
+  it('初級Lv5・中級Lv15・上級Lv25・最上級Lv45（7夜目に引き上げ）', () => {
     expect(levelReq(CLASSES.swordsman)).toBe(5);
-    expect(levelReq(CLASSES.fencer)).toBe(10);
-    expect(levelReq(CLASSES.swordmaster)).toBe(20);
-    expect(levelReq(CLASSES.sword_saint)).toBe(30);
+    expect(levelReq(CLASSES.fencer)).toBe(15);
+    expect(levelReq(CLASSES.swordmaster)).toBe(25);
+    expect(levelReq(CLASSES.sword_saint)).toBe(45);
   });
   it('技能が足りていてもレベルが足りなければ受験できず、足りない条件が文で出る', () => {
     const s = newGame({ name: 't', background: 'knight', seed: 7 });
     const st = enrolled(s)[0];
-    st.classId = 'lancer'; st.level = 7; st.skills.lance = RANK_POINTS['D+']; st.skills.riding = RANK_POINTS.D;
+    st.classId = 'lancer'; st.level = 12; st.skills.lance = RANK_POINTS['D+']; st.skills.riding = RANK_POINTS.D;
     const c = CLASSES.cavalier;
     expect(meetsReq(st, c)).toBe(false);
     const miss = missingReqs(s, st, c);
-    expect(miss.some((m) => m.includes('Lv10から受験できます（あと3）'))).toBe(true);
+    expect(miss.some((m) => m.includes('Lv15から受験できます（あと3）'))).toBe(true);
     expect(miss.some((m) => m.includes('槍 C が必要（いま D+）'))).toBe(true);
     expect(takeExam(s, rng(s), st, 'cavalier').ok).toBe(false);
     expect(examCandidates(s).includes(st)).toBe(false);
@@ -61,16 +61,16 @@ describe('2夜目の版のセーブ', () => {
 });
 
 describe('教官の技能は教えるほど上がる', () => {
-  it('苦手科目（D）を重点にし続けると、10年ほどでBに届く。上限はB', () => {
+  it('苦手科目（D）の授業を選び続けると、Bに届く（7夜目：授業の日ごと）。上限はB', () => {
     const s = newGame({ name: 't', background: 'knight', seed: 3 });
     s.instructor.skills.magic = RANK_POINTS.D;
     s.instructor.caps = undefined; instructorCaps(s);
-    for (const g of [1, 2, 3]) s.focus[g] = ['magic', 'sword'];
-    let weeks = 0;
-    while (s.instructor.skills.magic < RANK_POINTS.B && weeks < 2000) { growTeachers(s, []); weeks++; }
-    expect(weeks / 48).toBeGreaterThan(8);
-    expect(weeks / 48).toBeLessThan(13);
-    for (let i = 0; i < 1000; i++) growTeachers(s, []);
+    let days = 0;
+    while (s.instructor.skills.magic < RANK_POINTS.B && days < 5000) { growTeacherSkill(s, 'magic', 0.35); days++; }
+    // 魔道の授業の日が年に60日ほどなら、10年ほど
+    expect(days / 60).toBeGreaterThan(8);
+    expect(days / 60).toBeLessThan(13);
+    for (let i = 0; i < 3000; i++) growTeacherSkill(s, 'magic', 0.35);
     expect(s.instructor.skills.magic).toBe(RANK_POINTS.B);
     // 得意科目（槍）の上限はS
     expect(instructorCaps(s).lance).toBe(RANK_POINTS.S);
@@ -110,7 +110,7 @@ describe('教官の代替わり', () => {
 });
 
 describe('副教官', () => {
-  it('担当学年の生徒を毎週1人、自動で指導する', () => {
+  it('担当学年の生徒は、担任の方針で目標技能が決まり、授業で少しよく伸びる（7夜目）', () => {
     const s = newGame({ name: 't', background: 'knight', seed: 9 });
     autoYears(s, 4);
     autoPending(s);
@@ -118,8 +118,17 @@ describe('副教官', () => {
     s.teachers.push({ id: 'tv', name: grad.given, skill: 'lance', points: 200, salary: 100, alumniId: grad.id, since: s.year - 1 });
     expect(viceEligible(s).some((t) => t.id === 'tv')).toBe(true);
     expect(setVice(s, 'tv', 1, 'combat')).toBe(true);
-    const res = resolveWeek(s, new Rng(s));
-    expect(res.lines.some((l) => l.includes(`担任の${grad.given}`))).toBe(true);
+    const one = enrolled(s).filter((x) => x.grade === 1);
+    const two = enrolled(s).filter((x) => x.grade === 2);
+    expect(one.length && two.length).toBeTruthy();
+    s.pending = []; s.day = 1; s.today = null;
+    const card = todayCards(s).cards.findIndex((c) => c.id === 'sword' || c.id === 'lance' || c.id === 'axe' || c.id === 'bow' || c.id === 'magic');
+    const b1 = one.map((x) => ({ ...x.skills })), b2 = two.map((x) => ({ ...x.skills }));
+    for (const x of [...one, ...two]) { x.motivation = 2; x.fatigue = 0; x.traits = []; x.talent = null; }
+    resolveLesson(s, new Rng(s), Math.max(0, card));
+    const gain = (list: typeof one, b: typeof b1) => list.map((x, i) => Object.keys(x.skills).reduce((a, k) => a + x.skills[k as 'sword'] - b[i][k as 'sword'], 0));
+    expect(Math.max(...gain(one, b1))).toBeGreaterThan(0);
+    expect(Math.max(...gain(two, b2))).toBeGreaterThan(0);
   });
 });
 
@@ -206,17 +215,17 @@ describe('兵種の仕上げ', () => {
     openDoor(b, u);
     expect(b.tiles[3 * 8 + 4]).toBe('road');
   });
-  it('英雄：才能「英雄の器」の子が上級から、Lv20で受験できる', () => {
+  it('英雄：才能「英雄の器」の子が上級から、Lv25で受験できる（7夜目）', () => {
     const s = newGame({ name: 't', background: 'knight', seed: 41 });
     const st = enrolled(s)[0];
-    st.classId = 'swordmaster'; st.level = 20;
+    st.classId = 'swordmaster'; st.level = 25;
     st.talent = null;
     expect(nextClasses(s, st).some((c) => c.id === 'hero')).toBe(false);
     st.talent = 'hero';
     expect(heroOpen(st)).toBe(true);
     const hero = nextClasses(s, st).find((c) => c.id === 'hero')!;
     expect(meetsReq(st, hero)).toBe(true);
-    st.level = 19;
+    st.level = 24;
     expect(meetsReq(st, hero)).toBe(false);
   });
   it('上級の固有スキル：魔騎突は守備・魔防を下げて攻撃、駆け射ちは追撃しやすい', () => {
@@ -247,8 +256,8 @@ describe('誕生日', () => {
     const st = enrolled(s)[0];
     st.birthday = { month: s.month, week: s.week };
     st.motivation = 1;
-    s.pending = [];
-    const res = resolveWeek(s, new Rng(s));
+    s.pending = []; s.day = 1; s.today = null;
+    const res = resolveLesson(s, new Rng(s), 0);
     expect(res.lines.some((l) => l.includes(`${st.given}の誕生日`))).toBe(true);
     const n = newGame({ name: 't', background: 'knight', seed: 77 });
     for (const x of enrolled(n)) { expect(x.birthday!.month).toBeGreaterThanOrEqual(0); expect(x.birthday!.week).toBeGreaterThanOrEqual(1); }

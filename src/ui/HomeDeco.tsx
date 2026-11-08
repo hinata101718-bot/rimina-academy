@@ -34,35 +34,39 @@ export function ArtSlot({ name, height = 140 }: { name: string; height?: number 
   return <div class="artslot" style={{ height }}><img src={url} alt="" /></div>;
 }
 
-// ---------- 今月のカレンダー ----------
+// ---------- 今月のカレンダー（7夜目：月〜金＋月末の日ごと。今日を強調） ----------
+const DAYS = ['月', '火', '水', '木', '金'];
 export function MonthCalendar({ s }: { s: GameState }) {
   const ev = monthEvents(s);
   const next = nextEvent(s);
   const season = seasonOf(s.month);
-  const slots = [1, 2, 3, 4, 5];
   useArt();
   const bg = artUrl(`season_${season}`);
+  const day = s.day ?? 1;
+  const thisWeek = ev.filter((e) => e.slot === s.week);
+  const endEv = ev.filter((e) => e.slot === 5);
+  const lastWeek = s.week === 4;
   return (
     <div class="calendar card" style={bg ? { backgroundImage: `linear-gradient(rgba(255,250,240,.82), rgba(255,250,240,.9)), url(${bg})`, backgroundSize: 'cover' } : undefined}>
-      <div class="row between">
-        <div class="calmonth"><span class="big">{MONTH_NAMES[s.month]}</span><span class="muted small">{s.year}年目・{SEASON_NAMES[season]}</span></div>
+      <div class="row between nowrap">
+        <div class="calmonth"><span class="big">{MONTH_NAMES[s.month]}</span><span class="muted small">{s.year}年目・{SEASON_NAMES[season]}・第{s.week}週</span></div>
         {next && <div class="small calnext"><Icon name="bell" size={14} /> {next.weeks === 0 ? `今週は${next.label}` : `${next.label}まであと${next.weeks}週`}</div>}
       </div>
-      <div class="calgrid">
-        {slots.map((k) => {
-          const here = ev.filter((e) => e.slot === k);
-          const now = k === s.week;
-          const past = k < s.week;
+      <div class="weekpips">{[1, 2, 3, 4].map((w) => <span class={w < s.week ? 'past' : w === s.week ? 'now' : ''}>第{w}週{ev.some((e) => e.slot === w && e.big) ? '★' : ''}</span>)}<span class="end">月末</span></div>
+      <div class="daystrip">
+        {DAYS.map((d, i) => {
+          const k = i + 1;
           return (
-            <div class={`calcell${now ? ' now' : ''}${past ? ' past' : ''}${k === 5 ? ' end' : ''}`}>
-              <div class="calw">{k === 5 ? '月末' : `第${k}週`}</div>
-              <div class="calev">{here.filter((e) => !e.birthday).slice(0, 2).map((e) => <span class={`calicon${e.big ? ' big' : ''}`} title={e.label}><Icon name={e.icon} size={16} /><i>{e.label}</i></span>)}
-                {here.some((e) => e.birthday) && <span class="calicon bday" title={here.filter((e) => e.birthday).map((e) => e.label).join('・')}><Icon name="cake" size={15} /><i>{here.filter((e) => e.birthday).length === 1 ? here.find((e) => e.birthday)!.label.replace('の誕生日', '') : `誕生日${here.filter((e) => e.birthday).length}人`}</i></span>}
-              </div>
+            <div class={`dcell${k === day ? ' now' : ''}${k < day ? ' past' : ''}`}>
+              <b>{d}</b>
+              {k < day && <span class="dchk">✓</span>}
+              {k === 1 && thisWeek.some((e) => e.birthday) && <span class="dic"><Icon name="cake" size={13} /></span>}
             </div>
           );
         })}
+        <div class={`dcell end${lastWeek ? '' : ' far'}`}><b>⚔月末</b>{endEv.slice(0, 1).map((e) => <span class="dlabel">{e.label.replace('月末の', '')}</span>)}</div>
       </div>
+      {thisWeek.length > 0 && <div class="small calweek">今週：{thisWeek.map((e) => e.label).join('・')}</div>}
     </div>
   );
 }

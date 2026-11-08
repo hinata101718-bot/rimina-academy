@@ -44,7 +44,7 @@ describe('5夜目の版のセーブ（形式4）', () => {
     expect((before.nemeses ?? []).length).toBeGreaterThan(0);
     const s = deserialize(fixture('v5-save.json'));
     expect(s.version).toBe(SAVE_VERSION);
-    expect(SAVE_VERSION).toBe(5);
+    expect(SAVE_VERSION).toBeGreaterThanOrEqual(5);
     expect(s.nemeses).toBeUndefined();
     // 5夜目の因縁の敵将が、同じidで名簿に入っている
     for (const n of before.nemeses) {
@@ -139,7 +139,7 @@ describe('宿敵の仕組み', () => {
       expect(q).toBeTruthy();
       seed += 7;
       s.pending = [];
-      const d = autoDeploy(s).filter((x) => x.studentId !== victim.id || k === 1);
+      const d = autoDeploy(s).filter((x) => x.studentId !== victim.id || k === 1 || k === 2);
       if (!d.some((x) => x.studentId === hero.id)) continue;
       startAutoQuest(s, q!.id, d, defaultPlan(s, q!, d));
       restore();
@@ -157,7 +157,8 @@ describe('宿敵の仕組み', () => {
       lu.dead = true; L.fled = true; L.settled = null;
       if (!b.retreated.includes(lu.uid)) b.retreated.push(lu.uid);
       // 2戦目：敵将が生徒を重傷にした
-      if (k === 1) { const vu = b.units.find((u) => u.studentId === victim.id); if (vu) b.fallen.push({ studentId: victim.id, outcome: 'injured', by: lu.uid }); }
+      // （7夜目：敵が弱くなり自然な重傷が減ったので、2戦目と3戦目に重傷にする＝二つ名がつく）
+      if (k === 1 || k === 2) { const vu = b.units.find((u) => u.studentId === victim.id); if (vu && !b.fallen.some((f) => f.studentId === victim.id)) b.fallen.push({ studentId: victim.id, outcome: 'injured', by: lu.uid }); }
       b.phase = 'done'; b.result = 'win';
       finishBattle(s);
       stages.push(rivalryOf(s, hero.id, o.id)?.stage ?? 0);

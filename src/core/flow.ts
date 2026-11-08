@@ -3,10 +3,14 @@ import { B } from '../data/balance';
 import { BACKGROUNDS, COUNTRIES, COUNTRY_SHORT, COUNTRY_NAMES, SKILL_NAMES } from '../data/people';
 import { WEAPONS } from '../data/weapons';
 import type { CountryId, SkillId } from './types';
-import type { GameState, Quest, Student, GrowthEntry, BattleFinding } from './state';
+import type { GameState, Quest, Student, GrowthEntry, BattleFinding, TalkLog } from './state';
+import { LESSON_BY_ID } from '../data/lessons';
+import { specialInterview } from './interview';
+const LESSON_NAME: Record<string, string> = Object.fromEntries(Object.values(LESSON_BY_ID).map((l) => [l.id, l.name]));
 import { Rng } from './rng';
 import { enrolled, addMoney, addRep, chronicle, notify, enrollCohort, capacity, mail, available } from './game';
-import { resolveWeek, startMonthStudents, changeMotivation, revealTalent, addSkill } from './week';
+import { startMonthStudents, changeMotivation, revealTalent, addSkill, autoMonthTargets } from './week';
+import { resolveLesson, advanceDay, recommendCard, todayCards, type DayOutcome } from './lessons';
 import { rollQuests } from './quests';
 import { addSupport, addRecent, getSupport, pruneArchive } from './support';
 import { gainExp, startGrowthLog, stopGrowthLog, snapGrowth, diffGrowth } from './growth';
@@ -39,24 +43,73 @@ export function battleCtx(s: GameState): BattleCtx {
   };
 }
 
-/** 「次の週へ」 */
-export function nextWeek(s: GameState): void {
+/**
+ * 今日の授業を選ぶ（7夜目）。結果は「授業の結果」として画面に出す。
+ * 金曜のあとは週の終わり、4週目の金曜のあとは月末の依頼
+ */
+export function chooseLesson(s: GameState, idx: number, talkWith?: string): void {
   if (s.pending.length || s.battle || s.gameOver) return;
   const r = rng(s);
   const from = s.pending.length;
-  const talked = new Set<string>([...s.plan.tutoring.filter((t) => t.kind !== 'skill').map((t) => t.studentId), ...s.consults]);
-  const res = resolveWeek(s, r);
-  for (const t of res.talks) if (t.kind === 'interview' || t.kind === 'special') { talked.add(t.a); talked.add(t.b); }
-  rollSides(s, r, talked, res.lines);
-  s.pending.push({ type: 'weekSummary', lines: res.lines.length ? res.lines : ['穏やかな一週間だった'], talks: res.talks, growth: res.growth });
+  const day = s.day ?? 1;
+  const res = resolveLesson(s, r, idx, talkWith);
+  const ended = afterDay(s, r, res);
+  s.pending.splice(from, 0, { type: 'lessonResult', lesson: res.lesson, day, faces: res.faces, tags: res.tags, rows: res.rows, events: res.events, growth: res.growth, lines: res.lines, talks: res.talks, others: res.others });
   deferShows(s, from);
-  s.absWeek += 1;
-  if (s.week >= 4) {
-    s.quests = rollQuests(s);
-    s.pending.push({ type: 'questBoard' });
-  } else s.week += 1;
-  if (s.guideStep < 99 && s.year === 1 && s.month === 0) s.guideStep += 1;
+  if (ended.monthEnd) { s.quests = rollQuests(s); s.pending.push({ type: 'questBoard' }); }
+  else todayCards(s);
 }
+
+function afterDay(s: GameState, r: Rng, res: DayOutcome): { weekEnded: boolean; monthEnd: boolean } {
+  const ended = advanceDay(s, r, res.lines);
+  if (ended.weekEnded) {
+    const talked = new Set<string>();
+    for (const t of res.talks) if (t.kind === 'interview' || t.kind === 'special') { talked.add(t.a); talked.add(t.b); }
+    rollSides(s, r, talked, res.lines);
+    // 信頼が深まった子との特別な面談（週に一度まで）
+    const sp = specialInterview(s, r, enrolled(s).filter(available));
+    if (sp) { res.talks.push(sp); res.lines.push(`${s.students[sp.a]?.given}と「${sp.title}」について語り合った（特別な面談）`); }
+  }
+  if (s.guideStep < 99 && s.year === 1 && s.month === 0) s.guideStep += 1;
+  return ended;
+}
+
+/** 「今週はおまかせ」：先生のおすすめで金曜まで進める（結果は1つのまとめに） */
+export function weekAuto(s: GameState): void {
+  if (s.pending.length || s.battle || s.gameOver) return;
+  const r = rng(s);
+  const from = s.pending.length;
+  const lines: string[] = [];
+  const talks: TalkLog[] = [];
+  const growth: GrowthEntry[] = [];
+  const picked: string[] = [];
+  let ended = { weekEnded: false, monthEnd: false };
+  let guard = 0;
+  while (!ended.weekEnded && guard++ < 6) {
+    todayCards(s);
+    const res = resolveLesson(s, r, recommendCard(s));
+    picked.push(res.lesson);
+    ended = afterDay(s, r, res);
+    lines.push(...res.lines);
+    talks.push(...res.talks);
+    for (const g of res.growth) {
+      const old = growth.find((x) => x.id === g.id);
+      if (!old) { growth.push(g); continue; }
+      // 同じ子は1つにまとめる（最初の値と最後の値）
+      const skills = [...old.skills];
+      for (const k of g.skills) { const e = skills.find((x) => x.k === k.k); if (e) e.p1 = k.p1; else skills.push({ ...k }); }
+      Object.assign(old, { exp1: g.exp1, lv1: g.lv1, ups: [...old.ups, ...g.ups], skills, spells: [...old.spells, ...g.spells], train: [...(old.train ?? []), ...(g.train ?? [])] });
+    }
+  }
+  const names = picked.map((id) => LESSON_NAME[id] ?? id);
+  s.pending.splice(from, 0, { type: 'weekSummary', lines: [`今週の授業：${names.join('・')}`, ...lines], talks, growth });
+  deferShows(s, from);
+  if (ended.monthEnd) { s.quests = rollQuests(s); s.pending.push({ type: 'questBoard' }); }
+  else todayCards(s);
+}
+
+/** 「次の週へ」（6夜目までの呼び名。今は「今週はおまかせ」と同じ） */
+export function nextWeek(s: GameState): void { weekAuto(s); }
 
 /** 戦闘を始める */
 export function startBattle(s: GameState, questId: string, deploys: Deploy[]): void {
@@ -136,10 +189,11 @@ export function finishBattle(s: GameState): void {
     for (const [w, n] of Object.entries(u.usedWeapon)) {
       st.weaponUse[w] = (st.weaponUse[w] ?? 0) + n;
       const def = WEAPONS[w];
-      if (def) addSkill(st, weaponSkillId(def.type) as SkillId, n * 4 * B.motivationMul[st.motivation]);
+      if (def) addSkill(st, weaponSkillId(def.type) as SkillId, n * B.battle.skillPerUse * B.motivationMul[st.motivation] * (s.settings.mods.skill ?? 1));
       if (def && st.talent) revealTalent(s, st, B.talent.battleReveal / 2);
     }
-    const ups = gainExp(s, r, st, u.expGain * expMul);
+    const damp = Math.max(B.battle.expDamp.min, Math.min(1, B.battle.expDamp.base - st.level * B.battle.expDamp.perLevel));
+    const ups = gainExp(s, r, st, u.expGain * expMul * damp);
     growth.push(diffGrowth(st, snap, learnSpells(s, st)));
     for (const up of ups) lines.push(`${st.given}がLv${up.level}に上がった（${Object.entries(up.gains).map(([k, v]) => `${k}+${v}`).join(' ') || '変化なし'}）`.replace(/hp/g, 'HP').replace(/str/g, '力').replace(/mag/g, '魔力').replace(/skl/g, '技').replace(/spd/g, '速さ').replace(/lck/g, '幸運').replace(/def/g, '守備').replace(/res/g, '魔防').replace(/cha/g, '魅力'));
     const f = b.fallen.find((x) => x.studentId === st.id);
@@ -258,7 +312,7 @@ export function endMonth(s: GameState): void {
     else yearEnd(s, []);
     return;
   }
-  s.month += 1; s.week = 1;
+  s.month += 1; s.week = 1; s.day = 1; s.today = null;
   startMonth(s);
 }
 
@@ -271,7 +325,10 @@ export function startMonth(s: GameState): void {
   lines.push(...startMonthStudents(s, r));
   ensureRosters(s, r);
   s.quests = rollQuests(s);
-  // 月の始めの自動の重点科目（未設定なら前月のまま）
+  // 月の始め：目標技能（7夜目。「自動で決める」の子は担任の方針・おすすめで）
+  autoMonthTargets(s);
+  if (enrolled(s).length) notify(s, `${MONTH_NAMES[s.month]}の目標技能を決めよう（今は自動。学校の画面の「今月の目標技能」から変えられます）`);
+  // 6夜目までの重点科目（今は使わない。古いセーブのために残す）
   for (const g of [1, 2, 3]) if (!s.focus[g]) s.focus[g] = ['sword', 'lance'];
   // 副教官（担任）が担当学年の重点科目を決める（教官はその月の間いつでも変えられる）
   cleanVice(s);
@@ -285,9 +342,10 @@ export function startMonth(s: GameState): void {
     if (top.length >= 2) s.focus[g] = [top[0], top[1]];
     else if (top.length === 1) s.focus[g] = [top[0], v.t.skill === top[0] ? (s.focus[g]?.[1] ?? 'sword') : v.t.skill];
   }
-  if (s.month === 3) notify(s, '7月は夏の合宿：授業の伸びと疲労が1.5倍');
+  todayCards(s);
+  if (s.month === 3) notify(s, '7月は夏の合宿：授業の伸びと体力の減りが1.5倍');
   if (s.month === 5) notify(s, '9月は公開演武会：月末の戦闘で活躍すると各国から声がかかる');
-  if (s.month === 8) notify(s, '12月は冬の収穫祭：週末の交流が1回多く、支援が上がりやすい');
+  if (s.month === 8) notify(s, '12月は冬の収穫祭：交流の授業が出やすく、支援が上がりやすい');
   if (s.month === 11) notify(s, '3月は卒業の月：3年生の進路を決めよう');
 }
 
@@ -381,7 +439,7 @@ export function yearEnd(s: GameState, graduated: string[]): void {
   peaceEraYear(s, r);
   checkEndings(s, r, 'year');
   // 9. 新年度
-  s.year += 1; s.month = 0; s.week = 1;
+  s.year += 1; s.month = 0; s.week = 1; s.day = 1; s.today = null;
   for (const st of Object.values(s.students)) if (st.status === 'enrolled') st.offers = st.grade === 3 ? st.offers : st.offers;
   if (rc.can) s.pending.push({ type: 'retire', forced: rc.forced });
   prepareEntrance(s);

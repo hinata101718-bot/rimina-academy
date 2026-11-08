@@ -2,9 +2,10 @@
 import { B } from '../data/balance';
 import { WEAPONS } from '../data/weapons';
 import type { SkillId } from './types';
+import { recommendCard, todayCards } from './lessons';
 import type { GameState, Student } from './state';
 import { enrolled, available, deployLimit, capacity } from './game';
-import { nextWeek, startBattle, finishBattle, finishCareers, admit, autoAdmitIds, battleCtx, rng, ensureReinforcementFactory, startAutoQuest } from './flow';
+import { chooseLesson, startBattle, finishBattle, finishCareers, admit, autoAdmitIds, battleCtx, rng, ensureReinforcementFactory, startAutoQuest } from './flow';
 import { defaultPlan, skipAuto, type AutoChoice } from './battle/auto';
 import { autoPlayerPhase, endPlayerPhase, rewind, canRewind } from './battle/engine';
 import { autoExam } from './exam';
@@ -239,30 +240,32 @@ export function autoManage(s: GameState): void {
     const g = [1, 2, 3].find((x) => !(s.vice ?? []).some((v) => v.grade === x));
     if (g) setVice(s, t.id, g, 'balance');
   }
-  // 重点科目
-  for (const g of [1, 2, 3]) {
-    const list = enrolled(s).filter((x) => x.grade === g);
-    if (!list.length) continue;
-    const count: Record<string, number> = {};
-    for (const st of list) for (const k of st.targets) count[k] = (count[k] ?? 0) + 1;
-    const top = Object.entries(count).sort((a, b) => b[1] - a[1]).map((x) => x[0] as SkillId);
-    if (top.length >= 2) s.focus[g] = [top[0], top[1]];
-  }
   void capacity; void B;
 }
 
-/** 1週間ぶん自動で進める */
-export function autoWeek(s: GameState): void {
+/** 1日ぶん自動で進める（7夜目：おすすめの授業カードを選ぶ） */
+export function autoDay(s: GameState): void {
   autoPending(s);
-  if (s.week === 1) autoManage(s);
-  nextWeek(s);
+  if (s.week === 1 && (s.day ?? 1) === 1) autoManage(s);
+  if (s.pending.length || s.battle) return;
+  todayCards(s);
+  chooseLesson(s, lessonPick ? lessonPick(s) : recommendCard(s));
   autoPending(s);
 }
+/** 1週間ぶん自動で進める（月〜金） */
+export function autoWeek(s: GameState): void {
+  const w = s.absWeek;
+  let guard = 0;
+  while (s.absWeek === w && guard++ < 8 && !s.gameOver) autoDay(s);
+}
+let lessonPick: ((s: GameState) => number) | null = null;
+/** シミュレーション用：授業カードの選び方を差し替える */
+export function setLessonPick(f: ((s: GameState) => number) | null): void { lessonPick = f; }
 
 export function autoYears(s: GameState, years: number, onYear?: (s: GameState) => void): void {
   const target = s.year + years;
   let guard = 0;
-  while (s.year < target && guard++ < years * 60) {
+  while (s.year < target && guard++ < years * 60 && !s.gameOver) {
     const y = s.year;
     autoWeek(s);
     if (s.year !== y) onYear?.(s);

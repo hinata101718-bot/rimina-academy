@@ -612,3 +612,69 @@ body { background-attachment: fixed; }
 .pills.ofc-tabs button { min-height: 44px; }
 .ru-next { color: var(--accent); font-weight: bold; }
 .ofc-tip.strong { color: #8f2a20; }
+
+/* ---------- 7夜目：日ごとのカレンダー ---------- */
+.weekpips { display: flex; gap: 3px; margin: 6px 0 4px; }
+.weekpips span { flex: 1; text-align: center; font-size: 11px; border-radius: 6px; background: rgba(140, 115, 70, .1); color: var(--sub); padding: 1px 0; }
+.weekpips span.past { opacity: .5; }
+.weekpips span.now { background: var(--main); color: #fff; font-weight: bold; }
+.weekpips span.end { background: rgba(180, 67, 47, .12); color: var(--accent); }
+.daystrip { display: grid; grid-template-columns: repeat(5, 1fr) 1.25fr; gap: 5px; }
+.dcell { position: relative; min-height: 48px; border: 1px solid var(--line); border-radius: 10px; background: rgba(255,255,255,.55); display: flex; flex-direction: column; align-items: center; justify-content: center; font-family: "Hiragino Mincho ProN", "Noto Serif JP", serif; font-size: 17px; }
+.dcell.now { background: var(--gold); border-color: var(--gold); color: #fff; box-shadow: 0 2px 6px rgba(184, 134, 43, .35); }
+.dcell.past { color: var(--sub); opacity: .55; }
+.dcell .dchk { position: absolute; top: 1px; right: 4px; font-size: 10px; }
+.dcell .dic { position: absolute; bottom: 1px; right: 3px; color: var(--accent); }
+.dcell.end { font-size: 14px; color: var(--accent); background: rgba(180, 67, 47, .06); }
+.dcell.end.far { opacity: .7; }
+.dcell .dlabel { font-size: 10px; font-family: inherit; color: var(--sub); line-height: 1.1; }
+.calweek { margin-top: 5px; color: var(--accent); }
+
+/* ---------- 7夜目：今日の授業 ---------- */
+.lessonboard { margin: 4px 0 10px; }
+.lb-day { background: var(--gold); color: #fff; border-radius: 12px; padding: 2px 10px; font-weight: bold; font-size: 13px; white-space: nowrap; }
+.targetbox { display: flex; align-items: center; gap: 8px; border: 1.5px dashed var(--gold); border-radius: 12px; padding: 8px 10px; margin: 8px 0; background: rgba(184, 134, 43, .06); cursor: pointer; min-height: 44px; }
+.targetbox .gold { color: var(--gold); white-space: nowrap; font-size: 14px; }
+.lcards { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+@media (min-width: 700px) { .lcards { grid-template-columns: 1fr 1fr 1fr; } }
+.lcard { position: relative; background: var(--paper2); border: 1.5px solid var(--line); border-top: 5px solid var(--lc); border-radius: 14px; padding: 8px 8px 8px; cursor: pointer; min-height: 132px; box-shadow: 0 2px 4px rgba(60, 50, 30, .1); display: flex; flex-direction: column; gap: 5px; }
+.lcard.on { border-color: var(--gold); border-top-color: var(--lc); box-shadow: 0 0 0 3px rgba(184, 134, 43, .45), 0 3px 8px rgba(60, 50, 30, .2); transform: translateY(-1px); }
+.lcard.g-rest { background: #eef3f2; }
+.lc-head { display: flex; align-items: center; gap: 5px; flex-wrap: wrap; }
+.lc-mark { width: 28px; height: 28px; border-radius: 7px; background: var(--lc); color: #fff; display: inline-flex; align-items: center; justify-content: center; font-family: "Hiragino Mincho ProN", "Noto Serif JP", serif; font-weight: bold; font-size: 15px; flex: none; }
+.lc-name { font-size: 16px; font-weight: bold; line-height: 1.2; }
+.lc-group { font-size: 11px; border: 1px solid var(--line); border-radius: 6px; padding: 0 4px; color: var(--sub); }
+.lc-st { margin-left: auto; font-size: 12px; font-weight: bold; color: var(--accent); white-space: nowrap; }
+.lc-st.good { color: #2f7a4a; }
+.lc-chips { display: flex; flex-wrap: wrap; gap: 4px; }
+.lc-chip { font-size: 12px; background: rgba(140, 115, 70, .1); border-radius: 8px; padding: 1px 6px; }
+.lc-chip b { color: var(--accent); }
+.lc-faces { display: flex; gap: 5px; flex-wrap: wrap; }
+.lc-face { position: relative; display: inline-block; line-height: 0; border-radius: 10px; }
+.lc-face.tag { box-shadow: 0 0 0 2px var(--gold); }
+.fmark { position: absolute; font-style: normal; font-size: 10px; line-height: 14px; min-width: 14px; text-align: center; border-radius: 4px; color: #fff; font-weight: bold; }
+.fmark.t { top: -2px; left: -2px; background: var(--gold); }
+.fmark.f { bottom: -2px; left: -2px; background: var(--accent); }
+.fmark.c { top: -2px; right: -2px; background: #6a5a8e; }
+.fmark.s { bottom: -2px; right: -2px; background: #fff; color: var(--gold); border: 1px solid var(--gold); }
+.fmark.inline { position: static; display: inline-block; padding: 0 3px; }
+.lc-tag { font-size: 12px; color: #8a6418; background: #fff6dc; border: 1px solid #e8c978; border-radius: 10px; padding: 1px 8px; }
+.lc-rec { position: absolute; top: -9px; right: 8px; font-size: 10px; background: var(--main); color: #fff; border-radius: 8px; padding: 0 6px; line-height: 16px; }
+.whobox { display: flex; align-items: center; gap: 8px; margin-top: 8px; padding: 6px 8px; border: 1px solid var(--line); border-radius: 10px; background: var(--paper2); }
+.lessonbar { position: fixed; left: 0; right: 0; bottom: calc(56px + env(safe-area-inset-bottom)); z-index: 25; padding: 8px 12px; background: linear-gradient(rgba(246,241,230,0), var(--paper) 30%); display: flex; justify-content: center; }
+.lessonbar > * { max-width: 640px; }
+.lessonbar .btn.primary { box-shadow: 0 3px 10px rgba(0,0,0,.25); border-radius: 24px; font-size: 16px; }
+.lessonbar .omakase { background: var(--paper2); border-radius: 24px; box-shadow: 0 2px 6px rgba(0,0,0,.12); }
+
+/* ---------- 7夜目：授業の結果 ---------- */
+.lresult { min-height: 200px; }
+.lr-head { display: flex; align-items: center; gap: 8px; padding: 8px; border-radius: 12px; border: 1px solid var(--line); border-top: 5px solid var(--lc); background: var(--paper2); margin-bottom: 6px; }
+.lr-row { display: flex; gap: 8px; align-items: flex-start; padding: 6px 4px; border-bottom: 1px dashed var(--line); }
+.lr-row.face { background: rgba(184, 134, 43, .06); border-radius: 8px; }
+.lr-gauge { display: flex; align-items: center; gap: 6px; margin-top: 2px; }
+.lr-k { width: 74px; flex: none; white-space: nowrap; }
+.ggauge.train > span { background: linear-gradient(90deg, #c98a3a, #e6b45a); }
+.lr-num { width: 64px; text-align: right; font-weight: bold; color: var(--accent); font-size: 14px; opacity: 0; transform: scale(.6); transition: opacity .3s .5s, transform .3s .5s; }
+.lr-num.pop { opacity: 1; transform: scale(1); }
+.pevent { cursor: pointer; }
+.learn.train b { display: block; margin-top: 4px; }

@@ -239,7 +239,8 @@ describe('自動の戦闘', () => {
       skipAuto(s, battleCtx(s));
       const L = s.battle!.auto!.leader!;
       const lu = s.battle!.units.find((u) => u.uid === L.uid)!;
-      if (!lu.dead || L.settled) { lu.dead = true; s.battle!.retreated.push(lu.uid); L.fled = true; L.settled = null; }
+      // 取り逃がした（7夜目：敵が弱くなり討ち取ることが増えたので、倒れていても逃げたことにする）
+      lu.dead = true; if (!s.battle!.retreated.includes(lu.uid)) s.battle!.retreated.push(lu.uid); L.fled = true; L.settled = null;
       finishBattle(s);
       o = (s.officers ?? []).find((x) => x.id === L.officerId && x.status === 'active' && x.meets.length === 1);
     }

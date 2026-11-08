@@ -1,7 +1,8 @@
 // 会話のテスト：すべての会話を、全性格の組み合わせ・家柄・夢・出身・関係で組み立てて、空の行や差し込み忘れがないか確かめる
 import { describe, it, expect } from 'vitest';
 import { newGame, enrolled } from '../src/core/game';
-import { rng, nextWeek } from '../src/core/flow';
+import { rng, nextWeek, chooseLesson } from '../src/core/flow';
+import { todayCards } from '../src/core/lessons';
 import { TALKS } from '../src/data/talks';
 import { INTERVIEWS } from '../src/data/talks/interviews';
 import { TEACHER_PHRASES } from '../src/data/talks/interviews';
@@ -178,12 +179,14 @@ describe('面談', () => {
     for (let i = 0; i < 5; i++) { const t = specialInterview(s, rng(s), [st]); if (t) titles.push(t.kind + t.title); }
     expect(titles).toEqual(['special昔の話', 'special本音', 'special約束']);
   });
-  it('面談をすると週のまとめに会話がつく', () => {
+  it('面談のカードを選ぶと、授業の結果に会話がつく（7夜目）', () => {
     const s = newGame({ name: 'テスト', background: 'knight', seed: 8 });
     const st = enrolled(s)[0];
-    s.plan.tutoring.push({ studentId: st.id, kind: 'talk' });
-    nextWeek(s);
-    const p = s.pending.find((x) => x.type === 'weekSummary');
-    expect(p && p.type === 'weekSummary' && p.talks.some((t) => t.kind === 'interview' && t.a === st.id)).toBe(true);
+    const day = todayCards(s);
+    day.cards[0] = { id: 'interview', faces: [st.id], tags: [] };
+    chooseLesson(s, 0, st.id);
+    const p = s.pending.find((x) => x.type === 'lessonResult');
+    expect(p && p.type === 'lessonResult' && p.talks.some((t) => t.kind === 'interview' && t.a === st.id)).toBe(true);
+    void nextWeek;
   });
 });

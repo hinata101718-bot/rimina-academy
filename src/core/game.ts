@@ -31,7 +31,7 @@ export function newGame(opts: { name: string; background: string; seed: number; 
   skills.gun = 0;
   const s: GameState = {
     version: SAVE_VERSION, slot: opts.slot ?? 0, rng: opts.seed | 0, createdAt: Date.now(), lastExport: Date.now(),
-    year: 1, month: 0, week: 1, absWeek: 0,
+    year: 1, month: 0, week: 1, day: 1, absWeek: 0,
     money: opts.start ? st0.money : B.school.startMoney, reputation: opts.start ? st0.rep : B.school.startReputation,
     facilities: { training: st0.facility, library: st0.facility, stable: st0.facility, chapel: st0.facility, dining: st0.facility, range: 0 },
     teachers: [], teacherCandidates: [],
@@ -86,8 +86,9 @@ export function enrollCohort(s: GameState, list: Student[]): void {
   }
 }
 
+const idCollator = new Intl.Collator('en', { numeric: true });
 export function enrolled(s: GameState): Student[] {
-  return Object.values(s.students).filter((st) => st.status === 'enrolled').sort((a, b) => a.grade - b.grade || a.id.localeCompare(b.id, 'en', { numeric: true }));
+  return Object.values(s.students).filter((st) => st.status === 'enrolled').sort((a, b) => a.grade - b.grade || idCollator.compare(a.id, b.id));
 }
 export function graduates(s: GameState): Student[] {
   return Object.values(s.students).filter((st) => st.status === 'graduated');

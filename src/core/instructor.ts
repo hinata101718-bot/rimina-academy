@@ -4,7 +4,7 @@ import { skillRankUp } from './discovery';
 import { BACKGROUNDS, COUNTRY_SHORT, SKILL_NAMES, PERSONALITIES, TALENTS, DREAMS } from '../data/people';
 import { NAMES } from '../data/names';
 import type { SkillId, CountryId } from './types';
-import type { GameState, Student, Teacher, SceneLine, VicePolicy, Instructor, WeekendAction } from './state';
+import type { GameState, Student, Teacher, SceneLine, VicePolicy, Instructor } from './state';
 import { Rng } from './rng';
 import { rankOf, emptySkills, clamp } from './util';
 import { chronicle, notify, enrolled, available, effectiveStats, addFriendship } from './game';
@@ -52,38 +52,27 @@ function growSkill(rec: { skills?: Record<SkillId, number>; points?: number }, k
 }
 
 /**
- * 週の終わりに呼ぶ：重点科目にした科目と、個人指導で教えた科目が少しずつ上がる。
- * 雇った講師・卒業生講師も、自分の科目が重点科目なら少しずつ上がる（上限A）。
+ * 授業の日に呼ぶ（7夜目）：選んだ授業の技能が、教官に少しずつ身につく（上限は得意科目S・ほかB）。
+ * 雇った講師・卒業生講師も、自分の科目の授業の日に少しずつ上がる（上限A）。
  */
-export function growTeachers(s: GameState, tutoredSkills: SkillId[], lines?: string[]): void {
+export function growTeacherSkill(s: GameState, k: SkillId, amount: number, lines?: string[]): void {
+  if (k === 'gun' && !s.world.gunUnlocked) return;
   const ins = s.instructor;
   const caps = instructorCaps(s);
   const I = B.instructor;
-  const grades = [1, 2, 3].filter((g) => enrolled(s).some((x) => x.grade === g));
-  const gain: Partial<Record<SkillId, number>> = {};
-  for (const k of SKILLS) {
-    const n = grades.filter((g) => (s.focus[g] ?? []).includes(k)).length;
-    if (n > 0) gain[k] = I.growFocus + (n - 1) * I.growFocusExtraGrade;
+  const b0 = ins.skills[k] ?? 0;
+  const up = growSkill(ins, k, amount, caps[k]);
+  if (up) {
+    skillRankUp(s, `教官（${ins.name}）`, k, b0, ins.skills[k]);
+    const text = `教官（${ins.name}）の${SKILL_NAMES[k]}が ${up[1]} になった`;
+    notify(s, text); lines?.push(text);
+    if (up[1].replace('+', '') !== up[0].replace('+', '')) chronicle(s, text, 'school');
   }
-  for (const k of tutoredSkills) gain[k] = (gain[k] ?? 0) + I.growTutor;
-  for (const [k, v] of Object.entries(gain) as [SkillId, number][]) {
-    if (k === 'gun' && !s.world.gunUnlocked) continue;
-    const b0 = ins.skills[k] ?? 0;
-    const up = growSkill(ins, k, v, caps[k]);
-    if (up) {
-      skillRankUp(s, `教官（${ins.name}）`, k, b0, ins.skills[k]);
-      const text = `教官（${ins.name}）の${SKILL_NAMES[k]}が ${up[1]} になった`;
-      notify(s, text); lines?.push(text);
-      if (up[1].replace('+', '') !== up[0].replace('+', '')) chronicle(s, text, 'school');
-    }
-  }
-  // 講師
   const tcap = RANK_POINTS[I.teacherCap];
   for (const t of s.teachers) {
-    if (!grades.some((g) => (s.focus[g] ?? []).includes(t.skill))) continue;
-    if (t.points >= tcap) continue;
+    if (t.skill !== k || t.points >= tcap) continue;
     const before = t.points;
-    t.points = Math.min(tcap, Math.round((t.points + I.teacherGrow) * 100) / 100);
+    t.points = Math.min(tcap, Math.round((t.points + amount * I.teacherDayMul) * 100) / 100);
     if (rankOf(before) !== rankOf(t.points)) { skillRankUp(s, `講師の${t.name}`, t.skill, before, t.points); const text = `講師の${t.name}の${SKILL_NAMES[t.skill]}が ${rankOf(t.points)} になった`; notify(s, text); lines?.push(text); }
   }
 }
@@ -314,45 +303,7 @@ export function viceTargets(s: GameState, st: Student, policy: VicePolicy, vice:
   return base;
 }
 
-/** 担任の週末の過ごし方（担当学年） */
-export function viceWeekend(s: GameState, rng: Rng, grade: number, policy: VicePolicy, vice: Student): WeekendAction | null {
-  const list = enrolled(s).filter((x) => x.grade === grade && available(x));
-  if (list.length < 2) return null;
-  const fat = list.reduce((a, x) => a + x.fatigue, 0) / list.length;
-  if (fat >= 50) return { kind: 'rest' };
-  const g = viceGroup(vice);
-  const lowMood = [...list].sort((a, b) => a.motivation - b.motivation);
-  if (policy === 'combat' || (g === 'loud' && policy === 'balance' && rng.chance(0.5))) {
-    const top = [...list].sort((a, b) => b.level - a.level);
-    return { kind: 'spar', ids: [top[0].id, top[1].id], skill: top[0].targets[0] };
-  }
-  if (policy === 'talent') {
-    const tal = list.filter((x) => x.talent && x.talentReveal >= B.talent.hint1);
-    const pair = (tal.length >= 2 ? tal : list).slice(0, 2);
-    const sk = pair[0].talent ? TALENTS[pair[0].talent].skill ?? pair[0].targets[0] : pair[0].targets[0];
-    return { kind: 'spar', ids: [pair[0].id, pair[1].id], skill: sk };
-  }
-  if (policy === 'dream' || g === 'quiet') return { kind: 'tea', ids: lowMood.slice(0, 3).map((x) => x.id) };
-  return { kind: 'dinner', grade };
-}
 
-/** 担任の個人指導（副教官1人につき1回。伸びは教官より小さい）：対象の生徒と技能 */
-export function viceTutorPicks(s: GameState, taken: Set<string>): { teacher: Teacher; vice: Student; st: Student; k: SkillId }[] {
-  const out: { teacher: Teacher; vice: Student; st: Student; k: SkillId }[] = [];
-  for (const g of [1, 2, 3]) {
-    const v = viceOf(s, g);
-    if (!v) continue;
-    const list = enrolled(s).filter((x) => x.grade === g && available(x) && !taken.has(x.id)).sort((a, b) => a.lastAttention - b.lastAttention);
-    for (let i = 0; i < B.vice.tutorPerVice && i < list.length; i++) {
-      const st = list[i];
-      taken.add(st.id);
-      const dream = DREAMS.find((d) => d.id === st.dream);
-      const k = v.v.policy === 'dream' && dream?.skills[0] ? dream.skills[0] : st.targets[0];
-      out.push({ teacher: v.t, vice: v.st, st, k });
-    }
-  }
-  return out;
-}
 
 /** 古いセーブ用：講師の「学校に来た年」を卒業の年から推定 */
 export function ensureTeacherSince(s: GameState): void {

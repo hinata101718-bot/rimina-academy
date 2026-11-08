@@ -3,8 +3,9 @@ import { Icon } from './icons';
 import { SeasonFx, PageFlip } from './HomeDeco';
 import { seasonOf } from '../core/calendar';
 import { laneMul } from './anim';
-import { useStore, navigate, act } from './store';
+import { useStore, navigate } from './store';
 import { MONTH_NAMES } from '../core/util';
+import { DAY_NAMES } from '../core/lessons';
 import { Title } from './Title';
 import { SchoolTab } from './School';
 import { StudentsTab } from './Students';
@@ -16,7 +17,6 @@ import { BattleView } from './Battle';
 import { AutoBattleView } from './AutoBattle';
 import { money, stageOf } from './common';
 import { STAGE_NAMES } from '../core/world';
-import { nextWeek } from '../core/flow';
 import { sfx, unlockAudio, playBgm } from './sound';
 import { B } from '../data/balance';
 
@@ -59,7 +59,7 @@ export function App() {
   return (
     <div class="app">
       <div class="header">
-        <span class="date">{s.year}年目 {MONTH_NAMES[s.month]} 第{s.week}週</span>
+        <span class="date">{s.year}年目 {MONTH_NAMES[s.month]} 第{s.week}週 {DAY_NAMES[(s.day ?? 1) - 1]}曜</span>
         <span class="chip"><Icon name="coin" size={14} /> {money(s.money)}</span>
         <span class="chip">評判 {Math.round(s.reputation)}</span>
         <span class="chip">{STAGE_NAMES[stage]}</span>
@@ -74,9 +74,6 @@ export function App() {
         {route.tab === 'yearbook' && <YearbookTab />}
         {route.tab === 'settings' && <SettingsTab />}
       </div>
-      {route.tab === 'school' && !route.page && !s.pending.length && (
-        <button class="btn primary next-week" onClick={() => { sfx('ok'); act((g) => nextWeek(g)); }}>次の週へ <Icon name="next" size={18} /></button>
-      )}
       <nav class="tabs"><div>
         {TABS.map((t) => (
           <button class={route.tab === t.id ? 'on' : ''} onClick={() => { sfx('move'); navigate({ tab: t.id }); }}>

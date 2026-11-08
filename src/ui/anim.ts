@@ -30,6 +30,18 @@ export class Seq {
       this.waiting.push(item);
     });
   }
+  private tapWait: (() => void) | null = null;
+  /** タップするまで待つ（レベルアップなど。早送り中でも止まる。7夜目） */
+  waitTap(): Promise<void> {
+    if (this.cancelled) return Promise.resolve();
+    return new Promise((res) => { this.tapWait = () => { this.tapWait = null; res(); }; });
+  }
+  get waitingTap(): boolean { return !!this.tapWait; }
+  /** タップ：タップ待ちなら次へ、そうでなければ早送り */
+  tap(): void {
+    if (this.tapWait) { this.tapWait(); return; }
+    this.speedUp();
+  }
   /** タップ：いま待っている分を終わらせ、残りを速くする */
   speedUp(): void {
     this.fast = true;
@@ -39,6 +51,7 @@ export class Seq {
   /** スキップ：すべて即座に */
   cancel(): void {
     this.cancelled = true;
+    this.tapWait?.();
     this.speedUp();
   }
 }

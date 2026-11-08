@@ -65,14 +65,14 @@ function weaponFor(type: WeaponType, level: number): string | null {
   const list = Object.values(WEAPONS).filter((w) => w.type === type && (w.price > 0 || (w.spell && !w.rare && (w.value ?? 0) <= 2000)));
   if (!list.length) return null;
   list.sort((a, b) => (a.price || a.value || 0) - (b.price || b.value || 0));
-  const idx = level < 7 ? 0 : level < 15 ? Math.min(1, list.length - 1) : Math.min(2, list.length - 1);
+  const idx = level < B.enemy.weaponLv[0] ? 0 : level < B.enemy.weaponLv[1] ? Math.min(1, list.length - 1) : Math.min(2, list.length - 1);
   return list[idx].id;
 }
 
 export function enemyUnit(rng: Rng, uid: string, classId: string, level: number, x: number, y: number, gun: boolean, boss = false): Unit {
   const c = classForLevel(rng, classId, level, gun);
   const stats: Stats = emptyStats();
-  const growthAvg: Record<string, number> = { hp: 0.75, str: 0.42, mag: 0.3, skl: 0.4, spd: 0.4, lck: 0.3, def: 0.33, res: 0.25, cha: 0.2 };
+  const growthAvg: Record<string, number> = B.enemy.growth;
   for (const k of STATS) {
     const base = k === 'hp' ? 19 : 4;
     const g = growthAvg[k] + ((c.growth[k] ?? 0) / 100);

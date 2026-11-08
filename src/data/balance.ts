@@ -1,7 +1,7 @@
 // バランス値。ゲームの数値はすべてここに集める（設計書の「ふつう」が初期値）。
 import type { Rank, SkillId, StatId } from '../core/types';
 
-export const SAVE_VERSION = 5;
+export const SAVE_VERSION = 6;
 
 export const RANKS: Rank[] = ['E', 'E+', 'D', 'D+', 'C', 'C+', 'B', 'B+', 'A', 'A+', 'S'];
 export const RANK_POINTS: Record<Rank, number> = {
@@ -21,14 +21,14 @@ export const B = {
     olderAge: [23, 26] as [number, number],
     hpStart: [18, 26] as [number, number],
     statStart: [2, 8] as [number, number],
-    growthBase: [15, 60] as [number, number],
-    hpGrowthBonus: 20,          // HPの成長率は少し高め
+    growthBase: [7, 30] as [number, number], // 7夜目：レベルの目標が上がった分、15〜60 → 7〜30
+    hpGrowthBonus: 10,          // HPの成長率は少し高め
     statCapSchool: 30,
     hpCapSchool: 60,
     statCapGrad: 50,
     hpCapGrad: 80,
     expPerLevel: 100,
-    maxLevel: 50,
+    maxLevel: 70,               // 7夜目：卒業後の上限 50→70
     traitCount: [1, 3] as [number, number],
     talentChance: 0.55,         // 何かしらの才能を持つ確率
     heroChance: 0.01,
@@ -44,7 +44,35 @@ export const B = {
     slowAt: 60, slowMul: 0.8, sickAt: 100, sickReset: 40, warnAt: 80,
     rest: 25, tea: 5, epidemicCap: 80,
   },
-  // ---- 授業 ----
+  // ---- 日ごとの授業カード（7夜目）。数字は長期シミュレーションで「育ち方の目標」に合わせた ----
+  day: {
+    cards: 5,                      // 毎日出る授業の数（＋休講）
+    faces: [0.3, 0.45, 0.25],      // 1枚のカードに出る顔の数（1人・2人・3人の割合）
+    skillPts: 0.62,                // 顔なし・↑↑・倍率1のときの、1日の技能ポイント
+    faceMul: 2, targetMul: 1.3, target2Mul: 1.15, tagMul: 1.3,
+    viceMul: 1.1,                  // 担任のいる学年は少しよく伸びる
+    exp: 2.7,                      // ふつうの授業の経験値（顔なし）
+    expDamp: { base: 1.25, perLevel: 0.028, min: 0.3, max: 1.2 }, // レベルが上がるほど授業の経験値は少なく
+    reveal: 0.5,                   // 才能の判明度（顔なし）
+    trainPts: 12,                  // 鍛錬ゲージ（↑↑・顔なし）。100で能力+1
+    trainFull: 100,
+    naturalRecovery: 3, chapelRecovery: [0, 1, 2, 3],
+    lowStamina: 40,                // 体力がこれ未満で「疲」（＝疲労60以上）
+    tea: { support: 6, motivation: 1, talkChance: 0.6 },
+    dinner: { motivationChance: 0.5, support: 1 },
+    spar: { skill: 1.0 },          // 全部の技能に（skillPts×これ）
+    field: { skill: 0.9 },
+    interview: { faceTrust: 1 },
+    career: { trust: 3, faceTrust: 6 },
+    eventChance: 0.55,             // 練習中の出来事が起きる確率
+    teacherGrow: 0.35,             // 選んだ授業の技能が、教官・講師にも少し身につく
+    festivalSocial: 2.5,           // 収穫祭の月は交流のカードが出やすい
+    careerAutumn: 3,               // 秋（10月）以降は進路指導が出やすい
+    consultInterview: true,
+    sickDays: 5,                   // 体調を崩すと休む日数
+    motivationDrop: 0.06,          // 疲れているとき、1日にやる気が下がる確率
+  },
+  // ---- 授業（6夜目まで。週末・個人指導の数字は古いセーブの変換と会話の条件に使う） ----
   lesson: {
     focusPoints: 6, targetPoints: 8, expPerWeek: 9, // 3夜目：兵種試験にレベル条件が入ったので、授業の経験値を5→9に
     teacherRankMul: { E: 0.6, D: 0.8, C: 1.0, B: 1.2, A: 1.4, S: 1.6 } as Record<string, number>,
@@ -137,7 +165,7 @@ export const B = {
     yearlyDecay: 0.08, decayFloor: 40, schoolDefenseWin: 3,
   },
   // ---- 試験 ----
-  exam: { baseRate: 60, perPoints: 5, max: 100, levelReq: [0, 5, 10, 20, 30] as number[], heroLevel: 20 }, // 段階ごとの受験レベル（初級5・中級10・上級20・最上級30）
+  exam: { baseRate: 60, perPoints: 5, max: 100, levelReq: [0, 5, 15, 25, 45] as number[], heroLevel: 25 }, // 段階ごとの受験レベル（7夜目：初級5・中級15・上級25・最上級（卒業後）45、英雄25）
   // ---- 戦闘 ----
   battle: {
     width: 8, height: 12,
@@ -148,6 +176,8 @@ export const B = {
     rewinds: 3, rewindTurns: 5,
     exp: { hit: 10, kill: 30, heal: 12, survive: 5, levelDiffPer: 3, levelDiffMax: 20, minKill: 10 },
     drillExpMul: 0.7,
+    skillPerUse: 1.5,   // 7夜目：戦闘で武器を1回使うごとの技能（4→1.5）
+    expDamp: { base: 0.5, perLevel: 0.006, min: 0.3 }, // 7夜目：戦闘の経験値は控えめに（レベルの伸びの中心は授業）。レベルが高いほど少なく
     injuryBase: 50, injuryPerLck: 1, injurySupportB: 5, injurySupportA: 10, injuryMax: 90,
     injuryWeeks: [3, 5] as [number, number],
     commandBase: 80, commandPerTrust: 0.2,
@@ -173,6 +203,11 @@ export const B = {
     wall: { name: '壁', avo: 0, def: 0, cost: { infantry: 99, cavalry: 99, armor: 99, flying: 99 } },
     road: { name: '道', avo: 0, def: 0, cost: { infantry: 1, cavalry: 1, armor: 1, flying: 1 } },
     door: { name: '扉', avo: 0, def: 0, cost: { infantry: 99, cavalry: 99, armor: 99, flying: 99 } }, // シーフ系が隣で開けると道になる
+  },
+  // ---- 敵の強さ（7夜目：生徒の成長率を下げた分、敵の1レベルあたりの伸びも下げた。6夜目は hp .75 str .42 …、武器は Lv7・15 で持ち替え） ----
+  enemy: {
+    growth: { hp: 0.5, str: 0.31, mag: 0.23, skl: 0.3, spd: 0.3, lck: 0.23, def: 0.25, res: 0.19, cha: 0.15 } as Record<string, number>,
+    weaponLv: [12, 26] as [number, number],
   },
   // ---- 依頼 ----
   quests: {
@@ -208,7 +243,7 @@ export const B = {
       civil: [1, 3, 6, 12],
     },
     promoteBase: 0.25,
-    tier4Level: 30,
+    tier4Level: 45,
   },
   // ---- 戦況 ----
   world: {
@@ -256,7 +291,7 @@ export const B = {
     growFocusExtraGrade: 0.05, // 2学年め・3学年めも重点にしていれば少し上乗せ
     growTutor: 0.15,         // 個人指導（技能指導）で教えた1回
     capGood: 'S' as Rank, capOther: 'B' as Rank, capWanderer: 'A' as Rank,
-    teacherGrow: 0.2, teacherCap: 'A' as Rank, // 講師：教えている科目が重点科目の週
+    teacherGrow: 0.2, teacherCap: 'A' as Rank, teacherDayMul: 0.6, // 講師：自分の科目の授業の日（7夜目）
     // 後継
     acceptBase: 20, acceptPerTrust: 0.7, acceptMax: 95,
     recallPower: 3, recallFriendship: -5, recallRank: 2, // 部隊長・参謀長・大使以上を呼び戻すと国力と友好度が下がる
@@ -321,9 +356,11 @@ export const B = {
 export type Difficulty = 'easy' | 'normal' | 'hard';
 export interface DifficultyMods {
   enemy: number; exp: number; money: number; death: number; reveal: number; war: number;
+  /** 技能の伸び方（7夜目） */
+  skill: number;
 }
 export const DIFFICULTY: Record<Difficulty, DifficultyMods> = {
-  easy: { enemy: 0.85, exp: 1.25, money: 1.25, death: 0.5, reveal: 1.3, war: 0.8 },
-  normal: { enemy: 1, exp: 1, money: 1, death: 1, reveal: 1, war: 1 },
-  hard: { enemy: 1.15, exp: 0.85, money: 0.85, death: 1.3, reveal: 0.8, war: 1.2 },
+  easy: { enemy: 0.85, exp: 1.25, money: 1.25, death: 0.5, reveal: 1.3, war: 0.8, skill: 1.2 },
+  normal: { enemy: 1, exp: 1, money: 1, death: 1, reveal: 1, war: 1, skill: 1 },
+  hard: { enemy: 1.15, exp: 0.85, money: 0.85, death: 1.3, reveal: 0.8, war: 1.2, skill: 0.85 },
 };

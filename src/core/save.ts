@@ -1,5 +1,6 @@
 // セーブデータの変換（バージョン番号つき）。DOMに依存しない
-import { SAVE_VERSION } from '../data/balance';
+import { SAVE_VERSION, DIFFICULTY } from '../data/balance';
+import type { SkillId } from './types';
 import type { GameState } from './state';
 import { defaultSettings } from './game';
 import { WEAPONS } from '../data/weapons';
@@ -33,6 +34,7 @@ export function migrate(s: GameState, from: number): GameState {
   if (from < 3) migrateTo3(s);
   if (from < 4) migrateTo4(s);
   if (from < 5) migrateTo5(s);
+  if (from < 6) migrateTo6(s);
   s.heirs ??= [];
   s.archive ??= {};
   s.notices ??= [];
@@ -157,4 +159,39 @@ function migrateTo5(s: GameState): void {
       ],
     });
   }
+}
+
+/**
+ * 6夜目の版（version 5）→ 7夜目の版（version 6）
+ * - 授業は「日ごとの授業カード」に：週の途中のセーブは、その週の月曜日から。個人指導・週末の予定はなくなる
+ * - 重点科目と週末の予定は、最初の日のカードに出す（重点科目の授業・お茶会など）。目標技能はその月の目標に
+ * - 鍛錬ゲージ・体調不良の日数を足す。設定の「細かな調整」に「技能の伸び方」を足す
+ * - 兵種試験のレベル条件が上がる（Lv5/15/25/45）。条件より低いレベルで昇格している子は、そのまま（降格しない）
+ * - 戦闘の途中のセーブ：手動の戦闘はそのまま。自動の戦闘は、戦いの記録のない場面は今までの文で見せる
+ */
+function migrateTo6(s: GameState): void {
+  s.day = 1;
+  s.today = null;
+  const skills: SkillId[] = [];
+  for (const g of [1, 2, 3]) for (const k of s.focus?.[g] ?? []) if (!skills.includes(k)) skills.push(k);
+  const social: string[] = [];
+  for (const w of s.plan?.weekend ?? []) { const k = w.kind === 'spar' ? 'spar' : w.kind === 'tea' ? 'tea' : w.kind === 'dinner' ? 'dinner' : ''; if (k && !social.includes(k)) social.push(k); }
+  if ((s.plan?.tutoring ?? []).some((t) => t.kind !== 'skill') && !social.includes('interview')) social.push('interview');
+  s.carry = { skills: skills.slice(0, 2), social };
+  s.plan = { tutoring: [], weekend: [] };
+  s.settings.mods = { ...DIFFICULTY[s.settings.difficulty ?? 'normal'], ...s.settings.mods };
+  s.settings.mods.skill ??= DIFFICULTY[s.settings.difficulty ?? 'normal'].skill;
+  for (const st of Object.values(s.students ?? {})) { st.train ??= {}; st.trainGain ??= {}; st.sickDays ??= 0; }
+  for (const st of s.applicants ?? []) { st.train ??= {}; st.trainGain ??= {}; st.sickDays ??= 0; }
+  s.pending ??= [];
+  s.pending.push({
+    type: 'event', title: '授業が「日ごとの授業カード」になりました',
+    lines: [
+      '授業は、全学年いっしょに1日1回になりました。月〜金の毎日、5種類の授業と休講から1つを選びます。全員が伸び、カードに顔が出ている子は特に伸びます。',
+      '個人指導と週末の交流はなくなり、お茶会・食事会・紅白戦・面談・進路指導も授業のカードとして出ます。体力が減ってきたら「休講」で休ませましょう。',
+      '目標技能は月に一度決めます（今の目標技能が今月の目標です）。今月の重点科目と週末の予定は、最初の日のカードに出ています。',
+      '兵種試験のレベル条件が上がりました（初級Lv5・中級Lv15・上級Lv25・最上級Lv45）。すでに昇格している子はそのままです。',
+      ...(s.battle ? ['いま途中の戦闘は、そのまま続けられます。'] : []),
+    ],
+  });
 }
