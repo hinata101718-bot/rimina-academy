@@ -208,3 +208,47 @@ describe('③ 育ち方の見直し', () => {
     expect(suitablePath(st)).toBe('warrior');
   });
 });
+
+describe('④ 同じ会話を二度出さない・⑤ 一般兵の名前', () => {
+  it('同じ子に同じ面談は出ない。出し切ったら「前の続き」の短い会話、それも出し切ったら出さない', async () => {
+    const { buildInterview } = await import('../src/core/interview');
+    const { Rng } = await import('../src/core/rng');
+    const s = mk(12);
+    const st = enrolled(s)[0];
+    const r = new Rng({ rng: 5 });
+    const titles: string[] = [];
+    for (let i = 0; i < 40; i++) { const t = buildInterview(s, r, st, 'recent'); if (t) titles.push(t.title); }
+    expect(new Set(titles).size).toBe(titles.length);
+    expect(titles.some((x) => x.includes('（その後）'))).toBe(true);
+  });
+  it('支援会話も、同じ組に同じ会話は二度出ない（出来事のあとの会話は別）', async () => {
+    const { buildTalk, getSupport } = await import('../src/core/support');
+    const { Rng } = await import('../src/core/rng');
+    const s = mk(13);
+    const [a, b] = enrolled(s);
+    const sp = getSupport(s, a.id, b.id);
+    const r = new Rng({ rng: 9 });
+    const defs: string[] = [];
+    for (let i = 0; i < 60; i++) { const t = buildTalk(s, r, sp, 'C'); if (t && !t.again) defs.push(t.def ?? ''); }
+    expect(new Set(defs).size).toBe(defs.length);
+  });
+  it('9夜目のセーブ：これまでの面談の記録から、見た面談を拾う', () => {
+    const s = deserialize(fixture('v9-day.json'));
+    const withLog = enrolled(s).filter((x) => (x.archive ?? []).some((id) => s.archive[id]?.b === 'teacher'));
+    expect(withLog.length).toBeGreaterThan(0);
+    for (const st of withLog) expect((st.seenTalks ?? []).length).toBeGreaterThan(0);
+  });
+  it('名を得た一般兵の名前は、生徒・敵将と重ならない', () => {
+    const s = mk(14);
+    autoYears(s, 4);
+    const prospects = (s.officers ?? []).filter((o) => o.deed);
+    expect(prospects.length).toBeGreaterThan(0);
+    // 名を得たときにいた生徒・敵将と重ならない（入学がそのあとの子も、なるべく避ける）
+    const students = Object.values(s.students);
+    let clash = 0;
+    for (const o of prospects) if (students.some((x) => x.given === o.given && x.enrollYear <= (o.joined ?? 0))) clash++;
+    expect(clash).toBe(0);
+    const others = (s.officers ?? []).filter((o) => !o.deed);
+    for (const o of prospects) expect(others.filter((x) => x.given === o.given && x.joined <= o.joined).length).toBe(0);
+  });
+});

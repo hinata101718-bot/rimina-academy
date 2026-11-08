@@ -78,9 +78,11 @@ function persForAge(r: Rng, kind: 'army' | 'bandit', band: AgeBand): LeaderPerso
   return r.pick(list);
 }
 
-function takenNames(s: GameState): Set<string> {
+/** 使われている名前（生徒・卒業生・志願者・敵将。10夜目：一般兵の名前もこれと重ならないように） */
+export function takenNames(s: GameState): Set<string> {
   const t = new Set(Object.values(s.students).map((x) => x.given));
-  for (const o of officers(s)) if (o.status === 'active') t.add(o.given);
+  for (const st of s.applicants ?? []) t.add(st.given);
+  for (const o of officers(s)) t.add(o.given);
   return t;
 }
 

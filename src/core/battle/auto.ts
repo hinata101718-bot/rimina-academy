@@ -17,7 +17,7 @@ import { fx } from '../mentor';
 import { autoPlayerPhase, endPlayerPhase, startPlayerPhase, rewind, canRewind, commandRate, finish, checkEnd, enemyAct, type BattleCtx } from './engine';
 import { forecast, weaponOf, staffOf, dist } from './calc';
 import { generateFace } from '../student';
-import { addProspect, pickFace, parseEnemyFace, revealOne, survives, pickOfficerForQuest, officerById, officerName, officerLevel, applyOfficerTraits, memoryLine, rivalryOf, voice, headOf, headEffect, factionOfQuest, afterOfficerBattle, rankName, fullName, isScout, type TraitHit } from '../officers';
+import { addProspect, takenNames, pickFace, parseEnemyFace, revealOne, survives, pickOfficerForQuest, officerById, officerName, officerLevel, applyOfficerTraits, memoryLine, rivalryOf, voice, headOf, headEffect, factionOfQuest, afterOfficerBattle, rankName, fullName, isScout, type TraitHit } from '../officers';
 import { OFFICER, OFFICER_TRAITS, FACTION_NAMES } from '../../data/officers';
 import { SCAR_TEXT, SCAR_RETURN, VOW_SAY, VOW_NARR, RIVAL_SAY, RIVAL_LEADER, SETTLE_TEXT, SETTLE_RESULT, SETTLE_LEADER, SETTLE_SAY, ALUMNI_LEADER, HEAD_TEXT, GRUDGE_CHOICE, GRUDGE_RESULT } from '../../data/officers_text';
 import { unitFromStudent, defaultWeaponFor } from './setup';
@@ -746,7 +746,11 @@ function raiseGrunts(s: GameState, b: BattleState, r: Rng, q: Quest, end: boolea
     const faceImage = pickFace(s, f, gender, 'young', r, c.u.uid + s.nextId);
     const pf = faceImage ? parseEnemyFace(faceImage) : null;
     const g2 = pf?.gender ?? gender;
-    const given = r.pick(g2 === 'f' ? nl.female : nl.male);
+    // 10夜目：生徒・卒業生・敵将（今いない者も）・この戦いでもう名を得た兵と重ならない名前を
+    const taken = takenNames(s); for (const x of a.raised ?? []) taken.add(x.given);
+    const pool = (g2 === 'f' ? nl.female : nl.male).filter((n) => !taken.has(n));
+    const other = Object.values(NAMES).flatMap((x) => (g2 === 'f' ? x.female : x.male)).filter((n) => !taken.has(n));
+    const given = pool.length ? r.pick(pool) : other.length ? r.pick(other) : r.pick(g2 === 'f' ? nl.female : nl.male);
     const label = gruntLabel(s, b, q, c.u.uid);
     const w = weaponOf(c.u);
     const kind = w ? (TYPE_NAMES[w.type] ?? '') + (w.type === 'magic' || w.type === 'holy' ? 'の使い手' : '兵') : '兵';

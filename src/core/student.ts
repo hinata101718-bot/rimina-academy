@@ -12,6 +12,7 @@ import { Rng } from './rng';
 import { emptySkills, emptyStats, clamp } from './util';
 import { round5 } from './growth';
 import { assignApt, assignBud, fitTotal } from './aptitude';
+import { takenNames } from './officers';
 
 export interface GenOptions {
   origin?: Origin;
@@ -58,7 +59,10 @@ export function generateStudent(s: GameState, rng: Rng, opt: GenOptions = {}): S
   if (parents) house = parents[0].house === 'noble' || parents[1].house === 'noble' ? 'noble' : 'commoner';
   const gender: Gender = rng.chance(0.5) ? 'm' : 'f';
   const list = NAMES[origin];
-  const given = rng.pick(gender === 'm' ? list.male : list.female);
+  // 10夜目：今いる生徒・敵将（名を得た一般兵も）と同じ名前はなるべく避ける
+  const taken = takenNames(s);
+  let given = rng.pick(gender === 'm' ? list.male : list.female);
+  for (let k = 0; k < 8 && taken.has(given); k++) given = rng.pick(gender === 'm' ? list.male : list.female);
   let family = parents ? parents[0].family : rng.pick(list.family);
   if (!parents && house === 'noble' && list.noblePrefix && !family.startsWith(list.noblePrefix)) family = `${list.noblePrefix}・${family}`;
   if (house === 'orphan' && !parents) family = rng.chance(0.5) ? family : '';

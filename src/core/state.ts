@@ -61,6 +61,8 @@ export interface Student {
   spells: string[];
   /** 会話の記録（GameState.archive の id、新しいものが後ろ） */
   archive?: string[];
+  /** 10夜目：この子と見た面談・相談の題（同じ会話を二度出さない） */
+  seenTalks?: string[];
   /** 信頼40・70・90の特別な面談のうち、済んだもの */
   trustTalks?: number[];
   targets: [SkillId, SkillId];
@@ -481,6 +483,8 @@ export interface TalkLog {
   choice?: { prompt: string; options: TalkChoiceOption[] };
   chosen?: number;
   year?: number; month?: number;
+  /** 10夜目：もとの会話の id と、くり返してよい会話か（出来事のあと・引き止め） */
+  def?: string; again?: boolean;
 }
 
 export interface WeekPlan {

@@ -1,4 +1,5 @@
 // 先生との面談を「会話の場面」として組み立てる。支援会話と同じ「話題×流れ×口調」の仕組み
+import { FOLLOW_SAY, FOLLOW_TEACHER } from '../data/talks/follow';
 import { B } from '../data/balance';
 import { INTERVIEWS, IV_NARR, TEACHER_PHRASES, type InterviewDef, type InterviewTopic, type TeacherBg } from '../data/talks/interviews';
 import type { TalkLine } from './types';
@@ -72,20 +73,52 @@ export function interviewCandidates(s: GameState, st: Student, topic: InterviewT
 
 /** 面談の会話を組み立てて、記録に残す */
 export function buildInterview(s: GameState, rng: Rng, st: Student, topic: InterviewTopic, flags: string[] = []): TalkLog | null {
-  const recent = new Set((st.archive ?? []).slice(-B.interview.avoidRecent).map((id) => s.archive?.[id]).filter((t) => t && t.b === 'teacher').map((t) => t!.title));
+  // 10夜目：同じ子に同じ面談は二度出さない（退学を引き止める面談は、状況が変わるたびに出てよい）
+  const repeatOk = topic === 'retain';
+  const seen = new Set(st.seenTalks ?? []);
+  const isNew = (title: string) => repeatOk || !seen.has(title);
   // まるごと書いた面談（7夜目）：生徒の性格のまとまりに合うもの
   const all = [...new Set([...flags, ...interviewFlags(s, st)])];
   const whole = withTalkFlags(all, () => WHOLE_INTERVIEWS.filter((d) => d.topic === topic && d.g === TONE_OF[st.personality] && condOk(d.when, st, st, null, s)));
-  const wholeFresh = whole.filter((d) => !recent.has(d.title));
+  const wholeFresh = whole.filter((d) => isNew(d.title));
   const cands = interviewCandidates(s, st, topic, flags);
-  const fresh = cands.filter((d) => !recent.has(d.title));
-  if (whole.length && (rng.chance(B.talkWhole.interviewChance) || !cands.length) && (wholeFresh.length || !fresh.length)) {
-    return buildWholeInterview(s, st, rng.pick(wholeFresh.length ? wholeFresh : whole), all);
-  }
-  if (!cands.length) return null;
-  // 最近同じ生徒と話した題は、できるだけ避ける
-  const def = rng.pick(fresh.length ? fresh : cands);
-  return buildInterviewDef(s, rng, st, def, flags);
+  const fresh = cands.filter((d) => isNew(d.title));
+  let t: TalkLog | null = null;
+  if (wholeFresh.length && (rng.chance(B.talkWhole.interviewChance) || !fresh.length)) t = buildWholeInterview(s, st, rng.pick(wholeFresh), all);
+  else if (fresh.length) t = buildInterviewDef(s, rng, st, rng.pick(fresh), flags);
+  // 出せる新しい面談がない：前に話したことの続き（短い会話）。それも出し切ったら出さない
+  else t = followUp(s, st, topic);
+  if (t) { markTalk(s, st, t.title, repeatOk); t.def ??= t.title; if (repeatOk) t.again = true; }
+  return t;
+}
+
+/** 見た会話を覚える（同じ子に同じ会話を二度出さないため。10夜目） */
+function markTalk(s: GameState, st: Student, title: string, repeatOk: boolean): void {
+  st.seenTalks ??= [];
+  if (!repeatOk && st.seenTalks.includes(title)) talkCount.repeats += 1;
+  talkCount.shown += 1;
+  if (!st.seenTalks.includes(title)) st.seenTalks.push(title);
+  void s;
+}
+/** シミュレーション用：会話を出した数と、同じ子に同じ会話が出た数 */
+export const talkCount = { shown: 0, repeats: 0 };
+
+/** 前に話したことの続き（10夜目）：「前に〇〇のことで話したよな。あれからどうだ？」 */
+function followUp(s: GameState, st: Student, topic: InterviewTopic): TalkLog | null {
+  const prev = (st.archive ?? []).map((id) => s.archive?.[id]).filter((x): x is TalkLog => !!x && x.b === 'teacher' && x.kind === 'interview' && !x.title.endsWith('（その後）'));
+  const last = prev[prev.length - 1];
+  if (!last || topic.startsWith('x')) return null;
+  const n = (st.seenTalks ?? []).filter((x) => x.startsWith(`${last.title}（その後）`)).length;
+  const sayList = FOLLOW_SAY[st.personality] ?? FOLLOW_SAY.serious;
+  if (n >= sayList.length) return null;
+  const title = `${last.title}（その後）${n ? n + 1 : ''}`;
+  if ((st.seenTalks ?? []).includes(title)) return null;
+  const t: TalkLog = { a: st.id, b: 'teacher', rank: '', title, kind: 'interview', lines: [
+    { by: 'teacher', text: FOLLOW_TEACHER[(n + st.given.length) % FOLLOW_TEACHER.length].replace('{t}', last.title) },
+    { by: st.id, text: sayList[n] },
+  ] };
+  archiveTalk(s, t);
+  return t;
 }
 
 /** まるごと書いた面談を組み立てる */

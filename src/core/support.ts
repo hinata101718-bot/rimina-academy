@@ -237,7 +237,8 @@ export function buildTalk(s: GameState, rng: Rng, sp: Support, rank: 'C' | 'B' |
   if (!a || !b) return null;
   const cands: { t: TalkDef | WholeTalk; w: number; swap: boolean; detail: string; whole: boolean }[] = [];
   const consider = (t: TalkDef | WholeTalk, whole: boolean) => {
-    if (t.rank !== rank || sp.seen.includes(t.id)) return;
+    // 10夜目：見た会話は出さない（出来事のあとの会話は、そのたびに出てよい）
+    if (t.rank !== rank || (sp.seen.includes(t.id) && !t.topic.startsWith('ev_'))) return;
     for (const swap of [false, true]) {
       const x = swap ? b : a, y = swap ? a : b;
       if (whole) { const wt = t as WholeTalk; if (TONE_OF[x.personality] !== wt.ga || TONE_OF[y.personality] !== wt.gb) continue; }
@@ -259,18 +260,42 @@ export function buildTalk(s: GameState, rng: Rng, sp: Support, rank: 'C' | 'B' |
   for (const t of TALKS) consider(t, false);
   for (const t of WHOLE_TALKS) consider(t, true);
   if (!cands.length) {
-    // すべて見た場合は、見たものから選び直す
-    if (sp.seen.length) { sp.seen = []; return buildTalk(s, rng, sp, rank); }
-    return null;
+    // 10夜目：すべて見た組には、同じ会話をくり返さない。前の会話の続き（短い会話）を一度だけ
+    return pairFollowUp(s, sp, rank, a, b);
   }
   const c = rng.weighted(cands, (x) => x.w);
   if (c.swap) [a, b] = [b, a];
+  if (sp.seen.includes(c.t.id) && !c.t.topic.startsWith('ev_')) pairTalkCount.repeats += 1;
+  pairTalkCount.shown += 1;
   sp.seen.push(c.t.id);
   const lines = c.whole ? renderWhole(s, (c.t as WholeTalk).lines, a, b, c.detail) : renderLines(s, rng, (c.t as TalkDef).lines, a, b, sp, c.detail);
-  const t: TalkLog = { a: a.id, b: b.id, rank, title: TOPIC_TITLE[c.t.topic] ?? '会話', lines, kind: 'support' };
+  const t: TalkLog = { a: a.id, b: b.id, rank, title: TOPIC_TITLE[c.t.topic] ?? '会話', lines, kind: 'support', def: c.t.id, again: c.t.topic.startsWith('ev_') || undefined };
   archiveTalk(s, t);
   return t;
 }
+
+/** 支援会話の続き（10夜目）：新しい会話を出し切った組の、短い会話。ランクごとに1回まで */
+function pairFollowUp(s: GameState, sp: Support, rank: 'C' | 'B' | 'A', a: Student, b: Student): TalkLog | null {
+  const key = `follow${rank}`;
+  if (sp.seen.includes(key)) return null;
+  sp.seen.push(key);
+  const A = PAIR_FOLLOW[rank];
+  const t: TalkLog = { a: a.id, b: b.id, rank, title: '前の話の続き', kind: 'support', def: key, lines: [
+    { by: 'narr', text: A.narr.replace('{a}', a.given).replace('{b}', b.given) },
+    { by: a.id, text: A.a.replace('{b}', b.given) },
+    { by: b.id, text: A.b.replace('{a}', a.given) },
+  ] };
+  pairTalkCount.shown += 1;
+  archiveTalk(s, t);
+  return t;
+}
+const PAIR_FOLLOW: Record<'C' | 'B' | 'A', { narr: string; a: string; b: string }> = {
+  C: { narr: '中庭で、{a}と{b}が前に話したことの続きをしている。', a: 'この前の話、あれから考えてみたんだ', b: 'うん。{a}の言ってたこと、少し分かった気がする' },
+  B: { narr: '訓練のあと、{a}と{b}が並んで座っている。', a: '{b}とは、もう言わなくても通じるようになったな', b: 'そうだね。前に話したこと、ちゃんと覚えてるよ' },
+  A: { narr: '夕暮れの書庫で、{a}と{b}が静かに笑い合っている。', a: 'いろいろ話したけど、結局{b}がいてくれてよかった', b: '{a}こそ。これからも、よろしくね' },
+};
+/** シミュレーション用：支援会話を出した数と、同じ組に同じ会話が出た数 */
+export const pairTalkCount = { shown: 0, repeats: 0 };
 
 /** まるごと書いた会話の行を並べる（差し込みは固有の言葉だけ） */
 export function renderWhole(s: GameState, lines: WholeLine[], a: Student, b: Student, detail: string): TalkLog['lines'] {
@@ -283,7 +308,11 @@ export function renderWhole(s: GameState, lines: WholeLine[], a: Student, b: Stu
 // ---------- 会話の記録 ----------
 
 /** 会話を記録に残す（生徒ごとに新しいもの30件まで） */
+let archiveHook: ((t: TalkLog) => void) | null = null;
+/** シミュレーション用：記録に残る会話をすべて見る（同じ子に同じ会話が出ていないかを数える） */
+export function setArchiveHook(f: ((t: TalkLog) => void) | null): void { archiveHook = f; }
 export function archiveTalk(s: GameState, t: TalkLog): TalkLog {
+  archiveHook?.(t);
   s.archive ??= {};
   t.id ??= `k${s.nextId++}`;
   t.year = s.year; t.month = s.month;

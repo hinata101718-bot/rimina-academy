@@ -324,6 +324,8 @@ function ensure10(s: GameState): void {
       talentToApt(st, r, st.status === 'enrolled' || s.applicants?.includes(st));
     }
     st.growthKnown = true;
+    // 同じ会話を二度出さない：これまでの会話の記録から、見た面談の題を拾う
+    if (!st.seenTalks) st.seenTalks = [...new Set((st.archive ?? []).map((id) => s.archive?.[id]).filter((t) => t && t.b === 'teacher').map((t) => t!.title))];
   }
   fill(s.instructor?.skills); fill(s.instructor?.caps);
   // 敵将の型（勇士型・将型）：今いる敵将にも1つ（名前から決める）

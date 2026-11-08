@@ -21,13 +21,20 @@ import { knownStrats } from '../src/core/stratagems';
 import type { GameState } from '../src/core/state';
 import { BACKGROUNDS } from '../src/data/people';
 import { growthCount } from '../src/core/growth';
+import { setArchiveHook } from '../src/core/support';
+import { INTERVIEWS } from '../src/data/talks/interviews';
+import { WHOLE_INTERVIEWS } from '../src/data/talks/whole_index';
+const RETAIN_TITLES = new Set([...INTERVIEWS, ...WHOLE_INTERVIEWS].filter((d) => d.topic === 'retain').map((d) => d.title));
 /** 同じ子（同じ組）に同じ会話が出た回数（10夜目：0が目標） */
-function talkRepeatCount(s: GameState): number {
-  const seen = new Map<string, number>();
-  for (const t of Object.values(s.archive ?? {})) { if (!t.id) continue; const k = `${t.a}|${t.b}|${t.id}`; seen.set(k, (seen.get(k) ?? 0) + 1); }
-  let n = 0; for (const v of seen.values()) if (v > 1) n += v - 1;
-  return n + ((s as { talkRepeats?: number }).talkRepeats ?? 0);
-}
+let talkSeen = new Set<string>();
+let talkRepeats = 0;
+setArchiveHook((t) => {
+  // 面談は題で、支援会話はもとの会話の id で見分ける（面談は archiveTalk のあとに題が決まるので、題で）
+  const k = `${t.a}|${t.b}|${t.kind === 'support' ? t.def ?? t.title : t.title}`;
+  if (t.again || (t.kind !== 'support' && RETAIN_TITLES.has(t.title))) return;
+  if (talkSeen.has(k)) talkRepeats += 1; else talkSeen.add(k);
+});
+function talkRepeatCount(_s: GameState): number { const n = talkRepeats; talkSeen = new Set(); talkRepeats = 0; return n; }
 
 const argv = process.argv.slice(2);
 const flag = (k: string) => argv.find((a) => a.startsWith(`--${k}=`))?.split('=')[1];
