@@ -1,6 +1,6 @@
 // 先生との面談を「会話の場面」として組み立てる。支援会話と同じ「話題×流れ×口調」の仕組み
 import { B } from '../data/balance';
-import { INTERVIEWS, IV_NARR, IV_AVOID_RECENT, TEACHER_PHRASES, type InterviewDef, type InterviewTopic, type TeacherBg } from '../data/talks/interviews';
+import { INTERVIEWS, IV_NARR, TEACHER_PHRASES, type InterviewDef, type InterviewTopic, type TeacherBg } from '../data/talks/interviews';
 import type { TalkLine } from './types';
 import type { GameState, Student, TalkLog, TalkLineLog } from './state';
 import { Rng } from './rng';
@@ -73,7 +73,7 @@ export function buildInterview(s: GameState, rng: Rng, st: Student, topic: Inter
   const cands = interviewCandidates(s, st, topic, flags);
   if (!cands.length) return null;
   // 最近同じ生徒と話した題は、できるだけ避ける
-  const recent = new Set((st.archive ?? []).slice(-IV_AVOID_RECENT).map((id) => s.archive?.[id]).filter((t) => t && t.b === 'teacher').map((t) => t!.title));
+  const recent = new Set((st.archive ?? []).slice(-B.interview.avoidRecent).map((id) => s.archive?.[id]).filter((t) => t && t.b === 'teacher').map((t) => t!.title));
   const fresh = cands.filter((d) => !recent.has(d.title));
   const def = rng.pick(fresh.length ? fresh : cands);
   return buildInterviewDef(s, rng, st, def, flags);

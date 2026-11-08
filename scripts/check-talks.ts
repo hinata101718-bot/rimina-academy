@@ -3,14 +3,15 @@
 // - PHRASES の各エントリが10性格すべての文面を持つか（地の文 n_ は default だけでよい）
 // - 先生のセリフが4つの経歴すべてにあるか
 // - 支援会話の行数（C=8〜10、B=10〜14、A=14〜20 セリフ。地の文は数えない）、分岐2か所以上、話題20〜30種
-// - 面談の行数（8〜12 セリフ）
+// - 面談の行数（8〜12 セリフ。返事の選択肢それぞれで数える）、IDの重複、目印（flag）が既知のものか
 import { PHRASES, TALKS } from '../src/data/talks';
 import { INTERVIEWS, IV_NARR, TEACHER_PHRASES } from '../src/data/talks/interviews';
-import type { PersonalityId, TalkSay, TalkLine } from '../src/core/types';
+import { IV_AUTO_FLAGS } from '../src/core/interview';
+import type { PersonalityId, TalkSay, TalkLine, TalkCond } from '../src/core/types';
 
 const PERSONALITIES: PersonalityId[] = ['hot', 'calm', 'timid', 'cynic', 'gentle', 'serious', 'cheerful', 'shy', 'competitive', 'whimsical'];
-const PLACEHOLDERS = new Set(['me', 'you', 'event', 'teacher', 'school', 'season', 'scene',
-  ...['Dream', 'Country', 'Trait', 'Home', 'Food', 'Sight', 'Fest', 'Cold', 'House', 'Duty', 'Skill', 'Class', 'Friend', 'Hint', 'TalentSkill'].flatMap((k) => [`my${k}`, `your${k}`])]);
+const PLACEHOLDERS = new Set(['me', 'you', 'event', 'teacher', 'school', 'season', 'scene', 'prevTeacher',
+  ...['Dream', 'Country', 'Trait', 'Home', 'Food', 'Sight', 'Fest', 'Cold', 'House', 'Duty', 'Skill', 'Class', 'Friend', 'Hint', 'TalentSkill', 'Love', 'Senior'].flatMap((k) => [`my${k}`, `your${k}`])]);
 const RANGE: Record<string, [number, number]> = { C: [8, 10], B: [10, 14], A: [14, 20] };
 
 const errors: string[] = [];
@@ -37,10 +38,21 @@ for (const t of TALKS) {
     else if (line.by === 'n' && !PHRASES[k].default) errors.push(`${t.id} 行${i + 1}: 地の文 "${k}" に default がない`);
   }
 }
+// 面談で使える目印：自動でつくもの＋週の処理（src/core/week.ts の interview()）が渡すもの
+const IV_FLAGS = new Set<string>([...IV_AUTO_FLAGS, 'cleared', 's_study', 's_friend', 's_home', 's_tired', ...['family', 'poach', 'homewar', 'motivation'].map((r) => `reason_${r}`)]);
+const condFlags = (c: TalkCond | undefined): string[] => (c ? [c.flag, c.notFlag].filter((x): x is string => !!x) : []);
+const sayFlags = (say: TalkSay): string[] => (typeof say === 'string' ? [] : [...condFlags(say.if), ...sayFlags(say.then), ...sayFlags(say.else)]);
+const ivIds = new Set<string>();
 for (const d of INTERVIEWS) {
-  const all = [...d.lines, ...(d.choice?.options[0].lines ?? [])];
-  const spoken = all.filter((l) => l.by !== 'n').length;
-  if (spoken < 8 || spoken > 12) errors.push(`面談 ${d.id}: セリフ数 ${spoken}（8〜12）`);
+  if (ivIds.has(d.id)) errors.push(`面談IDが重複: ${d.id}`);
+  ivIds.add(d.id);
+  const variants = d.choice ? d.choice.options.map((o) => [...d.lines, ...o.lines]) : [d.lines];
+  for (const [vi, all] of variants.entries()) {
+    const spoken = all.filter((l) => l.by !== 'n').length;
+    if (spoken < 8 || spoken > 12) errors.push(`面談 ${d.id}${d.choice ? ` 選択肢${vi + 1}` : ''}: セリフ数 ${spoken}（8〜12）`);
+  }
+  if (d.choice && (d.choice.options.length < 2 || d.choice.options.length > 3)) errors.push(`面談 ${d.id}: 選択肢が${d.choice.options.length}個（2〜3）`);
+  for (const f of [...condFlags(d.when), ...[...d.lines, ...(d.choice?.options.flatMap((o) => o.lines) ?? [])].flatMap((l) => sayFlags(l.say))]) if (!IV_FLAGS.has(f)) errors.push(`面談 ${d.id}: 未知の目印 "${f}"`);
   const lines = [...d.lines, ...(d.choice?.options.flatMap((o) => o.lines) ?? [])];
   for (const l of lines) for (const k of keysOf(l.say)) {
     if (l.by === 'n') { if (!IV_NARR[k]) errors.push(`面談 ${d.id}: 地の文 "${k}" がない`); else checkText(`IV_NARR.${k}`, IV_NARR[k]); }
@@ -72,7 +84,9 @@ console.log(`支援会話: ${TALKS.length} 本 / 話題: ${byTopic.size} 種 / �
 console.log(`  平均セリフ数 C ${avg(lineCount('C'))}・B ${avg(lineCount('B'))}・A ${avg(lineCount('A'))}`);
 for (const [topic, ranks] of byTopic) console.log(`  ${topic.padEnd(12)} ${ranks.join(' ')}`);
 console.log(`分岐で使わないため空にしてある文面: ${emptyCount} 件`);
-console.log(`面談: ${INTERVIEWS.length} 種 / 先生のセリフ: ${Object.keys(TEACHER_PHRASES).length} 件`);
+const ivTopics = new Map<string, number>();
+for (const d of INTERVIEWS) ivTopics.set(d.topic, (ivTopics.get(d.topic) ?? 0) + 1);
+console.log(`面談: ${INTERVIEWS.length} 種（${[...ivTopics].map(([k, v]) => `${k} ${v}`).join('・')}、選択肢つき ${INTERVIEWS.filter((d) => d.choice).length}）/ 先生のセリフ: ${Object.keys(TEACHER_PHRASES).length} 件（卒業生の先生用 ${Object.keys(TEACHER_PHRASES).filter((k) => k.endsWith('_alum')).length}）`);
 if (byTopic.size < 20 || byTopic.size > 30) errors.push(`話題が${byTopic.size}種（20〜30種）`);
 if (unused.length) console.log(`警告：どこからも参照されない意味ID: ${unused.join(', ')}`);
 if (errors.length) {

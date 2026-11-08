@@ -280,6 +280,8 @@ export const B = {
     // エンディングのあと「この学校を続ける」と平和な時代。まれに再び戦争
     peaceEraRel: 30, relapseChance: 0.02,
   },
+  // ---- 面談：直近の面談と同じ話題は避ける（記録の新しいほうから何件） ----
+  interview: { avoidRecent: 4 },
   // ---- 副教官（学年の担任） ----
   vice: { minYears: 1, max: 3, tutorMul: 0.7, tutorPerVice: 1 },
   // ---- 演出（ミリ秒）。設定の「演出の速さ」「敵ターンの速さ」で倍率がかかる ----
