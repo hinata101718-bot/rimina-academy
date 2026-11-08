@@ -5,7 +5,7 @@ FE風の士官学校育成SRPG（スマホ縦画面のブラウザゲーム、Gi
 ## 正本
 - 何を作るか：`docs/design.md`
 - 依頼者の意図（ヒアリング原文）：`docs/hearing.md`
-- 今回の作業：いちばん新しい `docs/nightN.md`（今は `docs/night3.md`）
+- 今回の作業：いちばん新しい `docs/nightN.md`（今は `docs/night4.md`）
 - 遊んだ感想：`docs/feedback.md`
 - これまでの報告：`docs/reports/`
 
