@@ -12,6 +12,9 @@ import { careerTitleOnly } from './discovery';
 import { titleOf } from './alumni';
 import { Rng } from './rng';
 import { startSeed } from './ending';
+import { round5 } from './growth';
+import { startNewsDesk } from './newspaper';
+import { STATS } from '../data/balance';
 
 export interface SaveFile { app: 'rimina-academy'; version: number; savedAt: number; state: GameState }
 
@@ -37,6 +40,7 @@ export function migrate(s: GameState, from: number): GameState {
   if (from < 5) migrateTo5(s);
   if (from < 6) migrateTo6(s);
   if (from < 7) migrateTo7(s);
+  if (from < 8) migrateTo8(s);
   s.heirs ??= [];
   s.archive ??= {};
   s.notices ??= [];
@@ -213,4 +217,32 @@ function migrateTo7(s: GameState): void {
   s.today = null;
   s.pending ??= [];
   s.pending.push({ type: 'event', title: '体力は先生だけになりました', lines: ['生徒の体力（疲労）と体調不良はなくなりました。', '授業は先生の体力を使います。武器の授業は多め、頭と心の授業は少なめ、交流は少し。休講で大きく回復します。', '先生の体力が低いと授業の効果が少し落ち、0になると数日寝込んで自動で休講になります。体力のゲージは授業カードの画面に出ています。'] });
+}
+
+/**
+ * 7夜目の版（version 7）→ 8夜目の版（version 8）：見た目と先生
+ * - 先生の経験ポイントと特殊能力：今の技能はそのまま、ポイントは0から、特殊能力はまだなし
+ * - 生徒本人の成長率を5%きざみに（近い5の倍数へ四捨五入。5〜95%）
+ * - 兵種図鑑：今いる生徒・卒業生の兵種を「なったことがある」に
+ * - 新聞は半年に一回（9月の終わりの前期号・3月の後期号）。次の号に載せる出来事のメモを始める
+ */
+function migrateTo8(s: GameState): void {
+  const ins = s.instructor;
+  ins.xp ??= 0; ins.xpTotal ??= 0; ins.abilities ??= []; ins.inherited ??= [];
+  for (const st of [...Object.values(s.students ?? {}), ...(s.applicants ?? [])]) {
+    for (const k of STATS) st.growth[k] = Math.max(5, Math.min(95, round5(st.growth[k] ?? 0)));
+    if (st.growthKnown) st.growthSeen = true;
+  }
+  s.classSeen = [...new Set(Object.values(s.students ?? {}).map((st) => st.classId))];
+  if (!s.newsDesk) startNewsDesk(s);
+  s.pending ??= [];
+  s.pending.push({
+    type: 'event', title: '8夜目の新しいこと',
+    lines: [
+      '画面が「教官の机」になりました。机の上の地図・手帳・書状・新聞・写真が、それぞれの画面の入口です。',
+      '先生も授業で経験ポイントを得るようになりました。教官手帳の「教官」から、先生の技能と特殊能力（20種）を上げられます。今の技能はそのままで、ポイントは0からです。',
+      '個人ページに成長率の内わけ（本人＋兵種＋才能・特徴＝合計）が出ます。生徒本人の成長率は5%きざみになりました（近い数に丸めています）。名簿の「図鑑」から兵種図鑑が見られます。',
+      '新聞は半年に一回（9月の終わりの前期号・3月の後期号）になりました。大事件の月は号外が出ます。',
+    ],
+  });
 }

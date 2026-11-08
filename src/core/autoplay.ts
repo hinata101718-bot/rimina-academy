@@ -5,6 +5,8 @@ import type { SkillId } from './types';
 import { recommendCard, todayCards } from './lessons';
 import type { GameState, Student } from './state';
 import { enrolled, available, deployLimit, capacity } from './game';
+import { autoSpend } from './mentor';
+import { instructorCaps, goodSkillsOf } from './instructor';
 import { chooseLesson, startBattle, finishBattle, finishCareers, admit, autoAdmitIds, battleCtx, rng, ensureReinforcementFactory, startAutoQuest } from './flow';
 import { defaultPlan, skipAuto, type AutoChoice } from './battle/auto';
 import { autoPlayerPhase, endPlayerPhase, rewind, canRewind } from './battle/engine';
@@ -242,6 +244,8 @@ export function autoManage(s: GameState): void {
     const g = [1, 2, 3].find((x) => !(s.vice ?? []).some((v) => v.grade === x));
     if (g) setVice(s, t.id, g, 'balance');
   }
+  // 先生の経験ポイント（8夜目）：特殊能力を優先し、余れば得意科目の技能
+  autoSpend(s, instructorCaps(s), goodSkillsOf(s));
   void capacity; void B;
 }
 

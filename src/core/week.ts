@@ -15,6 +15,7 @@ import { buildInterview, consultFlag, specialInterview } from './interview';
 import type { InterviewTopic } from '../data/talks/interviews';
 import { examCandidates } from './exam';
 import { viceOf, viceTargets } from './instructor';
+import { fx } from './mentor';
 
 export type Policy = 'balance' | 'talent' | 'dream' | 'combat';
 
@@ -149,7 +150,7 @@ export function interviewStudent(s: GameState, rng: Rng, st: Student, consult: b
   let topic: InterviewTopic = 'recent';
   const flags: string[] = [];
   if (st.dropoutSign) {
-    st.dropoutSign.talksNeeded -= 1;
+    st.dropoutSign.talksNeeded -= fx(s, 'retainOne') > 0 ? 99 : 1;
     topic = 'retain';
     flags.push(`reason_${st.dropoutSign.reason}`);
     if (st.dropoutSign.talksNeeded <= 0) {
@@ -178,7 +179,7 @@ export function interviewStudent(s: GameState, rng: Rng, st: Student, consult: b
     revealTalent(s, st, 3, out);
   }
   changeMotivation(st, 1);
-  addTrust(st, B.tutoring.talkTrust + (consult ? 3 : 0));
+  addTrust(st, (B.tutoring.talkTrust + (consult ? 3 : 0)) * (1 + fx(s, 'interviewTrust')));
   st.lastAttention = s.absWeek;
   const talk = buildInterview(s, rng, st, topic, flags);
   return { lines: out, talk };

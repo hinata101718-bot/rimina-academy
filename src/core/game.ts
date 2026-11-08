@@ -12,6 +12,8 @@ import { ensureRosters } from './officers';
 import { reputationRankUp } from './discovery';
 import { rollQuests } from './quests';
 import { autoTargets } from './week';
+import { fx } from './mentor';
+import { startNewsDesk } from './newspaper';
 
 export function defaultSettings(): Settings {
   return {
@@ -71,6 +73,7 @@ export function newGame(opts: { name: string; background: string; seed: number; 
   // 敵将の名簿（6夜目）
   s.officers = []; s.rivalries = {};
   ensureRosters(s, r);
+  startNewsDesk(s);
   s.quests = rollQuests(s);
   return s;
 }
@@ -122,14 +125,14 @@ export function addMoney(s: GameState, amount: number): void {
 }
 export function addRep(s: GameState, d: number): void {
   const before = s.reputation;
-  addRepRaw(s, d);
+  addRepRaw(s, d > 0 ? d * (1 + fx(s, 'repMul')) : d);
   if (s.reputation > before) reputationRankUp(s, before, s.reputation);
 }
 function addRepRaw(s: GameState, d: number): void {
   s.reputation = clamp(Math.round((s.reputation + d) * 10) / 10, 0, B.school.reputationMax);
 }
 export function addFriendship(s: GameState, c: CountryId, d: number): void {
-  s.world.friendship[c] = clamp(s.world.friendship[c] + d, -50, 100);
+  s.world.friendship[c] = clamp(s.world.friendship[c] + (d > 0 ? d * (1 + fx(s, 'friendMul')) : d), -50, 100);
 }
 export function chronicle(s: GameState, text: string, kind: 'school' | 'world' | 'student' = 'school'): void {
   s.chronicle.push({ year: s.year, month: s.month, text, kind });

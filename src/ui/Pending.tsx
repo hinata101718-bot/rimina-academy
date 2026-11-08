@@ -269,7 +269,7 @@ function Career({ s }: { s: GameState }) {
         const h = hopes(s, st).filter((x) => availableChoices(st).includes(x));
         return (
           <div class="card">
-            <StuRow st={st} onClick={() => undefined} sub={`信頼${Math.round(st.trust)}・推薦を受け入れる確率${Math.round(acceptRate(st))}%`} />
+            <StuRow st={st} onClick={() => undefined} sub={`信頼${Math.round(st.trust)}・推薦を受け入れる確率${Math.round(acceptRate(st, s))}%`} />
             <div class="small">声かけ：{st.offers.length ? st.offers.map((c) => COUNTRY_SHORT[c]).join('・') : 'なし'}</div>
             <div class="small">本人の希望：{h.slice(0, 3).map((x) => CHOICE_NAMES[x]).join(' ＞ ')}</div>
             <div class="row">推薦：

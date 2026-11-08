@@ -113,6 +113,8 @@ export interface Student {
   train?: Partial<Stats>;
   /** 鍛錬ゲージで上がった能力の合計（個人ページ・シミュレーション用） */
   trainGain?: Partial<Stats>;
+  /** 成長率が分かったあと、個人ページで「埋まる演出」を見た（8夜目） */
+  growthSeen?: boolean;
   /** 体調を崩して休む残りの日数（7夜目。週単位の sickWeeks は古いセーブ用） */
   sickDays?: number;
 }
@@ -180,6 +182,12 @@ export interface Instructor {
   /** 先生の体力（7夜目）と、寝込んでいる残りの日数 */
   stamina?: number;
   sickDays?: number;
+  /** 先生の経験ポイント（8夜目）：今持っている分と、これまでの合計 */
+  xp?: number;
+  xpTotal?: number;
+  /** 覚えた特殊能力（data/mentor.ts の id）と、そのうち先代から受け継いだもの */
+  abilities?: string[];
+  inherited?: string[];
 }
 
 export interface WorldState {
@@ -237,7 +245,31 @@ export interface Quest {
 
 export interface Mail { id: string; year: number; month: number; from: string; title: string; body: string; read: boolean; studentId?: string }
 
-export interface NewsPaper { id: string; year: number; month: number; headline: string; body: string[]; alumni: { id: string; text: string }[]; tension: number }
+export interface NewsPaper {
+  id: string; year: number; month: number; headline: string; body: string[]; alumni: { id: string; text: string }[]; tension: number;
+  /** 8夜目：前期号（9月の終わり）・後期号（3月）・号外（大事件の月、1面だけ）。古い新聞は undefined */
+  kind?: 'first' | 'second' | 'extra';
+  /** 一面：見出し（2行目は sub）・記事・挿絵の差し込み口の名前（public/art） */
+  front?: { head: string; sub?: string; text: string; art?: string };
+  /** 各組織の移り変わり（昇進・討死・争い・二つ名・抜擢・引退）。officerId で組織図へ */
+  orgs?: { tag: string; text: string; name?: string; officerId?: string }[];
+  /** 政治の動き：三国の方針と出来事 */
+  politics?: { country: string; stance: string; text: string }[];
+  /** 緊張度と和平のゲージ（0〜100）と、その言葉 */
+  gauges?: { tension: number; tensionLabel: string; peace: number; peaceLabel: string };
+  /** 学校の話題 */
+  school?: string[];
+  /** 次号の案内 */
+  next?: string;
+}
+/** 次の号に載せるための控え（前の号を出したときの世の中のようす）。8夜目 */
+export interface NewsDesk {
+  year: number; month: number;
+  power: Record<CountryId, number>;
+  relations: { ke: number; ea: number; ak: number };
+  tension: number; reputation: number;
+  officers: Record<string, { st: string; rk: number; ep: string }>;
+}
 
 export interface ChronicleEntry { year: number; month: number; text: string; kind: 'school' | 'world' | 'student' }
 
@@ -319,7 +351,7 @@ export type EndingKind = 'peace' | 'unify' | 'ceasefire' | 'neutral';
 export type Pending =
   | { type: 'weekSummary'; lines: string[]; talks: TalkLog[]; growth?: GrowthEntry[] }
   /** 授業の結果（7夜目）。others＝顔が出ていない子の人数 */
-  | { type: 'lessonResult'; lesson: string; day: number; faces: string[]; tags: [string, string][]; rows: LessonRow[]; events: LessonEvent[]; growth: GrowthEntry[]; lines: string[]; talks: TalkLog[]; others: number }
+  | { type: 'lessonResult'; lesson: string; day: number; faces: string[]; tags: [string, string][]; rows: LessonRow[]; events: LessonEvent[]; growth: GrowthEntry[]; lines: string[]; talks: TalkLog[]; others: number; /** 先生の経験ポイント（8夜目） */ xp?: number }
   | { type: 'questBoard' }
   | { type: 'battleResult'; lines: string[]; grades: { id: string; grade: string; note: string }[]; win: boolean; growth?: GrowthEntry[]; mvp?: string; review?: string[]; title?: string; findings?: BattleFinding[]; officerId?: string }
   | { type: 'event'; title: string; lines: string[] }
@@ -442,6 +474,8 @@ export interface GameState {
   world: WorldState;
   mail: Mail[];
   news: NewsPaper[];
+  /** 新聞の控え（8夜目） */
+  newsDesk?: NewsDesk;
   chronicle: ChronicleEntry[];
   photos: Photo[];
   cohortCount: number;
@@ -458,6 +492,8 @@ export interface GameState {
   declinedSuccessors?: string[];
   /** 因縁の敵将（逃した敵将。5夜目） */
   nemeses?: Nemesis[];
+  /** 兵種図鑑：生徒か卒業生が一度でもなった兵種（8夜目） */
+  classSeen?: string[];
   /** 敵将の名簿（6夜目。因縁の敵将もここに入る） */
   officers?: EnemyOfficer[];
   /** 生徒と敵将の因縁（キーは 生徒id|敵将id） */

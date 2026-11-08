@@ -5,6 +5,8 @@ import type { CountryId } from './types';
 import type { GameState, Student } from './state';
 import { Rng } from './rng';
 import { clamp, relKey } from './util';
+import { addFriendship } from './game';
+import { extraEdition } from './newspaper';
 import { yearlyExhaustion, yearlyUnifyCount, neutralProgress } from './ending';
 
 export type Stage = 'peace' | 'tension' | 'war';
@@ -147,8 +149,8 @@ export function majorEvents(s: GameState, rng: Rng, yearEnd: boolean): string[] 
   const fire = (title: string, lines: string[]) => {
     out.push(title);
     s.chronicle.push({ year: s.year, month: s.month, text: title, kind: 'world' });
-    s.pending.push({ type: 'event', title, lines });
-    pushEventNews(s, title, lines);
+    // 8夜目：大事件の月は号外（1面だけ）。同じ月の事件は同じ号外にまとめる
+    extraEdition(s, title, lines);
   };
   // 1. 銃の登場
   if (!w.gunUnlocked && s.year >= w.gunYear && (yearEnd || rng.chance(0.15))) {
@@ -270,18 +272,13 @@ export function neutralAlmost(s: GameState): boolean {
   return neutralProgress(s).filter((x) => !x.defense).every((x) => x.ok);
 }
 
-function pushEventNews(s: GameState, title: string, lines: string[]) {
-  s.news.unshift({ id: `news${s.nextId++}`, year: s.year, month: s.month, headline: title, body: lines, alumni: [], tension: Math.round(s.world.tension) });
-  if (s.news.length > 60) s.news.length = 60;
-}
-
 /** 実戦依頼の結果による小さな変動 */
 export function questWorldEffect(s: GameState, client: CountryId | null, enemy: CountryId | null, win: boolean): string[] {
   const out: string[] = [];
   if (!client) return out;
   if (win) {
     addPower(s, client, B.quests.powerUp);
-    s.world.friendship[client] = clamp(s.world.friendship[client] + B.quests.friendshipUp, -50, 100);
+    addFriendship(s, client, B.quests.friendshipUp);
     out.push(`${COUNTRY_SHORT[client]}との友好度+${B.quests.friendshipUp}`);
     if (enemy) { addPower(s, enemy, -B.quests.powerUp); }
     for (const o of COUNTRIES) if (o !== client && atWar(s, client, o)) { s.world.friendship[o] = clamp(s.world.friendship[o] - B.quests.enemyFriendshipDown, -50, 100); out.push(`${COUNTRY_SHORT[o]}との友好度−${B.quests.enemyFriendshipDown}`); }

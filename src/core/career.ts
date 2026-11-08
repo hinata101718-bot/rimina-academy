@@ -11,6 +11,7 @@ import { Rng } from './rng';
 import { effectiveStats, chronicle, addFriendship, enrolled } from './game';
 import { addTrust } from './support';
 import { bestSkillOf } from './teachers';
+import { fx } from './mentor';
 
 export type CareerChoice = CountryId | 'stay' | 'home' | 'merc';
 export const CHOICE_NAMES: Record<CareerChoice, string> = {
@@ -69,7 +70,7 @@ export function availableChoices(st: Student): CareerChoice[] {
   return [...st.offers, 'stay', 'home', 'merc'];
 }
 
-export function acceptRate(st: Student): number { return Math.min(100, B.career.acceptBase + st.trust * B.career.acceptPerTrust); }
+export function acceptRate(st: Student, s?: GameState): number { return Math.min(100, B.career.acceptBase + st.trust * B.career.acceptPerTrust + fx(s, 'careerAccept')); }
 
 export function prepareCareers(s: GameState, rng: Rng): void {
   for (const st of enrolled(s).filter((x) => x.grade === 3)) st.offers = computeOffers(s, rng, st);
@@ -86,7 +87,7 @@ export function graduate(s: GameState, rng: Rng, plans: CareerPlan[]): { id: str
     const top = hope[0] ?? 'home';
     let choice: CareerChoice; let mood: 'match' | 'forced' | 'own';
     if (plan.recommend === top) { choice = top; mood = 'match'; }
-    else if (rng.next() * 100 < acceptRate(st)) { choice = plan.recommend; mood = 'forced'; }
+    else if (rng.next() * 100 < acceptRate(st, s)) { choice = plan.recommend; mood = 'forced'; }
     else { choice = top; mood = 'own'; }
     const growthMul = mood === 'match' ? B.career.matchGrowth : mood === 'forced' ? B.career.forcedGrowth : 0;
     const kind: CareerInfo['kind'] = choice === 'stay' || choice === 'home' || choice === 'merc' ? choice : 'army';

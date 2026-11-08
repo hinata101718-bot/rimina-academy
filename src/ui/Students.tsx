@@ -29,12 +29,14 @@ import { WEAPONS } from '../data/weapons';
 import { rivalriesOf, officerById, officerName, stageName, factionName, rankName } from '../core/officers';
 import { FACTION_COLOR } from '../data/officers';
 import { OfficerSheet } from './Officers';
+import { ClassMods, ClassCompare, GrowthTable, ClassBook } from './ClassInfo';
 
 export function StudentsTab() {
   const { s, route } = useStore();
   if (!s) return null;
   if (route.page === 'detail' && route.id && s.students[route.id]) return <Detail s={s} st={s.students[route.id]} />;
   if (route.page === 'exam') return <ExamList s={s} />;
+  if (route.page === 'classbook') return <ClassBook s={s} />;
   return <Roster s={s} />;
 }
 
@@ -49,7 +51,7 @@ function Roster({ s }: { s: GameState }) {
   list = [...list].sort((a, b) => sort === 'level' ? b.level - a.level : sort === 'mood' ? a.motivation - b.motivation : sort === 'fatigue' ? b.fatigue - a.fatigue : a.grade - b.grade);
   return (
     <div>
-      <SecTitle right={<button class="btn small" onClick={() => navigate({ tab: 'students', page: 'exam' })}><Icon name="exam" size={16} /> 兵種試験{exams.size ? `（${exams.size}）` : ''}</button>}>生徒名簿<span class="cnt">{enrolled(s).length}人</span></SecTitle>
+      <SecTitle right={<span class="row nowrap gap4"><button class="btn small" onClick={() => navigate({ tab: 'students', page: 'classbook' })}><Icon name="book" size={16} /> 図鑑</button><button class="btn small" onClick={() => navigate({ tab: 'students', page: 'exam' })}><Icon name="exam" size={16} /> 兵種試験{exams.size ? `（${exams.size}）` : ''}</button></span>}>生徒名簿<span class="cnt">{enrolled(s).length}人</span></SecTitle>
       <div class="pills">
         {[[0, '全学年'], [1, '1年'], [2, '2年'], [3, '3年'], [9, '★気にかける']].map(([g, label]) => <button class={grade === g ? 'on' : ''} onClick={() => { sfx('move'); setGrade(g as number); }}>{label}</button>)}
       </div>
@@ -154,13 +156,20 @@ function Detail({ s, st }: { s: GameState; st: Student }) {
           </div>
           {st.status === 'enrolled' && <DiscoverCard st={st} />}
           <div class="card">
+            <h3>成長率（レベルアップでの伸びやすさ）</h3>
+            <GrowthTable s={s} st={st} />
+          </div>
+          <div class="card">
             <h3>能力</h3>
             <div class="statlist">
-              {STATS.map((k) => (
-                <div class="statrow"><span>{STAT_NAMES[k]}</span><b>{es[k]}</b><span class="bonus">{es[k] !== st.stats[k] ? `${es[k] - st.stats[k] >= 0 ? '+' : ''}${es[k] - st.stats[k]}` : ''}</span><Gauge v={es[k]} max={k === 'hp' ? capHp : cap} thin /><span class="gr">成長 {st.growthKnown ? `${gr[k]}%` : '？'}</span></div>
-              ))}
+              <div class="statrow sr-head"><span /><b /><span class="bonus">兵種</span><span class="small muted">（{cls.name}）</span><span class="gr">伸びやすさ</span></div>
+              {STATS.map((k) => {
+                const b = es[k] - st.stats[k];
+                const g = (cls.growth as Partial<Record<string, number>>)[k] ?? 0;
+                return <div class="statrow"><span>{STAT_NAMES[k]}</span><b>{es[k]}</b><span class={`bonus ${b > 0 ? 'up' : b < 0 ? 'down' : ''}`}>{b ? `${b > 0 ? '+' : '−'}${Math.abs(b)}` : ''}</span><Gauge v={es[k]} max={k === 'hp' ? capHp : cap} thin /><span class={`gr ${g > 0 ? 'up' : g < 0 ? 'down' : ''}`}>{g ? `${g > 0 ? '+' : '−'}${Math.abs(g)}%` : ''}</span></div>;
+              })}
             </div>
-            <div class="small muted">＋の数字は兵種による補正です。</div>
+            <ClassMods c={cls} />
             {!grad && (
               <div class="traingrid">
                 <div class="small"><b>鍛錬ゲージ</b><span class="muted">（授業でたまり、満タンで+1。顔が出ている授業ほど早くたまる）</span></div>
@@ -291,6 +300,9 @@ function ExamList({ s }: { s: GameState }) {
                   {Object.entries(c.req).map(([k, r]) => { const have = st.skills[k as SkillId] >= RANK_POINTS[r as Rank]; return <div class="checkline"><span class={have ? 'ok' : 'ng'}>{have ? '✓' : '×'}</span>{SKILL_NAMES[k as SkillId]} {r}{have ? '' : ' が必要'}（いま {rankOf(st.skills[k as SkillId])}）</div>; })}
                   {miss.filter((m) => !m.startsWith('Lv') && !m.includes('が必要（いま')).length > 0 && <div class="small" style={{ color: 'var(--accent)' }}>{miss.filter((m) => !m.startsWith('Lv') && !m.includes('が必要（いま')).join('／')}</div>}
                   <div class="small muted">{c.desc}{c.ability && ABILITIES[c.ability] ? `　スキル「${ABILITIES[c.ability].name}」：${ABILITIES[c.ability].desc}` : ''}</div>
+                  <div class="small" style={{ marginTop: 4 }}><b>{CLASSES[st.classId].name} → {c.name}</b>に変わると</div>
+                  <ClassCompare from={CLASSES[st.classId]} to={c} />
+                  <div class="small muted">「いるあいだ」の補正は入れ替わり、伸びやすさで伸びた分は残ります。</div>
                 </div>
               );
             })}

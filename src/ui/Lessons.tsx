@@ -188,6 +188,7 @@ function LessonRows({ s, p, onNext, label }: { s: GameState; p: ResultP; onNext:
         <div class="grow"><div class="small muted">{DAY_NAMES[p.day - 1]}曜日の授業</div><b class="serif" style={{ fontSize: 20 }}>{l?.name}</b></div>
         {p.tags.length > 0 && <span class="lc-tag">✦ 友情タッグ</span>}
       </div>
+      {(p.xp ?? 0) > 0 && <div class="lr-xp" onClick={() => undefined}><Icon name="scroll" size={15} /> 教官の経験 <b>+{p.xp}pt</b><span class="muted small">（いま {Math.floor(s.instructor.xp ?? 0)}pt）</span></div>}
       {rows.map((r) => <ResultRow s={s} r={r} go={go} dur={dur} />)}
       {p.others > 0 && l?.group !== 'rest' && <div class="muted small" style={{ margin: '4px 2px' }}>ほかの{p.others}人も少しずつ伸びた</div>}
       {p.lines.length > 0 && <ul class="list sumlist small">{p.lines.slice(0, 10).map((x) => <li>{x}</li>)}</ul>}

@@ -1,7 +1,7 @@
 // バランス値。ゲームの数値はすべてここに集める（設計書の「ふつう」が初期値）。
 import type { Rank, SkillId, StatId } from '../core/types';
 
-export const SAVE_VERSION = 7;
+export const SAVE_VERSION = 8;
 
 export const RANKS: Rank[] = ['E', 'E+', 'D', 'D+', 'C', 'C+', 'B', 'B+', 'A', 'A+', 'S'];
 export const RANK_POINTS: Record<Rank, number> = {
@@ -344,6 +344,17 @@ export const B = {
   talkWhole: { weight: 3, interviewChance: 0.7 },
   // ---- 面談：直近の面談と同じ話題は避ける（記録の新しいほうから何件） ----
   interview: { avoidRecent: 4 },
+  // ---- 先生の経験ポイントと特殊能力（8夜目）。7夜目の「教えるほど自動で上がる」を置き換えた（雇った講師・卒業生講師は自動のまま） ----
+  mentor: {
+    // 1回の授業でもらえる経験ポイント：基本＋顔の子1人ごと＋友情タッグ1組ごと＋ランクアップ・レベルアップした子1人ごと（上限つき）
+    xpBase: 4, xpSocial: 3, xpRest: 0, xpFace: 1, xpTag: 2, xpGrow: 2, xpGrowMax: 8,
+    // 特殊能力の値段（小・中・大）。覚えるたびに次が少しずつ高くなる（1つごとに+30%）
+    cost: { S: 300, M: 500, L: 800 } as Record<string, number>, costGrowth: 0.3,
+    // 技能：次のランクまでの技能ポイント1につき、経験ポイント3
+    skillCostPerPt: 3,
+    // 後継の教官が受け継ぐ特殊能力の数（教え子が継ぐと2つ、外から来た教官は1つ）
+    inheritAlumni: 2, inheritExternal: 1,
+  },
   // ---- 副教官（学年の担任） ----
   vice: { minYears: 1, max: 3, tutorMul: 0.7, tutorPerVice: 1 },
   // ---- 演出（ミリ秒）。設定の「演出の速さ」「敵ターンの速さ」で倍率がかかる ----

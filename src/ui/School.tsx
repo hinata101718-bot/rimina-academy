@@ -20,6 +20,7 @@ import type { GameState, WeekendAction } from '../core/state';
 import { sfx } from './sound';
 import { Icon } from './icons';
 import { MonthCalendar, ArtSlot } from './HomeDeco';
+import { InstructorPage } from './Mentor';
 import { SkillBox, skillIcon, countryColor, LvBadge, ClassName, MoodDots, FatigueBar, Gauge, NameLine, MiniCard, Num, Chip, studentFlags } from './cards';
 import { supportRank, supportValue } from '../core/support';
 
@@ -219,64 +220,4 @@ function Mailbox({ s }: { s: GameState }) {
 
 export { Portrait, Bar };
 
-const BG_NAMES: Record<string, string> = { knight: '元王国騎士', merc: '元帝国の傭兵', mage: '元同盟の宮廷魔道士', wanderer: '流れの旅人' };
-
-function InstructorPage({ s }: { s: GameState }) {
-  const ins = s.instructor;
-  const caps = instructorCaps(s);
-  const good = new Set(goodSkillsOf(s));
-  const elig = viceEligible(s);
-  const grades = [1, 2, 3];
-  const me = ins.studentId ? s.students[ins.studentId] : null;
-  return (
-    <div>
-      <Back to={() => navigate({ tab: 'school' })} />
-      <div class="pcard" style={{ ['--band' as string]: me ? countryColor(me.origin) : 'var(--main)' }}>
-        <div class="hero">
-          <div class="hero-face"><TeacherFace s={s} size={84} /><span class="lvbadge">{ins.generation}代目</span></div>
-          <div class="grow">
-            <div class="nameline"><b class="given" style={{ fontSize: 22 }}>{ins.name}</b><span class="family">先生</span></div>
-            <div class="small">{BG_NAMES[ins.background] ?? ''}{me ? `（${me.cohort}期生）` : ''}</div>
-            <div class="infogrid"><div>年齢 <Num v={ins.age} unit="歳" /></div><div>在任 <Num v={s.year - (ins.since ?? 1)} unit="年" /></div><div>教えた生徒 <Num v={ins.experience} unit="人" /></div><div>魅力 <Num v={ins.cha} /></div></div>
-            {ins.age >= B.instructor.retireMin && <div class="small muted">{B.instructor.retireMin}歳を過ぎたので、年度末に引退を選べます（{B.instructor.retireMax}歳で必ず引退）。</div>}
-          </div>
-        </div>
-      </div>
-      <div class="card">
-        <h3>教官の技能ランク</h3>
-        <div class="muted small">教えるほど少しずつ上がります（学年の重点科目にした週・個人指導で教えた回数）。上限は得意科目（★）が S、それ以外が B です。</div>
-        <div class="skillgrid" style={{ marginTop: 6 }}>{SKILLS.filter((k) => skillUnlocked(s, k)).map((k) => <div><SkillBox k={k} p={ins.skills[k] ?? 0} target={good.has(k)} /><div class="small muted" style={{ textAlign: 'right' }}>{good.has(k) ? '★' : ''}上限{rankOf(caps[k])}</div></div>)}</div>
-      </div>
-      <div class="card">
-        <h3>副教官（学年の担任）</h3>
-        <div class="muted small">学校に残った卒業生の講師（講師になって{B.vice.minYears}年以上）を、1学年の担任にできます。担任は方針に沿って、担当学年の目標技能・重点科目・週末の過ごし方を自動で組み、毎週1人に個人指導をします（伸びは教官より少し小さめ）。教官はいつでも上書きできます。戦闘の指揮は任せません。</div>
-        {grades.map((g) => {
-          const v = viceOf(s, g);
-          return (
-            <div class="pcard" style={{ ['--band' as string]: v ? countryColor(v.st.origin) : '#cfc6b2', margin: '8px 0' }}>
-              <div class="row between nowrap"><b>{g}年生の担任</b>{v && <button class="btn ghost small" onClick={() => act((x) => removeVice(x, g))}>外す</button>}</div>
-              {v ? (
-                <>
-                  <div class="row nowrap gap8" style={{ marginTop: 4 }}><Portrait st={v.st} size={44} frame={countryColor(v.st.origin)} /><div class="grow"><b>{v.t.name}</b>　<span class="small">{SKILL_NAMES[v.t.skill]} {rankOf(v.t.points)}・{PERSONALITIES[v.st.personality].name}</span></div></div>
-                  <div class="seg" style={{ marginTop: 6 }}>{(Object.keys(VICE_POLICY_NAMES) as VicePolicy[]).map((p) => <button class={v.v.policy === p ? 'on' : ''} onClick={() => act((x) => { const y = (x.vice ?? []).find((z) => z.grade === g); if (y) y.policy = p; })}>{VICE_POLICY_NAMES[p]}</button>)}</div>
-                </>
-              ) : (
-                <div class="row" style={{ marginTop: 4 }}>
-                  {elig.filter((t) => !(s.vice ?? []).some((x) => x.teacherId === t.id)).map((t) => <button class="btn small" onClick={() => { sfx('ok'); act((x) => setVice(x, t.id, g, 'balance')); }}>{t.name}に任せる</button>)}
-                  {!elig.filter((t) => !(s.vice ?? []).some((x) => x.teacherId === t.id)).length && <span class="muted small">任せられる講師がいません（卒業生が「学校に残る」と講師になり、1年たつと担任にできます）</span>}
-                </div>
-              )}
-            </div>
-          );
-        })}
-      </div>
-      {(s.pastInstructors ?? []).length > 0 && (
-        <div class="card">
-          <h3>歴代の教官</h3>
-          {(s.pastInstructors ?? []).map((p) => <div class="row between small ruled"><span>{p.generation}代目 <b>{p.name}</b>（{BG_NAMES[p.background] ?? ''}）</span><span class="muted">{p.from}〜{p.to}年目・延べ{p.taught}人</span></div>)}
-          <div class="row between small ruled"><span>{ins.generation}代目 <b>{ins.name}</b>（在任中）</span><span class="muted">{ins.since ?? 1}年目〜</span></div>
-        </div>
-      )}
-    </div>
-  );
-}
+export { InstructorPage } from './Mentor';

@@ -10,6 +10,8 @@ import { rankOf, emptySkills, clamp } from './util';
 import { chronicle, notify, enrolled, available, effectiveStats, addFriendship } from './game';
 import { rankPoints } from './world';
 import { CLASSES } from '../data/classes';
+import { inheritAbilities } from './mentor';
+import { MENTOR_BY_ID } from '../data/mentor';
 
 // ---------------------------------------------------------------
 // ③ 教官の技能が教えるほど上がる
@@ -52,22 +54,12 @@ function growSkill(rec: { skills?: Record<SkillId, number>; points?: number }, k
 }
 
 /**
- * 授業の日に呼ぶ（7夜目）：選んだ授業の技能が、教官に少しずつ身につく（上限は得意科目S・ほかB）。
- * 雇った講師・卒業生講師も、自分の科目の授業の日に少しずつ上がる（上限A）。
+ * 授業の日に呼ぶ：雇った講師・卒業生講師が、自分の科目の授業の日に少しずつ上がる（上限A）。
+ * 教官は8夜目から、授業でたまる経験ポイントで技能を上げる（core/mentor.ts）。
  */
 export function growTeacherSkill(s: GameState, k: SkillId, amount: number, lines?: string[]): void {
   if (k === 'gun' && !s.world.gunUnlocked) return;
-  const ins = s.instructor;
-  const caps = instructorCaps(s);
   const I = B.instructor;
-  const b0 = ins.skills[k] ?? 0;
-  const up = growSkill(ins, k, amount, caps[k]);
-  if (up) {
-    skillRankUp(s, `教官（${ins.name}）`, k, b0, ins.skills[k]);
-    const text = `教官（${ins.name}）の${SKILL_NAMES[k]}が ${up[1]} になった`;
-    notify(s, text); lines?.push(text);
-    if (up[1].replace('+', '') !== up[0].replace('+', '')) chronicle(s, text, 'school');
-  }
   const tcap = RANK_POINTS[I.teacherCap];
   for (const t of s.teachers) {
     if (t.skill !== k || t.points >= tcap) continue;
@@ -181,12 +173,14 @@ export function becomeInstructor(s: GameState, rng: Rng, st: Student): void {
   c.kind = 'stay'; c.country = null; c.retired = false; c.front = false; c.instructor = true;
   const bg = backgroundFor(st, country);
   const skills = { ...st.skills };
+  const prev = s.instructor;
   const ins: Instructor = {
     name: st.given, background: bg, age: st.age, experience: 0, skills,
     cha: effectiveStats(st).cha, generation: s.instructor.generation + 1, studentId: st.id, since: s.year,
   };
   s.instructor = ins;
   ins.caps = undefined; instructorCaps(s);
+  inheritAbilities(prev, ins, rng, true);
   if (country) addFriendship(s, country, B.instructor.newFriendship);
   st.history.push({ year: s.year, text: `リミナ分校の${ins.generation}代目教官になった` });
   chronicle(s, `${st.cohort}期生の${st.given}が${ins.generation}代目教官に就任`, 'school');
@@ -212,8 +206,10 @@ export function externalSuccessor(s: GameState, rng: Rng): void {
   const name = rng.pick(male ? NAMES[origin].male : NAMES[origin].female);
   const skills = emptySkills(RANK_POINTS.C);
   skills.gun = s.world.gunUnlocked ? RANK_POINTS.D : 0;
+  const prev = s.instructor;
   s.instructor = { name, background: bg.id, age: rng.int(...B.instructor.externalAge), experience: 0, skills, cha: bg.cha, generation: s.instructor.generation + 1, since: s.year };
   instructorCaps(s);
+  inheritAbilities(prev, s.instructor, rng, false);
   chronicle(s, `流れの旅人 ${name}が${s.instructor.generation}代目教官に就任`, 'school');
   afterSuccession(s, rng);
 }
@@ -245,7 +241,9 @@ export function firstLessonScene(s: GameState, rng: Rng): SceneLine[] {
   }
   const sp = list.length ? rng.pick(list) : null;
   if (sp) lines.push({ by: sp.id, text: rng.pick(['よろしくお願いします、先生！', '……新しい先生、か。どんな授業なんだろう。', '前の先生にも負けないくらい、いい授業をお願いしますね。']) });
-  lines.push({ by: 'narr', text: '教官の技能は、教えるほど少しずつ上がっていく。学校の歴史に、新しい一ページが加わった。' });
+  const inh = (ins.inherited ?? []).map((id) => MENTOR_BY_ID[id]?.name).filter(Boolean);
+  if (inh.length) lines.push({ by: 'narr', text: `先代から受け継いだ心得：${inh.map((x) => `「${x}」`).join('・')}。` });
+  lines.push({ by: 'narr', text: '教官は授業のたびに経験を積み、自分の技能や特殊能力を磨いていく。学校の歴史に、新しい一ページが加わった。' });
   return lines;
 }
 

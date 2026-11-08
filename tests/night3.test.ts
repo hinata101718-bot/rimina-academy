@@ -60,19 +60,16 @@ describe('2夜目の版のセーブ', () => {
   });
 });
 
-describe('教官の技能は教えるほど上がる', () => {
-  it('苦手科目（D）の授業を選び続けると、Bに届く（7夜目：授業の日ごと）。上限はB', () => {
+describe('教官の技能（8夜目：経験ポイントで上げる）', () => {
+  it('授業では教官の技能は自動で上がらない。講師は自動で上がる。上限は得意S・ほかB', () => {
     const s = newGame({ name: 't', background: 'knight', seed: 3 });
     s.instructor.skills.magic = RANK_POINTS.D;
     s.instructor.caps = undefined; instructorCaps(s);
-    let days = 0;
-    while (s.instructor.skills.magic < RANK_POINTS.B && days < 5000) { growTeacherSkill(s, 'magic', 0.35); days++; }
-    // 魔道の授業の日が年に60日ほどなら、10年ほど
-    expect(days / 60).toBeGreaterThan(8);
-    expect(days / 60).toBeLessThan(13);
-    for (let i = 0; i < 3000; i++) growTeacherSkill(s, 'magic', 0.35);
-    expect(s.instructor.skills.magic).toBe(RANK_POINTS.B);
-    // 得意科目（槍）の上限はS
+    s.teachers.push({ id: 'tm', name: '講師', skill: 'magic', points: RANK_POINTS.D, salary: 100 });
+    for (let i = 0; i < 200; i++) growTeacherSkill(s, 'magic', 0.35);
+    expect(s.instructor.skills.magic).toBe(RANK_POINTS.D);
+    expect(s.teachers[0].points).toBeGreaterThan(RANK_POINTS.D);
+    expect(instructorCaps(s).magic).toBe(RANK_POINTS.B);
     expect(instructorCaps(s).lance).toBe(RANK_POINTS.S);
   });
 });

@@ -1,7 +1,7 @@
 // 経験値とレベルアップ
 import { B, STATS, SKILLS } from '../data/balance';
 import { CLASSES } from '../data/classes';
-import { TRAITS } from '../data/people';
+import { TRAITS, TALENTS } from '../data/people';
 import type { Stats, SkillId } from './types';
 import type { GameState, Student, GrowthEntry } from './state';
 import { Rng } from './rng';
@@ -16,8 +16,35 @@ export function growthRates(st: Student): Stats {
     if (g && st.status === 'enrolled') for (const k of STATS) out[k] += g[yi];
   }
   if (st.career) for (const k of STATS) out[k] = out[k] * (1 + st.career.growthMul);
-  for (const k of STATS) out[k] = Math.max(0, Math.min(100, Math.round(out[k])));
+  // 8夜目：合計も5%きざみ
+  for (const k of STATS) out[k] = Math.max(0, Math.min(100, round5(out[k])));
   return out;
+}
+
+/** 5の倍数に丸める（四捨五入）。8夜目：成長率は5%きざみ */
+export function round5(v: number): number { return Math.round(v / 5) * 5; }
+
+/** 成長率の内わけ：本人 ＋ 兵種 ＋ 才能・特徴 ＝ 合計（個人ページ用） */
+export interface GrowthPart { own: number; cls: number; extra: number; total: number }
+export function growthParts(st: Student): Record<keyof Stats, GrowthPart> {
+  const c = CLASSES[st.classId] ?? CLASSES.novice;
+  const total = growthRates(st);
+  const tal = st.talent ? TALENTS[st.talent]?.stats ?? {} : {};
+  const out = {} as Record<keyof Stats, GrowthPart>;
+  for (const k of STATS) {
+    const own = st.growth[k] - ((tal as Partial<Stats>)[k] ?? 0);
+    const cls = (c.growth as Partial<Stats>)[k] ?? 0;
+    out[k] = { own, cls, extra: total[k] - own - cls, total: total[k] };
+  }
+  return out;
+}
+
+/** 兵種の補正が見えるようにする（兵種図鑑：生徒か卒業生が初めてなった兵種） */
+export function markClassSeen(s: GameState, classId: string): boolean {
+  s.classSeen ??= [];
+  if (s.classSeen.includes(classId)) return false;
+  s.classSeen.push(classId);
+  return true;
 }
 
 export interface LevelUpResult { level: number; gains: Partial<Stats> }

@@ -212,7 +212,9 @@ describe('戦況とお金', () => {
     s.pending = [];
     for (let i = 0; i < 40 && !s.world.peaceRoundYear; i++) majorEvents(s, rng(s), false);
     expect(s.world.peaceRoundYear).toBe(s.year);
-    expect(s.pending.some((p) => p.type === 'event' && p.title === '和平の円卓')).toBe(true);
+    // 8夜目：大事件は号外の新聞で知らせる
+    expect(s.news.some((n) => n.kind === 'extra' && n.headline.includes('和平の円卓'))).toBe(true);
+    expect(s.pending.some((p) => p.type === 'newspaper')).toBe(true);
   });
   it('所持金が多いほど三国からの援助金が減る', async () => {
     const { aidMoney } = await import('../src/core/alumni');

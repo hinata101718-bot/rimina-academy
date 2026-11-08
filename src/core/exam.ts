@@ -5,6 +5,7 @@ import type { ClassDef, SkillId, Rank } from './types';
 import type { GameState, Student } from './state';
 import { Rng } from './rng';
 import { absMonth } from './util';
+import { markClassSeen } from './growth';
 import { available, chronicle, notify } from './game';
 import { addRecent } from './support';
 import { SKILL_NAMES } from '../data/people';
@@ -78,6 +79,7 @@ export function takeExam(s: GameState, rng: Rng, st: Student, classId: string): 
   if (ok) {
     st.classId = c.id;
     st.lastClassWeek = s.absWeek;
+    if (markClassSeen(s, c.id)) s.pending.push({ type: 'rankup', items: [{ icon: 'book', title: '兵種図鑑', from: '？', to: c.name, p0: 0.3, p1: 1, studentId: st.id, note: `初めての兵種！ ${st.given}が${c.name}になり、図鑑に載った` }] });
     addRecent(s, st, 'ev_exam', c.name);
     st.motivation = Math.min(4, st.motivation + 1);
     if (c.tier >= 2) chronicle(s, `${st.given}が${c.name}に`, 'student');

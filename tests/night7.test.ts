@@ -153,7 +153,7 @@ describe('6夜目版のセーブ（形式5）', () => {
   it('週の途中（個人指導・週末の予定・重点科目あり）：形式6になり、重点科目と週末の予定は最初の日のカードに出る', () => {
     const s = deserialize(fixture('v6-week.json'));
     expect(s.version).toBe(SAVE_VERSION);
-    expect(SAVE_VERSION).toBe(7);
+    expect(SAVE_VERSION).toBe(8);
     for (const st of enrolled(s)) expect(st.fatigue).toBe(0);
     expect(s.instructor.stamina).toBe(100);
     expect(s.day).toBe(1);

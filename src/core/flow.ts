@@ -17,8 +17,10 @@ import { gainExp, startGrowthLog, stopGrowthLog, snapGrowth, diffGrowth } from '
 import { learnSpells } from './spells';
 import { createBattle, unitFromStudent, defaultWeaponFor, type Deploy } from './battle/setup';
 import { startPlayerPhase, setReinforcementFactory, weaponSkillId } from './battle/engine';
-import { startAutoBattle, applyAutoResults, setupLeader, officerAfterBattle, type AutoPlan } from './battle/auto';
-import { ensureRosters, yearlyOfficers } from './officers';
+import { startAutoBattle, applyAutoResults, setupLeader, officerAfterBattle, officerForQuest, questSeed, type AutoPlan } from './battle/auto';
+import { ensureRosters, yearlyOfficers, revealOne } from './officers';
+import { fx } from './mentor';
+import { publishIssue } from './newspaper';
 import { rollSides, deferShows } from './discovery';
 import { monthlyWorld, yearlyWorld, questWorldEffect, tensionStage, activeAlumni } from './world';
 import { simulateAlumni, aidMoney, titleOf } from './alumni';
@@ -34,11 +36,25 @@ import { supportValue } from './support';
 
 export function rng(s: GameState): Rng { return new Rng(s); }
 
+/** 今月の依頼を並べる。先生の「斥候の心得」があれば、敵将の特徴が1つ見える（8夜目） */
+export function freshQuests(s: GameState): void {
+  s.quests = rollQuests(s);
+  const n = fx(s, 'scout');
+  if (!n) return;
+  for (const q of s.quests) {
+    if (!q.real) continue;
+    const o = officerForQuest(s, q);
+    if (!o) continue;
+    for (let i = 0; i < n; i++) revealOne(o, new Rng({ rng: questSeed(s, q) ^ (0x51 + i) }));
+  }
+}
+
 export function battleCtx(s: GameState): BattleCtx {
   return {
     support: (a, b) => supportValue(s, a, b),
     trust: (id) => s.students[id]?.trust ?? 0,
-    luckInjury: (id) => (s.students[id]?.traits ?? []).reduce((a, t) => a + (TRAITS[t].injuryBonus ?? 0), 0),
+    luckInjury: (id) => (s.students[id]?.traits ?? []).reduce((a, t) => a + (TRAITS[t].injuryBonus ?? 0), 0) + fx(s, 'injury'),
+    commandBonus: fx(s, 'command'),
     deathMul: s.settings.mods.death,
   };
 }
@@ -54,9 +70,9 @@ export function chooseLesson(s: GameState, idx: number, talkWith?: string): void
   const day = s.day ?? 1;
   const res = resolveLesson(s, r, idx, talkWith);
   const ended = afterDay(s, r, res);
-  s.pending.splice(from, 0, { type: 'lessonResult', lesson: res.lesson, day, faces: res.faces, tags: res.tags, rows: res.rows, events: res.events, growth: res.growth, lines: res.lines, talks: res.talks, others: res.others });
+  s.pending.splice(from, 0, { type: 'lessonResult', lesson: res.lesson, day, faces: res.faces, tags: res.tags, rows: res.rows, events: res.events, growth: res.growth, lines: res.lines, talks: res.talks, others: res.others, xp: res.xp });
   deferShows(s, from);
-  if (ended.monthEnd) { s.quests = rollQuests(s); s.pending.push({ type: 'questBoard' }); }
+  if (ended.monthEnd) { freshQuests(s); s.pending.push({ type: 'questBoard' }); }
   else todayCards(s);
 }
 
@@ -104,7 +120,7 @@ export function weekAuto(s: GameState): void {
   const names = picked.map((id) => LESSON_NAME[id] ?? id);
   s.pending.splice(from, 0, { type: 'weekSummary', lines: [`今週の授業：${names.join('・')}`, ...lines], talks, growth });
   deferShows(s, from);
-  if (ended.monthEnd) { s.quests = rollQuests(s); s.pending.push({ type: 'questBoard' }); }
+  if (ended.monthEnd) { freshQuests(s); s.pending.push({ type: 'questBoard' }); }
   else todayCards(s);
 }
 
@@ -313,6 +329,8 @@ export function endMonth(s: GameState): void {
     else yearEnd(s, []);
     return;
   }
+  // 8夜目：9月の終わりに新聞の前期号
+  if (s.month === 5) publishIssue(s, 'first');
   s.month += 1; s.week = 1; s.day = 1; s.today = null;
   startMonth(s);
 }
@@ -325,7 +343,7 @@ export function startMonth(s: GameState): void {
   checkEndings(s, r, 'month');
   lines.push(...startMonthStudents(s, r));
   ensureRosters(s, r);
-  s.quests = rollQuests(s);
+  freshQuests(s);
   // 月の始め：目標技能（7夜目。「自動で決める」の子は担任の方針・おすすめで）
   autoMonthTargets(s);
   if (enrolled(s).length) notify(s, `${MONTH_NAMES[s.month]}の目標技能を決めよう（今は自動。学校の画面の「今月の目標技能」から変えられます）`);
@@ -419,26 +437,21 @@ export function yearEnd(s: GameState, graduated: string[]): void {
     const others = COUNTRIES.filter((o) => o !== c);
     if (!s.world.vassal && others.every((o) => s.world.friendship[c] - s.world.friendship[o] >= B.vassalInviteGap)) mail(s, `${COUNTRY_NAMES[c]}の使者`, '傘下への誘い', `貴校と我が国の縁は深い。我が国の傘下に入れば、十分な援助を約束しよう。考えておいてほしい。—${COUNTRY_NAMES[c]}`);
   }
-  // 5. 新聞
-  const headline = world.find((x) => !x.startsWith('大陸は')) ?? world[0] ?? '大陸は静かな一年だった';
-  const paper = {
-    id: `news${s.nextId++}`, year: s.year, month: 11, headline: `${s.year}年度 年度末特別号：${headline}`,
-    body: [
-      ...world,
-      `三国の国力：王国${Math.round(s.world.power.kingdom)}・帝国${Math.round(s.world.power.empire)}・同盟${Math.round(s.world.power.alliance)}`,
-      `学校の収入：援助金${aidTotal}G・寄付${donation}G（所持金 ${before}G → ${s.money}G）`,
-      ...deadline,
-      ...(officerNews.length ? ['【敵将の動き】', ...officerNews.slice(0, 6)] : []),
-    ],
+  // 5. 新聞（8夜目：後期号。半年分の出来事をまとめる）
+  const paper = publishIssue(s, 'second', {
+    world, officers: officerNews,
     alumni: news.filter((n) => n.big).slice(0, 12).map((n) => ({ id: n.id, text: n.text })),
-    tension: Math.round(s.world.tension),
-  };
-  s.news.unshift(paper);
-  s.pending.push({ type: 'newspaper', id: paper.id });
+    school: [`学校の収入：援助金${aidTotal}G・寄付${donation}G（所持金 ${before}G → ${s.money}G）`, ...deadline],
+  });
+  paper.body.push(`三国の国力：王国${Math.round(s.world.power.kingdom)}・帝国${Math.round(s.world.power.empire)}・同盟${Math.round(s.world.power.alliance)}`);
   s.world.epidemic = false; s.world.famine = false;
   // エンディングの判定（年度末）。平和な時代は、火種がくすぶり、予兆が出て、やがて次の戦争（7夜目）
   const omen = peaceEraYear(s, r);
-  if (omen.length) { paper.body.push('【火種】', ...omen); if (omen.some((x) => x.startsWith('【大事件】'))) paper.headline = `${s.year}年度 年度末特別号：${omen[omen.length - 1].replace('【大事件】', '')}`; }
+  if (omen.length) {
+    paper.body.push('【火種】', ...omen);
+    paper.politics?.push({ country: 'seed', stance: '次の戦争の火種', text: omen.map((x) => x.replace('【大事件】', '')).join('。') });
+    if (omen.some((x) => x.startsWith('【大事件】'))) { const h = omen[omen.length - 1].replace('【大事件】', ''); paper.headline = `${s.year}年目 後期号：${h}`; if (paper.front) { paper.front.sub = paper.front.head; paper.front.head = h; } }
+  }
   checkEndings(s, r, 'year');
   // 9. 新年度
   s.year += 1; s.month = 0; s.week = 1; s.day = 1; s.today = null;
@@ -454,7 +467,7 @@ export function yearEnd(s: GameState, graduated: string[]): void {
 export function prepareEntrance(s: GameState): void {
   const r = rng(s);
   const cap = capacity(s);
-  const n = Math.max(cap, Math.round(cap * (1 + s.reputation / 40)));
+  const n = Math.max(cap, Math.round(cap * (1 + s.reputation / 40) * (1 + fx(s, 'applicants'))));
   const quality = Math.min(1, s.reputation / 100);
   const stage = tensionStage(s.world.tension);
   const orphanBias = (stage === 'tension' ? 10 : stage === 'war' ? 25 : 0) + (s.world.famine ? 20 : 0);

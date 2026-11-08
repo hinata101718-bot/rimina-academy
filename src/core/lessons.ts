@@ -13,6 +13,7 @@ import { learnSpells, learnedText } from './spells';
 import { teacherMul, facilityMulOf, talentMulOf, traitLessonMulOf, addSkill, revealTalent, changeMotivation, skillUnlocked, interviewStudent, endOfWeek, expBonusOf, startWeekStudents } from './week';
 import { growTeacherSkill } from './instructor';
 import { viceOf } from './instructor';
+import { fx, lessonXp, gainMentorXp } from './mentor';
 
 export const DAY_NAMES = ['月', '火', '水', '木', '金'];
 
@@ -24,8 +25,8 @@ export function attends(st: Student): boolean { return available(st); }
 /** 先生の最大体力（年をとると少し下がる。疫病の年は下がる） */
 export function teacherMax(s: GameState): number {
   const T = B.teacher;
-  const age = Math.max(0, s.instructor.age - T.ageFrom) * T.agePerYear;
-  return Math.max(T.minMax, T.max - age - (s.world.epidemic ? T.epidemic : 0));
+  const age = Math.max(0, s.instructor.age - T.ageFrom) * T.agePerYear * (1 - fx(s, 'ageSlow'));
+  return Math.max(T.minMax, T.max + fx(s, 'maxStamina') - age - (s.world.epidemic ? T.epidemic : 0));
 }
 export function teacherStamina(s: GameState): number { s.instructor.stamina ??= teacherMax(s); return Math.min(teacherMax(s), s.instructor.stamina); }
 /** 先生が寝込んでいる（その日は自動で休講） */
@@ -33,7 +34,10 @@ export function teacherSick(s: GameState): boolean { return (s.instructor.sickDa
 /** 体力が低いと授業の効果が少し落ちる */
 export function teacherStaminaMul(s: GameState): number { return teacherStamina(s) < B.teacher.lowAt ? B.teacher.lowMul : 1; }
 /** その授業で使う先生の体力（夏の合宿は多め） */
-export function lessonCost(s: GameState, l: LessonDef): number { return l.stamina < 0 ? Math.round(l.stamina * (s.month === 3 ? B.fatigue.campMul : 1)) : l.stamina + (l.special === 'rest' ? B.teacher.chapelRest[s.facilities.chapel ?? 0] : 0); }
+export function lessonCost(s: GameState, l: LessonDef): number {
+  if (l.stamina < 0) return Math.round(l.stamina * (s.month === 3 ? B.fatigue.campMul : 1) * Math.max(0.2, 1 + fx(s, 'staminaCost')));
+  return Math.round((l.stamina + (l.special === 'rest' ? B.teacher.chapelRest[s.facilities.chapel ?? 0] : 0)) * (l.special === 'rest' ? 1 + fx(s, 'restMul') : 1));
+}
 
 function lessonAvailable(s: GameState, l: LessonDef, list: Student[]): boolean {
   if (l.needGun && !s.world.gunUnlocked) return false;
@@ -92,7 +96,8 @@ export function rollDay(s: GameState, r: Rng): LessonDay {
   if (needTalk.length && !picked.some((l) => l.special === 'interview')) picked.push(LESSON_BY_ID.interview);
   if (rain && !picked.some((l) => l.special === 'field')) picked.push(LESSON_BY_ID.field);
   let guard = 0;
-  while (picked.length < B.day.cards && guard++ < 200) {
+  const nCards = B.day.cards + fx(s, 'cards');
+  while (picked.length < nCards && guard++ < 200) {
     const cand = pool.filter((l) => !picked.includes(l) && l.special !== 'field');
     if (!cand.length) break;
     picked.push(r.weighted(cand, (l) => lessonWeight(s, l, list)));
@@ -100,7 +105,7 @@ export function rollDay(s: GameState, r: Rng): LessonDay {
   // 顔：1人の子は1日に1枚のカードだけ
   const used = new Set<string>();
   const cards: LessonCard[] = picked.map((l) => {
-    const n = l.special === 'tea' || l.special === 'interview' ? r.int(2, 3) : 1 + pickIndex(r, B.day.faces);
+    const n = (l.special === 'tea' || l.special === 'interview' ? r.int(2, 3) : 1 + pickIndex(r, B.day.faces)) + fx(s, 'faces');
     const faces: string[] = [];
     let pool2 = list.filter((st) => !used.has(st.id) && (l.special !== 'career' || st.grade === 3));
     if (l.special === 'interview') for (const st of needTalk) if (!used.has(st.id) && faces.length < 3) { faces.push(st.id); used.add(st.id); }
@@ -127,7 +132,7 @@ export function tagsOf(s: GameState, faces: string[]): [string, string][] {
   const out: [string, string][] = [];
   for (let i = 0; i < faces.length; i++) for (let j = i + 1; j < faces.length; j++) {
     const sp = s.supports[pairKey(faces[i], faces[j])];
-    if (sp && (sp.value >= B.support.C || sp.kind === 'love' || sp.kind === 'rival')) out.push([faces[i], faces[j]]);
+    if (sp && (sp.value >= B.support.C - fx(s, 'tagEase') || sp.kind === 'love' || sp.kind === 'rival')) out.push([faces[i], faces[j]]);
   }
   return out;
 }
@@ -158,8 +163,13 @@ function pointsFor(s: GameState, st: Student, k: SkillId, w: number, b: Boost): 
   const target = st.targets[0] === k ? D.targetMul : st.targets[1] === k ? D.target2Mul : 1;
   // 7夜目：ランクが高いほど伸びにくい（学校が育った後半に、在学中にSまで届きすぎないように）
   const high = Math.max(D.highMin, 1 - st.skills[k] / D.highDiv);
-  return D.skillPts * w * lessonMul(s, st, k) * (b.face ? D.faceMul : 1) * target * (b.tag ? D.tagMul : 1) * high;
+  return D.skillPts * w * lessonMul(s, st, k) * faceMulOf(s, b) * target * tagMulOf(s, b) * high;
 }
+
+/** 顔の子の倍率（先生の「名講義」「熱血指導」で上がる。8夜目） */
+export function faceMulOf(s: GameState, b: Boost): number { return (b.face ? B.day.faceMul * (1 + fx(s, 'faceMul')) : 1) * (1 + fx(s, 'allMul')); }
+/** 友情タッグの倍率（先生の「仲人の勘」で上がる） */
+export function tagMulOf(s: GameState, b: Boost): number { return b.tag ? B.day.tagMul * (1 + fx(s, 'tagMul')) : 1; }
 
 /** 鍛錬ゲージ：たまって満タンで+1 */
 function addTrain(s: GameState, st: Student, k: StatId, amount: number): { g0: number; g1: number; up: number } {
@@ -178,7 +188,7 @@ function addTrain(s: GameState, st: Student, k: StatId, amount: number): { g0: n
   return { g0, g1: st.train[k]!, up };
 }
 
-export interface DayOutcome { lesson: string; faces: string[]; tags: [string, string][]; rows: LessonRow[]; events: LessonEvent[]; growth: GrowthEntry[]; lines: string[]; talks: TalkLog[]; others: number }
+export interface DayOutcome { lesson: string; faces: string[]; tags: [string, string][]; rows: LessonRow[]; events: LessonEvent[]; growth: GrowthEntry[]; lines: string[]; talks: TalkLog[]; others: number; xp: number }
 
 /**
  * 今日の授業を受ける。idx＝今日のカードの番号、talkWith＝面談で話す子（顔の子から）
@@ -223,8 +233,8 @@ export function resolveLesson(s: GameState, r: Rng, idx: number, talkWith?: stri
 
   for (const st of list) {
     const b = boostOf(card, st.id);
-    const faceM = b.face ? D.faceMul : 1;
-    const tagM = b.tag ? D.tagMul : 1;
+    const faceM = faceMulOf(s, b);
+    const tagM = tagMulOf(s, b);
     // 技能
     for (const [k, w] of Object.entries(l.skills ?? {}) as [SkillId, number][]) skillUp(st, k, pointsFor(s, st, k, w, b));
     if (l.special === 'field') skillUp(st, st.targets[0], pointsFor(s, st, st.targets[0], D.field.skill, b));
@@ -232,10 +242,10 @@ export function resolveLesson(s: GameState, r: Rng, idx: number, talkWith?: stri
     // 鍛錬ゲージ
     for (const [k, w] of Object.entries(l.stats ?? {}) as [StatId, number][]) trainUp(st, k, D.trainPts * w * faceM * tagM * (camp ? B.lesson.campMul : 1) * B.motivationMul[st.motivation]);
     // 経験値（授業の経験値。交流は紅白戦だけ）
-    const expUnits = l.exp ?? (l.skills ? 1 : 0);
+    const expUnits = (l.exp ?? (l.skills ? 1 : 0)) * (l.special === 'spar' ? 1 + fx(s, 'sparExp') : 1);
     if (expUnits > 0) gainExp(s, r, st, D.exp * expUnits * faceM * tagM * (camp ? B.lesson.campMul : 1) * expDamp(st.level));
     // 才能の判明
-    const rev = (l.reveal ?? (l.group === 'social' || l.group === 'rest' ? 0.4 : 1)) * D.reveal * faceM + (B.talent.libraryReveal[s.facilities.library ?? 0] + expBonusOf(s)) / 5;
+    const rev = ((l.reveal ?? (l.group === 'social' || l.group === 'rest' ? 0.4 : 1)) * D.reveal * faceM + (B.talent.libraryReveal[s.facilities.library ?? 0] + expBonusOf(s)) / 5) * (1 + fx(s, 'reveal'));
     revealTalent(s, st, rev, lines);
     if (b.face) st.lastAttention = s.absWeek;
   }
@@ -248,11 +258,12 @@ export function resolveLesson(s: GameState, r: Rng, idx: number, talkWith?: stri
   } else if (l.special === 'tea') {
     const bd = faces.some((st) => st.birthday && st.birthday.month === s.month && st.birthday.week === s.week);
     const fest = s.month === 8 ? 1.5 : 1;
-    for (let i = 0; i < faces.length; i++) for (let j = i + 1; j < faces.length; j++) push(addSupport(s, r, faces[i].id, faces[j].id, D.tea.support, fest * (bd ? B.birthday.teaMul : 1)));
+    const teaM = 1 + fx(s, 'teaSupport');
+    for (let i = 0; i < faces.length; i++) for (let j = i + 1; j < faces.length; j++) push(addSupport(s, r, faces[i].id, faces[j].id, D.tea.support, fest * teaM * (bd ? B.birthday.teaMul : 1)));
     for (const st of faces) { changeMotivation(st, D.tea.motivation); if (s.month === 8) addRecent(s, st, 'ev_festival', '収穫祭'); }
     if (bd) lines.push('お茶会は誕生日のお祝いも兼ねて、いつもよりにぎやかだった');
     lines.push(`お茶会（${faces.map((x) => x.given).join('・')}）。話がはずんだ`);
-    if (!talks.length && faces.length >= 2 && r.chance(D.tea.talkChance + B.diningEventUp[s.facilities.dining ?? 0])) {
+    if (!talks.length && faces.length >= 2 && (fx(s, 'teaTalk') > 0 || r.chance(D.tea.talkChance + B.diningEventUp[s.facilities.dining ?? 0]))) {
       const [a, c] = r.shuffle(faces.map((x) => x.id));
       const sp = getSupport(s, a, c);
       const rk = supportRank(sp.value);
@@ -297,7 +308,7 @@ export function resolveLesson(s: GameState, r: Rng, idx: number, talkWith?: stri
     if (ev) events.push(ev);
   }
 
-  // 教官・講師にも身につく（選んだ授業の技能）
+  // 雇った講師・卒業生講師は、自分の科目の授業の日に自動で少しずつ上がる（教官は8夜目から経験ポイントで上げる）
   for (const k of Object.keys(l.skills ?? {}) as SkillId[]) growTeacherSkill(s, k, D.teacherGrow, lines);
 
   // 一日の終わり：先生の体力（授業で減り、休講で回復。0になると数日寝込む）
@@ -334,9 +345,13 @@ export function resolveLesson(s: GameState, r: Rng, idx: number, talkWith?: stri
     }
   }
   stopGrowthLog();
+  // 先生の経験ポイント（8夜目）：顔の子が多い・友情タッグ・ランクアップやレベルアップした子がいると多め
+  const grew = growth.filter((g) => g.lv1 > g.lv0 || g.skills.some((k) => rankOf(k.p0) !== rankOf(k.p1))).length;
+  const xp = sickRest ? 0 : lessonXp({ faces: faces.length, tags: card.tags.length, grew, social: l.group === 'social', rest: l.special === 'rest' });
+  gainMentorXp(s, xp);
   const out = [...rows.values()];
   const shown = out.filter((x) => x.face || x.skills.some((k) => rankOf(k.p0) !== rankOf(k.p1)) || x.train.some((t) => t.up));
-  return { lesson: l.id, faces: card.faces, tags: card.tags, rows: shown.length ? shown : out.slice(0, 3), events, growth, lines, talks, others: Math.max(0, list.length - shown.length) };
+  return { lesson: l.id, faces: card.faces, tags: card.tags, rows: shown.length ? shown : out.slice(0, 3), events, growth, lines, talks, others: Math.max(0, list.length - shown.length), xp };
 }
 
 function practiceEvent(s: GameState, r: Rng, card: LessonCard, l: LessonDef, faces: Student[]): LessonEvent | null {

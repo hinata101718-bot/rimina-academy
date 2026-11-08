@@ -10,6 +10,7 @@ import type { Origin, House, Gender, SkillId, Stats, CountryId } from './types';
 import type { Student, FaceParts, GameState } from './state';
 import { Rng } from './rng';
 import { emptySkills, emptyStats, clamp } from './util';
+import { round5 } from './growth';
 
 export interface GenOptions {
   origin?: Origin;
@@ -105,11 +106,12 @@ export function generateStudent(s: GameState, rng: Rng, opt: GenOptions = {}): S
   if (talent) for (const [k, v] of Object.entries(TALENTS[talent].stats)) growth[k as keyof Stats] += v as number;
   // 出身・家柄の補正
   if (house === 'noble') { growth.cha += 5; stats.cha += 1; }
-  if (house === 'orphan') { growth.spd += 5; growth.lck -= 3; }
-  if (origin === 'kingdom') growth.def += 3;
-  if (origin === 'empire') growth.str += 3;
-  if (origin === 'alliance') growth.mag += 3;
-  for (const k of STATS) growth[k] = clamp(growth[k], 5, 95);
+  if (house === 'orphan') { growth.spd += 5; growth.lck -= 5; }
+  if (origin === 'kingdom') growth.def += 5;
+  if (origin === 'empire') growth.str += 5;
+  if (origin === 'alliance') growth.mag += 5;
+  // 8夜目：成長率は5%きざみ（ヒナタさん指定）
+  for (const k of STATS) growth[k] = clamp(round5(growth[k]), 5, 95);
 
   // 技能の初期値：夢と出身国に沿った技能を少し
   const skills = emptySkills(0);

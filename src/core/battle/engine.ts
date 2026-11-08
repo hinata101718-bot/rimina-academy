@@ -14,6 +14,8 @@ export interface BattleCtx {
   trust: (studentId: string) => number;
   luckInjury: (studentId: string) => number; // 特徴タグによる重傷率+
   deathMul: number;
+  /** 教官の指示の成功率+（先生の特殊能力「声が届く」。8夜目） */
+  commandBonus?: number;
 }
 
 function rngOf(b: BattleState): Rng { return new Rng(b as unknown as { rng: number }); }
@@ -392,7 +394,7 @@ export function persuade(b: BattleState, ctx: BattleCtx, u: Unit): string {
 
 export function commandRate(ctx: BattleCtx, u: Unit): number {
   const t = u.studentId ? ctx.trust(u.studentId) : 0;
-  return Math.min(100, B.battle.commandBase + t * B.battle.commandPerTrust);
+  return Math.min(100, B.battle.commandBase + t * B.battle.commandPerTrust + (ctx.commandBonus ?? 0));
 }
 export function canCommand(b: BattleState): boolean { return b.phase === 'player' && b.commandUsed.turn !== b.turn; }
 export function command(b: BattleState, ctx: BattleCtx, kind: 'again' | 'aim' | 'retreat', u: Unit): string {

@@ -5,10 +5,11 @@ import { COUNTRY_SHORT, RANK_TITLES, COUNTRIES } from '../data/people';
 import type { CountryId } from './types';
 import type { GameState, Student } from './state';
 import { Rng } from './rng';
-import { gainExp } from './growth';
+import { gainExp, markClassSeen } from './growth';
 import { effectiveStats, chronicle, mail, addFriendship, notify } from './game';
 import { tensionStage, atWar } from './world';
 import { loveOf } from './support';
+import { fx } from './mentor';
 
 export function titleOf(st: Student): string {
   if (!st.career) return '';
@@ -50,6 +51,7 @@ export function simulateAlumni(s: GameState, rng: Rng): AlumniNews[] {
         const nation = kids.filter((k) => k.nation);
         const next = nation.length && rng.chance(0.5) ? rng.pick(nation) : rng.pick(kids);
         st.classId = next.id;
+        markClassSeen(s, next.id);
         if (next.tier >= 4) {
           big(st, `が${next.nation ? `${COUNTRY_SHORT[next.nation]}だけの兵種、` : next.hidden ? '伝説の兵種、' : '最上級の兵種、'}${next.name}になった`);
           notify(s, `卒業生の${st.given}が${next.name}に昇格した`, st.id);
@@ -181,6 +183,7 @@ export function aidMoney(s: GameState): Record<CountryId, number> {
     if (s.world.friendship[c] <= -20) v = 0;
     if (s.world.vassal === c) v *= B.school.vassalAidMul[c];
     if (s.world.famine) v *= B.world.events.famineAidMul;
+    v *= 1 + fx(s, 'aidMul');
     // 十分に潤っている学校への援助は減らされる
     if (s.money > B.school.aidRichFrom) v *= Math.max(B.school.aidRichMin, 1 - (s.money - B.school.aidRichFrom) / B.school.aidRichSpan);
     out[c] = Math.max(0, Math.round(v));
