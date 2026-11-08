@@ -1,60 +1,60 @@
 {
   "note": "長いシミュレーション（40年×10回×方針4つ）の主な数字。次の回はこの数字と比べる（前の版のコードで回し直さない）。",
-  "night": 10,
+  "night": 12,
   "years": 40,
   "runs": 10,
-  "source": "10夜目の長いシミュレーション（scripts/sim-sum.ts --save）",
+  "source": "12夜目の長いシミュレーション（scripts/sim-sum.ts --save）",
   "policies": {
     "auto": {
       "name": "おまかせ",
-      "schoolDeaths": 3.3,
-      "winRate": 93.4,
+      "schoolDeaths": 2,
+      "winRate": 95.9,
       "firstEnding": {
         "count": 10,
-        "avgYear": 27.5
+        "avgYear": 22.7
       },
-      "moneyMedian": 20067,
-      "nemesis": 14.7,
-      "gradLevel": 30,
-      "gradStatSum": 178,
-      "statsPerLevelUp": 3.99,
-      "bloomsPerCohort": 1.83,
-      "budsPerCohort": 2.86,
+      "moneyMedian": 19056,
+      "nemesis": 7.8,
+      "gradLevel": 31,
+      "gradStatSum": 179,
+      "statsPerLevelUp": 4,
+      "bloomsPerCohort": 1.93,
+      "budsPerCohort": 2.87,
       "paths": {
-        "warrior": 1377,
-        "strategist": 1009,
-        "champion": 1295
+        "warrior": 1524,
+        "strategist": 1014,
+        "champion": 1162
       },
-      "awayWinRate": 95.9,
-      "firstSquadWinRate": 89.6,
-      "awayGoodCalls": 55,
+      "awayWinRate": 96.7,
+      "firstSquadWinRate": 94.6,
+      "awayGoodCalls": 56,
       "talkRepeats": 0,
       "years": 40,
       "runs": 10
     },
     "peace": {
       "name": "和平狙い",
-      "schoolDeaths": 2.1,
-      "winRate": 97,
+      "schoolDeaths": 0.4,
+      "winRate": 98.2,
       "firstEnding": {
         "count": 10,
-        "avgYear": 15.5
+        "avgYear": 14.2
       },
-      "moneyMedian": 17608,
-      "nemesis": 12.4,
+      "moneyMedian": 19706,
+      "nemesis": 7,
       "gradLevel": 31,
-      "gradStatSum": 180,
-      "statsPerLevelUp": 4,
-      "bloomsPerCohort": 1.97,
-      "budsPerCohort": 2.94,
+      "gradStatSum": 181,
+      "statsPerLevelUp": 4.01,
+      "bloomsPerCohort": 1.82,
+      "budsPerCohort": 2.75,
       "paths": {
-        "civil": 2216,
-        "strategist": 401,
-        "champion": 522,
-        "warrior": 566
+        "warrior": 465,
+        "strategist": 531,
+        "champion": 499,
+        "civil": 2230
       },
-      "awayWinRate": 98.7,
-      "firstSquadWinRate": 94.4,
+      "awayWinRate": 98.6,
+      "firstSquadWinRate": 97.5,
       "awayGoodCalls": 57,
       "talkRepeats": 0,
       "years": 40,
@@ -62,53 +62,53 @@
     },
     "unify": {
       "name": "統一狙い",
-      "schoolDeaths": 2.8,
-      "winRate": 95.5,
+      "schoolDeaths": 2,
+      "winRate": 97.2,
       "firstEnding": {
         "count": 10,
-        "avgYear": 9.2
+        "avgYear": 8.9
       },
-      "moneyMedian": 19517,
-      "nemesis": 14.9,
+      "moneyMedian": 20379,
+      "nemesis": 8.8,
       "gradLevel": 31,
-      "gradStatSum": 178,
+      "gradStatSum": 179,
       "statsPerLevelUp": 3.99,
-      "bloomsPerCohort": 1.76,
-      "budsPerCohort": 2.89,
+      "bloomsPerCohort": 1.73,
+      "budsPerCohort": 2.86,
       "paths": {
-        "strategist": 977,
-        "champion": 1067,
-        "warrior": 1640
+        "warrior": 1570,
+        "strategist": 934,
+        "champion": 1198
       },
-      "awayWinRate": 97.3,
-      "firstSquadWinRate": 92.7,
-      "awayGoodCalls": 55,
+      "awayWinRate": 98,
+      "firstSquadWinRate": 95.9,
+      "awayGoodCalls": 54,
       "talkRepeats": 0,
       "years": 40,
       "runs": 10
     },
     "neutral": {
       "name": "中立狙い",
-      "schoolDeaths": 2.1,
-      "winRate": 95.1,
+      "schoolDeaths": 1.1,
+      "winRate": 95.6,
       "firstEnding": {
         "count": 10,
-        "avgYear": 23.5
+        "avgYear": 21.4
       },
-      "moneyMedian": 19185,
-      "nemesis": 12.7,
+      "moneyMedian": 21690,
+      "nemesis": 9.3,
       "gradLevel": 30,
       "gradStatSum": 178,
       "statsPerLevelUp": 3.99,
-      "bloomsPerCohort": 1.81,
-      "budsPerCohort": 2.85,
+      "bloomsPerCohort": 1.75,
+      "budsPerCohort": 2.77,
       "paths": {
-        "champion": 1113,
-        "strategist": 1157,
-        "warrior": 1417
+        "warrior": 1703,
+        "strategist": 946,
+        "champion": 1061
       },
       "awayWinRate": 96.5,
-      "firstSquadWinRate": 93,
+      "firstSquadWinRate": 94.1,
       "awayGoodCalls": 55,
       "talkRepeats": 0,
       "years": 40,
@@ -116,78 +116,116 @@
     }
   },
   "previous": {
-    "night": 9,
+    "night": 10,
     "policies": {
       "auto": {
         "name": "おまかせ",
-        "schoolDeaths": 2.2,
-        "winRate": 94.1,
+        "schoolDeaths": 3.3,
+        "winRate": 93.4,
         "firstEnding": {
           "count": 10,
-          "avgYear": 20
+          "avgYear": 27.5
         },
-        "moneyMedian": 19303,
-        "moneyAvg": 26021,
-        "nemesis": 12.1,
-        "epithets": 23.2,
-        "alumniDeathRate": 6,
-        "gradLevel": 31,
-        "battlesPerYear": 31.5,
-        "cardsPerBattle": 47
+        "moneyMedian": 20067,
+        "nemesis": 14.7,
+        "gradLevel": 30,
+        "gradStatSum": 178,
+        "statsPerLevelUp": 3.99,
+        "bloomsPerCohort": 1.83,
+        "budsPerCohort": 2.86,
+        "paths": {
+          "warrior": 1377,
+          "strategist": 1009,
+          "champion": 1295
+        },
+        "awayWinRate": 95.9,
+        "firstSquadWinRate": 89.6,
+        "awayGoodCalls": 55,
+        "talkRepeats": 0,
+        "years": 40,
+        "runs": 10
       },
       "peace": {
         "name": "和平狙い",
-        "schoolDeaths": 1.3,
-        "winRate": 96.2,
+        "schoolDeaths": 2.1,
+        "winRate": 97,
         "firstEnding": {
           "count": 10,
-          "avgYear": 13.9,
-          "main": "和平の円卓 9"
+          "avgYear": 15.5
         },
-        "moneyMedian": 19587,
-        "moneyAvg": 30243,
-        "nemesis": 13.4,
-        "epithets": 14.7,
-        "alumniDeathRate": 2,
+        "moneyMedian": 17608,
+        "nemesis": 12.4,
         "gradLevel": 31,
-        "battlesPerYear": 31.7,
-        "cardsPerBattle": 46
+        "gradStatSum": 180,
+        "statsPerLevelUp": 4,
+        "bloomsPerCohort": 1.97,
+        "budsPerCohort": 2.94,
+        "paths": {
+          "civil": 2216,
+          "strategist": 401,
+          "champion": 522,
+          "warrior": 566
+        },
+        "awayWinRate": 98.7,
+        "firstSquadWinRate": 94.4,
+        "awayGoodCalls": 57,
+        "talkRepeats": 0,
+        "years": 40,
+        "runs": 10
       },
       "unify": {
         "name": "統一狙い",
-        "schoolDeaths": 1.9,
-        "winRate": 96.3,
+        "schoolDeaths": 2.8,
+        "winRate": 95.5,
         "firstEnding": {
           "count": 10,
-          "avgYear": 8.1,
-          "main": "統一 10"
+          "avgYear": 9.2
         },
-        "moneyMedian": 19737,
-        "moneyAvg": 22386,
-        "nemesis": 9.1,
-        "epithets": 21.7,
-        "alumniDeathRate": 8,
+        "moneyMedian": 19517,
+        "nemesis": 14.9,
         "gradLevel": 31,
-        "battlesPerYear": 31.4,
-        "cardsPerBattle": 42
+        "gradStatSum": 178,
+        "statsPerLevelUp": 3.99,
+        "bloomsPerCohort": 1.76,
+        "budsPerCohort": 2.89,
+        "paths": {
+          "strategist": 977,
+          "champion": 1067,
+          "warrior": 1640
+        },
+        "awayWinRate": 97.3,
+        "firstSquadWinRate": 92.7,
+        "awayGoodCalls": 55,
+        "talkRepeats": 0,
+        "years": 40,
+        "runs": 10
       },
       "neutral": {
         "name": "中立狙い",
-        "schoolDeaths": 1.2,
-        "winRate": 96.2,
+        "schoolDeaths": 2.1,
+        "winRate": 95.1,
         "firstEnding": {
           "count": 10,
-          "avgYear": 18.4,
-          "main": "学校の中立宣言 9"
+          "avgYear": 23.5
         },
-        "moneyMedian": 29240,
-        "moneyAvg": 34924,
-        "nemesis": 11.3,
-        "epithets": 18.3,
-        "alumniDeathRate": 6,
-        "gradLevel": 31,
-        "battlesPerYear": 31.4,
-        "cardsPerBattle": 43
+        "moneyMedian": 19185,
+        "nemesis": 12.7,
+        "gradLevel": 30,
+        "gradStatSum": 178,
+        "statsPerLevelUp": 3.99,
+        "bloomsPerCohort": 1.81,
+        "budsPerCohort": 2.85,
+        "paths": {
+          "champion": 1113,
+          "strategist": 1157,
+          "warrior": 1417
+        },
+        "awayWinRate": 96.5,
+        "firstSquadWinRate": 93,
+        "awayGoodCalls": 55,
+        "talkRepeats": 0,
+        "years": 40,
+        "runs": 10
       }
     }
   }

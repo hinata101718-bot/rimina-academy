@@ -63,7 +63,8 @@ describe('戦技と心得', () => {
     expect((u.arts ?? []).length).toBeGreaterThan(0);
     const d = { ...u, uid: 'e', side: 'enemy', boss: true, hp: 5, maxHp: 30 } as typeof u;
     let used = 0;
-    for (let i = 0; i < 50; i++) if (pickArt(u, d, 'sword', 10, () => (i % 10) / 10, () => 'infantry')) used++;
+    const wt = equippedOf(st!).find((x) => x.kind === 'art')!.weapons?.[0] ?? 'sword';
+    for (let i = 0; i < 50; i++) if (pickArt(u, d, wt, 10, () => (i % 10) / 10, () => 'infantry')) used++;
     expect(used).toBeGreaterThan(0);
     const o = (s.officers ?? []).find((x) => x.kind !== 'monster')!;
     expect(officerArts(o, s).length).toBeGreaterThan(0);
