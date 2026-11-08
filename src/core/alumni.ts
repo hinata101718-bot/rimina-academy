@@ -1,6 +1,7 @@
 // 卒業生の毎年のシミュレーション
 import type { SkillId } from './types';
 import { ARM_SKILLS } from '../data/balance';
+import { regionMul } from './regions';
 import { B } from '../data/balance';
 import { CLASSES, CLASS_LIST } from '../data/classes';
 import { COUNTRY_SHORT, RANK_TITLES, COUNTRIES } from '../data/people';
@@ -197,7 +198,8 @@ export function aidMoney(s: GameState): Record<CountryId, number> {
   for (const c of COUNTRIES) {
     const pts = Object.values(s.students).filter((st) => st.status === 'graduated' && st.career?.alive && !st.career.retired && st.career.kind === 'army' && st.career.country === c)
       .reduce((a, st) => a + (B.alumni.rankPoints[st.career!.path][Math.min(st.career!.rank, B.alumni.rankPoints[st.career!.path].length - 1)] ?? 0), 0);
-    let v = pts * B.school.aidPerRankPoint + s.world.friendship[c] * B.school.aidPerFriendship;
+    // 13夜目：地域の多い国ほど豊か（名産）。援助金も少し多い
+    let v = (pts * B.school.aidPerRankPoint + s.world.friendship[c] * B.school.aidPerFriendship) * regionMul(s, c);
     if (s.world.friendship[c] <= -20) v = 0;
     if (s.world.vassal === c) v *= B.school.vassalAidMul[c];
     if (s.world.famine) v *= B.world.events.famineAidMul;

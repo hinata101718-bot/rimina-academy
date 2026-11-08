@@ -19,6 +19,7 @@ import { STATS } from '../data/balance';
 import { STOCK_IDS, stockUid } from './loot';
 import { liftGrowth, talentToApt } from './aptitude';
 import { learnArts } from './arts';
+import { ensureRegions, borderOf, setOwner } from './regions';
 import { RANK_POINTS } from '../data/balance';
 
 export interface SaveFile { app: 'rimina-academy'; version: number; savedAt: number; state: GameState }
@@ -51,6 +52,7 @@ export function migrate(s: GameState, from: number): GameState {
   ensure10(s);
   if (from < 11) migrateTo11(s);
   if (from < 12) migrateTo12(s);
+  if (from < 13) migrateTo13(s);
   s.heirs ??= [];
   s.archive ??= {};
   s.notices ??= [];
@@ -375,4 +377,21 @@ function migrateTo12(s: GameState): void {
       '敵将も戦技を使います。出撃前の敵の情報や組織図に「〇〇の使い手」と出ます。',
     ],
   });
+}
+
+/**
+ * 12夜目の版（version 12）→ 13夜目の版（version 13）
+ * - 勢力図：地域の持ち主は、はじめの形から（国力が大きく偏っているときは、強い国が国境の地域を1つずつ持つ）
+ */
+function migrateTo13(s: GameState): void {
+  ensureRegions(s);
+  const pw = s.world.power;
+  const cs = (['kingdom', 'empire', 'alliance'] as const).slice().sort((a, b) => pw[b] - pw[a]);
+  if (pw[cs[0]] - pw[cs[2]] >= 20) { const bd = borderOf(s, cs[2], cs[0]).filter((id) => !id.startsWith('winter') && !id.startsWith('solaria') && !id.startsWith('fiore')); if (bd.length) setOwner(s, bd[0], cs[0], '（これまでの戦いで）'); }
+  s.pending ??= [];
+  s.pending.push({ type: 'event', title: '13夜目の新しいこと', lines: [
+    '戦況の画面に「大陸の勢力図」ができました。地域ごとに、どの国が治めているかが色で分かります。地域をタップすると、そこにいる教え子と名産が見られます。',
+    '戦争が続くと、国境の地域が奪われたり、取りもどされたりします。依頼の戦いの勝ち負けでも、地域の色が変わることがあります。',
+    '組織図と勢力図の「この前から変わったこと」を、1つずつ場面で見られるようになりました。',
+  ] });
 }

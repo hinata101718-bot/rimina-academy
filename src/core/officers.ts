@@ -196,7 +196,7 @@ export function addProspect(s: GameState, f: FactionId, g: { given: string; fami
   const o: EnemyOfficer = {
     id: `of${s.nextId++}`, given: g.given, family: kind === 'army' ? g.family : '', faction: f, kind, country: kind === 'army' ? f as CountryId : null,
     rank: 3, gender: g.gender, age: 20 + (hash(g.given) % 9), personality: (['young', 'arrogant', 'cold', 'cunning'] as const)[hash(g.given + title) % 4], face: g.face, faceImage: g.faceImage,
-    classId: g.classId, level: g.level, scars: 0, traits: new Rng({ rng: hash(g.given + f) }).shuffle([...TRAIT_IDS]).slice(0, OFFICER.traitCount), knownTraits: [], meets: [{ year: s.year, month: s.month, title, result: 'win', foes: g.victim ? [g.victim] : [] }],
+    classId: g.classId, level: g.level, scars: 0, traits: [...new Rng({ rng: hash(g.given + f) }).shuffle([...TRAIT_IDS]).slice(0, OFFICER.traitCount), 'valor'], knownTraits: ['valor'], meets: [{ year: s.year, month: s.month, title, result: 'win', foes: g.victim ? [g.victim] : [] }],
     status: 'active', grudge: null, victims: g.victim && s.students[g.victim] ? [{ id: g.victim, name: s.students[g.victim].given, year: s.year, dead: !!g.dead }] : [], joined: s.year,
     prospect: true, deed: g.deed,
   };
@@ -274,7 +274,7 @@ export function nemesisToOfficer(s: GameState, n: Nemesis, r: Rng): EnemyOfficer
   return {
     id: n.id, given, family, epithet, faction, kind: n.kind, country: n.country, rank: n.level >= 15 ? 1 : 2,
     gender: pf?.gender ?? gender, age: r.int(...OFFICER.ageRange[pf?.band ?? band]), personality: n.personality, face: n.face, faceImage,
-    classId: n.classId, level: n.level, scars: Math.min(3, fled), traits: r.shuffle([...TRAIT_IDS]).slice(0, OFFICER.traitCount), knownTraits: [],
+    classId: n.classId, level: n.level, scars: Math.min(3, fled), traits: [...r.shuffle([...TRAIT_IDS]).slice(0, OFFICER.traitCount), n.level % 2 ? 'valor' : 'marshal'], knownTraits: [n.level % 2 ? 'valor' : 'marshal'],
     meets: n.meets.map((m) => ({ ...m })), status: n.status === 'active' ? 'active' : 'defeated', grudge: null, victims: [], joined: n.meets[0]?.year ?? s.year,
     title: n.kind === 'monster' ? n.name : undefined,
   };

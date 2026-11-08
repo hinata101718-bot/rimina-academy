@@ -1,5 +1,6 @@
 import { useStore, navigate } from './store';
 import { OfficerRoster } from './Officers';
+import { WorldMap } from './WorldMap';
 import { sfx } from './sound';
 import { COUNTRIES, COUNTRY_NAMES, COUNTRY_SHORT, COUNTRY_COLOR } from '../data/people';
 import { PAIRS, relStage, REL_NAMES, STAGE_NAMES, tensionStage, activeAlumni, diplomats } from '../core/world';
@@ -47,6 +48,7 @@ export function WarTab() {
       {seg}
       <div class="two">
         <div>
+          <WorldMap s={s} />
           <div class="card">
             <MapSvg s={s} />
             <div class="row between" style={{ marginTop: 6 }}><b>大陸の緊張度：{Math.round(s.world.tension)}（{STAGE_NAMES[st]}）</b></div>

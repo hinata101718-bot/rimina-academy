@@ -9,6 +9,7 @@ import { checkStratUnlocks, addStrat, addCommand, awayJudgeRate } from './strata
 import { checkBloom } from './aptitude';
 import { evaluateBattle } from './evaluate';
 import { rollLoot, takeLoot, repGift } from './loot';
+import { yearlyRegions, questRegionResult } from './regions';
 import { rivalryOf } from './officers';
 import { LESSON_BY_ID } from '../data/lessons';
 import { specialInterview } from './interview';
@@ -363,7 +364,8 @@ export function finishBattle(s: GameState): void {
         lines.push(`報酬 ${s.money - before}G、評判+${rep}`);
         // 小さな依頼（9夜目）は戦況を動かさない
         if (!q.small) { seedHelp(s, q.clientCountry); lines.push(...questWorldEffect(s, q.clientCountry, q.enemyCountry, true)); }
-      } else { const lose = q.small ? Math.round(B.reputation.questLose / 2) : B.reputation.questLose; addRep(s, lose); lines.push(`依頼は失敗。評判${lose}`); }
+        const rg = questRegionResult(s, q, true, r); if (rg) lines.push(rg);
+      } else { const lose = q.small ? Math.round(B.reputation.questLose / 2) : B.reputation.questLose; addRep(s, lose); lines.push(`依頼は失敗。評判${lose}`); const rg = questRegionResult(s, q, false, r); if (rg) lines.push(rg); }
     }
   }
   const auto = applyAutoResults(s, b, r, lines, {
@@ -604,6 +606,8 @@ export function yearEnd(s: GameState, graduated: string[]): void {
     if (omen.some((x) => x.startsWith('【大事件】'))) { const h = omen[omen.length - 1].replace('【大事件】', ''); paper.headline = `${s.year}年目 後期号：${h}`; if (paper.front) { paper.front.sub = paper.front.head; paper.front.head = h; } }
   }
   checkEndings(s, r, 'year');
+  // 13夜目：勢力図（戦争中の国境の地域が動く。統一なら大陸が一色に）
+  yearlyRegions(s, r);
   // 9. 新年度
   s.year += 1; s.month = 0; s.week = 1; s.day = 1; s.today = null;
   for (const st of Object.values(s.students)) if (st.status === 'enrolled') st.offers = st.grade === 3 ? st.offers : st.offers;

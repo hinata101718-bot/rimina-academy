@@ -1,5 +1,6 @@
 // 月末の依頼掲示板
 import { questRewardWeapon } from './loot';
+import { questRegion } from './regions';
 import { B } from '../data/balance';
 import { COUNTRY_NAMES, COUNTRY_SHORT, COUNTRIES } from '../data/people';
 import { QUEST_KINDS } from '../data/quests';
@@ -82,6 +83,8 @@ export function rollQuests(s: GameState): Quest[] {
   }
   // 10夜目：依頼の報酬に武器がつくことがある（掲示板の札に「報酬：銀の弓」）
   for (const q of quests) { const w = questRewardWeapon(s, q, r); if (w) q.rewardWeapon = w; }
+  // 13夜目：依頼の場所を勢力図の地域に
+  for (const q of quests) if (q.real) { const rg = questRegion(s, q, r); if (rg) q.region = rg; }
   return quests;
 }
 

@@ -1598,3 +1598,71 @@ i.apt { font-style: normal; display: inline-flex; align-items: center; justify-c
 .arts-chip.on.mind { background: #d6e4f6; font-weight: bold; }
 .arts-chip.bloom { box-shadow: 0 0 0 2px #e8c45a; }
 .arts-chip.none { border-style: dashed; color: #a89880; background: transparent; }
+/* 13夜目：大陸の勢力図 */
+.wm-card { background: #1c130c; color: #f3e7cf; border-color: #8a6a3a; }
+.wm-card h3 { color: #f3e7cf; }
+.wm-wrap { margin: 6px 0; border: 3px solid #8a6a3a; border-radius: 10px; overflow: hidden; }
+.wm-wrap.zoom { overflow: auto; max-height: 80vh; touch-action: pan-x pan-y; }
+.wm-map { position: relative; width: 100%; aspect-ratio: 740 / 940; }
+.wm-wrap.zoom .wm-map { width: 190%; }
+.wm-canvas { display: block; width: 100%; height: 100%; }
+.wm-year { position: absolute; top: 2%; left: 50%; transform: translateX(-50%); background: #f3e7cf; color: #3a2a1a; padding: 2px 14px; border-radius: 4px; font-size: 13px; pointer-events: none; box-shadow: 0 1px 4px rgba(0,0,0,.5); }
+.wm-label { position: absolute; transform: translate(-50%, -50%); font-size: 11px; line-height: 1.2; padding: 2px 5px; border-radius: 3px; color: #fff; border: 1px solid rgba(255,255,255,.6); white-space: nowrap; cursor: pointer; min-height: 22px; }
+.wm-wrap.zoom .wm-label { font-size: 13px; }
+.wm-label.kingdom { background: rgba(50, 85, 160, .9); }
+.wm-label.empire { background: rgba(160, 45, 38, .9); }
+.wm-label.alliance { background: rgba(60, 120, 55, .9); }
+.wm-label.wild { background: rgba(110, 104, 92, .9); }
+.wm-label.school { background: #3a2a10; color: #f6d27a; border: 2px solid #e8c45a; font-weight: bold; font-size: 12px; }
+.wm-label.cap { font-weight: bold; }
+.wm-star { display: inline-flex; width: 18px; height: 18px; border-radius: 50%; background: radial-gradient(#f6e08a, #c89a30); color: #fff; align-items: center; justify-content: center; margin-right: 3px; font-size: 11px; }
+.wm-war { position: absolute; right: -14px; top: -12px; width: 20px; height: 20px; border-radius: 50%; background: #1a1008; color: #f0b0a0; font-style: normal; font-size: 12px; display: flex; align-items: center; justify-content: center; border: 1px solid #f0b0a0; }
+.wm-alum { position: absolute; left: -10px; top: -10px; min-width: 17px; height: 17px; border-radius: 9px; background: #3a6ad0; color: #fff; font-style: normal; font-size: 10px; display: flex; align-items: center; justify-content: center; padding: 0 3px; }
+.wm-legend { display: flex; flex-wrap: wrap; gap: 4px 10px; justify-content: center; margin: 4px 0; color: #e8dcc0; }
+.wm-legend i { display: inline-block; width: 11px; height: 11px; border-radius: 2px; margin-right: 3px; vertical-align: -1px; }
+.wm-share { display: flex; height: 10px; border-radius: 5px; overflow: hidden; margin: 4px 0; }
+.wm-share span { display: block; height: 100%; }
+.wm-changes { display: block; width: 100%; text-align: left; margin-top: 6px; padding: 10px 12px; min-height: 44px; border-radius: 8px; background: #fff6dc; color: #3a2a1a; border: 2px solid #e8c45a; font-size: 13px; }
+.wm-changes b { color: #a8321f; }
+.wm-dot { display: inline-block; width: 14px; height: 14px; border-radius: 3px; }
+/* 変化の場面（組織図と共通の枠） */
+.oc-player { position: fixed; inset: 0; z-index: 75; background: #1a120b; color: #f3e7cf; display: flex; flex-direction: column; padding: calc(10px + env(safe-area-inset-top)) 12px calc(12px + env(safe-area-inset-bottom)); gap: 8px; max-width: 640px; margin: 0 auto; }
+.oc-phead { display: flex; justify-content: space-between; align-items: center; font-size: 17px; }
+.oc-pcount { background: linear-gradient(#e3c06a, #b88a32); color: #2a1a0a; font-weight: bold; padding: 3px 10px; border-radius: 4px; font-size: 13px; }
+.oc-pwin { background: #120c08; border: 3px double #e8dcc0; border-radius: 10px; padding: 10px 14px; }
+.oc-pwin b { color: #f6d27a; font-size: 18px; display: block; margin-bottom: 4px; }
+.oc-pbtns { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.oc-pbtns .btn { min-height: 48px; }
+.wm-pframe { position: relative; flex: 1; min-height: 0; overflow: hidden; border-radius: 12px; border: 2px solid #8a6a3a; background: #2a1d14; }
+.wm-pmap { position: absolute; inset: 0; transform-origin: 0 0; transition: transform .6s; }
+.wm-pmap .wm-canvas { width: 100%; height: auto; }
+.wm-pname { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); padding: 4px 12px; border-radius: 4px; color: #fff; font-size: 18px; font-weight: bold; transition: background .5s; box-shadow: 0 0 12px rgba(0,0,0,.6); }
+.wm-pname.kingdom { background: rgba(50, 85, 160, .95); } .wm-pname.empire { background: rgba(160, 45, 38, .95); } .wm-pname.alliance { background: rgba(60, 120, 55, .95); } .wm-pname.wild { background: rgba(110, 104, 92, .95); }
+/* 13夜目：組織図の凡例の色を分ける（抜擢は金と緑）・端で切れない */
+.org-tag.raised, .lg.raised { background: linear-gradient(90deg, #c9a035, #2f7a45); }
+.org-legend .lg.raised::before { background: linear-gradient(90deg, #c9a035 50%, #2f7a45 50%); }
+.org-tree { padding: 6px 48px 12px; scroll-padding: 0 48px; }
+.org-bigplay { display: block; width: 100%; min-height: 48px; margin-bottom: 6px; padding: 10px 12px; border-radius: 8px; background: #fff6dc; color: #3a2a1a; border: 2px solid #e8c45a; font-weight: bold; font-size: 15px; text-align: left; box-shadow: 0 0 10px rgba(232, 196, 90, .5); }
+/* 13夜目：組織図の変化の場面 */
+.oc-stage { position: relative; flex: 1; min-height: 0; background: #f3e7cf; color: #3a2a1a; border-radius: 12px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; padding: 14px 10px; overflow: hidden; animation: abIn .3s; }
+.oc-stage::before { content: ''; position: absolute; top: 0; left: 50%; width: 3px; height: 18%; background: #d6ae4f; }
+.oc-seat { display: flex; flex-direction: column; align-items: center; gap: 2px; line-height: 1.2; }
+.oc-seat b { font-size: 18px; }
+.oc-face { position: relative; line-height: 0; }
+.oc-seat.main .oc-face > :first-child { border-radius: 50%; overflow: hidden; }
+.oc-seat.fell .oc-face, .oc-seat.gone .oc-face { filter: grayscale(1); }
+.oc-stamp { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%) rotate(-12deg); font-size: 34px; animation: fxStamp .4s .2s cubic-bezier(.2, 1.6, .4, 1) both; }
+.oc-strike { text-decoration: line-through; color: #6a5a4a; }
+.oc-badge { position: absolute; left: 50%; top: -6px; transform: translateX(-50%); padding: 2px 10px; border-radius: 12px; color: #fff; font-size: 13px; font-weight: bold; white-space: nowrap; line-height: 1.5; }
+.oc-badge.raised { background: #2f7a45; } .oc-badge.promote { background: #c9a035; } .oc-badge.new { background: #c9a035; }
+.oc-seat.empty .oc-ring { display: block; width: 100px; height: 100px; border-radius: 50%; border: 4px dashed #b4432f; box-shadow: 0 0 14px rgba(232, 196, 90, .6); animation: abBlink 1.2s infinite; }
+.oc-arrow { color: #e8c45a; font-size: 30px; line-height: 1; }
+.oc-arrow.red { color: #b4432f; }
+.oc-stage.promote .oc-seat.main { transition: transform .8s; }
+.oc-stage.promote.go .oc-seat.main { transform: translateY(-12px); }
+.oc-stage.raised .oc-seat.main { transition: transform .8s, opacity .8s; transform: translateY(40px); opacity: .3; }
+.oc-stage.raised.go .oc-seat.main { transform: none; opacity: 1; }
+.oc-bubble { background: #fffaf0; border: 2px solid #b89a62; border-radius: 10px; padding: 6px 10px; font-family: var(--mincho); max-width: 86%; }
+.oc-pros { width: 100%; border-top: 2px dashed #d6ae4f; padding-top: 6px; display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.oc-killer { display: flex; align-items: center; gap: 6px; width: 100%; justify-content: center; }
+.oc-x { color: #b4432f; font-size: 26px; }

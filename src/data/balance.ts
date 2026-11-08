@@ -1,7 +1,7 @@
 // バランス値。ゲームの数値はすべてここに集める（設計書の「ふつう」が初期値）。
 import type { Rank, SkillId, StatId } from '../core/types';
 
-export const SAVE_VERSION = 12;
+export const SAVE_VERSION = 13;
 
 export const RANKS: Rank[] = ['E', 'E+', 'D', 'D+', 'C', 'C+', 'B', 'B+', 'A', 'A+', 'S'];
 export const RANK_POINTS: Record<Rank, number> = {
@@ -32,6 +32,17 @@ export const B = {
     bloomRank: 'D+' as const,
     /** 金の芽：判明したうえで、このレベル・得意の技能がこのランク */
     goldLevel: 20, goldRank: 'C+' as const,
+  },
+  // ---- 勢力図（13夜目） ----
+  regions: {
+    /** 戦争中、強い国が年度末に国境の地域を奪う見込み：もと＋国力の差1あたり（上限） */
+    captureBase: 0.15, capturePerPower: 0.012, captureMax: 0.6,
+    /** 平和なとき、奪われた地域がもとの国に戻る見込み（1年に） */
+    returnInPeace: 0.25,
+    /** 依頼の勝ち負けで地域の色が変わる見込み（守る・奪う戦い） */
+    questTake: 0.18, questLose: 0.12,
+    /** 地域の多さの倍率（援助金・入学者の出身）の下限と上限 */
+    mulMin: 0.6, mulMax: 1.4,
   },
   // ---- 戦利品（10夜目：武器は買わずに戦いで手に入れる） ----
   loot: {

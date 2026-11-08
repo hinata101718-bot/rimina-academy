@@ -242,6 +242,9 @@ export interface WorldState {
   /** 何度目の戦争か（1＝最初の戦争）。今の戦争が始まった年 */
   warNo?: number;
   warStart?: number;
+  /** 13夜目：勢力図（地域 id → 持ち主）と、持ち主が変わった記録 */
+  regions?: Record<string, import('../data/regions').RegionHome>;
+  regionLog?: { year: number; month: number; id: string; from: string; to: string }[];
   eventCooldown: Record<string, number>; // 大事件ごとの再発までの月数
   history: { year: number; tension: number; power: Record<CountryId, number> }[];
 }
@@ -261,6 +264,8 @@ export interface Quest {
   weather: 'clear' | 'rain' | 'fog';
   real: boolean;
   defendTurns?: number;
+  /** 依頼の場所（13夜目：勢力図の地域 id） */
+  region?: string;
   /** 依頼の報酬の武器（10夜目） */
   rewardWeapon?: string;
   /** 2つ目・3つ目の部隊向けの小さな依頼（9夜目）：報酬・評判は少なめ、戦況は動かない */
@@ -602,6 +607,8 @@ export interface GameState {
   sortie?: Sortie | null;
   /** 学校で使える策（9夜目。data/stratagems.ts の id） */
   strats?: string[];
+  /** 勢力図を前に見たときのようす（13夜目） */
+  mapSeen?: { at: number; o: Record<string, string> };
   /** 組織図を前に見たときのようす（9夜目：陣営→敵将id→階級・状態・二つ名・上の人） */
   orgSeen?: Record<string, { at: number; o: Record<string, OrgMark> }>;
   /** 自動の戦闘で直近に使った文・出来事（同じ並びを避ける） */

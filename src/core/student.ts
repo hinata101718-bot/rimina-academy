@@ -13,6 +13,7 @@ import { emptySkills, emptyStats, clamp } from './util';
 import { round5 } from './growth';
 import { assignApt, assignBud, fitTotal } from './aptitude';
 import { takenNames } from './officers';
+import { regionMul } from './regions';
 
 export interface GenOptions {
   origin?: Origin;
@@ -50,7 +51,10 @@ export function newId(s: GameState, prefix = 's'): string {
 export function generateStudent(s: GameState, rng: Rng, opt: GenOptions = {}): Student {
   const q = opt.quality ?? 0;
   const parents = opt.parents;
-  let origin: Origin = opt.origin ?? weightedKey(rng, ORIGIN_WEIGHTS);
+  // 13夜目：地域の多い国から、入学する子が少し多く来る
+  const ow = { ...ORIGIN_WEIGHTS } as Record<Origin, number>;
+  if (s.world?.regions) for (const c of ['kingdom', 'empire', 'alliance'] as const) ow[c] = ow[c] * regionMul(s, c);
+  let origin: Origin = opt.origin ?? weightedKey(rng, ow);
   if (parents) origin = rng.pick([parents[0].origin, parents[1].origin]);
   const houseW = { ...HOUSE_WEIGHTS };
   if (opt.orphanBias) houseW.orphan += opt.orphanBias;

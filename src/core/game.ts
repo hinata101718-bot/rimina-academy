@@ -14,6 +14,7 @@ import { START_STRATS } from './stratagems';
 import { reputationRankUp } from './discovery';
 import { repTier } from '../data/discovery';
 import { repGift, takeLoot, STOCK_IDS } from './loot';
+import { ensureRegions } from './regions';
 import { rollQuests } from './quests';
 import { autoTargets } from './week';
 import { fx } from './mentor';
@@ -80,6 +81,7 @@ export function newGame(opts: { name: string; background: string; seed: number; 
   ensureRosters(s, r);
   startNewsDesk(s);
   s.quests = rollQuests(s);
+  ensureRegions(s); // 13夜目：勢力図
   return s;
 }
 

@@ -1,4 +1,5 @@
 // 敵将の名簿（6夜目）：三国の軍と盗賊団の幹部。会うほど情報が増える
+import { KILL_REACT } from '../data/aftermath_war';
 import { officerArts, artsLabel } from '../core/arts';
 import { ARTS } from '../data/arts';
 import { useEffect, useRef, useState } from 'preact/hooks';
@@ -98,7 +99,7 @@ function OrgChart({ s, f, changes, focus, onOpen }: { s: GameState; f: FactionId
     <div class="org-wrap" style={{ ['--band' as string]: FACTION_COLOR[f] }}>
       {changes.length > 0 && (
         <div class="org-changes">
-          <div class="org-chead">✦ 前に見たときから、{changes.length}件変わりました</div>
+          <button class="org-bigplay" onClick={() => { sfx('ok'); setPlay(0); }}>✦ この前から{changes.length}つの変化があります　▶ 見る</button>
           {changes.slice(0, 8).map((c, i) => <div class={`org-ch ${c.kind}`} onClick={() => { sfx('ok'); setPlay(i); }}><span class="org-chi">{CH_ICON[c.kind]}</span><span>{c.text}</span></div>)}
           {changes.length > 8 && <div class="small muted">ほか{changes.length - 8}件</div>}
           <div class="row nowrap gap6" style={{ marginTop: 6 }}>
@@ -175,38 +176,65 @@ function OrgNode({ s, n, prev, focus, onOpen }: { s: GameState; n: ONode; prev: 
 }
 
 /** 変化の演出：昇進は顔が線をたどって上の段へ、討ち取りは白黒とひび、抜擢は一般兵から顔へ（タップで次の変化へ） */
+/** 組織図の変化を1つずつ場面で（13夜目：見本 orgchart-fx.png）。上に「変化 1／3」、変化のあった席を大きく、下の黒い窓に見出しと説明 */
 function ChangePlayer({ s, c, i, n, onNext, onClose }: { s: GameState; c: OrgChange; i: number; n: number; onNext: () => void; onClose: () => void }) {
   const o = officerById(s, c.id);
-  useEffect(() => { sfx(c.kind === 'fell' ? 'kill' : c.kind === 'promote' || c.kind === 'raised' ? 'level' : 'pass'); }, [c.id, c.kind]);
+  const [go, setGo] = useState(false);
+  useEffect(() => { setGo(false); sfx(c.kind === 'fell' ? 'kill' : c.kind === 'promote' || c.kind === 'raised' ? 'level' : 'pass'); const t = setTimeout(() => setGo(true), 450); return () => clearTimeout(t); }, [c.id, c.kind]);
   if (!o) return null;
   const ring = FACTION_COLOR[o.faction];
   const rn = (r: number) => (r >= 3 ? '一兵卒' : rankName({ kind: o.kind, rank: r }));
+  const m = o.meets[o.meets.length - 1];
+  const killer = c.kind === 'fell' && m?.foes?.length ? s.students[m.foes[0]] : null;
+  const react = killer ? (KILL_REACT[killer.personality] ?? KILL_REACT.serious)[0] : null;
+  const fl = (x: string) => x.replace(/\{a\}/g, killer?.given ?? '').replace(/\{l\}/g, officerName(o));
+  const head = f0(s, o.faction);
+  const title = c.kind === 'fell' ? `${officerName(o)}、${killer ? `${killer.given}に` : ''}討たれる` : c.kind === 'raised' ? `${officerName(o)}、${rn(c.to ?? o.rank)}に抜擢` : c.kind === 'promote' ? `${officerName(o)}、${rn(c.to ?? o.rank)}の座に` : c.kind === 'new' ? `${officerName(o)}、新しく${rn(o.rank)}に` : c.kind === 'gone' ? `${officerName(o)}、去る` : c.kind === 'contest' ? `${officerName(o)}、${RANK_NAMES[o.kind === 'army' ? 'army' : 'bandit'][0]}の座をねらう` : c.kind === 'epithet' ? `${o.given}、「${officerName(o)}」と呼ばれる` : c.text;
+  const desc = c.kind === 'fell' ? `${rn(o.rank)}の席が空いた（このあと、だれかが座る）` : c.kind === 'raised' ? `「見込みのある兵」から上がった。${o.deed ?? ''}` : c.kind === 'promote' ? `${o.given}のいた${rn(c.from ?? o.rank + 1)}の席が空く → 次の変化で埋まる` : c.text;
+  const say = c.kind === 'raised' ? `「この席は、おれが継ぐ」` : c.kind === 'promote' ? '「上の席が空いたなら、座るまでだ」' : c.kind === 'new' ? '「名を覚えておけ。すぐに思い知らせてやる」' : c.kind === 'contest' ? '「頭の座は、力ずくでいただく」' : '';
   return (
-    <div class="org-player" onClick={(e) => { e.stopPropagation(); sfx('move'); onNext(); }}>
-      <div class="org-pcard" key={c.id + c.kind}>
-        <div class="org-ptitle">{CH_LABEL[c.kind]}<span class="small muted">（{i + 1}／{n}）</span></div>
-        {(c.kind === 'promote' || c.kind === 'raised') && (
-          <div class="org-pstage promote">
-            <span class="org-prank top">{rn(c.to ?? o.rank)}</span>
-            <span class="org-pline" />
-            <span class="org-prank bottom">{rn(c.from ?? 3)}</span>
-            <span class="org-pface rise">{c.kind === 'raised' ? <><span class="org-grunt">兵</span><span class="org-morph"><OfficerFace o={o} size={84} frame={ring} s={s} /></span></> : <OfficerFace o={o} size={84} frame={ring} s={s} />}</span>
+    <div class="oc-player" onClick={(e) => { e.stopPropagation(); sfx('move'); onNext(); }}>
+      <div class="oc-phead"><b class="serif">{factionName(o.faction)}の組織図</b><span class="oc-pcount">変化 {i + 1}／{n}</span></div>
+      <div class={`oc-stage ${c.kind}${go ? ' go' : ''}`} key={c.id + c.kind}>
+        {c.kind === 'promote' && <div class="oc-seat empty"><span class="oc-ring" /><b>空いた席</b><span class="small">{rn(c.to ?? o.rank)}</span></div>}
+        {c.kind === 'promote' && <div class="oc-arrow">▲</div>}
+        {c.kind === 'contest' && head && head.id !== o.id && <div class="oc-seat top"><OfficerFace o={head} size={90} frame={FACTION_COLOR[head.faction]} s={s} /><b>{officerName(head)}</b><span class="small">{rn(0)}</span></div>}
+        {c.kind === 'contest' && <div class="oc-arrow red">⚔</div>}
+        <div class={`oc-seat main ${c.kind}`}>
+          <span class="oc-face">
+            <OfficerFace o={c.kind === 'fell' || c.kind === 'gone' ? { ...o, status: 'dead' } : o} size={150} frame={c.kind === 'fell' || c.kind === 'gone' ? '#555' : ring} s={s} />
+            {c.kind === 'fell' && <span class="stamp oc-stamp">討取</span>}
+            {c.kind === 'fell' && <span class="org-crackline" />}
+            {(c.kind === 'raised' || c.kind === 'promote' || c.kind === 'new') && <span class={`oc-badge ${c.kind}`}>{c.kind === 'raised' ? '⇧ 抜擢' : c.kind === 'promote' ? '↑ 昇進' : '✦ 新任'}</span>}
+          </span>
+          <b class={`serif${c.kind === 'fell' || c.kind === 'gone' ? ' oc-strike' : ''}`}>{officerName(o)}</b>
+          <span class="small">{c.kind === 'raised' ? `${rn(c.to ?? o.rank)}（もと一般兵）` : c.kind === 'gone' ? `${rn(o.rank)}（${o.endNote ?? '引退'}）` : rn(c.kind === 'promote' ? (c.from ?? o.rank + 1) : o.rank)}</span>
+        </div>
+        {say && <div class="oc-bubble">{say}</div>}
+        {c.kind === 'raised' && (
+          <div class="oc-pros">
+            <span class="small">見込みのある兵</span>
+            <div class="row nowrap gap6">{prospectsOf(s, o.faction).slice(0, 3).map((p) => <OfficerFace o={p} size={40} frame={FACTION_COLOR[p.faction]} s={s} />)}</div>
           </div>
         )}
-        {(c.kind === 'fell' || c.kind === 'gone') && (
-          <div class="org-pstage fell"><span class="org-pface crack"><OfficerFace o={{ ...o, status: 'dead' }} size={96} frame="#555" s={s} /><span class="org-crackline" /></span>{c.kind === 'fell' && <span class="stamp org-pstamp">討取</span>}</div>
+        {killer && (
+          <div class="oc-killer">
+            <Portrait st={killer} size={64} frame="#3a6ad0" />
+            <span class="oc-x">⚔</span>
+            <div class="oc-bubble small"><div>「{react ? fl(react.say) : 'これで、終わりだ'}」</div>{react && <div class="muted">{fl(react.n)}</div>}</div>
+          </div>
         )}
-        {(c.kind === 'new' || c.kind === 'prospect' || c.kind === 'epithet' || c.kind === 'contest') && (
-          <div class={`org-pstage ${c.kind}`}><span class="org-pface pop"><OfficerFace o={o} size={96} frame={ring} s={s} /></span>{c.kind === 'contest' && <span class="org-swords">⚔</span>}</div>
-        )}
-        <div class="org-pname serif">{officerName(o)}</div>
-        <div class="org-ptext">{c.text}</div>
-        <div class="small muted">タップすると、次の変化へ進みます</div>
-        <button class="btn small" onClick={(e) => { e.stopPropagation(); onClose(); }}>閉じる</button>
+      </div>
+      <div class="oc-pwin"><b class="serif">{title}</b><div class="small">{desc}</div></div>
+      <div class="oc-pbtns" onClick={(e) => e.stopPropagation()}>
+        <button class="btn primary" onClick={() => { sfx('move'); onNext(); }}>タップで次へ</button>
+        <button class="btn" onClick={() => { sfx('cancel'); onClose(); }}>全部とばす</button>
       </div>
     </div>
   );
 }
+/** その陣営の今の頭（将軍・頭目） */
+function f0(s: GameState, f: string): EnemyOfficer | undefined { return (s.officers ?? []).find((x) => x.faction === f && x.status === 'active' && x.rank === 0); }
 
 function OfficerRow({ s, o, onOpen }: { s: GameState; o: EnemyOfficer; onOpen: () => void }) {
   const k = knowledge(o);
