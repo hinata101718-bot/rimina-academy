@@ -378,7 +378,7 @@ function EndingChoice({ s, kind, country }: { s: GameState; kind: EndingKind; co
     <Sheet title="エンディング">
       <div class="pcard" style={{ textAlign: 'center' }}>
         <div class="muted small">{ENDING_SUB[kind]}</div>
-        <div class="scene-title">{endingTitle(kind, country)}</div>
+        <div class="scene-title">{endingTitle(kind, country, (s.endings ?? [])[(s.endings ?? []).length - 1]?.n)}</div>
         <div class="small">{s.year}年目・卒業生 {s.stats.graduates}人・{s.instructor.generation}代目教官 {s.instructor.name}</div>
       </div>
       <div class="card">
@@ -386,7 +386,7 @@ function EndingChoice({ s, kind, country }: { s: GameState; kind: EndingKind; co
         <div class="row gap6">{(Object.keys(ENDING_NAMES) as EndingKind[]).map((k) => <span class={`chip-o ${reached.has(k) ? 'main' : 'gray'}`}>{reached.has(k) ? ENDING_NAMES[k] : '？？？'}</span>)}</div>
       </div>
       <div class="paper small">
-        <p><b>この学校を続ける</b>：平和な時代が始まります。戦争の大事件は起きず、依頼は魔物退治や治安維持が中心になります（まれに、再び戦の気配が漂うことも）。</p>
+        <p><b>この学校を続ける</b>：平和な時代が始まります。戦争の大事件は起きず、依頼は魔物退治や治安維持が中心になります。ただし、戦争の終わり方によって「次の戦争の火種」がくすぶりはじめます（戦況タブで見られます。こちらの動きで遅らせることもできます）。</p>
         <p><b>新しい学校で始める</b>：この学校の年鑑を「殿堂」に保存して、タイトル画面に戻ります（いつでも年鑑の「殿堂」で見られます）。次からは「ふつう」「名門」の学校からも始められます。このセーブもそのまま残ります。</p>
       </div>
       <button class="btn primary block" style={{ marginTop: 8 }} disabled={busy} onClick={() => { sfx('ok'); unlockStarts(); act((g) => continueSchool(g)); }}>この学校を続ける</button>

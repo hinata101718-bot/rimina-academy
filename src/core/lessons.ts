@@ -23,18 +23,17 @@ export function tired(st: Student): boolean { return st.fatigue >= 100 - B.day.l
 /** 授業を受けられる子（体調不良・けがの子は休み） */
 export function attends(st: Student): boolean { return available(st) && !(st.sickDays && st.sickDays > 0); }
 
-function lessonAvailable(s: GameState, l: LessonDef): boolean {
+function lessonAvailable(s: GameState, l: LessonDef, list: Student[]): boolean {
   if (l.needGun && !s.world.gunUnlocked) return false;
-  if (l.special === 'career' && !enrolled(s).some((x) => x.grade === 3 && attends(x))) return false;
+  if (l.special === 'career' && !list.some((x) => x.grade === 3)) return false;
   return true;
 }
 /** 授業の重み（月・行事・古いセーブの持ち越しで変わる） */
-function lessonWeight(s: GameState, l: LessonDef): number {
+function lessonWeight(s: GameState, l: LessonDef, list: Student[]): number {
   let w = l.weight;
   if (l.group === 'social' && s.month === 8) w *= B.day.festivalSocial;
   if (l.special === 'career' && s.month >= 6) w *= B.day.careerAutumn;
   // 生徒の目標技能が多い授業は出やすい（それでも毎日ばらつく）
-  const list = enrolled(s).filter(attends);
   if (l.skills && list.length) {
     const n = list.filter((st) => Object.keys(l.skills!).some((k) => st.targets.includes(k as SkillId))).length;
     w *= 0.6 + (n / list.length) * 2.2;
@@ -66,7 +65,8 @@ function faceWeight(s: GameState, st: Student, l: LessonDef): number {
 /** 今日の授業カードを作る（同じ日には同じカード） */
 export function rollDay(s: GameState, r: Rng): LessonDay {
   const key = absDay(s);
-  const pool = LESSONS.filter((l) => lessonAvailable(s, l));
+  const list = enrolled(s).filter(attends);
+  const pool = LESSONS.filter((l) => lessonAvailable(s, l, list));
   const rain = r.chance(0.18);
   const picked: LessonDef[] = [];
   // 古いセーブの重点科目・週末の予定は、最初の日のカードに出す
@@ -83,11 +83,10 @@ export function rollDay(s: GameState, r: Rng): LessonDay {
   while (picked.length < B.day.cards && guard++ < 200) {
     const cand = pool.filter((l) => !picked.includes(l) && l.special !== 'field');
     if (!cand.length) break;
-    picked.push(r.weighted(cand, (l) => lessonWeight(s, l)));
+    picked.push(r.weighted(cand, (l) => lessonWeight(s, l, list)));
   }
   // 顔：1人の子は1日に1枚のカードだけ
   const used = new Set<string>();
-  const list = enrolled(s).filter(attends);
   const cards: LessonCard[] = picked.map((l) => {
     const n = l.special === 'tea' || l.special === 'interview' ? r.int(2, 3) : 1 + pickIndex(r, B.day.faces);
     const faces: string[] = [];
@@ -377,9 +376,8 @@ export function advanceDay(s: GameState, r: Rng, lines: string[]): { weekEnded: 
 // ---------- おすすめ（今週はおまかせ・オートプレイ） ----------
 
 /** カードの点数：伸びる見込み（目標技能・顔・タッグ）と体力・やる気・面談の必要 */
-export function cardScore(s: GameState, card: LessonCard): number {
+export function cardScore(s: GameState, card: LessonCard, list: Student[] = enrolled(s).filter(attends)): number {
   const l = LESSON_BY_ID[card.id];
-  const list = enrolled(s).filter(attends);
   if (!list.length) return 0;
   const avgFat = list.reduce((a, st) => a + st.fatigue, 0) / list.length;
   const low = list.filter(tired).length;
@@ -405,6 +403,7 @@ export function cardScore(s: GameState, card: LessonCard): number {
 export function recommendCard(s: GameState): number {
   const day = todayCards(s);
   let best = 0, bv = -Infinity;
-  day.cards.forEach((c, i) => { const v = cardScore(s, c); if (v > bv) { bv = v; best = i; } });
+  const list = enrolled(s).filter(attends);
+  day.cards.forEach((c, i) => { const v = cardScore(s, c, list); if (v > bv) { bv = v; best = i; } });
   return best;
 }

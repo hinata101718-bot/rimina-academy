@@ -127,6 +127,8 @@ export interface TalkSideCond {
   /** 支援C以上の仲間がいる */
   hasFriend?: boolean;
   grade?: number;
+  /** 平和な時代に入学した（戦争を知らない。7夜目） */
+  peaceBorn?: boolean;
 }
 /** 二人の組にかける条件 */
 export interface TalkCond {

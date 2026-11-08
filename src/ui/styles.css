@@ -737,3 +737,8 @@ body { background-attachment: fixed; }
 .bl-ctrl .btn { min-width: 0; padding: 4px 2px; font-size: 13px; }
 .bl-view .bl-log { flex: 1; min-height: 0; }
 .bl-view .ab-choice { flex: none; max-height: 56vh; overflow-y: auto; }
+/* 紙のカードの雰囲気（名簿とそろえる） */
+.lcard::after, .bl-card::after, .lr-head::after { content: ""; position: absolute; inset: 3px; border: 1px dashed rgba(140, 115, 70, .16); border-radius: 11px; pointer-events: none; }
+.bl-card, .lr-head { position: relative; }
+.lcard, .bl-card { background-image: linear-gradient(180deg, rgba(255,255,255,.4), rgba(255,255,255,0) 45%); }
+.seedcard .flag.red { background: var(--accent); color: #fff; }

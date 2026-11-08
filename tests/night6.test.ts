@@ -152,7 +152,7 @@ describe('宿敵の仕組み', () => {
       const hu = b.units.find((u) => u.studentId === hero.id)!;
       // 主人公の子は敵将とぶつかった。敵将は傷を負って逃げた
       (b.hitBy[lu.uid] ??= []).includes(hu.uid) || b.hitBy[lu.uid].push(hu.uid);
-      hu.dmgDealt += 30;
+      hu.dmgDealt += 300;
       if (lu.dead && !b.retreated.includes(lu.uid)) b.retreated.push(lu.uid);
       lu.dead = true; L.fled = true; L.settled = null;
       if (!b.retreated.includes(lu.uid)) b.retreated.push(lu.uid);

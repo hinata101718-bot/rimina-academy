@@ -5,6 +5,8 @@ import { CLASSES } from '../data/classes';
 import { ORIGIN_FLAVOR, HOUSE_FLAVOR, SEASON_WORDS, SEASON_SCENE } from '../data/talks/flavor';
 import { tensionStage } from './world';
 import { TALKS, PHRASES } from '../data/talks';
+import { WHOLE_TALKS } from '../data/talks/whole_index';
+import { TONE_OF, type WholeTalk, type WholeLine } from '../data/talks/whole';
 import type { TalkCond, TalkDef, TalkSay, TalkSideCond, PersonalityId, SkillId } from './types';
 import type { GameState, Student, Support, TalkLog } from './state';
 import { Rng } from './rng';
@@ -97,7 +99,14 @@ function sideOk(s: GameState | null, st: Student, c: TalkSideCond | undefined, o
   if (c.highMood !== undefined && (st.motivation >= 3) !== c.highMood) return false;
   if (c.hasFriend !== undefined && (!!(s && bestFriend(s, st))) !== c.hasFriend) return false;
   if (c.grade !== undefined && st.grade !== c.grade) return false;
+  if (c.peaceBorn !== undefined && (!!s && peaceBorn(s, st)) !== c.peaceBorn) return false;
   return true;
+}
+/** 平和な時代に入学した子（戦争を知らない。7夜目）：いまが平和な時代で、最後のエンディングより後に入学した */
+export function peaceBorn(s: GameState, st: Student): boolean {
+  if (s.world.era !== 'peace') return false;
+  const last = (s.endings ?? [])[(s.endings ?? []).length - 1];
+  return !!last && st.enrollYear > last.year;
 }
 /** いちばん支援値の高い仲間（支援C以上・在校生） */
 export function bestFriend(s: GameState, st: Student): Student | null {
@@ -176,7 +185,7 @@ export function fillText(text: string, s: GameState, me: Student | null, you: St
     .replace(new RegExp(`\\{${prefix}Duty\\}`, 'g'), st ? HOUSE_FLAVOR[st.house].duty : '')
     .replace(new RegExp(`\\{${prefix}Skill\\}`, 'g'), st ? SKILL_NAMES[bestSkill(st)] : '')
     .replace(new RegExp(`\\{${prefix}Class\\}`, 'g'), st ? CLASSES[st.classId]?.name ?? '' : '')
-    .replace(new RegExp(`\\{${prefix}Friend\\}`, 'g'), st ? bestFriend(s, st)?.given ?? '仲間' : '')
+    .replace(new RegExp(`\\{${prefix}Friend\\}`, 'g'), () => (st ? bestFriend(s, st)?.given ?? '仲間' : ''))
     .replace(new RegExp(`\\{${prefix}TalentSkill\\}`, 'g'), st ? SKILL_NAMES[(st.talent && TALENTS[st.talent].skill) || bestSkill(st)] : '')
     .replace(new RegExp(`\\{${prefix}Love\\}`, 'g'), () => loveName(st))
     .replace(new RegExp(`\\{${prefix}Senior\\}`, 'g'), () => seniorName(st))
@@ -225,11 +234,12 @@ export function renderLines(s: GameState, rng: Rng, lines: TalkDef['lines'], a: 
 export function buildTalk(s: GameState, rng: Rng, sp: Support, rank: 'C' | 'B' | 'A'): TalkLog | null {
   let a = s.students[sp.a], b = s.students[sp.b];
   if (!a || !b) return null;
-  const cands: { t: TalkDef; w: number; swap: boolean; detail: string }[] = [];
-  for (const t of TALKS) {
-    if (t.rank !== rank || sp.seen.includes(t.id)) continue;
+  const cands: { t: TalkDef | WholeTalk; w: number; swap: boolean; detail: string; whole: boolean }[] = [];
+  const consider = (t: TalkDef | WholeTalk, whole: boolean) => {
+    if (t.rank !== rank || sp.seen.includes(t.id)) return;
     for (const swap of [false, true]) {
       const x = swap ? b : a, y = swap ? a : b;
+      if (whole) { const wt = t as WholeTalk; if (TONE_OF[x.personality] !== wt.ga || TONE_OF[y.personality] !== wt.gb) continue; }
       if (!condOk(t.when, x, y, sp, s)) continue;
       let w = 1; let detail = '';
       if (t.topic.startsWith('ev_')) {
@@ -241,9 +251,12 @@ export function buildTalk(s: GameState, rng: Rng, sp: Support, rank: 'C' | 'B' |
         if (sp.kind !== kind) continue;
         w = rank === 'A' ? 5 : 3;
       } else if (t.topic === 'trait' && x.knownTraits.length === 0) continue;
-      cands.push({ t, w, swap, detail });
+      // まるごと書いた会話（7夜目）は出やすく
+      cands.push({ t, w: w * (whole ? B.talkWhole.weight : 1), swap, detail, whole });
     }
-  }
+  };
+  for (const t of TALKS) consider(t, false);
+  for (const t of WHOLE_TALKS) consider(t, true);
   if (!cands.length) {
     // すべて見た場合は、見たものから選び直す
     if (sp.seen.length) { sp.seen = []; return buildTalk(s, rng, sp, rank); }
@@ -252,9 +265,19 @@ export function buildTalk(s: GameState, rng: Rng, sp: Support, rank: 'C' | 'B' |
   const c = rng.weighted(cands, (x) => x.w);
   if (c.swap) [a, b] = [b, a];
   sp.seen.push(c.t.id);
-  const t: TalkLog = { a: a.id, b: b.id, rank, title: TOPIC_TITLE[c.t.topic] ?? '会話', lines: renderLines(s, rng, c.t.lines, a, b, sp, c.detail), kind: 'support' };
+  const lines = c.whole ? renderWhole(s, (c.t as WholeTalk).lines, a, b, c.detail) : renderLines(s, rng, (c.t as TalkDef).lines, a, b, sp, c.detail);
+  const t: TalkLog = { a: a.id, b: b.id, rank, title: TOPIC_TITLE[c.t.topic] ?? '会話', lines, kind: 'support' };
   archiveTalk(s, t);
   return t;
+}
+
+/** まるごと書いた会話の行を並べる（差し込みは固有の言葉だけ） */
+export function renderWhole(s: GameState, lines: WholeLine[], a: Student, b: Student, detail: string): TalkLog['lines'] {
+  return lines.map((l) => {
+    if (l.by === 'n') return { by: 'narr', text: fillText(l.t, s, a, b, detail) };
+    const me = l.by === 'a' ? a : b, you = l.by === 'a' ? b : a;
+    return { by: me.id, text: fillText(l.p?.[me.personality] ?? l.t, s, me, you, detail) };
+  });
 }
 // ---------- 会話の記録 ----------
 

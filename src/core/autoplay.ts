@@ -160,6 +160,7 @@ export function autoPending(s: GameState): void {
   let guard = 0;
   while (s.pending.length && guard++ < 50) {
     const p = s.pending[0];
+    opCount.pending += 1;
     if (p.type === 'questBoard') {
       const real = s.quests.filter((q) => q.real);
       const lv = enrolled(s).reduce((a, x) => a + x.level, 0) / Math.max(1, enrolled(s).length);
@@ -170,6 +171,7 @@ export function autoPending(s: GameState): void {
       if (manualInSim) { startBattle(s, pick.id, autoDeploy(s)); autoBattle(s); continue; }
       const d = autoDeploy(s);
       startAutoQuest(s, pick.id, d, defaultPlan(s, pick, d));
+      opCount.battle += 1 + (s.battle?.auto?.choice ? 1 : 0);
       finishAuto(s);
       continue;
     }
@@ -243,13 +245,21 @@ export function autoManage(s: GameState): void {
   void capacity; void B;
 }
 
+let gradeHook: ((s: GameState) => void) | null = null;
+/** シミュレーション用：学年の終わり（3月の第4週の月曜）に呼ぶ */
+export function setGradeHook(f: ((s: GameState) => void) | null): void { gradeHook = f; }
+/** シミュレーション用：画面の操作の回数の目安（授業カード1回＋結果を閉じる1回など） */
+export const opCount = { lesson: 0, pending: 0, battle: 0 };
+
 /** 1日ぶん自動で進める（7夜目：おすすめの授業カードを選ぶ） */
 export function autoDay(s: GameState): void {
   autoPending(s);
+  if (gradeHook && s.month === 11 && s.week === 4 && (s.day ?? 1) === 1) gradeHook(s);
   if (s.week === 1 && (s.day ?? 1) === 1) autoManage(s);
   if (s.pending.length || s.battle) return;
   todayCards(s);
   chooseLesson(s, lessonPick ? lessonPick(s) : recommendCard(s));
+  opCount.lesson += 1;
   autoPending(s);
 }
 /** 1週間ぶん自動で進める（月〜金） */

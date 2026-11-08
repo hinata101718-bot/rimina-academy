@@ -36,3 +36,13 @@ import { autoDeploy } from '../src/core/autoplay';
   startAutoQuest(g, q.id, d, defaultPlan(g, q, d));
   writeFileSync(`${out}/battle.json`, serialize(g));
 }
+// 平和な時代（火種がくすぶっている）
+import { continueSchool } from '../src/core/ending';
+{
+  const g = JSON.parse(serialize(s)).state;
+  g.pending = []; g.battle = null;
+  g.endings = [{ kind: 'peace', year: g.year - 6, n: 1 }];
+  continueSchool(g);
+  g.world.seed.since = g.year - 6; g.world.seed.smolder = 58; g.world.seed.omens = 1;
+  writeFileSync(`${out}/peace.json`, serialize(g));
+}

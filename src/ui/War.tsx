@@ -8,7 +8,8 @@ import { Bar, money } from './common';
 import { Icon } from './icons';
 import { countryColor, Stars, OBJECTIVE_ICON, WEATHER_ICON } from './cards';
 import type { GameState } from '../core/state';
-import { neutralProgress, neutralRevealed } from '../core/ending';
+import { neutralProgress, neutralRevealed, seedFactor, smolderStage, endingTitle } from '../core/ending';
+import { SEEDS, warOrdinal } from '../data/aftermath';
 
 const POS: Record<string, [number, number]> = { kingdom: [150, 50], empire: [70, 175], alliance: [240, 165] };
 const REL_COLOR = { war: '#b03a2e', tense: '#d08a2a', friendly: '#4f8f4a', allied: '#2f5fa8' };
@@ -74,6 +75,7 @@ export function WarTab() {
             <div class="muted small">文官の教え子が大使（文官の3段目）以上になると、和平会議を呼びかけられます。三国すべてに大使以上の教え子がいて、学校が独立していれば、和平会議は「和平の円卓」になります。和平会議はこれまでに{s.world.peaceTalksHeld}回。</div>
             {s.world.peaceRoundYear && <div class="tag">{s.world.peaceRoundYear}年目に和平の円卓が開かれた</div>}
           </div>
+          {s.world.era === 'peace' && <SeedCard s={s} />}
           <NeutralCard s={s} />
           <div class="card">
             <h3>依頼掲示板（今月末）</h3>
@@ -92,6 +94,28 @@ export function WarTab() {
           </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+/** 次の戦争の火種（7夜目：平和な時代だけ） */
+function SeedCard({ s }: { s: GameState }) {
+  const sd = s.world.seed;
+  if (!sd) return <div class="card"><h3>火種</h3><div class="muted small">いまのところ、大陸は静かだ。</div></div>;
+  const def = SEEDS[sd.kind];
+  const f = seedFactor(s);
+  const v = Math.round(sd.smolder);
+  const last = (s.endings ?? [])[(s.endings ?? []).length - 1];
+  const tone = v >= 85 ? 'red' : v >= 60 ? 'warn' : 'main';
+  return (
+    <div class="card seedcard">
+      <h3>次の戦争の火種</h3>
+      <div class="small muted">{last ? `${endingTitle(last.kind, last.country, last.n)}から${s.year - sd.since}年。` : ''}平和な時代にも、火種は少しずつくすぶっている。</div>
+      <div class="row between nowrap" style={{ marginTop: 6 }}><b>{def.name}</b><span class={`flag ${tone === 'red' ? 'red' : ''}`}>{smolderStage(v)}</span></div>
+      <Bar v={v} max={100} red={tone !== 'main'} />
+      <div class="small" style={{ marginTop: 6 }}><b class="ngmark">▲</b> 強まる：{def.grows}{f.up.length ? `（いま：${f.up.join('・')}）` : ''}</div>
+      <div class="small"><b class="okmark">▼</b> 遅らせる：{def.slows}{f.down.length ? `（いま：${f.down.join('・')}）` : ''}</div>
+      <div class="muted small">くすぶりの速さ：{f.mul >= 1.25 ? '速い' : f.mul <= 0.75 ? 'ゆっくり' : 'ふつう'}（×{f.mul.toFixed(2)}）。満ちると{warOrdinal((s.world.warNo ?? 1) + 1)}の戦争が始まる。</div>
     </div>
   );
 }

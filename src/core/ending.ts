@@ -9,11 +9,14 @@ import { activeAlumni, diplomats, recalcTension, PAIRS } from './world';
 import { titleOf } from './alumni';
 import { RANK_TITLES } from '../data/people';
 import { clamp } from './util';
+import { SEEDS, SMOLDER_STAGES, warOrdinal } from '../data/aftermath';
 
 export const ENDING_NAMES: Record<EndingKind, string> = { peace: '和平の円卓', unify: '統一', ceasefire: '疲弊の停戦', neutral: '学校の中立宣言' };
 export const ENDING_SUB: Record<EndingKind, string> = { peace: '真エンド', unify: '勢力エンド', ceasefire: 'ふつうのエンド', neutral: '隠しエンド' };
-export function endingTitle(kind: EndingKind, country?: CountryId | null): string {
-  return kind === 'unify' && country ? `${COUNTRY_SHORT[country]}による統一` : ENDING_NAMES[kind];
+export function endingTitle(kind: EndingKind, country?: CountryId | null, n?: number): string {
+  const base = kind === 'unify' && country ? `${COUNTRY_SHORT[country]}による統一` : ENDING_NAMES[kind];
+  // 二度目以降の戦争を終わらせたとき（7夜目）：「第二次和平の円卓」など
+  return n && n >= 2 ? `${warOrdinal(n)}${base}` : base;
 }
 
 // ---------------------------------------------------------------
@@ -42,11 +45,12 @@ export function yearlyUnifyCount(s: GameState): void {
 export function endingReady(s: GameState, when: 'year' | 'month'): { kind: EndingKind; country?: CountryId } | null {
   const w = s.world;
   if (w.era === 'peace') return null;
-  // 同じエンディングは一度だけ（再び戦の気配が漂ったあとは、まだ届いていないエンディングだけ）
-  const done = new Set((s.endings ?? []).map((e) => e.kind));
+  // 同じ戦争のうちは、同じエンディングは一度だけ（7夜目：二度目以降の戦争では、同じ種類のエンディングもまた見られる）
+  const no = w.warNo ?? 1;
+  const done = new Set((s.endings ?? []).filter((e) => (e.n ?? 1) === no).map((e) => e.kind));
   const E = B.ending;
   // 和平の円卓（和平会議の月にも）
-  if (w.peaceRoundYear && !done.has('peace') && !(s.endings ?? []).some((e) => e.kind === 'peace')) return { kind: 'peace' };
+  if (w.peaceRoundYear && !done.has('peace')) return { kind: 'peace' };
   // 学校の中立宣言（学校防衛戦に勝った月にも）
   if (!done.has('neutral') && neutralProgress(s).every((x) => x.ok)) return { kind: 'neutral' };
   if (when !== 'year') return null;
@@ -85,9 +89,10 @@ export function checkEndings(s: GameState, rng: Rng, when: 'year' | 'month'): En
   const r = endingReady(s, when);
   if (!r) return null;
   const year = s.year;
-  s.endings = [...(s.endings ?? []), { kind: r.kind, year, country: r.country }];
-  chronicle(s, `エンディング「${endingTitle(r.kind, r.country)}」`, 'world');
-  s.pending.push({ type: 'scene', title: endingTitle(r.kind, r.country), lines: endingScene(s, rng, r.kind, r.country), after: 'ending' });
+  const n = s.world.warNo ?? 1;
+  s.endings = [...(s.endings ?? []), { kind: r.kind, year, country: r.country, n }];
+  chronicle(s, `エンディング「${endingTitle(r.kind, r.country, n)}」`, 'world');
+  s.pending.push({ type: 'scene', title: endingTitle(r.kind, r.country, n), lines: endingScene(s, rng, r.kind, r.country, n >= 2), after: 'ending' });
   s.pending.push({ type: 'ending', kind: r.kind, country: r.country });
   return r.kind;
 }
@@ -170,8 +175,21 @@ const OPENING: Record<EndingKind, (s: GameState, country?: CountryId) => SceneLi
   ],
 };
 
-export function endingScene(s: GameState, rng: Rng, kind: EndingKind, country?: CountryId): SceneLine[] {
+export function endingScene(s: GameState, rng: Rng, kind: EndingKind, country?: CountryId, short = false): SceneLine[] {
   const lines: SceneLine[] = [...OPENING[kind](s, country)];
+  // 二度目以降の戦争のエンディングは少し短く（7夜目）：始まり・後日談5人まで・前の戦争からの年表・最後の一言
+  if (short) {
+    const no = s.world.warNo ?? 2;
+    lines[0] = { ...lines[0], title: `${warOrdinal(no)}${lines[0].title ?? ''}` };
+    const keys = keyStudents(s, kind, country).slice(0, 5);
+    if (keys.length) lines.push({ by: 'narr', title: 'それから', text: '終戦に関わった教え子たちの、その後。', faces: keys.map((x) => x.id) });
+    for (const st of keys) lines.push({ by: 'narr', faces: [st.id], text: epilogue(s, rng, st, kind, country) });
+    const from = s.world.warStart ?? 0;
+    const pick = s.chronicle.filter((c) => c.year >= from && c.kind !== 'student').slice(-12);
+    if (pick.length) lines.push({ by: 'narr', title: `${warOrdinal(no)}大陸戦争の年表`, text: pick.slice(-6).map((c) => `${c.year}年目　${c.text}`).join('\n') });
+    lines.push({ by: 'teacher', text: `${warOrdinal(no)}の戦争も、終わった。――次の世代には、戦争を知らないまま大人になってほしい。` });
+    return lines;
+  }
   // ② 後日談
   const keys = keyStudents(s, kind, country);
   if (keys.length) lines.push({ by: 'narr', title: 'それから', text: '終戦に関わった教え子たちの、その後。', faces: keys.map((x) => x.id) });
@@ -203,7 +221,7 @@ export function endingScene(s: GameState, rng: Rng, kind: EndingKind, country?: 
 // エンディングのあと
 // ---------------------------------------------------------------
 
-/** 「この学校を続ける」：平和な時代へ（戦争の大事件なし、依頼は魔物退治・治安維持、まれに再び戦争） */
+/** 「この学校を続ける」：平和な時代へ（戦争の大事件なし、依頼は魔物退治・治安維持）。終わり方ごとの火種がくすぶりはじめる（7夜目） */
 export function continueSchool(s: GameState): void {
   const w = s.world;
   w.era = 'peace';
@@ -213,17 +231,137 @@ export function continueSchool(s: GameState): void {
   recalcTension(s, 1);
   chronicle(s, '平和な時代が始まった', 'world');
   s.pending = s.pending.filter((p) => p.type !== 'ending');
+  const last = (s.endings ?? [])[(s.endings ?? []).length - 1];
+  if (last) startSeed(s, last.kind, last.country ?? null);
 }
 
-/** 平和な時代の年度末：まれに再び戦の気配 */
-export function peaceEraYear(s: GameState, rng: Rng): string | null {
-  if (s.world.era !== 'peace') return null;
-  if (!rng.chance(B.ending.relapseChance)) return null;
-  s.world.era = null;
-  for (const p of PAIRS) s.world.relations[p.key] -= 25;
-  s.world.peaceRoundYear = null;
-  chronicle(s, '再び戦の気配が大陸に漂いはじめた', 'world');
-  return '再び戦の気配';
+/** 火種を置く（終わり方ごとに、次の戦争までの目安の年数を決める） */
+export function startSeed(s: GameState, kind: EndingKind, country: CountryId | null): void {
+  const d = SEEDS[kind];
+  const r = new Rng({ rng: (s.rng ^ (s.year * 2654435761)) | 0 });
+  s.world.seed = { kind, country, since: s.year, due: r.int(d.years[0], d.years[1]), smolder: 0, omens: 0, help: 0 };
+}
+
+/** 火種の強まり方（倍率）と、いま効いていること（戦況タブに出す） */
+export function seedFactor(s: GameState): { mul: number; up: string[]; down: string[] } {
+  const w = s.world;
+  const sd = w.seed;
+  const S = B.ending.seed;
+  if (!sd) return { mul: 1, up: [], down: [] };
+  let m = 1;
+  const up: string[] = [], down: string[] = [];
+  const civil = (st: Student) => st.career?.kind === 'army' && st.career.path === 'civil';
+  if (sd.kind === 'peace') {
+    // 円卓のころに大使以上だった文官のうち、去った人数
+    const lost = Object.values(s.students).filter((st) => civil(st) && st.career!.rank >= 2 && (st.career!.retired || !st.career!.alive) && (st.diedYear ?? s.year) >= sd.since - 30).length;
+    const active = COUNTRIES.reduce((a, c) => a + activeAlumni(s, c).filter(civil).length, 0);
+    m += Math.min(lost, 6) * S.peaceLostCivil - active * S.peaceActiveCivil;
+    if (lost) up.push(`円卓を支えた文官が${lost}人去った`);
+    down.push(`現役の文官の教え子 ${active}人`);
+  } else if (sd.kind === 'unify') {
+    const old = COUNTRIES.filter((c) => c !== sd.country);
+    const stu = enrolled(s).filter((st) => old.includes(st.origin as CountryId)).length;
+    const alum = sd.country ? activeAlumni(s, sd.country).filter((st) => old.includes(st.origin as CountryId) && st.career!.rank >= 1).length : 0;
+    m -= stu * S.unifyStudent + alum * S.unifyAlumni;
+    down.push(`旧二国出身の在校生 ${stu}人・役職についた教え子 ${alum}人`);
+  } else if (sd.kind === 'ceasefire') {
+    const top = Math.max(...COUNTRIES.map((c) => w.power[c]));
+    m += Math.max(0, top - 50) * S.ceasePower - sd.help * S.ceaseHelp;
+    up.push(`いちばん強い国の国力 ${Math.round(top)}`);
+    down.push(`弱った国の依頼に勝った回数 ${sd.help}回`);
+  } else if (sd.kind === 'neutral') {
+    const fmin = Math.min(...COUNTRIES.map((c) => w.friendship[c]));
+    m += Math.max(0, s.reputation - 70) * S.neutralRep - Math.max(0, fmin - 50) * S.neutralFriend;
+    up.push(`学校の評判 ${Math.round(s.reputation)}`);
+    down.push(`三国との友好度（いちばん低い国）${Math.round(fmin)}`);
+  }
+  return { mul: clamp(m, S.minMul, S.maxMul), up, down };
+}
+
+/** 停戦のあと：弱った国の依頼に勝つと、火種が遅くなる（戦闘の結果から呼ぶ） */
+export function seedHelp(s: GameState, client: CountryId | null): void {
+  const sd = s.world.seed;
+  if (!sd || sd.kind !== 'ceasefire' || !client || s.world.era !== 'peace') return;
+  const weakest = [...COUNTRIES].sort((a, b) => s.world.power[a] - s.world.power[b])[0];
+  if (client === weakest) sd.help += 1;
+}
+
+/** くすぶりの段階の名前 */
+export function smolderStage(v: number): string { return [...SMOLDER_STAGES].reverse().find((x) => v >= x.at)?.name ?? '静か'; }
+
+/**
+ * 平和な時代の年度末（7夜目）：火種がくすぶり、予兆が新聞・手紙・大事件で出る。100になると次の戦争が始まる。
+ * 新聞に載せる文を返す
+ */
+export function peaceEraYear(s: GameState, rng: Rng): string[] {
+  const w = s.world;
+  if (w.era !== 'peace') return [];
+  // 古いセーブ（火種のない平和な時代）は、最後のエンディングから火種を置く
+  if (!w.seed) { const last = (s.endings ?? [])[(s.endings ?? []).length - 1]; startSeed(s, last?.kind ?? 'ceasefire', last?.country ?? null); }
+  const sd = w.seed!;
+  const S = B.ending.seed;
+  const def = SEEDS[sd.kind];
+  const f = seedFactor(s);
+  const before = sd.smolder;
+  sd.smolder = clamp(sd.smolder + (100 / sd.due) * f.mul * (1 - S.jitter + rng.next() * S.jitter * 2) * s.settings.mods.war, 0, 100);
+  sd.help = 0;
+  const out: string[] = [];
+  for (let i = 0; i < S.omenAt.length; i++) {
+    if (before < S.omenAt[i] && sd.smolder >= S.omenAt[i] && sd.omens <= i) {
+      sd.omens = i + 1;
+      out.push(`【${def.name}】${def.omens[i]}`);
+      if (i === 1) omenLetter(s, rng, def.omens[i]);
+      if (i === 2) s.pending.push({ type: 'event', title: '戦の予兆', lines: [def.omens[i], '火種のくすぶりが強まっている。戦況タブの「火種」で、遅らせる方法を確かめよう。'] });
+      chronicle(s, `予兆：${def.omens[i]}`, 'world');
+    }
+  }
+  if (sd.smolder >= 100) out.push(...outbreak(s, rng));
+  return out;
+}
+
+/** 予兆の手紙：信頼の高い卒業生から */
+function omenLetter(s: GameState, rng: Rng, text: string): void {
+  const al = Object.values(s.students).filter((x) => x.status === 'graduated' && x.career?.alive && !x.career.retired && x.career.kind === 'army').sort((a, b) => b.trust - a.trust);
+  const st = al[0];
+  if (!st) return;
+  s.mail.unshift({ id: `m${s.nextId++}`, year: s.year, month: s.month, from: `${st.given}（${st.cohort}期生）`, title: '気になる知らせ', body: `${s.instructor.name}先生へ。お元気ですか。${text}このまま何事もなければいいのですが……。学校の皆にも、どうか気をつけるよう伝えてください。—${st.given}`, read: false, studentId: st.id });
+  void rng;
+}
+
+/** 次の戦争の始まり：大事件として、短い場面と新聞で */
+function outbreak(s: GameState, rng: Rng): string[] {
+  const w = s.world;
+  const sd = w.seed!;
+  const def = SEEDS[sd.kind];
+  const S = B.ending.seed;
+  w.era = null;
+  w.warNo = (w.warNo ?? 1) + 1;
+  w.warStart = s.year;
+  w.peaceRoundYear = null;
+  w.exhaustion = 0;
+  w.unifyYears = {};
+  const no = w.warNo;
+  // 関係を下げる（統一のあとは、統一した国と旧二国。ほかは、いちばん強い国とその隣）
+  const keys = sd.kind === 'unify' && sd.country ? PAIRS.filter((p) => p.a === sd.country || p.b === sd.country).map((p) => p.key) : PAIRS.map((p) => p.key);
+  for (const k of keys) w.relations[k] = Math.min(w.relations[k], S.outbreakRel + rng.int(-10, 10));
+  if (sd.kind === 'unify' && sd.country) for (const c of COUNTRIES) if (c !== sd.country) w.power[c] = Math.max(w.power[c], 35 + rng.int(0, 10));
+  recalcTension(s, 1);
+  w.tension = Math.max(w.tension, S.outbreakTension);
+  w.seed = null;
+  const title = `${warOrdinal(no)}大陸戦争`;
+  chronicle(s, `${title}が始まった（火種：${def.name}）`, 'world');
+  // 前の戦争を戦った卒業生（老将・宰相）
+  const vets = Object.values(s.students).filter((x) => x.status === 'graduated' && x.career?.alive && !x.career.retired && x.career.kind === 'army' && x.enrollYear + 3 <= sd.since).sort((a, b) => (b.career!.rank - a.career!.rank) || b.level - a.level).slice(0, 2);
+  const young = enrolled(s).filter((x) => x.enrollYear > sd.since).slice(0, 4);
+  const lines: SceneLine[] = [
+    { by: 'narr', title, text: def.outbreak[0] },
+    { by: 'narr', text: def.outbreak[1] },
+    ...(vets.length ? [{ by: 'narr', faces: vets.map((x) => x.id), text: `前の戦争を戦った${vets.map((x) => `${x.given}（${titleOf(x).replace(/（.*）$/, '')}）`).join('と')}は、今では老将や重臣として、再び戦の前に立つことになった。` } as SceneLine] : []),
+    ...(young.length ? [{ by: 'narr', faces: young.map((x) => x.id), text: '平和な時代に入学した生徒たちは、戦争を知らない。学校の空気が、少し張りつめた。' } as SceneLine] : []),
+    { by: 'teacher', text: 'また、この日が来てしまったか。――それでも、私たちのやることは変わらない。生きて帰れる者を育てる。それだけだ。' },
+  ];
+  s.pending.push({ type: 'scene', title, lines });
+  return [`【大事件】${title}が始まった。${def.outbreak[0]}`];
 }
 
 // ---------------------------------------------------------------
@@ -250,7 +388,7 @@ export interface HallEntry {
   id: string; savedAt: number; instructor: string; years: number;
   /** 殿堂の形式（4夜目＝2） */
   v?: number;
-  endings: { kind: EndingKind; year: number; country?: CountryId }[];
+  endings: { kind: EndingKind; year: number; country?: CountryId; n?: number }[];
   instructors: { name: string; generation: number; from: number; to: number }[];
   graduates: HallStudent[];
   photos: { cohort: number; year: number; ids: string[] }[];
@@ -314,7 +452,7 @@ export function hallCompareRow(h: HallEntry, current = false): HallCompareRow {
   const rec = hallRecords(h);
   return {
     id: h.id, name: `${h.instructor}教官`, current, years: h.years,
-    endings: h.endings.map((e) => endingTitle(e.kind, e.country)).join('・') || '—',
+    endings: h.endings.map((e) => endingTitle(e.kind, e.country, e.n)).join('・') || '—',
     graduates: h.graduates.filter((g) => g.title !== '在学中に戦死').length,
     deaths: h.stats.deaths, wins: h.stats.battlesWon, losses: h.stats.battlesLost,
     generations: h.instructors.length, topLevel: rec.topLevel?.n ?? 0, topRank: rec.topRank?.title ?? '—',

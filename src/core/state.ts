@@ -204,6 +204,11 @@ export interface WorldState {
   defenseWonYear?: number;
   /** エンディングのあと「この学校を続ける」を選んだ平和な時代 */
   era?: 'peace' | null;
+  /** 次の戦争の火種（7夜目）。くすぶり0〜100、100で次の戦争 */
+  seed?: { kind: EndingKind; country?: CountryId | null; since: number; due: number; smolder: number; omens: number; help: number } | null;
+  /** 何度目の戦争か（1＝最初の戦争）。今の戦争が始まった年 */
+  warNo?: number;
+  warStart?: number;
   eventCooldown: Record<string, number>; // 大事件ごとの再発までの月数
   history: { year: number; tension: number; power: Record<CountryId, number> }[];
 }
@@ -445,7 +450,7 @@ export interface GameState {
   /** 「ふつう」「名門」スタート：廃校の期限なし */
   noDeadline?: boolean;
   /** 到達したエンディング */
-  endings?: { kind: EndingKind; year: number; country?: CountryId }[];
+  endings?: { kind: EndingKind; year: number; country?: CountryId; /** 何度目の戦争を終わらせたか（7夜目） */ n?: number }[];
   /** 後継の打診を断った卒業生（その年度の間） */
   declinedSuccessors?: string[];
   /** 因縁の敵将（逃した敵将。5夜目） */

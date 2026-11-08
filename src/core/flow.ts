@@ -27,7 +27,7 @@ import { generateStudent } from './student';
 import { rollTeacherCandidates, monthlySalaries, yearlyRaises } from './teachers';
 import { absMonth, MONTH_NAMES, rankOf } from './util';
 import { retireCheck, viceOf, cleanVice } from './instructor';
-import { checkEndings, peaceEraYear } from './ending';
+import { checkEndings, peaceEraYear, seedHelp } from './ending';
 import { TRAITS } from '../data/people';
 import type { BattleCtx } from './battle/engine';
 import { supportValue } from './support';
@@ -256,6 +256,7 @@ export function finishBattle(s: GameState): void {
         const rep = B.reputation.questWinByDanger[q.danger] ?? 1;
         addRep(s, rep);
         lines.push(`報酬 ${s.money - before}G、評判+${rep}`);
+        seedHelp(s, q.clientCountry);
         lines.push(...questWorldEffect(s, q.clientCountry, q.enemyCountry, true));
       } else { addRep(s, B.reputation.questLose); lines.push(`依頼は失敗。評判${B.reputation.questLose}`); }
     }
@@ -435,8 +436,9 @@ export function yearEnd(s: GameState, graduated: string[]): void {
   s.news.unshift(paper);
   s.pending.push({ type: 'newspaper', id: paper.id });
   s.world.epidemic = false; s.world.famine = false;
-  // エンディングの判定（年度末）。平和な時代は、まれに再び戦の気配
-  peaceEraYear(s, r);
+  // エンディングの判定（年度末）。平和な時代は、火種がくすぶり、予兆が出て、やがて次の戦争（7夜目）
+  const omen = peaceEraYear(s, r);
+  if (omen.length) { paper.body.push('【火種】', ...omen); if (omen.some((x) => x.startsWith('【大事件】'))) paper.headline = `${s.year}年度 年度末特別号：${omen[omen.length - 1].replace('【大事件】', '')}`; }
   checkEndings(s, r, 'year');
   // 9. 新年度
   s.year += 1; s.month = 0; s.week = 1; s.day = 1; s.today = null;

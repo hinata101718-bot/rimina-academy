@@ -64,6 +64,13 @@ const only = process.env.ONLY ? process.env.ONLY.split(',') : null;
     for (let i = 0; i < 6; i++) { const sk = await p.$('.sheet button:has-text("スキップ")'); if (!sk) break; await sk.click(); await p.waitForTimeout(250); }
     await shot('11-result');
   }
+  if (want('peace')) {
+    await open(path.join(dir, 'peace.json'));
+    await closeAll();
+    await p.click('nav.tabs button:has-text("戦況")'); await p.waitForTimeout(400);
+    await p.evaluate(() => document.querySelector('.seedcard')?.scrollIntoView());
+    await shot('12-seed');
+  }
   console.log('errors', errors.length ? errors : 'none');
   console.log('wide', wide.length ? wide : 'none');
   await b.close();

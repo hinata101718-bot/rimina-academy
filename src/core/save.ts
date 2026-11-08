@@ -11,6 +11,7 @@ import { ensureRosters, nemesisToOfficer } from './officers';
 import { careerTitleOnly } from './discovery';
 import { titleOf } from './alumni';
 import { Rng } from './rng';
+import { startSeed } from './ending';
 
 export interface SaveFile { app: 'rimina-academy'; version: number; savedAt: number; state: GameState }
 
@@ -183,6 +184,9 @@ function migrateTo6(s: GameState): void {
   s.settings.mods.skill ??= DIFFICULTY[s.settings.difficulty ?? 'normal'].skill;
   for (const st of Object.values(s.students ?? {})) { st.train ??= {}; st.trainGain ??= {}; st.sickDays ??= 0; }
   for (const st of s.applicants ?? []) { st.train ??= {}; st.trainGain ??= {}; st.sickDays ??= 0; }
+  // 平和な時代のセーブ：最後のエンディングから「次の戦争の火種」を置く（毎年2%の再発の代わり）
+  s.endings = (s.endings ?? []).map((e) => ({ ...e, n: e.n ?? 1 }));
+  if (s.world.era === 'peace' && !s.world.seed) { const last = s.endings[s.endings.length - 1]; if (last) startSeed(s, last.kind, last.country ?? null); }
   s.pending ??= [];
   s.pending.push({
     type: 'event', title: '授業が「日ごとの授業カード」になりました',

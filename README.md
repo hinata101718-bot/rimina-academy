@@ -15,6 +15,10 @@
 | `npm test` | 自動テスト |
 | `npm run sim -- 40 10` | 長期シミュレーション（40年×10回を、進路の方針「和平狙い・統一狙い・何もしない・中立狙い」ごとに。エンディングのあとは「この学校を続ける」）。結果は `docs/sim-report.md` |
 | `npx tsx scripts/mkshots5.ts <フォルダ>` → `SHOTS_DIR=<フォルダ> node scripts/ui-night5.cjs` | 自動の戦闘の画面の撮影（出撃前・場面・選択・結果・因縁の敵将） |
+| `npx tsx scripts/mkshots7.ts <フォルダ>` → `SHOTS_DIR=<フォルダ> node scripts/ui-night7.cjs` | 7夜目の画面の撮影（授業カード・授業の結果・鍛錬ゲージ・戦いの記録・判断・結果・レベルアップ・火種） |
+| `npx tsx scripts/growth-diag.ts [年数] [回数]` | 育ち方の確認（学年の終わりのレベル・技能ランク・能力） |
+| `npx tsx scripts/check-whole.ts` | まるごと書いた会話の点検（差し込み忘れ・空の行・組み合わせの数） |
+| `npx tsx scripts/talk-samples.ts` | 会話の読み合わせ用の書き出し（docs/talk-samples/） |
 | `npx tsx scripts/mkshots6.ts <フォルダ>` → `SHOTS_DIR=<フォルダ> node scripts/ui-night6.cjs` | 6夜目の画面の撮影（敵将の名簿・敵将の顔が出る出撃前と場面・宿命の対決・個人ページの宿敵欄・才能判明の演出） |
 | `npx tsx scripts/officer-diag.ts [年数] [種]` | 宿敵の仕組みの様子を見る（敵将・二つ名・宿敵・誓い・決着の数を1年ごとに） |
 | `npx tsx scripts/auto-demo.ts [番号]` | 自動の戦闘を1回、文字だけで流して場面と選択を見る |
@@ -34,6 +38,8 @@
 - `public/enemies/` … 敵将の顔画像（王国・帝国・同盟・盗賊団 各20。`README.md` を参照）
 - `src/core/officers.ts` … 宿敵の仕組み（敵将の名簿と勢力図・敵将の記憶・宿敵と仇討ちの誓い・弱点・卒業生の敵将）。数値は `src/data/officers.ts`、文章は `src/data/officers_text.ts`
 - `src/core/discovery.ts` … 手応えと発見の演出（ランクアップ・隠れた才能の段階・意外な一面）。数値と文章は `src/data/discovery.ts`
+- `docs/screenshots/night7/` … 7夜目の画面（幅390×高さ844）
+- `docs/talk-samples/` … 会話の読み合わせ（7夜目）
 - `docs/screenshots/night6/` … 6夜目の画面（幅390×高さ844）
 - `docs/screenshots/night5/` … 5夜目の自動の戦闘の画面（幅390×高さ844）
 - `docs/screenshots/night4/` … 4夜目の画面の撮影（幅390×高さ844。3夜目は `night3/`）

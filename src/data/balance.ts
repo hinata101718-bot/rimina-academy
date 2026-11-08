@@ -317,8 +317,19 @@ export const B = {
     // 戦いの疲れ：長く戦うほど、三国とも国力が削れていく（強い国ほど大きく）
     exhaustWar: 1, exhaustTension: 0.5, exhaustPeace: -1, exhaustDrainFrom: 3, exhaustDrainPer: 0.03,
     // エンディングのあと「この学校を続ける」と平和な時代。まれに再び戦争
-    peaceEraRel: 30, relapseChance: 0.02,
+    peaceEraRel: 30, relapseChance: 0.02, // relapseChance は6夜目まで（7夜目からは火種のくすぶりで次の戦争）
+    // 火種（7夜目）：毎年のくすぶりの伸びは 100÷目安の年数 × 倍率（0.35〜2）。予兆は30・60・85
+    seed: {
+      jitter: 0.2, minMul: 0.6, maxMul: 2, omenAt: [30, 60, 85] as number[], // 遅らせても止めることはできない（最小0.6倍）
+      peaceLostCivil: 0.35, peaceActiveCivil: 0.03,   // 円卓：去った大使以上の文官1人ごとに＋、現役の文官1人ごとに−
+      unifyStudent: 0.02, unifyAlumni: 0.02,          // 統一：旧二国出身の在校生・その国で役職についた教え子1人ごとに−
+      ceasePower: 0.012, ceaseHelp: 0.08,             // 停戦：三国の国力のいちばん高い国が50を超えた分ごとに＋、弱った国の依頼に勝つごとに−
+      neutralRep: 0.01, neutralFriend: 0.012,         // 中立：評判70を超えた分ごとに＋、三国の友好度の低い国が50を超えた分ごとに−
+      outbreakRel: -55, outbreakTension: 70,          // 次の戦争の始まり：関係を下げ、緊張度を上げる
+    },
   },
+  // ---- まるごと書いた会話（7夜目）：部品を組み合わせた会話より何倍出やすいか。面談でまるごと書いたものを選ぶ割合 ----
+  talkWhole: { weight: 3, interviewChance: 0.7 },
   // ---- 面談：直近の面談と同じ話題は避ける（記録の新しいほうから何件） ----
   interview: { avoidRecent: 4 },
   // ---- 副教官（学年の担任） ----

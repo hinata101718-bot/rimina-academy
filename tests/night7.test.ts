@@ -242,3 +242,110 @@ describe('戦いの記録', () => {
     expect(compact(log2, units, 'L').some((x) => x.k === 'group')).toBe(false);
   });
 });
+
+import { continueSchool, peaceEraYear, seedFactor, checkEndings, endingTitle, startSeed } from '../src/core/ending';
+import { B as BAL } from '../src/data/balance';
+
+describe('戦争のあと、また戦争が起きる', () => {
+  const ended = (kind: 'peace' | 'unify' | 'ceasefire' | 'neutral') => {
+    const s = newGame({ name: 't', background: 'knight', seed: 41 });
+    autoYears(s, 2); autoPending(s);
+    s.endings = [{ kind, year: s.year, country: kind === 'unify' ? 'empire' : undefined, n: 1 }];
+    continueSchool(s);
+    return s;
+  };
+  it('「この学校を続ける」で、終わり方ごとの火種と時期が決まる（毎年2%の再発はなくなる）', () => {
+    for (const k of ['peace', 'unify', 'ceasefire', 'neutral'] as const) {
+      const s = ended(k);
+      const sd = s.world.seed!;
+      expect(sd.kind).toBe(k);
+      const range = { peace: [20, 30], unify: [10, 20], ceasefire: [8, 15], neutral: [15, 25] }[k];
+      expect(sd.due).toBeGreaterThanOrEqual(range[0]);
+      expect(sd.due).toBeLessThanOrEqual(range[1]);
+      expect(s.world.era).toBe('peace');
+    }
+  });
+  it('くすぶりが満ちると次の戦争が始まり、大事件の場面と年表に「第二次」。同じ種類のエンディングをまた見られる', () => {
+    const s = ended('peace');
+    s.world.seed!.smolder = 99;
+    s.pending = [];
+    const lines = peaceEraYear(s, new Rng({ rng: 5 }));
+    expect(lines.some((l) => l.includes('第二次大陸戦争'))).toBe(true);
+    expect(s.world.era).toBeNull();
+    expect(s.world.warNo).toBe(2);
+    expect(s.pending.some((p) => p.type === 'scene' && p.title.includes('第二次'))).toBe(true);
+    expect(s.chronicle.some((c) => c.text.includes('第二次大陸戦争が始まった'))).toBe(true);
+    // 二度目の戦争で和平の円卓に届くと「第二次和平の円卓」
+    s.world.peaceRoundYear = s.year; s.pending = [];
+    expect(checkEndings(s, new Rng({ rng: 6 }), 'year')).toBe('peace');
+    const e = s.endings![s.endings!.length - 1];
+    expect(e.n).toBe(2);
+    expect(endingTitle(e.kind, e.country, e.n)).toBe('第二次和平の円卓');
+    const sc = s.pending.find((p) => p.type === 'scene');
+    expect(sc && sc.type === 'scene' && sc.title).toBe('第二次和平の円卓');
+  });
+  it('予兆が新聞・手紙・大事件で少しずつ出る', () => {
+    const s = ended('ceasefire');
+    s.pending = []; s.mail = [];
+    const all: string[] = [];
+    for (let i = 0; i < 40 && s.world.era === 'peace'; i++) all.push(...peaceEraYear(s, new Rng({ rng: i + 1 })));
+    expect(all.filter((l) => l.startsWith('【決着をつけたい国】')).length).toBe(3);
+    expect(s.pending.some((p) => p.type === 'event' && p.title === '戦の予兆')).toBe(true);
+  });
+  it('こちらの動きで火種を遅らせられる（和平：現役の文官が多いほど、中立：友好度が高いほど）', () => {
+    const s = ended('neutral');
+    s.reputation = 90;
+    for (const c of ['kingdom', 'empire', 'alliance'] as const) s.world.friendship[c] = 40;
+    const fast = seedFactor(s).mul;
+    for (const c of ['kingdom', 'empire', 'alliance'] as const) s.world.friendship[c] = 95;
+    const slow = seedFactor(s).mul;
+    expect(slow).toBeLessThan(fast);
+    startSeed(s, 'peace', null);
+    expect(seedFactor(s).mul).toBeLessThanOrEqual(1 + BAL.ending.seed.peaceLostCivil * 6);
+  });
+});
+
+import { WHOLE_TALKS, WHOLE_INTERVIEWS } from '../src/data/talks/whole_index';
+import { TONE_OF, TONES } from '../src/data/talks/whole';
+import { renderWhole, buildTalk } from '../src/core/support';
+import { buildWholeInterview } from '../src/core/interview';
+import { PERSONALITY_IDS } from '../src/data/people';
+
+describe('まるごと書いた会話', () => {
+  it('性格を5つのまとまりに分け、どれも2つの性格を持つ', () => {
+    for (const t of TONES) expect(PERSONALITY_IDS.filter((p) => TONE_OF[p] === t).length).toBe(2);
+  });
+  it('全部の会話を、まとまりの全性格×性別で組み立てても、差し込み忘れや空の行がない', () => {
+    const s = fresh(51);
+    const [a, b] = enrolled(s);
+    const ids = new Set<string>();
+    for (const t of WHOLE_TALKS) {
+      expect(ids.has(t.id)).toBe(false); ids.add(t.id);
+      for (const pa of PERSONALITY_IDS.filter((p) => TONE_OF[p] === t.ga)) for (const pb of PERSONALITY_IDS.filter((p) => TONE_OF[p] === t.gb)) {
+        a.personality = pa; b.personality = pb;
+        for (const l of renderWhole(s, t.lines, a, b, '国境の小競り合い')) { expect(l.text.trim().length).toBeGreaterThan(0); expect(l.text).not.toMatch(/[{}]|undefined/); }
+      }
+    }
+    for (const t of WHOLE_INTERVIEWS) for (const bg of ['knight', 'merc', 'mage', 'wanderer']) {
+      s.instructor.background = bg; a.personality = PERSONALITY_IDS.find((p) => TONE_OF[p] === t.g)!;
+      for (const l of buildWholeInterview(s, a, t).lines) expect(l.text).not.toMatch(/[{}]|undefined/);
+    }
+  });
+  it('おもな話題は15の組み合わせすべてにある', () => {
+    for (const topic of ['dream', 'future', 'fear', 'origin', 'house', 'family', 'food', 'hobby', 'daily', 'study', 'teacher', 'war', 'rel_friend', 'rel_rival', 'rel_love']) {
+      const pairs = new Set(WHOLE_TALKS.filter((t) => t.topic === topic).map((t) => [t.ga, t.gb].sort().join('-')));
+      expect(pairs.size).toBe(15);
+    }
+  });
+  it('支援会話では、まるごと書いた会話がよく選ばれる', () => {
+    const s = fresh(52);
+    const [a, b] = enrolled(s);
+    let whole = 0;
+    for (let i = 0; i < 40; i++) {
+      const sp = getSupport(s, a.id, b.id); sp.value = B.support.C + 1; sp.seen = []; sp.kind = 'friend';
+      const t = buildTalk(s, new Rng({ rng: i + 1 }), sp, 'C');
+      if (t && WHOLE_TALKS.some((w) => sp.seen.includes(w.id))) whole++;
+    }
+    expect(whole).toBeGreaterThan(15);
+  });
+});

@@ -6,6 +6,8 @@ import type { GameState, Student, TalkLog, TalkLineLog } from './state';
 import { Rng } from './rng';
 import { condOk, fillText, phrase, withTalkFlags, archiveTalk, addTrust, bestFriend, loveOf } from './support';
 import { tensionStage } from './world';
+import { WHOLE_INTERVIEWS } from '../data/talks/whole_index';
+import { TONE_OF, type WholeInterview } from '../data/talks/whole';
 import { clamp } from './util';
 
 function bgOf(s: GameState): TeacherBg {
@@ -70,13 +72,35 @@ export function interviewCandidates(s: GameState, st: Student, topic: InterviewT
 
 /** 面談の会話を組み立てて、記録に残す */
 export function buildInterview(s: GameState, rng: Rng, st: Student, topic: InterviewTopic, flags: string[] = []): TalkLog | null {
+  const recent = new Set((st.archive ?? []).slice(-B.interview.avoidRecent).map((id) => s.archive?.[id]).filter((t) => t && t.b === 'teacher').map((t) => t!.title));
+  // まるごと書いた面談（7夜目）：生徒の性格のまとまりに合うもの
+  const all = [...new Set([...flags, ...interviewFlags(s, st)])];
+  const whole = withTalkFlags(all, () => WHOLE_INTERVIEWS.filter((d) => d.topic === topic && d.g === TONE_OF[st.personality] && condOk(d.when, st, st, null, s)));
+  const wholeFresh = whole.filter((d) => !recent.has(d.title));
   const cands = interviewCandidates(s, st, topic, flags);
+  const fresh = cands.filter((d) => !recent.has(d.title));
+  if (whole.length && (rng.chance(B.talkWhole.interviewChance) || !cands.length) && (wholeFresh.length || !fresh.length)) {
+    return buildWholeInterview(s, st, rng.pick(wholeFresh.length ? wholeFresh : whole), all);
+  }
   if (!cands.length) return null;
   // 最近同じ生徒と話した題は、できるだけ避ける
-  const recent = new Set((st.archive ?? []).slice(-B.interview.avoidRecent).map((id) => s.archive?.[id]).filter((t) => t && t.b === 'teacher').map((t) => t!.title));
-  const fresh = cands.filter((d) => !recent.has(d.title));
   const def = rng.pick(fresh.length ? fresh : cands);
   return buildInterviewDef(s, rng, st, def, flags);
+}
+
+/** まるごと書いた面談を組み立てる */
+export function buildWholeInterview(s: GameState, st: Student, def: WholeInterview, flags: string[] = []): TalkLog {
+  const bg = bgOf(s);
+  return withTalkFlags(flags, () => {
+    const lines: TalkLineLog[] = def.lines.map((l) => {
+      if (l.by === 'n') return { by: 'narr', text: fillText(typeof l.t === 'string' ? l.t : l.t.knight ?? '', s, st, null, '') };
+      if (l.by === 't') { const t = typeof l.t === 'string' ? l.t : l.t[bg] ?? l.t.knight ?? Object.values(l.t)[0] ?? ''; return { by: 'teacher', text: fillText(t, s, null, st, '') }; }
+      return { by: st.id, text: fillText(l.p?.[st.personality] ?? (typeof l.t === 'string' ? l.t : l.t.knight ?? ''), s, st, null, '') };
+    });
+    const t: TalkLog = { a: st.id, b: 'teacher', rank: '', title: def.title, kind: def.topic.startsWith('x') ? 'special' : 'interview', lines };
+    archiveTalk(s, t);
+    return t;
+  });
 }
 
 /** 面談の返事を選んだ（効果は小さく、正解はない） */

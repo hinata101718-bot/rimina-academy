@@ -4,6 +4,7 @@ import { newGame, enrolled } from '../src/core/game';
 import { rng, nextWeek, chooseLesson } from '../src/core/flow';
 import { todayCards } from '../src/core/lessons';
 import { TALKS } from '../src/data/talks';
+import { WHOLE_TALKS } from '../src/data/talks/whole_index';
 import { INTERVIEWS } from '../src/data/talks/interviews';
 import { TEACHER_PHRASES } from '../src/data/talks/interviews';
 import { renderLines, getSupport, buildTalk, archiveOf, adaptPronoun, phraseFallbacks } from '../src/core/support';
@@ -54,7 +55,9 @@ describe('支援会話の組み立て', () => {
       const t = buildTalk(s, rng(s), sp, rank);
       expect(t).not.toBeNull();
       const spoken = t!.lines.filter((l) => l.by !== 'narr').length;
-      expect(spoken).toBeGreaterThanOrEqual(rank === 'C' ? 8 : rank === 'B' ? 10 : 14);
+      // 7夜目：まるごと書いた会話は短め（7行以上）。部品の会話は今まで通り
+      const whole = WHOLE_TALKS.some((w) => sp.seen.includes(w.id) && sp.seen[sp.seen.length - 1] === w.id);
+      expect(spoken).toBeGreaterThanOrEqual(whole ? 7 : rank === 'C' ? 8 : rank === 'B' ? 10 : 14);
     }
     expect(archiveOf(s, a).length).toBe(3);
     expect(archiveOf(s, b).length).toBe(3);

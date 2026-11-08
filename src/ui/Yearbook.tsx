@@ -188,7 +188,7 @@ function Hall({ s }: { s: GameState }) {
       {list && [...list].reverse().map((h) => (
         <div class="pcard tap hallcard" onClick={() => setOpen(h.id)}>
           <div class="row between nowrap"><span class="ptitle">{h.instructor}教官のリミナ分校</span><span class="muted small">{h.years}年間</span></div>
-          <div class="row gap4">{h.endings.map((e) => <span class="flag">{endingTitle(e.kind, e.country)}（{e.year}年目）</span>)}</div>
+          <div class="row gap4">{h.endings.map((e) => <span class="flag">{endingTitle(e.kind, e.country, e.n)}（{e.year}年目）</span>)}</div>
           <div class="hall-faces">{h.graduates.filter((g) => !g.dead).slice(-6).map((g) => <HallFace g={g} size={36} />)}</div>
           <div class="small muted">卒業生 {h.graduates.filter((g) => g.title !== '在学中に戦死').length}人・{h.stats.battlesWon}勝{h.stats.battlesLost}敗・教官 {h.instructors.length}代</div>
           <div class="row between"><span /><span class="small" style={{ color: 'var(--main)' }}>この学校のページを開く ›</span></div>
@@ -228,7 +228,7 @@ function HallPage({ h, onBack }: { h: HallEntry; onBack: () => void }) {
         <div class="ptitle" style={{ fontSize: 20 }}>{h.instructor}教官のリミナ分校</div>
         <div class="muted small">{h.years}年間・{new Date(h.savedAt).toLocaleDateString('ja-JP')}に殿堂入り</div>
         <h3>到達したエンディング</h3>
-        {h.endings.length ? h.endings.map((e) => <div class="row between nowrap"><b>{endingTitle(e.kind, e.country)}</b><span class="muted small">{ENDING_SUB[e.kind]}・{e.year}年目</span></div>) : <div class="muted small">なし</div>}
+        {h.endings.length ? h.endings.map((e) => <div class="row between nowrap"><b>{endingTitle(e.kind, e.country, e.n)}</b><span class="muted small">{ENDING_SUB[e.kind]}・{e.year}年目</span></div>) : <div class="muted small">なし</div>}
       </div>
       <div class="card">
         <h3>卒業写真</h3>
