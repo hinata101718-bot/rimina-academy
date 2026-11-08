@@ -1294,7 +1294,8 @@ export function advanceAuto(s: GameState, ctx: BattleCtx): void {
       checkEnd(b);
     }
     const second = a2.choicesMade.length > 0;
-    if ((b.phase as string) !== 'done' && (!second || fx(s, 'judgments') > 0 || r.chance(AUTO.secondChoice)) && a2.choicesMade.length < 2) {
+    // 14夜目：最初の依頼は、ここぞの判断は1回だけ
+    if ((b.phase as string) !== 'done' && (!second || fx(s, 'judgments') > 0 || r.chance(AUTO.secondChoice)) && a2.choicesMade.length < (q.tutorial ? 1 : 2)) {
       b.rng = r.h.rng;
       a2.choice = makeChoice(s, b, ctx, second);
     } else b.rng = r.h.rng;

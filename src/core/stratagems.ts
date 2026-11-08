@@ -20,7 +20,7 @@ export function knownStrats(s: GameState): StratId[] {
   return (s.strats ?? START_STRATS).filter((x): x is StratId => !!STRATS[x as StratId]);
 }
 /** 出撃前に選べる策の枚数（先生の「軍師の眼」で+1） */
-export function stratSlots(s: GameState): number { return STRAT.slots + fx(s, 'stratSlots'); }
+export function stratSlots(s: GameState): number { return s.quests.some((q) => q.tutorial) ? 1 : STRAT.slots + fx(s, 'stratSlots'); } // 14夜目：最初の依頼は策1枚
 
 /** 軍略（10夜目：技能ランクの「軍略」。9夜目の0〜100の数値に合わせた目安＝技能ポイント÷2） */
 export function stratOf(st: Student | null | undefined): number { return Math.round((st?.skills?.tactics ?? 0) / 2); }

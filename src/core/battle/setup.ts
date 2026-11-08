@@ -215,7 +215,7 @@ export function createBattle(s: GameState, quest: Quest, deploys: Deploy[], seed
   // 戦力の調整
   const players = b.units.filter((u) => u.side === 'player');
   const pPow = players.reduce((a, u) => a + unitPower(u), 0) || 1;
-  const factor = (B.battle.enemyPowerBase + quest.danger * B.battle.enemyPowerPerDanger) * (quest.real ? 1 : B.battle.drillPowerMul) * s.settings.mods.enemy;
+  const factor = (B.battle.enemyPowerBase + quest.danger * B.battle.enemyPowerPerDanger) * (quest.real ? 1 : B.battle.drillPowerMul) * s.settings.mods.enemy * (quest.tutorial ? B.tutorial.enemyPower : 1);
   const target = pPow * factor;
   for (let iter = 0; iter < 30; iter++) {
     const enemies = b.units.filter((u) => u.side === 'enemy');

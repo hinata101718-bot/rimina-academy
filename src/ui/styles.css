@@ -1678,3 +1678,15 @@ i.apt { font-style: normal; display: inline-flex; align-items: center; justify-c
 /* 13夜目：組織図の変化の最後に、木の全体へ引く */
 .org-tree.finale .org-node:not(.lit) { opacity: .45; transition: opacity .4s; }
 .org-tree.finale .org-node.lit .org-face { box-shadow: 0 0 0 4px #f6dc8c, 0 0 26px 10px rgba(245, 205, 95, .95); }
+
+/* ---- 14夜目：最初の1時間の案内（管理人オズヴァルト） ---- */
+.guide-seal { display: inline-flex; align-items: center; justify-content: center; flex: none; border-radius: 50%; background: radial-gradient(circle at 35% 30%, #8a5a2b, #4a2c12); color: #f6e6a6; font-family: serif; font-weight: 700; border: 2px solid #c9a24f; box-shadow: 0 2px 4px rgba(0,0,0,.35); }
+.guide-tip { background: #f6e6a6; border: 1px solid #c9a24f; border-radius: 4px; padding: 10px 12px; color: #3d2f0d; }
+.guide-say p { margin: 8px 0 0; line-height: 1.7; }
+.desktour { position: fixed; left: 0; right: 0; bottom: calc(64px + env(safe-area-inset-bottom)); z-index: 40; padding: 0 10px 8px; display: flex; justify-content: center; cursor: pointer; }
+.desktour-box { width: 100%; max-width: 440px; box-sizing: border-box; background: #f6e6a6; color: #3d2f0d; border: 2px solid #a47b2c; border-radius: 6px; padding: 10px 12px; box-shadow: 0 6px 18px rgba(0,0,0,.45); }
+.desktour-say { margin: 8px 0; line-height: 1.7; font-size: 15px; }
+.desktour .btn { min-height: 44px; }
+.gfocus { position: relative; z-index: 30; outline: 3px solid #f2c94c; outline-offset: 3px; animation: gpulse 1.2s ease-in-out infinite; }
+@keyframes gpulse { 0%, 100% { outline-color: #f2c94c; box-shadow: 0 0 0 0 rgba(242,201,76,.6); } 50% { outline-color: #fff2b0; box-shadow: 0 0 0 8px rgba(242,201,76,0); } }
+.desktour.top { bottom: auto; top: calc(60px + env(safe-area-inset-top)); padding: 8px 10px 0; }

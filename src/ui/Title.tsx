@@ -9,6 +9,7 @@ import { BACKGROUNDS } from '../data/people';
 import { sfx, unlockAudio } from './sound';
 import { Portrait } from './Portrait';
 import type { GameState } from '../core/state';
+import { skipTutorial } from '../core/tutorial';
 
 function isStandalone(): boolean {
   return (window.matchMedia?.('(display-mode: standalone)').matches) || (navigator as unknown as { standalone?: boolean }).standalone === true;
@@ -121,7 +122,7 @@ function Opening({ slot, onCancel }: { slot: number; onCancel: () => void }) {
           <button class="btn ghost" onClick={onCancel}>戻る</button>
           <button class="btn primary grow" onClick={() => {
             sfx('ok');
-            const g = newGame({ name: name.trim() || 'アルノルト', background: bg, seed: makeSeed(), slot, startGrade: debugGrade, start: unlocked ? start : undefined });
+            const g = newGame({ name: name.trim() || 'アルノルト', background: bg, seed: makeSeed(), slot, startGrade: debugGrade, start: unlocked ? start : undefined, tutorial: debugGrade === 1 });
             setG(g); setStep(0);
           }}>着任する</button>
         </div>
@@ -153,8 +154,9 @@ function Opening({ slot, onCancel }: { slot: number; onCancel: () => void }) {
           <div class="stu"><Portrait st={st} size={56} game={game!} /><div class="grow"><b>{st.given}</b> <span class="muted">{st.family}</span><div class="muted small">{st.age}歳</div></div></div>
         ))}
       </div>
-      <div class="card serif">管理人「さあ、教官どの。まずは最初の一週間です。やることは『学校』の画面にまとまっておりますぞ」</div>
-      <button class="btn primary block" onClick={() => { sfx('ok'); setGame(game!); }}>授業を始める</button>
+      <div class="card serif">管理人オズヴァルト「さあ、教官どの。最初のひと月は、わしがおそばで案内いたしましょう。もう慣れておられるなら、案内なしでもかまいませんぞ」</div>
+      <button class="btn primary block" onClick={() => { sfx('ok'); setGame(game!); }}>案内を聞いて始める</button>
+      {game!.tutorial && <button class="btn ghost block" style={{ marginTop: 8 }} onClick={() => { sfx('ok'); skipTutorial(game!); setGame(game!); }}>案内を飛ばして始める</button>}
     </div></div>
   );
 }

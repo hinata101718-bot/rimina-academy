@@ -53,6 +53,7 @@ export function migrate(s: GameState, from: number): GameState {
   if (from < 11) migrateTo11(s);
   if (from < 12) migrateTo12(s);
   if (from < 13) migrateTo13(s);
+  if (from < 14) migrateTo14(s);
   s.heirs ??= [];
   s.archive ??= {};
   s.notices ??= [];
@@ -395,3 +396,15 @@ function migrateTo13(s: GameState): void {
     '組織図と勢力図の「この前から変わったこと」を、1つずつ場面で見られるようになりました。',
   ] });
 }
+
+/**
+ * 13夜目の版（version 13）→ 14夜目の版（version 14）
+ * - 最初の1時間の案内は、新しく始めたときだけ（今のセーブには出さない。設定の「案内を見なおす」で出せる）
+ */
+function migrateTo14(s: GameState): void {
+  s.pending ??= [];
+  s.pending.push({ type: 'event', title: '14夜目の新しいこと', lines: NIGHT14_LINES });
+}
+const NIGHT14_LINES = [
+  'はじめて遊ぶ人のために、最初のひと月を管理人が案内するようになりました（新しく始めたときだけ）。設定の「案内を見なおす」で、はじめて出たものの説明をもう一度見られます。',
+];

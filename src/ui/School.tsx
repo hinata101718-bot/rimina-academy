@@ -24,6 +24,8 @@ import { Icon } from './icons';
 import { MonthCalendar, ArtSlot } from './HomeDeco';
 import { InstructorPage } from './Mentor';
 import { Desk } from './Desk';
+import { GuideSeal } from './Guide';
+import { firstLessonDay } from '../core/tutorial';
 import { NewsPage } from './Newspaper';
 import { MONTH_NAMES } from '../core/util';
 const MONTH_NAMES_SHORT = (m: number) => MONTH_NAMES[m];
@@ -53,13 +55,14 @@ export function SchoolTab() {
 
 /** 今日の授業（8夜目：ホームの「本日の授業を命ず」から。授業の札を机の上に並べる） */
 function TodayPage({ s }: { s: GameState }) {
-  const guideOn = s.settings.guide && s.year === 1 && s.month === 0;
+  const guideOn = !s.tutorial && s.settings.guide && s.year === 1 && s.month === 0;
   return (
     <div class="todaypage">
       <div class="today-top"><Back to={() => navigate({ tab: 'school' })} /><MonthCalendar s={s} compact /></div>
       {s.month === 3 && <ArtSlot name="event_camp" />}
       {s.month === 8 && <ArtSlot name="event_festival" />}
       {guideOn && <div class="guide">{GUIDE[Math.min(GUIDE.length - 1, s.week - 1)]}</div>}
+      {firstLessonDay(s) && !s.pending.length && <div class="guide-tip row nowrap gap8" style={{ margin: '8px 0' }}><GuideSeal size={36} /><span class="serif small">今日は札が3枚だけです。どれを選んでも、みんな伸びますぞ。札に顔が出ている子は、とくによく伸びます。</span></div>}
       {!s.pending.length && !s.battle && <LessonBoard s={s} />}
     </div>
   );

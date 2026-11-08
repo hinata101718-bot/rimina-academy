@@ -58,7 +58,7 @@ export function SortiePrep({ s }: { s: GameState }) {
     return (
       <Sheet title="月末の依頼掲示板">
         {s.month === 5 && <ArtSlot name="event_exhibition" />}
-        {s.settings.guide && s.year === 1 && s.month === 0 && <div class="guide">はじめは「演習」を選びましょう。演習では誰も死にません。実戦ではお金と評判がもらえますが、倒れた子が戦死することもあります。</div>}
+        {!s.tutorial && s.settings.guide && s.year === 1 && s.month === 0 && <div class="guide">はじめは「演習」を選びましょう。演習では誰も死にません。実戦ではお金と評判がもらえますが、倒れた子が戦死することもあります。</div>}
         {enrolled(s).length > 12 && <div class="small muted">生徒が{SQUADS.two}人をこえると、月末に2つの部隊を別々の依頼へ出せます。{SQUADS.three}人になると3部隊です</div>}
         {s.quests.map((x) => <QuestCard x={x} onClick={() => { sfx('ok'); setDrafts([newDraft(s, x, squadLimit(s, 0))]); setEdit(0); }} />)}
       </Sheet>

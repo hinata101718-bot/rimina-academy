@@ -30,7 +30,7 @@ export function defaultSettings(): Settings {
 export function rng(s: { rng: number }): Rng { return new Rng(s); }
 
 export type StartKind = 'poor' | 'normal' | 'elite';
-export function newGame(opts: { name: string; background: string; seed: number; slot?: number; startGrade?: number; start?: StartKind }): GameState {
+export function newGame(opts: { name: string; background: string; seed: number; slot?: number; startGrade?: number; start?: StartKind; /** 14夜目：最初の1時間の案内をつける */ tutorial?: boolean }): GameState {
   const st0 = B.starts[opts.start ?? 'poor'];
   const bg = BACKGROUNDS.find((b) => b.id === opts.background) ?? BACKGROUNDS[3];
   const skills = emptySkills(RANK_POINTS[bg.defaultRank as Rank]);
@@ -80,6 +80,7 @@ export function newGame(opts: { name: string; background: string; seed: number; 
   s.strats = [...START_STRATS];
   ensureRosters(s, r);
   startNewsDesk(s);
+  if (opts.tutorial) s.tutorial = { tour: 0, seen: [] }; // 14夜目：最初の1時間の案内
   s.quests = rollQuests(s);
   ensureRegions(s); // 13夜目：勢力図
   return s;

@@ -63,6 +63,8 @@ export function rollLoot(s: GameState, b: BattleState, q: Quest | undefined, nam
       out.push({ weaponId: id, kind: 'drop', from: `${names(u.uid)}が落とした` });
       n++;
     }
+    // 14夜目：最初の依頼では、戦利品を一度は見せる
+    if (q?.tutorial && !n) { const u = b.units.find((x) => x.side === 'enemy' && x.dead && wtype(x)); const id = u ? tierOf(wtype(u)!, 'steel') : null; if (u && id) out.push({ weaponId: id, kind: 'drop', from: `${names(u.uid)}が落とした` }); }
   }
   // 敵将を討ち取ったら、その武器を必ず（銘入り）
   if (leader) {

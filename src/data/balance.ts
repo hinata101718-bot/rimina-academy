@@ -1,7 +1,7 @@
 // バランス値。ゲームの数値はすべてここに集める（設計書の「ふつう」が初期値）。
 import type { Rank, SkillId, StatId } from '../core/types';
 
-export const SAVE_VERSION = 13;
+export const SAVE_VERSION = 14;
 
 export const RANKS: Rank[] = ['E', 'E+', 'D', 'D+', 'C', 'C+', 'B', 'B+', 'A', 'A+', 'S'];
 export const RANK_POINTS: Record<Rank, number> = {
@@ -17,6 +17,15 @@ export const LEAD_SKILLS: SkillId[] = ['tactics', 'command'];
 export const STATS: StatId[] = ['hp', 'str', 'mag', 'skl', 'spd', 'lck', 'def', 'res', 'cha'];
 
 export const B = {
+  // ---- 最初の1時間の案内（14夜目） ----
+  tutorial: {
+    /** 1日目の授業の札の数（休講なし） */
+    firstCards: 3,
+    /** 最初の戦い（盗賊の見張り）の敵の強さ（ふつうの依頼を1として） */
+    enemyPower: 0.5,
+    /** 最初の戦いの報酬と、いちばん活躍した子がもらえる経験値の下限（レベルアップを一度見せるため） */
+    reward: 200, mvpExp: 100,
+  },
   // ---- 得意・苦手・才能開花（10夜目） ----
   apt: {
     goodMul: 1.5, badMul: 0.5,

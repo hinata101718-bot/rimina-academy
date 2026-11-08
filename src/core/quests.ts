@@ -12,6 +12,7 @@ import { relKey, clamp } from './util';
 import { tensionStage } from './world';
 import { headEffect, factionOfQuest } from './officers';
 import { SQUADS } from '../data/stratagems';
+import { tutorialMonth, tutorialQuest } from './tutorial';
 
 /** 部隊の数（在籍の人数から）。flow.squadCount は依頼の数でも抑える */
 export function squadsBy(n: number): number { return n >= SQUADS.three ? 3 : n > SQUADS.two ? 2 : 1; }
@@ -39,6 +40,8 @@ export function rollQuests(s: GameState): Quest[] {
   const lv = partyLevel(s);
   const quests: Quest[] = [];
   const mk = (q: Omit<Quest, 'id'>): Quest => ({ ...q, id: `q${s.nextId++}` });
+  // 14夜目：最初の1時間の案内の4月は、負けない小さな依頼だけ
+  if (tutorialMonth(s)) return [tutorialQuest(s, `q${s.nextId++}`)];
   // 行事の月
   if (s.world.schoolDefensePending) {
     const enemy = (COUNTRIES.slice().sort((a, b) => s.world.power[b] - s.world.power[a]))[0];

@@ -268,6 +268,8 @@ export interface Quest {
   region?: string;
   /** 依頼の報酬の武器（10夜目） */
   rewardWeapon?: string;
+  /** 14夜目：最初の1時間の案内の、負けない小さな依頼（戦死なし・策は1枚・判断は1回） */
+  tutorial?: boolean;
   /** 2つ目・3つ目の部隊向けの小さな依頼（9夜目）：報酬・評判は少なめ、戦況は動かない */
   small?: boolean;
   /** 偵察を出した（6夜目）。scoutFree は斥候がいて出撃の人数が減らないとき */
@@ -402,6 +404,8 @@ export type Pending =
   /** 新しい策を覚えた（9夜目：発見の演出） */
   | { type: 'newStrat'; id: string; by?: string; why: string }
   | { type: 'event'; title: string; lines: string[] }
+  /** 14夜目：案内役（管理人）の短い説明。はじめて出たときだけ */
+  | { type: 'guide'; key: string; title: string; lines: string[] }
   | { type: 'entrance' }
   | { type: 'career' }
   | { type: 'graduation'; cohort: number; lines: { id: string; text: string }[] }
@@ -538,6 +542,9 @@ export interface Settings {
 
 export interface Applicant { student: Student }
 
+/** 最初の1時間の案内（14夜目）。tour＝机の案内の進み、seen＝見た説明、off＝案内を飛ばした */
+export interface TutorialState { tour: number; seen: string[]; off?: boolean; talked?: boolean; /** 設定の「案内を見なおす」を押した（机の案内はいつでも） */ replay?: boolean }
+
 export interface GameState {
   version: number;
   slot: number;
@@ -607,6 +614,8 @@ export interface GameState {
   sortie?: Sortie | null;
   /** 学校で使える策（9夜目。data/stratagems.ts の id） */
   strats?: string[];
+  /** 14夜目：最初の1時間の案内（新しく始めたときだけ。古いセーブにはない） */
+  tutorial?: TutorialState;
   /** 勢力図を前に見たときのようす（13夜目） */
   mapSeen?: { at: number; o: Record<string, string> };
   /** 組織図を前に見たときのようす（9夜目：陣営→敵将id→階級・状態・二つ名・上の人） */

@@ -1,4 +1,5 @@
 // 日ごとの授業カード（7夜目）：全学年いっしょ・1日1回。毎日5種類＋休講から1つ選ぶ。DOMに依存しない
+import { firstLessonDay } from './tutorial';
 import { STRAT } from '../data/stratagems';
 import { isGood, budKnown, checkBloom } from './aptitude';
 import { B, SKILLS, STATS } from '../data/balance';
@@ -99,9 +100,12 @@ export function rollDay(s: GameState, r: Rng): LessonDay {
   if (needTalk.length && !picked.some((l) => l.special === 'interview')) picked.push(LESSON_BY_ID.interview);
   if (rain && !picked.some((l) => l.special === 'field')) picked.push(LESSON_BY_ID.field);
   let guard = 0;
-  const nCards = B.day.cards + fx(s, 'cards');
+  // 14夜目：最初の1日目は、武器と体の授業の札3枚だけ（休講なし。どれを選んでも伸びる）
+  const first = firstLessonDay(s);
+  if (first) picked.length = 0;
+  const nCards = first ? B.tutorial.firstCards : B.day.cards + fx(s, 'cards');
   while (picked.length < nCards && guard++ < 200) {
-    const cand = pool.filter((l) => !picked.includes(l) && l.special !== 'field');
+    const cand = pool.filter((l) => !picked.includes(l) && l.special !== 'field' && (!first || ((l.group === 'weapon' || l.group === 'body') && !l.special)));
     if (!cand.length) break;
     picked.push(r.weighted(cand, (l) => lessonWeight(s, l, list)));
   }
@@ -125,8 +129,8 @@ export function rollDay(s: GameState, r: Rng): LessonDay {
   // 並び：武器・体・頭・交流・特別の順
   const order = ['weapon', 'body', 'mind', 'social', 'special'];
   cards.sort((a, b) => order.indexOf(LESSON_BY_ID[a.id].group) - order.indexOf(LESSON_BY_ID[b.id].group));
-  cards.push({ id: 'rest', faces: [], tags: [] });
-  return { key, cards, rain };
+  if (!first) cards.push({ id: 'rest', faces: [], tags: [] });
+  return { key, cards, rain: first ? false : rain };
 }
 function pickIndex(r: Rng, ws: number[]): number { let x = r.next() * ws.reduce((a, b) => a + b, 0); for (let i = 0; i < ws.length; i++) { x -= ws[i]; if (x < 0) return i; } return ws.length - 1; }
 

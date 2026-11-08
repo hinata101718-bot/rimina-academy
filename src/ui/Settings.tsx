@@ -6,6 +6,7 @@ import { exportFile, saveSlot } from './storage';
 import { DIFFICULTY, type Difficulty } from '../data/balance';
 import { sfx } from './sound';
 import { autoWeek } from '../core/autoplay';
+import { replayGuide } from '../core/tutorial';
 
 export function SettingsTab() {
   const { s } = useStore();
@@ -59,7 +60,9 @@ export function SettingsTab() {
         <div class="row between" style={{ marginTop: 6 }}><span>週が進むときの日めくり</span><input type="checkbox" checked={s.settings.flip} onChange={(e) => set((x) => { x.flip = (e.target as HTMLInputElement).checked; })} /></div>
         <div class="row between" style={{ marginTop: 6 }}><span>敵ターンの速さ</span><div class="seg">{([1, 2, 3] as const).map((c) => <button class={s.settings.enemySpeed === c ? 'on' : ''} onClick={() => set((x) => { x.enemySpeed = c; })}>{{ 1: 'ゆっくり', 2: 'ふつう', 3: 'はやい' }[c]}</button>)}</div></div>
         <div class="row between" style={{ marginTop: 6 }}><span>巻き戻し（1戦闘3回）</span><input type="checkbox" checked={s.settings.rewind} onChange={(e) => set((x) => { x.rewind = (e.target as HTMLInputElement).checked; })} /></div>
-        <div class="row between" style={{ marginTop: 6 }}><span>最初の月の案内</span><input type="checkbox" checked={s.settings.guide} onChange={(e) => set((x) => { x.guide = (e.target as HTMLInputElement).checked; })} /></div>
+        {!s.tutorial && <div class="row between" style={{ marginTop: 6 }}><span>最初の月の案内</span><input type="checkbox" checked={s.settings.guide} onChange={(e) => set((x) => { x.guide = (e.target as HTMLInputElement).checked; })} /></div>}
+        <div class="row between nowrap" style={{ marginTop: 8 }}><span class="grow">管理人の案内{s.tutorial && !s.tutorial.off ? '（いま出ます）' : '（いまは出ません）'}</span><button class="btn small" onClick={() => { sfx('ok'); act((g) => replayGuide(g)); alert('はじめて出たものの説明を、もう一度出すようにしました。ホームの机の案内も、もう一度見られます。'); }}>案内を見なおす</button></div>
+        <div class="muted small">はじめて見るもの（兵種試験・支援C・伝説の武器など）が出たとき、管理人が短く説明します。</div>
       </div>
       <div class="card">
         <h3>音</h3>

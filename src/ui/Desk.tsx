@@ -23,6 +23,7 @@ import { stageOf } from './common';
 import { kanjiNum } from './Mentor';
 import { PAPER_NAME } from '../data/newspaper';
 import { REP_TIERS, repTier } from '../data/discovery';
+import { DeskTour, tourFocus } from './Guide';
 
 const C_FILL: Record<CountryId, string> = { kingdom: '#5d7fae', empire: '#b85a45', alliance: '#6f9a5e' };
 const DIRWORD: Record<string, string> = { 'empire>kingdom': '北上中', 'empire>alliance': '東進中', 'kingdom>empire': '南下中', 'kingdom>alliance': '南下中', 'alliance>empire': '西進中', 'alliance>kingdom': '北上中' };
@@ -60,7 +61,7 @@ export function WarMap({ s }: { s: GameState }) {
   const share = regionShare(s);
   const changed = mapChanges(s).length;
   return (
-    <button class={`deskmap st-${stage}`} onClick={() => { sfx('move'); navigate({ tab: 'war' }); }} aria-label="作戦地図。押すと戦況を開きます">
+    <button class={`deskmap st-${stage}${tourFocus(s, 'map')}`} onClick={() => { sfx('move'); navigate({ tab: 'war' }); }} aria-label="作戦地図。押すと戦況を開きます">
       <span class="pin l" /><span class="pin r" />
       <svg viewBox="0 0 360 210" preserveAspectRatio="none">
         <defs>
@@ -139,7 +140,7 @@ export function Desk({ s }: { s: GameState }) {
     <div class="desk">
       <WarMap s={s} />
       <div class="desk-row">
-        <div class="desknote" role="button" onClick={() => { sfx('move'); navigate({ tab: 'school', page: 'notebook' }); }}>
+        <div class={`desknote${tourFocus(s, 'note')}`} role="button" onClick={() => { sfx('move'); navigate({ tab: 'school', page: 'notebook' }); }}>
           <div class="dn-title">教官手帳<span>{MONTH_NAMES[s.month].replace('月', '')}月の頁</span></div>
           <ul class="dn-list">
             {todos.slice(0, 5).map((t) => <li class={t.red ? 'red' : ''} onClick={(e) => { e.stopPropagation(); sfx('move'); t.go(); }}>{t.red ? '・' : ''}{t.text}</li>)}
@@ -147,20 +148,20 @@ export function Desk({ s }: { s: GameState }) {
           <div class="dn-foot"><span>手帳を開く ›</span><span onClick={(e) => { e.stopPropagation(); sfx('move'); navigate({ tab: 'school', page: 'instructor' }); }}>教官 ›</span></div>
         </div>
         <div class="desk-col">
-          <div class="deskletter" role="button" onClick={() => { sfx('move'); navigate({ tab: 'school', page: 'mail' }); }}>
+          <div class={`deskletter${tourFocus(s, 'letter')}`} role="button" onClick={() => { sfx('move'); navigate({ tab: 'school', page: 'mail' }); }}>
             {unread.length > 0 && <span class="dl-count">{unread.length}</span>}
             <div class="dl-title">{unread.length ? '急報' : '書状'}</div>
             <div class="dl-text">{latestMail ? `${latestMail.title}。${latestMail.body}` : 'まだ書状は届いていません'}</div>
             <span class="dl-seal">✦</span>
           </div>
-          <div class="deskpaper" role="button" onClick={() => { sfx('page'); navigate({ tab: 'school', page: 'news' }); }}>
+          <div class={`deskpaper${tourFocus(s, 'paper')}`} role="button" onClick={() => { sfx('page'); navigate({ tab: 'school', page: 'news' }); }}>
             <div class="dp-title">{PAPER_NAME}</div>
             <div class="dp-text">{paper ? paper.headline : '次の号は、九月の終わりに出ます'}</div>
           </div>
         </div>
       </div>
       {photos.length > 0 && (
-        <div class="deskphotos">
+        <div class={`deskphotos${tourFocus(s, 'photos')}`}>
           {photos.map(({ st, tag }, i) => (
             <button class={`photo-card t${i}`} onClick={() => { sfx('move'); navigate({ tab: 'students', page: tag === '試験OK' ? 'exam' : 'detail', id: st.id }); }}>
               <span class="pin red" />
@@ -171,15 +172,16 @@ export function Desk({ s }: { s: GameState }) {
           ))}
         </div>
       )}
-      <div class="drawers">
+      <div class={`drawers${tourFocus(s, 'drawers')}`}>
         {([['instructor', '教官', 'crown'], ['targets', '目標技能', 'target'], ['facilities', '施設・講師', 'house'], ['armory', '武器庫', 'sword']] as const).map(([page, label, ic]) => (
           <button class="drawer" onClick={() => { sfx('move'); navigate({ tab: 'school', page }); }}><Icon name={ic} size={16} />{label}</button>
         ))}
       </div>
-      <button class="command" onClick={() => { sfx('ok'); navigate({ tab: 'school', page: 'today' }); }}>
+      <button class={`command${tourFocus(s, 'command')}`} onClick={() => { sfx('ok'); navigate({ tab: 'school', page: 'today' }); }}>
         <span class="cmd-seal">授</span>{sick ? '今日は休み（先生が寝込み中）' : '今日の授業を決める'}
       </button>
       <div style={{ height: 20 }} />
+      <DeskTour s={s} />
     </div>
   );
 }

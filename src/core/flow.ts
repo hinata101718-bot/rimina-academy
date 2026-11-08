@@ -40,6 +40,7 @@ import { checkEndings, peaceEraYear, seedHelp } from './ending';
 import { TRAITS } from '../data/people';
 import type { BattleCtx } from './battle/engine';
 import { supportValue, bestFriend } from './support';
+import { tip, checkTips, firstTalk as tutorialTalk, tutorialMonth } from './tutorial';
 import { NIGHT_AFTER_DEATH, FRIEND_GRIEF, TEACHER_GRIEF, KEEPSAKE, RECOVERY } from '../data/aftermath_war';
 
 export function rng(s: GameState): Rng { return new Rng(s); }
@@ -63,7 +64,8 @@ export function battleCtx(s: GameState): BattleCtx {
     trust: (id) => s.students[id]?.trust ?? 0,
     luckInjury: (id) => (s.students[id]?.traits ?? []).reduce((a, t) => a + (TRAITS[t].injuryBonus ?? 0), 0) + fx(s, 'injury'),
     commandBonus: fx(s, 'command'),
-    deathMul: s.settings.mods.death,
+    // 14夜目：最初の1時間の案内の依頼では、倒れても重傷まで（戦死しない）
+    deathMul: s.quests.some((q) => q.tutorial) ? 0 : s.settings.mods.death,
   };
 }
 
@@ -81,8 +83,18 @@ export function chooseLesson(s: GameState, idx: number, talkWith?: string): void
   s.pending.splice(from, 0, { type: 'lessonResult', lesson: res.lesson, day, faces: res.faces, tags: res.tags, rows: res.rows, events: res.events, growth: res.growth, lines: res.lines, talks: res.talks, others: res.others, xp: res.xp });
   checkStratUnlocks(s);
   deferShows(s, from);
-  if (ended.monthEnd) { freshQuests(s); s.pending.push({ type: 'questBoard' }); }
+  guideAfterDay(s, day, ended.weekEnded && s.week === 2);
+  if (ended.monthEnd) { freshQuests(s); if (s.quests.some((q) => q.tutorial)) tip(s, 'quest'); s.pending.push({ type: 'questBoard' }); }
   else todayCards(s);
+}
+
+/** 14夜目：最初の1時間の案内（1日目の授業のあと・2日目の終わりの最初の面談・はじめて出たもの） */
+function guideAfterDay(s: GameState, day: number, _newWeek: boolean): void {
+  if (tutorialMonth(s) && s.week === 1) {
+    if (day === 1) tip(s, 'lesson1');
+    if (day === 2) { const t = tutorialTalk(s); if (t) { s.pending.push({ type: 'talk', talk: t }); tip(s, 'interview'); } }
+  }
+  checkTips(s);
 }
 
 function afterDay(s: GameState, r: Rng, res: DayOutcome): { weekEnded: boolean; monthEnd: boolean } {
@@ -130,7 +142,9 @@ export function weekAuto(s: GameState): void {
   s.pending.splice(from, 0, { type: 'weekSummary', lines: [`今週の授業：${names.join('・')}`, ...lines], talks, growth });
   checkStratUnlocks(s);
   deferShows(s, from);
-  if (ended.monthEnd) { freshQuests(s); s.pending.push({ type: 'questBoard' }); }
+  if (tutorialMonth(s) && s.week === 2) { tip(s, 'lesson1'); const t = tutorialTalk(s); if (t) { s.pending.push({ type: 'talk', talk: t }); tip(s, 'interview'); } }
+  checkTips(s);
+  if (ended.monthEnd) { freshQuests(s); if (s.quests.some((q) => q.tutorial)) tip(s, 'quest'); s.pending.push({ type: 'questBoard' }); }
   else todayCards(s);
 }
 
@@ -257,6 +271,8 @@ export function finishBattle(s: GameState): void {
   startGrowthLog();
   // 自動の戦闘：初陣などの出来事で増える経験値
   for (const e of b.auto?.effects ?? []) if (e.kind === 'exp') { const u = b.units.find((x) => x.studentId === e.id && x.side === 'player'); if (u) u.expGain += e.v; }
+  // 14夜目：最初の依頼では、いちばん活躍した子のレベルが一度は上がるように（レベルアップの演出を見せる）
+  if (q?.tutorial) { const top = b.units.filter((u) => u.side === 'player' && u.studentId).sort((a, c) => c.kills - a.kills || c.dmgDealt - a.dmgDealt)[0]; const st = top ? s.students[top.studentId!] : null; if (top && st) top.expGain = Math.max(top.expGain, (B.tutorial.mvpExp - st.exp) / expMul / Math.max(B.battle.expDamp.min, Math.min(1, B.battle.expDamp.base - st.level * B.battle.expDamp.perLevel)) / (s.settings.mods.exp || 1) + 1); }
 
   // 評価のための控え（9夜目）：戦う前の宿敵の段階・出撃の回数
   const L0 = (b.auto?.leader ?? b.leader);
@@ -412,12 +428,20 @@ export function finishBattle(s: GameState): void {
     s.pending.splice(from, 0, sortie.reports.length > 1 ? { type: 'sortieResult', reports: sortie.reports } : { type: 'battleResult', ...sortie.reports[0] });
     s.sortie = null;
     deferShows(s, from);
+    afterBattleGuide(s, q);
     endMonth(s);
     return;
   }
   s.pending.splice(firstTalk >= 0 ? firstTalk : s.pending.length, 0, { type: 'battleResult', ...report });
   deferShows(s, pendFrom);
+  afterBattleGuide(s, q);
   endMonth(s);
+}
+
+/** 14夜目：最初の依頼のあとの案内と、はじめて出たもの */
+function afterBattleGuide(s: GameState, q: Quest | undefined): void {
+  if (q?.tutorial) tip(s, 'afterBattle');
+  checkTips(s);
 }
 
 /** 同行しない部隊の大事な出来事（宿敵・一騎打ち・抜擢・敵将の口上）。結果の画面で短い場面に（10夜目） */
