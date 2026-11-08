@@ -104,7 +104,7 @@ describe('1年の振り返り', () => {
       if (s.pending[0]?.type === 'career') { finishCareers(s, autoCareerPlans(s)); order = s.pending.map((p) => p.type); continue; }
       if (s.month === 11 && s.pending.some((p) => p.type === 'questBoard') && s.pending[0].type !== 'questBoard') { s.pending.shift(); continue; }
       if (s.month === 11 && s.pending[0]?.type === 'questBoard') { startSortie(s, recommendSquads(s)); for (let i = 0; i < 5 && s.battle; i++) { skipAuto(s, battleCtx(s)); finishBattle(s); } continue; }
-      if (s.pending.length) { if (s.pending.some((p) => p.type === 'career')) { while (s.pending[0]?.type !== 'career') s.pending.shift(); continue; } autoPending(s); }
+      if (s.pending.length) { if (s.pending.some((p) => p.type === 'career')) { while ((s.pending[0]?.type as string) !== 'career') s.pending.shift(); continue; } autoPending(s); }
       else { todayCards(s); chooseLesson(s, recommendCard(s)); }
     }
     const rv = s.reviews?.find((x) => x.year === 1);
