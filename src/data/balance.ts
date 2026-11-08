@@ -29,6 +29,7 @@ export const B = {
     statCapGrad: 50,
     hpCapGrad: 80,
     expPerLevel: 100,
+    levelUpMin: 2,              // 8夜目「2ピン保証」：レベルアップで最低2つの能力が上がる
     maxLevel: 70,               // 7夜目：卒業後の上限 50→70
     traitCount: [1, 3] as [number, number],
     talentChance: 0.55,         // 何かしらの才能を持つ確率
@@ -221,6 +222,8 @@ export const B = {
   enemy: {
     growth: { hp: 0.5, str: 0.31, mag: 0.23, skl: 0.3, spd: 0.3, lck: 0.23, def: 0.25, res: 0.19, cha: 0.15 } as Record<string, number>,
     weaponLv: [12, 26] as [number, number],
+    // 8夜目「2ピン保証」：生徒のレベルアップは最低2つの能力が上がるので、敵の1レベルあたりの伸びも数値で同じだけ上げる
+    pinMul: 1.22,
   },
   // ---- 依頼 ----
   quests: {
@@ -348,8 +351,9 @@ export const B = {
   mentor: {
     // 1回の授業でもらえる経験ポイント：基本＋顔の子1人ごと＋友情タッグ1組ごと＋ランクアップ・レベルアップした子1人ごと（上限つき）
     xpBase: 4, xpSocial: 3, xpRest: 0, xpFace: 1, xpTag: 2, xpGrow: 2, xpGrowMax: 8,
-    // 特殊能力の値段（小・中・大）。覚えるたびに次が少しずつ高くなる（1つごとに+30%）
-    cost: { S: 300, M: 500, L: 800 } as Record<string, number>, costGrowth: 0.3,
+    // 特殊能力の値段（小・中・大）。覚えるたびに次が少しずつ高くなる（1つごとに+50%）
+    // 8夜目の長期シミュレーションで調整：1年目2〜3個、10年で約9個、20年で約13個（引退までに半分〜3分の2）
+    cost: { S: 600, M: 1000, L: 1600 } as Record<string, number>, costGrowth: 0.5,
     // 技能：次のランクまでの技能ポイント1につき、経験ポイント3
     skillCostPerPt: 3,
     // 後継の教官が受け継ぐ特殊能力の数（教え子が継ぐと2つ、外から来た教官は1つ）

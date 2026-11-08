@@ -7,7 +7,8 @@ import { examCandidates } from '../core/exam';
 import { rng } from '../core/flow';
 import { StuRow, Back, money, Bar, moodIcon } from './common';
 import { Portrait } from './Portrait';
-import { SKILL_NAMES, PERSONALITIES } from '../data/people';
+import { SKILL_NAMES, PERSONALITIES, COUNTRY_SHORT } from '../data/people';
+import { REP_TIERS, repTier } from '../data/discovery';
 import { B, SKILLS } from '../data/balance';
 import { WEAPONS } from '../data/weapons';
 import { facilityCost, upgradeFacility, hireTeacher, fireTeacher, buyWeapon, buyItem, upkeepCost, type FacilityId } from '../core/teachers';
@@ -84,6 +85,7 @@ function Notebook({ s }: { s: GameState }) {
     <div class="deskpage">
       <Back to={() => navigate({ tab: 'school' })} />
       <div class="ledger"><div class="row between nowrap"><h2 class="ledger-title" style={{ margin: 0 }}>教官手帳</h2><span class="stamp">{MONTH_NAMES_SHORT(s.month)}</span></div><div class="small muted">{s.year}年目 {MONTH_NAMES_SHORT(s.month)} 第{s.week}週。やること・お知らせ・学校のこと。</div></div>
+      <RepLedger s={s} />
       <div class="two">
         <div>
           {s.spotlight.length > 0 && (
@@ -143,7 +145,7 @@ function Notebook({ s }: { s: GameState }) {
               <button class="btn ghost iconbtn" onClick={() => navigate({ tab: 'school', page: 'mail' })}><Icon name="mail" /> 郵便受け{unread ? `（${unread}）` : ''}</button>
               <button class="btn ghost iconbtn" onClick={() => navigate({ tab: 'school', page: 'instructor' })}><Icon name="students" /> 教官・副教官</button>
             </div>
-            <div class="muted" style={{ marginTop: 6 }}>在籍 {list.length}人・講師 {s.teachers.length}人・評判 {Math.round(s.reputation)}／100{s.year <= B.school.deadlineYear && !s.world.vassal ? `（${B.school.deadlineYear}年目の終わりまでに${B.school.deadlineRep}が目標）` : ''}</div>
+            <div class="muted" style={{ marginTop: 6 }}>在籍 {list.length}人・講師 {s.teachers.length}人・評判 {Math.round(s.reputation)}／100{s.world.vassal ? `（${COUNTRY_SHORT[s.world.vassal]}の傘下。評判${B.school.independenceRep}で独立を取り戻せる）` : ''}</div>
           </div>
         </div>
       </div>
@@ -238,5 +240,22 @@ function Mailbox({ s }: { s: GameState }) {
 }
 
 export { Portrait, Bar };
+
+/** 評判の段階（8夜目：廃校の期限の代わりの序盤の目標）。次の段階までのゲージ */
+function RepLedger({ s }: { s: GameState }) {
+  const t = repTier(s.reputation);
+  const cur = REP_TIERS[t], next = REP_TIERS[t + 1];
+  const pct = next ? Math.round(((s.reputation - cur.at) / (next.at - cur.at)) * 100) : 100;
+  return (
+    <div class="ledger">
+      <h3 class="ledger-title">学校の評判</h3>
+      <div class="row between nowrap"><b class="serif" style={{ fontSize: 18 }}>{cur.name}</b><span class="small muted">評判 {Math.round(s.reputation)}</span></div>
+      <div class="rep-steps">{REP_TIERS.map((x, i) => <span class={i < t ? 'past' : i === t ? 'now' : ''}>{x.name}</span>)}</div>
+      {next ? <><div class="row nowrap gap6"><span class="gauge skill grow"><span style={{ width: `${pct}%` }} /></span><span class="small">「{next.name}」まで あと{Math.ceil(next.at - s.reputation)}</span></div>
+        <div class="small muted">評判が上がると、入学の志願者と寄付が増え、教え子に声がかかりやすくなります。依頼に勝つ・演武会・卒業生の活躍で上がります。</div></> : <div class="small">これ以上ない、伝説の学び舎です。</div>}
+      {s.world.vassal && <div class="small" style={{ color: 'var(--accent)' }}>いまは{COUNTRY_SHORT[s.world.vassal]}の傘下。評判{B.school.independenceRep}で、年度末に独立を取り戻せます。</div>}
+    </div>
+  );
+}
 
 export { InstructorPage } from './Mentor';

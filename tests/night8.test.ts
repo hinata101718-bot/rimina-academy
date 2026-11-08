@@ -82,12 +82,16 @@ describe('先生の経験ポイント', () => {
     for (let k = 0; k < 20; k++) { s.pending = []; chooseLesson(s, 0); }
     expect(s.instructor.skills).toEqual(before);
   });
-  it('1年でおよそ特殊能力2〜3個分たまる', () => {
+  it('1年でおよそ特殊能力2〜3個分たまる（8夜目の長期シミュレーションで値段を調整）', () => {
     const s = mk(5);
     autoYears(s, 1);
     const total = s.instructor.xpTotal ?? 0;
-    expect(total).toBeGreaterThan(B.mentor.cost.M * 2);
-    expect(total).toBeLessThan(B.mentor.cost.M * 5);
+    expect(total).toBeGreaterThan(B.mentor.cost.S * 2);
+    expect(total).toBeLessThan(B.mentor.cost.L * 3);
+    // おまかせで使うと、1年目に覚えるのは1〜4個
+    const n = (s.instructor.abilities ?? []).length;
+    expect(n).toBeGreaterThanOrEqual(1);
+    expect(n).toBeLessThanOrEqual(4);
   });
 });
 
@@ -227,5 +231,41 @@ describe('新聞（半年に一回）', () => {
     expect(p.front!.head.length).toBeGreaterThan(4);
     expect(p.body.join('')).toMatch(/帝国/);
     void majorEvents; void endMonth;
+  });
+});
+
+import { yearEnd, acceptVassal } from '../src/core/flow';
+describe('廃校の期限をなくす（8夜目の途中で届いた感想メモ）', () => {
+  it('3年目の年度末に評判が低くても傘下に入らない', () => {
+    const s = mk(21);
+    s.year = 3; s.month = 11; s.reputation = 5; s.pending = [];
+    yearEnd(s, []);
+    expect(s.world.vassal).toBeNull();
+  });
+  it('友好度が偏ると傘下への誘いが来る。受けたときだけ傘下に入る', () => {
+    const s = mk(22);
+    s.world.friendship = { kingdom: 90, empire: 10, alliance: 10 };
+    s.month = 11; s.pending = [];
+    yearEnd(s, []);
+    const offer = s.pending.find((p) => p.type === 'vassalOffer');
+    expect(offer).toBeTruthy();
+    expect(s.world.vassal).toBeNull();
+    acceptVassal(s, 'kingdom');
+    expect(s.world.vassal).toBe('kingdom');
+  });
+});
+
+import { levelUp } from '../src/core/growth';
+describe('レベルアップの2ピン保証（8夜目の途中で届いた感想メモ）', () => {
+  it('成長率がとても低くても、最低2つの能力が上がる', () => {
+    const s = mk(23);
+    const st = enrolled(s)[0];
+    for (const k of STATS) st.growth[k] = 5;
+    st.classId = 'novice';
+    for (let i = 0; i < 200; i++) {
+      const g = levelUp(new Rng({ rng: i + 1 }), st);
+      expect(Object.keys(g).length).toBeGreaterThanOrEqual(2);
+      for (const k of STATS) st.stats[k] = Math.min(st.stats[k], 10);
+    }
   });
 });

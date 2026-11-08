@@ -20,6 +20,7 @@ import { countryColor, studentFlags } from './cards';
 import { stageOf } from './common';
 import { kanjiNum } from './Mentor';
 import { PAPER_NAME } from '../data/newspaper';
+import { REP_TIERS, repTier } from '../data/discovery';
 
 const C_FILL: Record<CountryId, string> = { kingdom: '#5d7fae', empire: '#b85a45', alliance: '#6f9a5e' };
 const DIRWORD: Record<string, string> = { 'empire>kingdom': '北上中', 'empire>alliance': '東進中', 'kingdom>empire': '南下中', 'kingdom>alliance': '南下中', 'alliance>empire': '西進中', 'alliance>kingdom': '北上中' };
@@ -101,6 +102,8 @@ export function deskTodos(s: GameState): DeskTodo[] {
   for (const st of list) if (st.birthday && st.birthday.month === s.month && st.birthday.week === s.week) out.push({ text: `${st.given}　誕生日の週`, go: () => navigate({ tab: 'students', page: 'detail', id: st.id }) });
   const ne = nextEvent(s);
   if (ne) out.push({ text: ne.weeks === 0 ? `今週　${ne.label}` : `${ne.label}まで　${kanjiNum(ne.weeks)}週`, go: () => navigate({ tab: 'school', page: 'today' }) });
+  const t = repTier(s.reputation);
+  if (REP_TIERS[t + 1] && s.year <= 6) out.push({ text: `「${REP_TIERS[t + 1].name}」まで　評判あと${kanjiNum(Math.ceil(REP_TIERS[t + 1].at - s.reputation))}`, go: () => navigate({ tab: 'school', page: 'notebook' }) });
   const ready = MENTOR_ABILITIES.filter((a) => abilityState(s, a) === 'ready');
   if (ready.length) out.push({ text: `教官の心得　覚えられる（${mentorXp(s)}pt）`, go: () => navigate({ tab: 'school', page: 'instructor' }) });
   else { const next = MENTOR_ABILITIES.filter((a) => abilityState(s, a) === 'poor').map((a) => abilityCost(s, a)).sort((a, b) => a - b)[0]; if (next) out.push({ text: `教官の経験　${mentorXp(s)}／${next}pt`, go: () => navigate({ tab: 'school', page: 'instructor' }) }); }

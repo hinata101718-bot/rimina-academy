@@ -39,6 +39,9 @@ export function SettingsTab() {
         <h3>戦闘</h3>
         <label class="row between nowrap ab-manual"><span>戦闘を自分で指揮する</span><input type="checkbox" checked={s.settings.manualBattle} onChange={(e) => set((x) => { x.manualBattle = (e.target as HTMLInputElement).checked; })} /></label>
         <div class="muted small">オフ（はじめの設定）：出撃メンバー・作戦・役割を決めると自動で決着し、戦いの様子を場面で見せます。オン：マスを動かして自分で指揮します。オフのままでも、出撃前に「この戦いは自分で指揮する」を選べます。</div>
+        <div class="small" style={{ marginTop: 8 }}><b>戦いの記録の進め方</b></div>
+        <div class="seg" style={{ marginTop: 4 }}>{([['tap', 'タップ'], ['normal', '自動'], ['fast', '速く']] as const).map(([v, l]) => <button class={(s.settings.battleLog ?? 'tap') === v ? 'on' : ''} onClick={() => set((x) => { x.battleLog = v; })}>{l}</button>)}</div>
+        <div class="muted small">戦いの記録の下のボタンでも、いつでも切り替えられます。「結果へ」で残りをとばせます。</div>
       </div>
       <div class="card">
         <h3>表示・演出</h3>

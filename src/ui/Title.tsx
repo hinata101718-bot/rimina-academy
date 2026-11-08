@@ -74,7 +74,7 @@ const OPENING_TEXT = (name: string) => [
   ['管理人', `……おや、あなたが新しい教官の${name}さまですかな。遠いところをよくおいでくださった。わしはこの学校の管理人をしておる者です。`],
   ['', `門は傾き、屋根には穴が開いている。訓練場には草が伸び放題だ。`],
   ['管理人', `ごらんのとおりのありさまでしてな。生徒も、今年はわずかしか集まりませんでした。`],
-  ['管理人', `本校からの知らせでは……「3年のうちに学校の評判を立て直せなければ、廃校とする」とのことです。`],
+  ['管理人', `本校からの言づてです。……「どうか、この分校を立て直してほしい。三国のどこにも属さぬ学び舎を、もう一度」と。`],
   ['管理人', `ですが、集まった子たちは、みな目がまっすぐです。どうか、あの子たちをよろしくお願いいたします。`],
 ];
 
@@ -107,7 +107,7 @@ function Opening({ slot, onCancel }: { slot: number; onCancel: () => void }) {
           <div class="card">
             <h3>学校の始まり</h3>
             <div class="seg">{(['poor', 'normal', 'elite'] as StartKind[]).map((k) => <button class={start === k ? 'on' : ''} onClick={() => setStart(k)}>{B.starts[k].name}</button>)}</div>
-            <div class="muted small" style={{ marginTop: 4 }}>{start === 'poor' ? '施設はボロボロ、お金も評判もわずか。3年目の終わりまでに評判を上げないと傘下入り。' : start === 'normal' ? `施設はすべて段階${B.starts.normal.facility}、所持金${B.starts.normal.money}G・評判${B.starts.normal.rep}から。廃校の期限はなし。` : `施設はすべて段階${B.starts.elite.facility}、所持金${B.starts.elite.money}G・評判${B.starts.elite.rep}から。素質のある志願者が集まる。廃校の期限はなし。`}</div>
+            <div class="muted small" style={{ marginTop: 4 }}>{start === 'poor' ? '施設はボロボロ、お金も評判もわずか。名もない分校から、評判を上げて立て直していく。' : start === 'normal' ? `施設はすべて段階${B.starts.normal.facility}、所持金${B.starts.normal.money}G・評判${B.starts.normal.rep}から。` : `施設はすべて段階${B.starts.elite.facility}、所持金${B.starts.elite.money}G・評判${B.starts.elite.rep}から。素質のある志願者が集まる。`}</div>
           </div>
         )}
         <details class="card"><summary class="muted">テスト用の設定</summary>

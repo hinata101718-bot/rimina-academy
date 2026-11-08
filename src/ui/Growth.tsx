@@ -171,7 +171,6 @@ function LevelUp({ show, waiting }: { show: LevelShow; waiting?: boolean }) {
             return <div class={`lvstat${on ? ' on' : ''}`}><span>{STAT_NAMES[k]}</span><b>{v}</b><i>{on ? `+${show.gains[k]}` : ''}</i></div>;
           })}
         </div>
-        {!gained.length && <div class="muted small" style={{ textAlign: 'center' }}>今回は能力が上がらなかった……</div>}
         {waiting && <div class="small ru-next" style={{ textAlign: 'center' }}>タップで次へ ▼</div>}
       </div>
     </div>

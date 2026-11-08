@@ -359,6 +359,8 @@ export type Pending =
   | { type: 'career' }
   | { type: 'graduation'; cohort: number; lines: { id: string; text: string }[] }
   | { type: 'newspaper'; id: string }
+  /** 傘下への誘い（8夜目：受けるか断るかを選ぶ） */
+  | { type: 'vassalOffer'; country: CountryId }
   | { type: 'teacherHire' }
   | { type: 'talk'; talk: TalkLog }
   | { type: 'retire'; forced: boolean }
@@ -425,6 +427,8 @@ export interface Settings {
   rosterView: 'card' | 'compact';
   /** 戦闘を自分で指揮する（オフなら自動の戦闘。5夜目） */
   manualBattle: boolean;
+  /** 戦いの記録の進め方（8夜目：はじめは「タップで進む」） */
+  battleLog?: 'tap' | 'normal' | 'fast';
   rewind: boolean;
   guide: boolean;
   sound: boolean;

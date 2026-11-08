@@ -22,7 +22,7 @@ import { chooseReply } from '../core/interview';
 import { usableSpells } from '../core/spells';
 import type { GameState, TalkLog, Student, GrowthEntry } from '../core/state';
 import { enrolled, available, deployLimit, capacity } from '../core/game';
-import { startBattle, admit, autoAdmitIds, finishCareers } from '../core/flow';
+import { startBattle, admit, autoAdmitIds, finishCareers, acceptVassal } from '../core/flow';
 import { autoDeploy, canEquip } from '../core/autoplay';
 import { OBJECTIVE_NAMES, WEATHER_NAMES } from '../core/quests';
 import { hopes, availableChoices, CHOICE_NAMES, acceptRate, suitablePath, autoRecommend, type CareerChoice } from '../core/career';
@@ -63,6 +63,13 @@ export function PendingView() {
     case 'scene': return <Sheet title={p.title}><ScenePlayer key={p.title} s={s} lines={p.lines} onDone={done} /></Sheet>;
     case 'rankup': return <Sheet><RankUpPlayer key={s.pending.length} s={s} items={p.items} onDone={done} /></Sheet>;
     case 'discovery': return <Sheet><DiscoveryView key={`${p.studentId}${p.stage}${s.pending.length}`} s={s} p={p} onDone={done} /></Sheet>;
+    case 'vassalOffer': return (
+      <Sheet title="傘下への誘い">
+        <div class="serif">{COUNTRY_NAMES[p.country]}の使者が来た。「貴校と我が国の縁は深い。我が国の傘下に入れば、十分な援助を約束しよう」</div>
+        <ul class="small" style={{ paddingLeft: '1.2em' }}><li>受けると：{COUNTRY_SHORT[p.country]}からの援助金が増え、志願者に{COUNTRY_SHORT[p.country]}の出身が増える。ほかの二国との友好度が下がり、ほかの国からの声かけが減る。学校の中立宣言・和平の円卓は、独立するまで届かない</li><li>断ると：今までどおり、どの国にも属さない学校のまま</li><li>傘下に入っても、評判{B.school.independenceRep}で年度末に独立を取り戻せる</li></ul>
+        <div class="row nowrap gap8"><button class="btn block grow" onClick={() => { sfx('ok'); act((g) => acceptVassal(g, p.country)); }}>誘いを受ける</button><button class="btn primary block grow" onClick={done}>丁重に断る</button></div>
+      </Sheet>
+    );
     case 'newspaper': return <Sheet title={s.news.find((n) => n.id === p.id)?.kind === 'extra' ? '号外が出た' : '新聞が届いた'}><NewsView id={p.id} /><button class="btn primary block" style={{ marginTop: 10 }} onClick={done}>閉じる</button></Sheet>;
     default: return <Sheet title="お知らせ"><button class="btn primary block" onClick={done}>閉じる</button></Sheet>;
   }

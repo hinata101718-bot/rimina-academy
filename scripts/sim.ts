@@ -30,7 +30,7 @@ const POLICY_NAMES: Record<CareerPolicy, string> = { none: '何もしない（�
 
 interface YearRow { year: number; tension: number; stage: string; money: number; rep: number; students: number; grads: number; aliveGrads: number; deaths: number; alumniDead: number; power: string; rels: string; events: string[] }
 interface GrowthRow { grade: number; level: number; battles: number; top: number; second: number; other: number; talent: number | null; hp: number; best: number; worst: number; train: number }
-interface RunResult { growth?: GrowthRow[]; ops?: { lesson: number; pending: number; battle: number }; warNos?: number; seedOutbreaks?: number; policy: CareerPolicy; seed: number; bg: string; rows: YearRow[]; error: string | null; zeroMoneyYears: number; vassal: string | null; everVassal: boolean; gunYear: number | null; bigEvents: Record<string, number>; wins: number; losses: number; alumniDeaths: number; graduates: number; peaceTalks: number; roundYear: number | null; ms: number; endings: { kind: EndingKind; year: number; country?: string; n?: number }[]; generations: number; instructorAges: number[]; officers?: OfficerStats }
+interface RunResult { mentor?: { year: number; gen: number; abilities: number; xp: number; skills: number }[]; news?: number[]; growth?: GrowthRow[]; ops?: { lesson: number; pending: number; battle: number }; warNos?: number; seedOutbreaks?: number; policy: CareerPolicy; seed: number; bg: string; rows: YearRow[]; error: string | null; zeroMoneyYears: number; vassal: string | null; everVassal: boolean; gunYear: number | null; bigEvents: Record<string, number>; wins: number; losses: number; alumniDeaths: number; graduates: number; peaceTalks: number; roundYear: number | null; ms: number; endings: { kind: EndingKind; year: number; country?: string; n?: number }[]; generations: number; instructorAges: number[]; officers?: OfficerStats }
 /** 宿敵の仕組み（6夜目）の数 */
 interface OfficerStats { met: number; epithets: number; promotions: number; heads: number; rival1: number; rival2: number; rival3: number; vows: number; settles: Record<string, number>; alumni: number; scarred: number; years: number }
 function officerStats(s: GameState, years: number): OfficerStats {
@@ -86,8 +86,10 @@ function runAll(policy: CareerPolicy): RunResult[] {
     let gunYear: number | null = null;
     const bigEvents: Record<string, number> = {};
     let seenChron = 0;
+    const mentor: { year: number; gen: number; abilities: number; xp: number; skills: number }[] = [];
     try {
       autoYears(s, YEARS, (g) => {
+        mentor.push({ year: g.year - 1, gen: g.instructor.generation, abilities: (g.instructor.abilities ?? []).length - (g.instructor.inherited ?? []).length, xp: g.instructor.xpTotal ?? 0, skills: Object.values(g.instructor.skills).reduce((a, b) => a + b, 0) });
         const ev = g.chronicle.slice(seenChron).filter((c) => c.kind === 'world').map((c) => c.text);
         seenChron = g.chronicle.length;
         for (const e of ev) { const k = e.replace(/：.*/, '').replace(/^(王国|帝国|同盟)と(王国|帝国|同盟)の/, ''); bigEvents[k] = (bigEvents[k] ?? 0) + 1; }
@@ -100,7 +102,7 @@ function runAll(policy: CareerPolicy): RunResult[] {
     } catch (e) { error = (e as Error).stack ?? String(e); }
     const grads = Object.values(s.students).filter((x) => x.status === 'graduated');
     const alumniDeaths = grads.filter((x) => x.career && !x.career.alive).length;
-    results.push({ growth, ops: { ...opCount }, warNos: s.world.warNo ?? 1, seedOutbreaks: s.chronicle.filter((c) => c.text.includes('大陸戦争が始まった')).length, policy, seed, bg, rows, error, zeroMoneyYears: zero, vassal: s.world.vassal, everVassal: s.chronicle.some((c) => c.text.includes('傘下に入る')), gunYear, bigEvents, wins: s.stats.battlesWon, losses: s.stats.battlesLost, alumniDeaths, graduates: grads.length, peaceTalks: s.world.peaceTalksHeld, roundYear: s.world.peaceRoundYear ?? null, ms: Date.now() - t0, endings: (s.endings ?? []).map((e) => ({ ...e })), generations: s.instructor.generation, instructorAges: (s.pastInstructors ?? []).map((p) => p.age), officers: officerStats(s, rows.length) });
+    results.push({ mentor, news: [...Array(rows.length)].map((_, i) => s.news.filter((n) => n.year === i + 1 && (n.kind === 'first' || n.kind === 'second')).length), growth, ops: { ...opCount }, warNos: s.world.warNo ?? 1, seedOutbreaks: s.chronicle.filter((c) => c.text.includes('大陸戦争が始まった')).length, policy, seed, bg, rows, error, zeroMoneyYears: zero, vassal: s.world.vassal, everVassal: s.chronicle.some((c) => c.text.includes('傘下に入る')), gunYear, bigEvents, wins: s.stats.battlesWon, losses: s.stats.battlesLost, alumniDeaths, graduates: grads.length, peaceTalks: s.world.peaceTalksHeld, roundYear: s.world.peaceRoundYear ?? null, ms: Date.now() - t0, endings: (s.endings ?? []).map((e) => ({ ...e })), generations: s.instructor.generation, instructorAges: (s.pastInstructors ?? []).map((p) => p.age), officers: officerStats(s, rows.length) });
     console.log(`[${policy}] run ${r + 1}/${RUNS} 戦争${s.world.warNo ?? 1}度目まで seed=${seed} ${bg} money=${s.money} rep=${Math.round(s.reputation)} grads=${grads.length} 卒業後の戦死=${alumniDeaths}（${Math.round((alumniDeaths / Math.max(1, grads.length)) * 100)}%） 和平会議=${s.world.peaceTalksHeld} エンディング=${(s.endings ?? []).map((e) => `${endingTitle(e.kind, e.country as never)}${e.year}年目`).join('・') || 'なし'} 教官${s.instructor.generation}代 ${error ? 'ERROR' : 'ok'} (${Date.now() - t0}ms)`);
     if (error) console.log(error);
   }
@@ -115,7 +117,7 @@ function report(all: RunResult[]): string {
   const policies = [...new Set(all.map((r) => r.policy))];
   const years = Math.max(...all.map((r) => r.rows.length));
   lines.push('# 長期シミュレーションの結果', '');
-  lines.push(`オートプレイ（画面なし・自動で判断）で **${years}年 × ${all.length / policies.length}回** を、進路の方針ごとに回した結果です。`, `作成：\`npm run sim\`（${new Date().toISOString().slice(0, 10)}）`, '', '7夜目：日ごとの授業カード（オートプレイは毎日おすすめのカードを選ぶ）・育ち方の作り直し（鍛錬ゲージ・レベル条件）・戦いの記録・戦争のあとの火種を入れたあとの結果。', '', 'エンディングのあとは毎回「この学校を続ける」を選ぶ（平和な時代→火種がくすぶる→次の戦争→二度目のエンディング、が起きるかを確かめる）。', '', '戦闘は **自動の戦闘**。作戦の方針・役割は依頼ごとのおすすめ、ここぞの選択は7割がおすすめ・3割がほかのもの（人が遊ぶときに近づけるため）。', '');
+  lines.push(`オートプレイ（画面なし・自動で判断）で **${years}年 × ${all.length / policies.length}回** を、進路の方針ごとに回した結果です。`, `作成：\`npm run sim\`（${new Date().toISOString().slice(0, 10)}）`, '', '8夜目：先生の経験ポイントと特殊能力（オートプレイは、覚えられる特殊能力をいちばん安いものから覚え、余ったポイントで得意科目の技能を上げる）・成長率の5%きざみ・レベルアップの2ピン保証・新聞の半年に一回を入れたあとの結果。', '', 'エンディングのあとは毎回「この学校を続ける」を選ぶ（平和な時代→火種がくすぶる→次の戦争→二度目のエンディング、が起きるかを確かめる）。', '', '戦闘は **自動の戦闘**。作戦の方針・役割は依頼ごとのおすすめ、ここぞの選択は7割がおすすめ・3割がほかのもの（人が遊ぶときに近づけるため）。', '');
   lines.push('進路の方針：', ...policies.map((p) => `- **${POLICY_NAMES[p]}**`), '');
   lines.push('## 方針ごとのまとめ', '');
   lines.push('| 方針 | エラー | 最初のエンディング（回数） | 最初のエンディングの年（平均・最小〜最大） | 教官の代替わり（平均） | 最終年の所持金（平均） | 卒業後の戦死の割合（平均・最大の回） | 在学中の戦死（平均） |');
@@ -217,6 +219,18 @@ function report(all: RunResult[]): string {
   for (const row of r0.rows) lines.push(`- ${row.year}年目：${row.stage}（緊張度${row.tension}）・国力 ${row.power}・関係 ${row.rels}・所持金${row.money}G・評判${row.rep}${row.events.length ? `・事件：${row.events.join('／')}` : ''}`);
   const errs = all.filter((x) => x.error);
   if (errs.length) { lines.push('', '## エラーの内容', ''); for (const r of errs) lines.push('```', r.error!.slice(0, 1500), '```'); }
+  // 8夜目：先生の特殊能力
+  lines.push('', '## 先生の経験ポイントと特殊能力（初代の教官）', '');
+  lines.push('自分で覚えた特殊能力の数（受け継いだものは数えない）。目安は「1年で2〜3個、覚えるたびに少しずつ高くなる」。', '');
+  lines.push('| 方針 | 1年目 | 2年目 | 3年目 | 5年目 | 10年目 | 15年目 | 1年あたりの経験ポイント（初代・平均） | 新聞（前期号＋後期号）／年 |');
+  lines.push('|---|---|---|---|---|---|---|---|---|');
+  for (const p of policies) {
+    const rs = all.filter((r) => r.policy === p);
+    const at = (y: number) => { const v = rs.map((r) => r.mentor?.find((m) => m.year === y && m.gen === 1)?.abilities).filter((x): x is number => x !== undefined); return v.length ? `${avg(v).toFixed(1)}個（${v.length}回）` : '—'; };
+    const xpy = rs.map((r) => { const m = (r.mentor ?? []).filter((x) => x.gen === 1); const l = m[m.length - 1]; return l ? l.xp / Math.max(1, l.year) : 0; });
+    const np = rs.flatMap((r) => (r.news ?? []).slice(-11, -1)); // 新聞は新しい60号だけ残るので、最後の10年で数える
+    lines.push(`| ${POLICY_NAMES[p]} | ${at(1)} | ${at(2)} | ${at(3)} | ${at(5)} | ${at(10)} | ${at(15)} | ${Math.round(avg(xpy))}pt | ${avg(np).toFixed(2)}号 |`);
+  }
   return lines.join('\n') + '\n';
 }
 

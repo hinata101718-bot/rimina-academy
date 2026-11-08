@@ -1046,3 +1046,7 @@ body[data-season="winter"] { --tint: rgba(190, 210, 235, .14); }
 .page-paper .sectitle { flex-wrap: wrap; row-gap: 6px; }
 .page-paper .sectitle h2 { white-space: nowrap; }
 .page-paper.binder .sectitle { padding-right: 54px; }
+.rep-steps { display: flex; flex-wrap: wrap; gap: 4px; margin: 6px 0; }
+.rep-steps span { font-size: 12px; padding: 1px 6px; border: 1px solid var(--line); border-radius: 3px; color: var(--sub); }
+.rep-steps span.past { color: var(--gold); border-color: var(--gold); }
+.rep-steps span.now { background: var(--main); color: #f8e6b8; border-color: var(--main); font-weight: bold; }

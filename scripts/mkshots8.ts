@@ -5,7 +5,7 @@ import { writeFileSync, mkdirSync } from 'node:fs';
 import { serialize } from '../src/core/save';
 import { newGame } from '../src/core/game';
 import { autoYears, autoPending, autoDay, setAutoChoicePick, humanLikePick, autoDeploy } from '../src/core/autoplay';
-import { chooseLesson, startAutoQuest } from '../src/core/flow';
+import { chooseLesson, startAutoQuest, endMonth } from '../src/core/flow';
 import { todayCards, recommendCard } from '../src/core/lessons';
 import { defaultPlan } from '../src/core/battle/auto';
 import type { GameState } from '../src/core/state';
@@ -50,12 +50,14 @@ const m = clone(s); m.instructor.xp = 1800; m.instructor.xpTotal = 2600; m.instr
   g.pending = g.pending.filter((p) => p.type === 'newspaper');
   save('news', g);
 }
-// 年度末（卒業式・後期号・入学試験）
+// 年度末（進路の相談＝卒業式の手前）
 {
   const g = clone(s);
   g.pending = [];
   let guard = 0;
-  while (!g.pending.some((p) => p.type === 'graduation') && guard++ < 900) { if (g.pending.length) { const t = g.pending[0].type; if (t === 'graduation') break; autoPending(g); } else autoDay(g); }
+  while (!(g.month === 11 && g.week === 4) && guard++ < 900) autoDay(g);
+  g.pending = []; g.battle = null;
+  endMonth(g);
   save('grad', g);
 }
 console.log('ok', out);

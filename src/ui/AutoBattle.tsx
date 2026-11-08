@@ -240,7 +240,7 @@ function Gauge2({ m }: { m: number }) {
 
 // ================= 戦いの記録（7夜目） =================
 const GRUNT_MARK: Record<string, string> = { sword: '剣', lance: '槍', axe: '斧', bow: '弓', magic: '魔', holy: '聖', staff: '杖', gun: '銃' };
-type Speed = 'stop' | 'normal' | 'fast';
+type Speed = 'tap' | 'normal' | 'fast';
 
 /** 戦いの記録：1回の攻撃ごとのカード、上に両軍のHP。ここぞの判断は途中で止まる */
 export function AutoBattleView() {
@@ -251,7 +251,8 @@ export function AutoBattleView() {
   // 再開したときは、見終わった場面のあとから
   const startPos = useMemo(() => { if (!a) return 0; const i = items.findIndex((x) => (x.k === 'band' || x.k === 'title' || x.k === 'sync') && x.scene >= (a.shown ?? 0)); return a.shown ? (i < 0 ? items.length : i) : 0; }, []);
   const [pos, setPos] = useState(startPos);
-  const [speed, setSpeed] = useState<Speed>('normal');
+  const [speed, setSpeed0] = useState<Speed>(s?.settings.battleLog ?? 'tap');
+  const setSpeed = (v: Speed) => { setSpeed0(v); act((g) => { g.settings.battleLog = v; }); };
   const ref = useRef<HTMLDivElement>(null);
   const total = items.length;
   const atLogEnd = pos >= total;
@@ -260,17 +261,32 @@ export function AutoBattleView() {
   useEffect(() => { ref.current?.scrollTo?.({ top: ref.current.scrollHeight, behavior: 'smooth' }); }, [pos]);
   // 行動の多い戦いは、ふつうでも2分ほどに収まるよう少し速く
   const fit = useMemo(() => { const sec = items.reduce((t, x) => t + (x.k === 'band' ? AUTO.log.band : x.k === 'turn' || x.k === 'title' ? AUTO.log.turn : x.k === 'sync' ? 0 : AUTO.log.card), 0) / 1000; return sec > AUTO.log.maxSec ? AUTO.log.maxSec / sec : 1; }, [total]);
+  const effect = (it: (typeof items)[number]) => {
+    if (it.k === 'sync') act((g) => { if (g.battle?.auto) g.battle.auto.shown = Math.max(g.battle.auto.shown, it.scene + 1); });
+    if (it.k === 'atk' && it.e.hit) sfx(it.e.crit ? 'crit' : 'hit');
+  };
+  /** タップで進む（8夜目）：1枚ずつ。区切りの見出しは次のカードといっしょに出す */
+  const tapNext = () => {
+    if (atLogEnd) return;
+    let p = pos;
+    while (p < total) {
+      const it = items[p];
+      effect(it);
+      p += 1;
+      if (it.k !== 'sync' && it.k !== 'turn' && it.k !== 'title') break;
+    }
+    setPos(p);
+  };
   // 再生
   useEffect(() => {
-    if (speed === 'stop' || atLogEnd) return;
+    if (speed === 'tap' || atLogEnd) return;
     const it = items[pos];
     const mul = ({ 1: 1.3, 2: 1, 3: 0.65 } as Record<number, number>)[s?.settings.animSpeed ?? 2] ?? 1;
     const base = it.k === 'band' ? AUTO.log.band : it.k === 'turn' || it.k === 'title' ? AUTO.log.turn : it.k === 'sync' ? 0 : AUTO.log.card;
     const ms = Math.max(0, base * mul * fit * (speed === 'fast' ? AUTO.log.fastMul : 1));
     const t = setTimeout(() => {
       setPos((p) => p + 1);
-      if (it.k === 'sync') act((g) => { if (g.battle?.auto) g.battle.auto.shown = Math.max(g.battle.auto.shown, it.scene + 1); });
-      if (it.k === 'atk' && it.e.hit) sfx(it.e.crit ? 'crit' : 'hit');
+      effect(it);
     }, ms);
     return () => clearTimeout(t);
   }, [pos, speed, total]);
@@ -313,10 +329,10 @@ export function AutoBattleView() {
           <div class="bl-side"><div class="bl-sidet foe">敵</div>{foes.slice(0, 10).map((u) => <HpRow name={nameOf(u.uid)} v={hp[u.uid] ?? u.maxHp} max={u.maxHp} down={gone.has(u.uid) || (hp[u.uid] ?? 1) <= 0} />)}{foes.length > 10 && <div class="small muted">ほか{foes.length - 10}人</div>}</div>
         </div>
       </div>
-      <div class="ab-scene bl-log" ref={ref} onClick={() => { if (speed === 'stop') setSpeed('normal'); }}>
+      <div class="ab-scene bl-log" ref={ref} onClick={() => { if (speed === 'tap') tapNext(); }}>
         {shown.length > view.length && <div class="small muted" style={{ textAlign: 'center' }}>（前の記録は省略）</div>}
         {view.map((it, n) => <LogItem key={shown.length - view.length + n} it={it} s={s} nameOf={nameOf} sideOf={sideOf} Face={Face} leader={leader} leaderColor={leaderColor} />)}
-        {!atLogEnd && speed === 'stop' && <div class="ab-tap">止めています（タップで再開）</div>}
+        {!atLogEnd && speed === 'tap' && <div class="ab-tap">タップで次へ ▼</div>}
       </div>
       {atChoice && a.choice && (
         <div class="ab-choice">
@@ -340,7 +356,7 @@ export function AutoBattleView() {
       {atEnd && <button class="btn primary block ab-endbtn" onClick={() => { sfx('ok'); act((g) => finishBattle(g)); }}>結果を見る</button>}
       {!atEnd && !atChoice && (
         <div class="ab-ctrl bl-ctrl">
-          <button class={`btn small${speed === 'stop' ? ' primary' : ''}`} onClick={() => setSpeed('stop')}>⏸ 止める</button>
+          <button class={`btn small${speed === 'tap' ? ' primary' : ''}`} onClick={() => { if (speed === 'tap') tapNext(); else setSpeed('tap'); }}>☝ タップで</button>
           <button class={`btn small${speed === 'normal' ? ' primary' : ''}`} onClick={() => setSpeed('normal')}>▶ ふつう</button>
           <button class={`btn small${speed === 'fast' ? ' primary' : ''}`} onClick={() => setSpeed('fast')}>▶▶ 速く</button>
           <button class="btn small" onClick={() => { if (!confirm('残りの判断はおすすめを選んで、結果まで進めます。よろしいですか？')) return; sfx('ok'); act((g) => { skipAuto(g, battleCtx(g)); finishBattle(g); }); }}>結果へ</button>

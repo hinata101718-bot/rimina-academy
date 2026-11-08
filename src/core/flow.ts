@@ -411,19 +411,9 @@ export function yearEnd(s: GameState, graduated: string[]): void {
   const rc = retireCheck(s);
   pruneArchive(s);
   yearlyRaises(s);
-  // 8. 廃校期限
+  // 8. 廃校の期限は8夜目でなくした（ヒナタさん了承）。傘下入りは国からの誘いを自分で受けたときだけ。傘下の学校は評判70で独立を取り戻せる
   const deadline: string[] = [];
-  if (s.year === B.school.deadlineYear && !s.world.vassal && !s.noDeadline) {
-    if (s.reputation >= B.school.deadlineRep) { deadline.push('評判が目標に届き、廃校の危機を乗り越えた！'); chronicle(s, '廃校の危機を乗り越えた', 'school'); }
-    else {
-      const best = [...COUNTRIES].sort((a, c) => s.world.friendship[c] - s.world.friendship[a] || activeAlumni(s, c).length - activeAlumni(s, a).length)[0];
-      s.world.vassal = best;
-      for (const c of COUNTRIES) if (c !== best) s.world.friendship[c] = Math.max(-50, s.world.friendship[c] + B.school.vassalOtherFriendship);
-      deadline.push(`評判が目標に届かず、学校は${COUNTRY_NAMES[best]}の傘下に入って存続することになった。`);
-      chronicle(s, `${COUNTRY_SHORT[best]}の傘下に入る`, 'school');
-      s.pending.push({ type: 'event', title: '傘下入り', lines: [deadline[0], '傘下の国以外からの依頼や声かけが減る。評判を70以上にすれば、年度末に独立を取り戻せる。'] });
-    }
-  } else if (s.world.vassal && s.reputation >= B.school.independenceRep) {
+  if (s.world.vassal && s.reputation >= B.school.independenceRep) {
     const v = s.world.vassal;
     s.world.friendship[v] = Math.max(-50, s.world.friendship[v] + B.school.independencePenalty);
     s.world.vassal = null;
@@ -435,7 +425,10 @@ export function yearEnd(s: GameState, graduated: string[]): void {
   for (const c of COUNTRIES) {
     if (s.world.friendship[c] <= B.pressureAt) mail(s, `${COUNTRY_NAMES[c]}の使者`, '警告の書簡', `貴校は我が国と敵対する国に肩入れしすぎている。このままでは援助を打ち切り、貴校の卒業生の受け入れも考え直さざるを得ない。—${COUNTRY_NAMES[c]}`);
     const others = COUNTRIES.filter((o) => o !== c);
-    if (!s.world.vassal && others.every((o) => s.world.friendship[c] - s.world.friendship[o] >= B.vassalInviteGap)) mail(s, `${COUNTRY_NAMES[c]}の使者`, '傘下への誘い', `貴校と我が国の縁は深い。我が国の傘下に入れば、十分な援助を約束しよう。考えておいてほしい。—${COUNTRY_NAMES[c]}`);
+    if (!s.world.vassal && others.every((o) => s.world.friendship[c] - s.world.friendship[o] >= B.vassalInviteGap) && !s.pending.some((p) => p.type === 'vassalOffer')) {
+      mail(s, `${COUNTRY_NAMES[c]}の使者`, '傘下への誘い', `貴校と我が国の縁は深い。我が国の傘下に入れば、十分な援助を約束しよう。考えておいてほしい。—${COUNTRY_NAMES[c]}`);
+      s.pending.push({ type: 'vassalOffer', country: c });
+    }
   }
   // 5. 新聞（8夜目：後期号。半年分の出来事をまとめる）
   const paper = publishIssue(s, 'second', {
@@ -503,3 +496,12 @@ export function autoAdmitIds(s: GameState): string[] {
 }
 
 export type { Quest };
+
+/** 傘下への誘いを受ける（8夜目：自分で選んだときだけ傘下に入る） */
+export function acceptVassal(s: GameState, c: CountryId): void {
+  s.pending = s.pending.filter((p) => p.type !== 'vassalOffer');
+  if (s.world.vassal) return;
+  s.world.vassal = c;
+  for (const o of COUNTRIES) if (o !== c) s.world.friendship[o] = Math.max(-50, s.world.friendship[o] + B.school.vassalOtherFriendship);
+  chronicle(s, `${COUNTRY_SHORT[c]}の傘下に入る`, 'school');
+}

@@ -92,5 +92,13 @@ export function levelUp(rng: Rng, st: Student): Partial<Stats> {
     while (rate > 0) { if (rng.next() * 100 < Math.min(100, rate)) inc++; rate -= 100; }
     if (inc && st.stats[k] < cap) { st.stats[k] = Math.min(cap, st.stats[k] + inc); gains[k] = inc; }
   }
+  // 8夜目「2ピン保証」（ヒナタさん指定）：上がった能力が2つ未満なら、まだ上がっていない能力から成長率の高いものほど選ばれやすいくじで、2つになるまで足す（上限の能力は除く）
+  let guard = 0;
+  while (Object.keys(gains).length < B.student.levelUpMin && guard++ < 10) {
+    const cands = STATS.filter((k) => !gains[k] && st.stats[k] < (k === 'hp' ? (school ? B.student.hpCapSchool : B.student.hpCapGrad) : school ? B.student.statCapSchool : B.student.statCapGrad));
+    if (!cands.length) break;
+    const k = rng.weighted(cands, (x) => Math.max(5, g[x]));
+    st.stats[k] += 1; gains[k] = 1;
+  }
   return gains;
 }
