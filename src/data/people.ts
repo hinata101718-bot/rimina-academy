@@ -155,6 +155,13 @@ export const STAT_NAMES: Record<StatId, string> = {
   hp: 'HP', str: '力', mag: '魔力', skl: '技', spd: '速さ', lck: '幸運', def: '守備', res: '魔防', cha: '魅力',
 };
 export const PATH_NAMES: Record<Path, string> = { warrior: '将', strategist: '参謀', civil: '文官', champion: '勇士' };
+/** 10夜目：その子の向き（個人ページの記録・卒業式） */
+export const PATH_SAY: Record<Path, string> = {
+  warrior: '兵をまとめ、率いて戦う将の器だ',
+  strategist: '戦の先を読み、策で勝ちを引き寄せる',
+  civil: '剣よりも言葉で、国と国をつなぐ',
+  champion: '兵を率いるより、自分で道を切り開く',
+};
 /** 10夜目：卒業後の道のひとこと（個人ページ・卒業式） */
 export const PATH_LINES: Record<Path, string> = {
   warrior: '兵を率いて戦う。統率の高い子ほど、上の位へ上りやすい',

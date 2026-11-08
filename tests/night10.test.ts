@@ -124,3 +124,87 @@ describe('② 武器は戦利品で', () => {
     for (const sq of s.sortie?.squads ?? []) for (const d of sq.deploy) if (d.armoryUid) expect(d.armoryUid.startsWith('stock:') || s.armory.some((a) => a.uid === d.armoryUid)).toBe(true);
   });
 });
+
+describe('③ 育ち方の見直し', () => {
+  it('新しく入る子：本人の成長率は1つ15〜70%・合計330〜420%、入学時から見える。得意2〜3・苦手1〜2、隠れた才能はない', async () => {
+    const { generateStudent } = await import('../src/core/student');
+    const { Rng } = await import('../src/core/rng');
+    const s = mk(7);
+    const r = new Rng({ rng: 99 });
+    let buds = 0;
+    for (let i = 0; i < 200; i++) {
+      const st = generateStudent(s, r);
+      const vals = Object.values(st.growth);
+      const total = vals.reduce((a, b) => a + b, 0);
+      expect(total).toBeGreaterThanOrEqual(330); expect(total).toBeLessThanOrEqual(420);
+      for (const v of vals) { expect(v % 5).toBe(0); expect(v).toBeGreaterThanOrEqual(15); expect(v).toBeLessThanOrEqual(70); }
+      expect(st.growthKnown).toBe(true);
+      expect(st.talent).toBeNull();
+      expect(st.apt!.good.length).toBeGreaterThanOrEqual(2); expect(st.apt!.good.length).toBeLessThanOrEqual(3);
+      expect(st.apt!.bad.length).toBeGreaterThanOrEqual(1); expect(st.apt!.bad.length).toBeLessThanOrEqual(2);
+      expect(st.apt!.good.some((k) => st.apt!.bad.includes(k))).toBe(false);
+      if (st.bud && !st.bud.gold) { buds++; expect(st.apt!.bad).toContain(st.bud.skill); }
+    }
+    expect(buds).toBeGreaterThan(30); expect(buds).toBeLessThan(90);
+  });
+  it('得意は×1.5、苦手は×0.5、芽が見えた苦手はふつうに伸びる', async () => {
+    const { aptMul } = await import('../src/core/aptitude');
+    const s = mk(8);
+    const st = enrolled(s)[0];
+    st.apt = { good: ['sword'], bad: ['magic', 'axe'] };
+    st.bud = { skill: 'magic', reveal: 0 };
+    expect(aptMul(st, 'sword')).toBe(1.5); expect(aptMul(st, 'magic')).toBe(0.5); expect(aptMul(st, 'lance')).toBe(1);
+    st.bud.reveal = 100;
+    expect(aptMul(st, 'magic')).toBe(1); expect(aptMul(st, 'axe')).toBe(0.5);
+  });
+  it('芽の技能を目標にしてD+まで上げると開花：苦手が得意に、技を覚え、開花の演出が積まれる', async () => {
+    const { checkBloom } = await import('../src/core/aptitude');
+    const { RANK_POINTS } = await import('../src/data/balance');
+    const s = mk(9); s.pending = [];
+    const st = enrolled(s)[0];
+    st.apt = { good: ['sword'], bad: ['magic'] }; st.bud = { skill: 'magic', reveal: 100 };
+    st.skills.magic = RANK_POINTS['D+'];
+    st.targets = ['sword', 'lance'];
+    expect(checkBloom(s, st)).toBe(false); // 目標にしていない
+    st.targets = ['sword', 'magic'];
+    expect(checkBloom(s, st)).toBe(true);
+    expect(st.apt.good).toContain('magic'); expect(st.apt.bad).not.toContain('magic');
+    expect(st.bud.done).toBe(true); expect(st.bud.ability).toBe('bloom_magic');
+    expect(s.pending.some((p) => p.type === 'bloom' && p.studentId === st.id)).toBe(true);
+  });
+  it('軍略・統率は技能ランク：戦術論で軍略、指揮の演習で統率が伸びる。部隊長の腕前は統率で決まる', async () => {
+    const { captainScore } = await import('../src/core/stratagems');
+    const s = mk(4); s.pending = [];
+    const d = todayCards(s);
+    d.cards[0] = { id: 'command', faces: [], tags: [] };
+    const before = enrolled(s).map((x) => x.skills.command);
+    chooseLesson(s, 0);
+    expect(enrolled(s).reduce((a, x, i) => a + x.skills.command - before[i], 0)).toBeGreaterThan(0);
+    const st = enrolled(s)[0];
+    st.skills.command = 0; const lo = captainScore(st);
+    st.skills.command = 270; expect(captainScore(st)).toBeGreaterThan(lo);
+  });
+  it('9夜目のセーブ：成長率は引き上げ（下がらない）、才能は得意に、軍略の数値は技能ランクに、敵将に型がつく', () => {
+    const raw = JSON.parse(fixture('v9-day.json')).state;
+    const s = deserialize(fixture('v9-day.json'));
+    for (const [id, st0] of Object.entries(raw.students) as [string, { growth: Record<string, number>; talent: string | null; strat?: number; status: string }][]) {
+      const st = s.students[id];
+      for (const k of Object.keys(st0.growth)) expect(st.growth[k as keyof typeof st.growth]).toBeGreaterThanOrEqual(st0.growth[k] - 5);
+      expect(st.apt).toBeTruthy();
+      expect(st.talent).toBeNull();
+      if (st0.talent?.startsWith('genius_')) expect(st.apt!.good).toContain(st0.talent.slice(7));
+      expect(typeof st.skills.tactics).toBe('number'); expect(typeof st.skills.command).toBe('number');
+    }
+    for (const o of s.officers ?? []) if (o.kind !== 'monster') expect(o.traits.some((t) => t === 'valor' || t === 'marshal')).toBe(true);
+    expect(s.pending.some((p) => p.type === 'event' && p.title === '10夜目の新しいこと')).toBe(true);
+  });
+  it('卒業後の道：将・参謀・勇士・文官。統率の高い子は将、個の武の子は勇士に向く', async () => {
+    const { suitablePath } = await import('../src/core/career');
+    const s = mk(10);
+    const st = enrolled(s)[0];
+    st.skills.sword = 300; st.skills.command = 0; st.skills.tactics = 0; st.stats.cha = 5;
+    expect(suitablePath(st)).toBe('champion');
+    st.skills.command = 300;
+    expect(suitablePath(st)).toBe('warrior');
+  });
+});

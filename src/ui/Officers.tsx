@@ -218,7 +218,7 @@ function OfficerRow({ s, o, onOpen }: { s: GameState; o: EnemyOfficer; onOpen: (
           <div class="small">{o.kind === 'monster' ? '魔物の主' : `${factionName(o.faction)}・${rankName(o)}`}{k > 0 ? `　兵種：${CLASSES[o.classId]?.name ?? ''}・Lv${o.level}` : '　兵種：？'}</div>
           <div class="small muted">{k === 0 ? 'まだ会ったことがない' : `会った回数 ${o.meets.length}回${o.scars ? '・傷あり' : ''}${o.victims.length ? `・教え子を${o.victims.length}人倒した` : ''}`}</div>
         </div>
-        {o.kind !== 'monster' && <div class="ofc-mini">{o.traits.map((t) => <span class={o.knownTraits.includes(t) ? (OFFICER_TRAITS[t].weak ? 'w' : 'st') : 'q'}>{o.knownTraits.includes(t) ? (OFFICER_TRAITS[t].weak ? '弱' : '強') : '？'}</span>)}</div>}
+        {o.kind !== 'monster' && <div class="ofc-mini">{o.traits.map((t) => <span class={o.knownTraits.includes(t) ? (OFFICER_TRAITS[t].weak ? 'w' : 'st') : 'q'}>{o.knownTraits.includes(t) ? (OFFICER_TRAITS[t].style ? (t === 'valor' ? '武' : '采') : OFFICER_TRAITS[t].weak ? '弱' : '強') : '？'}</span>)}</div>}
       </div>
       {rivals.length > 0 && <div class="row gap4" style={{ marginTop: 4 }}>{rivals.slice(0, 4).map((r) => s.students[r.sid] && <span class="ofc-rival"><Portrait st={s.students[r.sid]} size={22} />{s.students[r.sid].given}：{r.settled ? '決着' : r.vow ? '仇討ちの誓い' : stageName(r.stage)}</span>)}</div>}
     </div>
@@ -253,7 +253,7 @@ export function OfficerSheet({ s, o, onClose }: { s: GameState; o: EnemyOfficer;
         <>
           <h3>隠れた特徴</h3>
           {o.traits.map((t) => o.knownTraits.includes(t)
-            ? <div class="ofc-traitrow"><span class={`ofc-trait ${OFFICER_TRAITS[t].weak ? 'weak' : 'strong'}`}>{OFFICER_TRAITS[t].weak ? '弱点' : '強み'}：{OFFICER_TRAITS[t].name}</span><div class="small">{OFFICER_TRAITS[t].desc}。{OFFICER_TRAITS[t].tip}</div></div>
+            ? <div class="ofc-traitrow"><span class={`ofc-trait ${OFFICER_TRAITS[t].style ? 'style' : OFFICER_TRAITS[t].weak ? 'weak' : 'strong'}`}>{OFFICER_TRAITS[t].style ? '型' : OFFICER_TRAITS[t].weak ? '弱点' : '強み'}：{OFFICER_TRAITS[t].name}</span><div class="small">{OFFICER_TRAITS[t].desc}。{OFFICER_TRAITS[t].tip}</div></div>
             : <div class="ofc-traitrow"><span class="ofc-trait unknown">？</span><span class="small muted">まだ分からない（戦う・偵察・卒業生からの手紙で分かる）</span></div>)}
         </>
       )}

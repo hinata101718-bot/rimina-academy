@@ -1,4 +1,5 @@
 // 兵種の補正と成長率の見える化（8夜目）：補正の札・成長率の内わけ・兵種図鑑
+import type { SkillId } from '../core/types';
 import { useEffect, useState } from 'preact/hooks';
 import type { GameState, Student } from '../core/state';
 import type { ClassDef, Stats, StatId, Rank } from '../core/types';
@@ -133,7 +134,7 @@ export function ClassBook({ s }: { s: GameState }) {
         {open && <Branch id={open} seen={seen} kids={kids} sel={sel} onSel={(id) => { sfx('move'); setSel(sel === id ? null : id); }} />}
         {CLASS_LIST.filter((c) => c.hidden).map((c) => <div class="cb-hidden">{seen.has(c.id) ? <Leaf c={c} seen={seen} on={sel === c.id} onTap={() => setSel(c.id)} /> : <span class="small muted">隠された兵種：？？？</span>}</div>)}
       </div>
-      {selC && <ClassSheet c={selC} known={visible(selC, seen)} onClose={() => setSel(null)} />}
+      {selC && <ClassSheet s={s} c={selC} known={visible(selC, seen)} onClose={() => setSel(null)} />}
     </div>
   );
 }
@@ -156,7 +157,12 @@ function Branch({ id, seen, kids, sel, onSel }: { id: string; seen: Set<string>;
   );
   return <div class="cb-branch">{kids(id).map((c) => render(c, 0))}{!kids(id).length && <div class="small muted">この先の兵種はありません</div>}</div>;
 }
-function ClassSheet({ c, known, onClose }: { c: ClassDef; known: boolean; onClose: () => void }) {
+function ClassSheet({ s, c, known, onClose }: { s: GameState; c: ClassDef; known: boolean; onClose: () => void }) {
+  // 10夜目：この兵種に要る技能が得意な子・開花で道が開けた子
+  const req = Object.keys(c.req) as SkillId[];
+  const list = Object.values(s.students).filter((x) => x.status === 'enrolled');
+  const good = req.length ? list.filter((x) => req.some((k) => x.apt?.good.includes(k)) && !(x.bud?.done && req.includes(x.bud.skill as SkillId))).map((x) => x.given) : [];
+  const bloom = list.filter((x) => x.bud?.done && x.bud.skill && req.includes(x.bud.skill)).map((x) => x.given);
   return (
     <div class="overlay" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
       <div class="sheet">
@@ -169,6 +175,8 @@ function ClassSheet({ c, known, onClose }: { c: ClassDef; known: boolean; onClos
             {c.ability && ABILITIES[c.ability] && <div class="small">スキル「{ABILITIES[c.ability].name}」：{ABILITIES[c.ability].desc}</div>}
           </>
         ) : <div class="small muted">まだ誰もなっていない兵種。生徒か卒業生が初めてなると、補正やスキルが分かります。</div>}
+        {c.hidden && <div class="small" style={{ color: '#8a5a08' }}>金の芽が開いた子だけが、この道へ進めます</div>}
+        {(good.length > 0 || bloom.length > 0) && <div class="small ruled">{bloom.length > 0 && <div>開花で道が開けた子：<b>{bloom.join('・')}</b></div>}{good.length > 0 && <div>要る技能が得意な子：{good.slice(0, 8).join('・')}{good.length > 8 ? ' ほか' : ''}</div>}</div>}
         <div class="small ruled">なる条件：{c.prereq.length ? `${c.prereq.map((p) => (known || CLASSES[p].tier <= 1 ? CLASSES[p].name : '？')).join('・')}から` : '入学したとき'}{Object.entries(c.req).length ? `・${Object.entries(c.req).map(([k, r]) => `${SKILL_NAMES[k as keyof typeof SKILL_NAMES]}${r as Rank}`).join('・')}` : ''}{c.tier >= 1 ? `・Lv${B.exam.levelReq[c.tier]}以上` : ''}{c.tier === 4 ? '（卒業後）' : ''}</div>
       </div>
     </div>

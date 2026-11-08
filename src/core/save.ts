@@ -291,6 +291,18 @@ function migrateTo10(s: GameState): void {
   s.armory = (s.armory ?? []).filter((a) => { if (STOCK_IDS.has(a.weaponId) && !a.engraved && !a.named) { gone.set(a.uid, a.weaponId); return false; } return true; });
   const remap = (d: { armoryUid: string | null }) => { if (d.armoryUid && gone.has(d.armoryUid)) d.armoryUid = stockUid(gone.get(d.armoryUid)!); };
   for (const sq of s.sortie?.squads ?? []) sq.deploy.forEach(remap);
+  s.pending ??= [];
+  s.pending.push({
+    type: 'event', title: '10夜目の新しいこと',
+    lines: [
+      '戦いの画面が、ターン制のRPGのような1枚の画面になりました。下の文の窓をタップすると、1文ずつ進みます。',
+      '月末に2部隊・3部隊を出すとき、先生は第一部隊にだけ同行します。ほかの部隊は部隊長にまかせて、結果だけを見ます（部隊の札で「同行する」にもできます）。',
+      '武器は買わずに、戦いで手に入れるようになりました。鉄の武器は学校にいつでもそろっています。敵将を討ち取ると、その敵将の名を冠した武器が手に入ります。',
+      '生徒の成長率が上がり、レベルアップで3〜4つの能力が伸びるようになりました。今いる子の成長率も引き上げています。',
+      '生徒ごとに「得意な技能」「苦手な技能」ができました。隠れた才能はなくなり、得意な技能に変わっています。苦手な技能に「眠った芽」を持つ子もいます。芽が見えたら目標技能にして育てると、花が開くかもしれません。',
+      '「軍略」と「統率」が技能ランクになりました。新しい授業「指揮の演習」「行軍」で統率が伸びます。卒業後の道に「勇士」が加わりました。',
+    ],
+  });
 }
 
 /** 10夜目の形をそろえる（作業の途中で公開した版のセーブにも効くよう、何度呼んでも同じになる） */

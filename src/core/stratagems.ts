@@ -109,7 +109,10 @@ export function fireStrat(s: GameState, b: BattleState, q: Pick<Quest, 'template
   const planner = plan.planner ? s.students[plan.planner] : null;
   const captain = plan.captain ? s.students[plan.captain] : null;
   const odds = stratOdds(id, { q, planner, captain, members, traits: o?.traits ?? [], known: o?.knownTraits ?? [], early });
-  const ok = !odds.dud && r.next() * 100 < odds.rate;
+  // 10夜目：軍略の高い教え子が敵将になると、策を見抜いてくる
+  const alum = o?.alumniId ? s.students[o.alumniId] : null;
+  const sees = !!alum && (alum.skills?.tactics ?? 0) >= STRAT.alumniSeeAt;
+  const ok = !odds.dud && r.next() * 100 < odds.rate - (sees ? STRAT.alumniSee : 0);
   const weakHit = !!o && (d.weak ?? []).some((t) => o.traits.includes(t));
   const mul = ok && weakHit ? STRAT.weakMul : 1;
   const eff: StratEffect = ok ? d.win : d.lose;
@@ -126,7 +129,7 @@ export function fireStrat(s: GameState, b: BattleState, q: Pick<Quest, 'template
   if (eff.noFlee && L) L.noFlee = true;
   if (eff.reveal) a.reveal = true;
   const v = { leader: L?.name ?? '敵将', a: planner?.given ?? '策を立てた子', c: captain?.given ?? '部隊長' };
-  const text = fill(r.pick(odds.dud ? d.dud ?? d.ng : ok ? d.ok : d.ng), v);
+  const text = !ok && sees && !odds.dud ? `かつての教え子、${alum!.given}が策を見抜いた` : fill(r.pick(odds.dud ? d.dud ?? d.ng : ok ? d.ok : d.ng), v);
   const rec: StratRec = { id, ok, dud: odds.dud || undefined, weak: weakHit || undefined, rate: odds.rate, early: early || undefined, text };
   (a.strats ??= []).push(rec);
   a.held = (a.held ?? []).filter((x) => x !== id);

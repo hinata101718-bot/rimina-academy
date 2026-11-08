@@ -135,6 +135,8 @@ export const STRAT = {
   lessonGain: { tactics: 1, history: 0.7 } as Record<string, number>, faceMul: 2, plannerGain: 1, talentMul: 1.5, stratMax: 100,
   /** 10夜目：部隊長を務めた戦いで身につく統率（技能ポイント） */
   captainGain: 4,
+  /** 10夜目：軍略がこのくらい（C）の教え子が敵将になると、策の見込みがこれだけ下がる */
+  alumniSeeAt: 140, alumniSee: 15,
 };
 
 /** 陣形（9夜目）：前列は狙われやすく、後列は守られる */

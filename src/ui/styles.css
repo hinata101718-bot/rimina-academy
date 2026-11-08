@@ -1525,3 +1525,5 @@ i.apt { font-style: normal; display: inline-flex; align-items: center; justify-c
 .sq-lead select { flex: 1; min-width: 0; }
 .sq-leadnote { color: #6a4a18; padding: 0 0 4px 9.5em; }
 @media (max-width: 400px) { .sq-leadnote { padding-left: 0; } }
+.ofc-trait.style { background: #3a2a1c; color: #f1d38a; border-color: #8a6a3a; }
+.ofc-mini span:not(.w):not(.st):not(.q) { background: #3a2a1c; color: #f1d38a; }

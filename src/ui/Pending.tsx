@@ -28,7 +28,7 @@ import { OBJECTIVE_NAMES, WEATHER_NAMES } from '../core/quests';
 import { hopes, availableChoices, CHOICE_NAMES, acceptRate, suitablePath, autoRecommend, type CareerChoice } from '../core/career';
 import { WEAPONS } from '../data/weapons';
 import { CLASSES } from '../data/classes';
-import { COUNTRY_SHORT, PERSONALITIES, DREAMS, COUNTRY_NAMES, HOUSE_NAMES, TRAITS, PATH_NAMES, STAT_NAMES } from '../data/people';
+import { COUNTRY_SHORT, PERSONALITIES, DREAMS, COUNTRY_NAMES, HOUSE_NAMES, TRAITS, PATH_NAMES, PATH_SAY, STAT_NAMES } from '../data/people';
 import { STATS, B } from '../data/balance';
 import type { Path } from '../core/types';
 import type { Deploy } from '../core/battle/setup';
@@ -178,7 +178,7 @@ function Career({ s }: { s: GameState }) {
                 {availableChoices(st).map((c) => <option value={c}>{CHOICE_NAMES[c]}{c === h[0] ? '（希望）' : ''}</option>)}
               </select>
               道：<select value={plans[i].path} onChange={(e) => { const np = [...plans]; np[i] = { ...np[i], path: (e.target as HTMLSelectElement).value as Path }; setPlans(np); }}>
-                {(['warrior', 'strategist', 'civil'] as Path[]).map((p) => <option value={p}>{PATH_NAMES[p]}{p === suitablePath(st) ? '（向いている）' : ''}</option>)}
+                {(['warrior', 'strategist', 'champion', 'civil'] as Path[]).map((p) => <option value={p}>{PATH_NAMES[p]}{p === suitablePath(st) ? '（向いている）' : ''}</option>)}
               </select>
             </div>
           </div>
@@ -200,6 +200,7 @@ function Graduation({ s, cohort, lines, onDone }: { s: GameState; cohort: number
         <div style={{ textAlign: 'center' }}><Portrait st={st} size={96} /></div>
         <h2 style={{ textAlign: 'center' }}>{st.given} {st.family}</h2>
         <div style={{ textAlign: 'center' }} class="muted">{st.career ? `${st.career.kind === 'army' ? `${COUNTRY_SHORT[st.career.country!]}の軍・${PATH_NAMES[st.career.path]}` : { stay: '学校に残る', home: '故郷に帰る', merc: '流れの傭兵', army: '' }[st.career.kind]}` : ''}</div>
+        {st.career && st.career.kind !== 'stay' && <div class="small" style={{ textAlign: 'center', color: '#6a4a18' }}>この子は――{PATH_SAY[st.career.path]}</div>}
         <div class="card serif" style={{ fontSize: 16 }}>「{lines[i].text}」</div>
         <button class="btn primary block" onClick={() => { sfx('ok'); setI(i + 1); }}>{i + 1 < lines.length ? '次の卒業生' : '卒業写真へ'}</button>
       </Sheet>

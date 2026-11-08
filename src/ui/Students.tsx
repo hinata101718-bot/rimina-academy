@@ -15,7 +15,7 @@ import { StuCard, SecTitle, MoodDots, studentFlags, countryColor, LvBadge, Class
 import { Icon } from './icons';
 import { examCandidates, missingReqs, levelReq } from '../core/exam';
 import { OfficerFace, Portrait } from './Portrait';
-import { SKILL_NAMES, STAT_NAMES, PERSONALITIES, TRAITS, TALENTS, DREAMS, COUNTRY_NAMES, HOUSE_NAMES, PATH_NAMES, PATH_LINES } from '../data/people';
+import { SKILL_NAMES, STAT_NAMES, PERSONALITIES, TRAITS, TALENTS, DREAMS, COUNTRY_NAMES, HOUSE_NAMES, PATH_NAMES, PATH_LINES, PATH_SAY } from '../data/people';
 import { CLASSES } from '../data/classes';
 import { ABILITIES } from '../data/abilities';
 import { B, SKILLS, STATS, RANK_POINTS, LEAD_SKILLS } from '../data/balance';
@@ -241,6 +241,7 @@ function Detail({ s, st, exam, sub }: { s: GameState; st: Student; exam?: boolea
             <h3>記録</h3>
             <div class="infogrid"><div><Icon name="battle" size={16} />出撃 <Num v={st.battles} /></div><div><Icon name="skull" size={16} />撃破 <Num v={st.kills} /></div><div><Icon name="bell" size={16} />重傷 <Num v={st.wounds ?? 0} /></div><div><Icon name="medal" size={16} />講評の最高 <Num v={st.bestGrade ?? '—'} /></div>{st.keepsake && <div><Icon name="sword" size={16} />{st.keepsake}</div>}</div>
             {(() => { const fav = Object.entries(st.weaponUse).filter(([id]) => WEAPONS[id] && !WEAPONS[id].spell).sort((a, b) => b[1] - a[1])[0]; const won = s.armory.filter((a) => a.named?.by === st.id); return (fav || won.length) ? <div class="small ruled">{fav && <div>愛用の武器：<b>{WEAPONS[fav[0]].name}</b>（{fav[1]}回）</div>}{won.map((a) => <div>討ち取って手に入れた武器：<b class="serif">{a.named!.name}</b>（{a.named!.year}年目）</div>)}</div> : null; })()}
+            <div class="small ruled">この子は――<b>{PATH_SAY[st.career?.kind === 'army' ? st.career.path : suitablePath(st)]}</b>{st.career?.kind === 'army' ? `（${PATH_NAMES[st.career.path]}の道）` : ''}</div>
             {st.farewell && <div class="serif ruled">卒業式のひとこと：「{st.farewell}」</div>}
             {st.history.length > 0 && <ul class="list">{st.history.slice(-15).map((h) => <li class="small">{h.year}年目：{h.text}</li>)}</ul>}
             {st.deathNote && <div class="muted">{st.diedYear}年目：{st.deathNote}</div>}

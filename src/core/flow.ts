@@ -189,6 +189,14 @@ function startSquad(s: GameState): void {
   }
 }
 
+/** 援軍に来た卒業生（10夜目）：統率が高いと部隊の命中、軍略が高いと回避が少し上がる */
+function alumniAid(b: { units: { side: string; mod?: { hit?: number; avo?: number } }[] }, st: Student): void {
+  const cmd = st.skills.command ?? 0, tac = st.skills.tactics ?? 0;
+  const hit = cmd >= 270 ? 5 : cmd >= 140 ? 3 : 0, avo = tac >= 270 ? 5 : tac >= 140 ? 3 : 0;
+  if (!hit && !avo) return;
+  for (const u of b.units) if (u.side === 'player') { u.mod ??= {}; u.mod.hit = (u.mod.hit ?? 0) + hit; u.mod.avo = (u.mod.avo ?? 0) + avo; }
+}
+
 /** 戦闘を始める */
 export function startBattle(s: GameState, questId: string, deploys: Deploy[]): void {
   const q = s.quests.find((x) => x.id === questId);
@@ -201,6 +209,7 @@ export function startBattle(s: GameState, questId: string, deploys: Deploy[]): v
     if (!st) return null;
     const u = unitFromStudent(st, 'ally', `ally_${st.id}`, 0, 0, [defaultWeaponFor(st)]);
     u.name = `${st.given}（卒業生）`;
+    alumniAid(b, st);
     return u;
   });
   startPlayerPhase(s.battle);
@@ -222,6 +231,7 @@ export function ensureReinforcementFactory(s: GameState): void {
     if (!st) return null;
     const u = unitFromStudent(st, 'ally', `ally_${st.id}`, 0, 0, [defaultWeaponFor(st)]);
     u.name = `${st.given}（卒業生）`;
+    alumniAid(b, st);
     return u;
   });
 }

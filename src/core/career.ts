@@ -3,7 +3,7 @@ import { ARM_SKILLS } from '../data/balance';
 import { B } from '../data/balance';
 import { careerTitleOnly } from './discovery';
 import { titleOf } from './alumni';
-import { COUNTRIES, COUNTRY_SHORT, DREAMS, COUNTRY_FAVOR_SKILLS, COUNTRY_FAVOR_HOUSE, PATH_NAMES } from '../data/people';
+import { COUNTRIES, COUNTRY_SHORT, DREAMS, COUNTRY_FAVOR_SKILLS, COUNTRY_FAVOR_HOUSE, PATH_NAMES, SKILL_NAMES } from '../data/people';
 import { CLASSES } from '../data/classes';
 import { WEAPONS } from '../data/weapons';
 import type { CountryId, Path, SkillId } from './types';
@@ -115,6 +115,8 @@ export function graduate(s: GameState, rng: Rng, plans: CareerPlan[]): { id: str
     st.seenTitle = careerTitleOnly(titleOf(st)); st.seenClass = st.classId;
     st.history.push({ year: s.year, text: `リミナ分校を卒業（${st.cohort}期生）。進路：${CHOICE_NAMES[choice]}${kind === 'army' ? `（${PATH_NAMES[plan.path]}）` : ''}` });
     lines.push({ id: st.id, text: st.farewell });
+    // 10夜目：気づかずに卒業した芽（年鑑と個人ページに「実は〇〇の芽があった」）
+    if (st.bud && !st.bud.done) st.history.push({ year: s.year, text: st.bud.gold ? '実は、金の芽（英雄の器）を持っていた' : `実は、${SKILL_NAMES[st.bud.skill!]}に眠った芽があった` });
     s.stats.graduates += 1;
     if (kind === 'stay') becomeTeacher(s, st);
   }

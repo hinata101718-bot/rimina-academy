@@ -572,7 +572,8 @@ export function yearlyOfficers(s: GameState, r: Rng): string[] {
     if (st.status !== 'graduated' || !c?.alive || c.retired || c.kind !== 'army' || !c.country || c.path === 'civil' || c.rank < OFFICER.alumniRank) continue;
     if (officers(s).some((o) => o.alumniId === st.id)) continue;
     if (activeOf(s, c.country).filter((o) => o.alumniId).length >= OFFICER.alumniMax || activeOf(s, c.country).length >= OFFICER.rosterMax || !r.chance(OFFICER.alumniChance)) continue;
-    const o = alumniOfficer(s, st, c.country, c.rank >= 3 ? 1 : 2);
+    // 10夜目：統率の高い教え子ほど上の段（幹部）に。軍略の高い子は策を使ってくる敵将に
+    const o = alumniOfficer(s, st, c.country, c.rank >= 3 || (st.skills.command ?? 0) >= 270 ? 1 : 2);
     officers(s).push(o);
     const t = fill(OFFICER_NEWS.alumni, { a: `${st.given}（${st.cohort}期生）`, faction: FACTION_NAMES[c.country], rank: rankName(o) });
     chronicle(s, t, 'student'); report.push(t);
@@ -648,7 +649,7 @@ export function alumniOfficer(s: GameState, st: Student, country: CountryId, ran
   return {
     id: `of${s.nextId++}`, given: st.given, family: st.family, faction: country, kind: 'army', country, rank, gender: st.gender, age: st.age,
     personality: ALUMNI_PERSONALITY[st.personality] ?? 'proud', face: st.face, faceImage: null, classId: st.classId, level: st.level, scars: 0,
-    traits: new Rng({ rng: hash(st.id) }).shuffle([...TRAIT_IDS]).slice(0, OFFICER.traitCount), knownTraits: [], meets: [], status: 'active', grudge: null, victims: [], alumniId: st.id, joined: s.year,
+    traits: [...new Rng({ rng: hash(st.id) }).shuffle([...TRAIT_IDS]).slice(0, OFFICER.traitCount), st.career?.path === 'champion' ? 'valor' : 'marshal'], knownTraits: [st.career?.path === 'champion' ? 'valor' : 'marshal'], meets: [], status: 'active', grudge: null, victims: [], alumniId: st.id, joined: s.year,
   };
 }
 
