@@ -41,7 +41,10 @@ export function ArtsCard({ s, st }: { s: GameState; st: Student }) {
   const learned = new Set(st.arts ?? []);
   const on = new Set(st.artsOn ?? []);
   const count = (k: 'art' | 'mind') => [...on].filter((x) => ARTS[x]?.kind === k).length;
-  const skills = SKILLS.filter((k) => k !== 'gun' || s.world.gunUnlocked || (st.skills.gun ?? 0) > 0);
+  const [all, setAll] = useState(false);
+  const allSkills = SKILLS.filter((k) => k !== 'gun' || s.world.gunUnlocked || (st.skills.gun ?? 0) > 0);
+  // ふだんは、覚えた技のある技能と得意な技能だけ（ほかはたたむ）
+  const skills = all ? allSkills : allSkills.filter((k) => ART_LIST.some((a) => a.skill === k && learned.has(a.id)) || st.apt?.good.includes(k));
   return (
     <div class="card arts-card">
       <div class="row between nowrap"><h3 style={{ margin: 0 }}>戦技と心得 <HelpTip text={`技能ランクが上がると覚えます。得意な技能は、ひとつ前のランクで覚えます。付けられるのは戦技${ART_SLOTS.art}つ・心得${ART_SLOTS.mind}つまでで、ふだんはおまかせで今の兵種に合うものを付けます。タップで付けかえられます。`} /></h3>
@@ -58,6 +61,7 @@ export function ArtsCard({ s, st }: { s: GameState; st: Student }) {
           </div>
         );
       })}
+      {allSkills.length > skills.length && <button class="btn small" style={{ marginTop: 6 }} onClick={() => setAll(true)}>ほかの技能の技も見る（{allSkills.length - skills.length}）</button>}
     </div>
   );
 }

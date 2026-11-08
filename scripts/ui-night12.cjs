@@ -51,7 +51,7 @@ const dir = process.env.SHOTS_DIR;
   // 兵種図鑑
   await open('skills.json'); await closeAll();
   await click('nav.tabs button >> nth=1');
-  await click('button:has-text("兵種図鑑")');
+  await click('button:has-text("図鑑")');
   await click('.cb-leaf >> nth=1'); await click('.cb-leaf >> nth=1');
   await shot('05-classbook');
   console.log('errors', errors.join('\n') || 'なし');
