@@ -586,6 +586,7 @@ function openingScene(s: GameState, b: BattleState, q: Quest): AutoScene {
         const v = { a: vow.x.st.given, v: s.students[vow.rv!.vow!].given, leader: L.name };
         special.push({ by: 'narr', text: fill(r.pick(VOW_NARR), v) }, { by: vow.x.st.id, text: fill(VOW_SAY[vow.x.st.personality], v) });
         faces.unshift(vow.x.st.id); spot(b.auto!, vow.x.st.id, 2);
+        b.auto!.effects.push({ kind: 'motivation', id: vow.x.st.id, v: 1 });
       } else if (rival) {
         const v = { a: rival.x.st.given, leader: L.name };
         special.push({ by: rival.x.st.id, text: fill(RIVAL_SAY[rival.x.st.personality], v) }, { by: 'leader', text: voice(fill(r.pick(RIVAL_LEADER), v), o) });
@@ -1001,6 +1002,7 @@ function settleChoice(s: GameState, b: BattleState, r: Rng, ctx: BattleCtx, id: 
   const mine = deployed(s, b).filter((x) => !x.u.dead);
   faces.push(st.id);
   lines.push({ by: 'narr', text: fill(r.pick(SETTLE_TEXT.narr), v) });
+  lines.push({ by: L.personality === 'beast' ? 'narr' : 'leader', text: voice(fill(r.pick(SETTLE_LEADER[L.personality] ?? SETTLE_LEADER.proud), v), o) });
   L.settleBy = st.id;
   const rout = () => { const rest = b.units.filter((e) => e.side === 'enemy' && !e.dead && !e.persuadable); for (const e of rest.slice(0, Math.floor(rest.length * AUTO.duelRout))) { e.dead = true; b.retreated.push(e.uid); } };
   if (id === 'persuade') {

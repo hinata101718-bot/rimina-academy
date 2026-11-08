@@ -9,6 +9,10 @@ import { defaultPlan, officerForQuest, chooseAuto, advanceAuto } from '../src/co
 import { ensureRivalry } from '../src/core/officers';
 import { enrolled } from '../src/core/game';
 import type { GameState, Quest } from '../src/core/state';
+import { revealTalent } from '../src/core/week';
+import { upgradeFacility } from '../src/core/teachers';
+import { addRep } from '../src/core/game';
+import { SIDES } from '../src/data/discovery';
 const out = process.argv[2] ?? 'shots6';
 mkdirSync(out, { recursive: true });
 setAutoChoicePick(humanLikePick(11));
@@ -45,6 +49,21 @@ let qid = '';
     }
   }
   console.log('settle', done); }
-// 何年か遊んだ名簿
-{ const s = base(); autoYears(s, 3); s.pending = []; writeFileSync(`${out}/roster.json`, serialize(s)); }
+// 何年か遊んだ名簿（個人ページの宿敵欄も：因縁のある生徒をつくる）
+{ const s = base(); autoYears(s, 3); s.pending = [];
+  const q = (() => { for (let seed = 1; seed < 50; seed++) { board(s, seed); const x = s.quests.find((y) => y.real && !!y.enemyCountry); if (x && officerForQuest(s, x)) return x; } return null; })();
+  if (q) history(s, q);
+  s.pending = []; writeFileSync(`${out}/roster.json`, serialize(s)); }
+// 才能の判明・ヒント・意外な一面・ランクアップの演出
+{ const s = base(); s.pending = []; s.battle = null;
+  const st = enrolled(s).find((x) => x.talent)!;
+  st.talentReveal = 0;
+  revealTalent(s, st, 35); revealTalent(s, st, 30); revealTalent(s, st, 100);
+  const other = enrolled(s).find((x) => x.id !== st.id)!;
+  const side = SIDES.find((d) => d.id === 'song')!;
+  (other.sides ??= []).push('song');
+  s.pending.push({ type: 'discovery', studentId: other.id, stage: 4, title: '意外な一面', text: side.lines.map((l) => l.split('{a}').join(other.given)).join('\n'), name: side.label });
+  s.facilities.training = 1; s.money = 99999; upgradeFacility(s, 'training');
+  s.reputation = 58; addRep(s, 4);
+  writeFileSync(`${out}/discovery.json`, serialize(s)); }
 console.log('ok', qid);

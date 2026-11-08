@@ -611,3 +611,4 @@ body { background-attachment: fixed; }
 .dc-step.on { background: #b8862b; color: #fff; }
 .pills.ofc-tabs button { min-height: 44px; }
 .ru-next { color: var(--accent); font-weight: bold; }
+.ofc-tip.strong { color: #8f2a20; }

@@ -72,7 +72,7 @@ function OfficerRow({ s, o, onOpen }: { s: GameState; o: EnemyOfficer; onOpen: (
         <OfficerFace o={o} size={52} frame={FACTION_COLOR[o.faction]} s={s} dim={k === 0 && o.status === 'active' ? false : undefined} />
         <div class="grow" style={{ minWidth: 0 }}>
           <div class="row nowrap gap6"><b class="serif ofc-name" style={{ fontSize: 16 }}>{officerName(o)}</b>{o.alumniId && <Chip tone="gold">教え子</Chip>}{o.status !== 'active' && <span class="flag">{o.status === 'dead' ? '討死' : o.status === 'defeated' ? '敗退' : '引退'}</span>}</div>
-          <div class="small">{o.kind === 'monster' ? '魔物の主' : `${factionName(o.faction)}・${rankName(o)}`}{k > 0 ? `・${CLASSES[o.classId]?.name ?? ''}・Lv${o.level}` : '・？'}</div>
+          <div class="small">{o.kind === 'monster' ? '魔物の主' : `${factionName(o.faction)}・${rankName(o)}`}{k > 0 ? `　兵種：${CLASSES[o.classId]?.name ?? ''}・Lv${o.level}` : '　兵種：？'}</div>
           <div class="small muted">{k === 0 ? 'まだ会ったことがない' : `会った回数 ${o.meets.length}回${o.scars ? '・傷あり' : ''}${o.victims.length ? `・教え子を${o.victims.length}人倒した` : ''}`}</div>
         </div>
         {o.kind !== 'monster' && <div class="ofc-mini">{o.traits.map((t) => <span class={o.knownTraits.includes(t) ? (OFFICER_TRAITS[t].weak ? 'w' : 'st') : 'q'}>{o.knownTraits.includes(t) ? (OFFICER_TRAITS[t].weak ? '弱' : '強') : '？'}</span>)}</div>}
@@ -96,7 +96,7 @@ export function OfficerSheet({ s, o, onClose }: { s: GameState; o: EnemyOfficer;
             <div class="serif" style={{ fontSize: 19, fontWeight: 'bold', lineHeight: 1.3 }}>{officerName(o)}</div>
             {o.epithet && o.kind === 'army' && <div class="small muted">本名 {fullName(o)}</div>}
             <div class="small">{o.kind === 'monster' ? '魔物の主' : `${factionName(o.faction)}・${rankName(o)}`}</div>
-            {k > 0 ? <div class="small">{CLASSES[o.classId]?.name}・<LvBadge lv={o.level} /></div> : <div class="small muted">兵種・レベル：？</div>}
+            {k > 0 ? <div class="small">兵種：{CLASSES[o.classId]?.name}・<LvBadge lv={o.level} /></div> : <div class="small muted">兵種・レベル：？</div>}
             <div class="small">性格：{k > 0 || o.rank === 0 ? LEADER_NAMES[o.personality as keyof typeof LEADER_NAMES] ?? '' : '？'}　{o.kind !== 'monster' && `年頃：${AGE_NAMES[ageBand(o.age)]}`}</div>
             {o.scars > 0 && <div class="small muted">{SCAR_TEXT[Math.min(4, o.scars)]}</div>}
             {alum && <div class="small" style={{ color: 'var(--gold)' }}>{alum.cohort}期生の教え子</div>}

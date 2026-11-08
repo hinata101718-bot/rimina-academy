@@ -97,9 +97,13 @@ export function newOfficer(s: GameState, r: Rng, faction: FactionId, rank: numbe
   let given = r.pick(gender === 'f' ? nl.female : nl.male);
   for (let k = 0; k < 10 && taken.has(given); k++) given = r.pick(gender === 'f' ? nl.female : nl.male);
   const pers = persForAge(r, kind, realBand);
+  // 盗賊の二つ名は、今いる盗賊どうしで重ならないように
+  const usedEp = new Set(activeOf(s, 'bandit').map((o) => o.epithet));
+  let ep = kind === 'bandit' ? r.pick(BANDIT_EPITHETS) : undefined;
+  for (let k = 0; k < 12 && ep && usedEp.has(ep); k++) ep = r.pick(BANDIT_EPITHETS);
   const traits = r.shuffle([...TRAIT_IDS]).slice(0, OFFICER.traitCount);
   return {
-    id, given, family: kind === 'army' ? r.pick(nl.family) : '', epithet: kind === 'bandit' ? r.pick(BANDIT_EPITHETS) : undefined,
+    id, given, family: kind === 'army' ? r.pick(nl.family) : '', epithet: ep,
     faction, kind, country: kind === 'army' ? faction as CountryId : null, rank, gender, age, personality: pers,
     face: generateFace(r, origin as 'frontier', gender), faceImage, classId: r.pick(OFFICER_CLASSES[kind]),
     level: Math.max(1, Math.round(3 + s.year * 0.6 + (2 - rank) * 2)), scars: 0, traits, knownTraits: [], meets: [], status: 'active', grudge: null, victims: [], joined: s.year,
