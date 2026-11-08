@@ -55,8 +55,7 @@ function TodayPage({ s }: { s: GameState }) {
   const guideOn = s.settings.guide && s.year === 1 && s.month === 0;
   return (
     <div class="todaypage">
-      <Back to={() => navigate({ tab: 'school' })} />
-      <MonthCalendar s={s} />
+      <div class="today-top"><Back to={() => navigate({ tab: 'school' })} /><MonthCalendar s={s} compact /></div>
       {s.month === 3 && <ArtSlot name="event_camp" />}
       {s.month === 8 && <ArtSlot name="event_festival" />}
       {guideOn && <div class="guide">{GUIDE[Math.min(GUIDE.length - 1, s.week - 1)]}</div>}

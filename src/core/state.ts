@@ -119,6 +119,11 @@ export interface Student {
   sickDays?: number;
   /** 軍略（9夜目）：戦術論・兵法の歴史の授業でたまる。策の成功率・部隊長の腕前に効く（0〜100） */
   strat?: number;
+  /** これまでにもらった称号の数と、最近の評価（9夜目：個人ページの記録） */
+  honors?: Record<string, number>;
+  evalLog?: { year: number; month: number; title: string; grade: string; badges: string[]; scene?: string | null }[];
+  /** 重傷を負った回数 */
+  wounds?: number;
   /** 前の戦いの戦績（9夜目：評価の「前より伸びた」に使う） */
   lastRec?: { hitRate: number; dealt: number; kills: number };
 }
@@ -482,6 +487,8 @@ export interface Settings {
   rosterView: 'card' | 'compact';
   /** 戦闘を自分で指揮する（オフなら自動の戦闘。5夜目） */
   manualBattle: boolean;
+  /** 個人ページで最後に開いたタブ（9夜目） */
+  detailTab?: 'stats' | 'skills' | 'person' | 'bonds' | 'record';
   /** 戦いの記録の進め方（8夜目：はじめは「タップで進む」） */
   battleLog?: 'tap' | 'normal' | 'fast';
   /** 戦闘の演出（9夜目）：派手／ふつう／控えめ */

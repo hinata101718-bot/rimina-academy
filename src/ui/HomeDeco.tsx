@@ -36,9 +36,20 @@ export function ArtSlot({ name, height = 140 }: { name: string; height?: number 
 
 // ---------- 今月のカレンダー（7夜目：月〜金＋月末の日ごと。今日を強調） ----------
 const DAYS = ['月', '火', '水', '木', '金'];
-export function MonthCalendar({ s }: { s: GameState }) {
+export function MonthCalendar({ s, compact }: { s: GameState; compact?: boolean }) {
   const ev = monthEvents(s);
   const next = nextEvent(s);
+  if (compact) {
+    // 9夜目：授業の頁では1行に細く（月・週・曜日の丸・月末と行事までの札）
+    const day = s.day ?? 1;
+    return (
+      <div class="calendar compact">
+        <b class="calc-m serif">{MONTH_NAMES[s.month]}</b><span class="calc-w">第{s.week}週</span>
+        <span class="calc-days">{DAYS.map((d, i) => <i class={i + 1 === day ? 'now' : i + 1 < day ? 'past' : ''}>{d}</i>)}</span>
+        <span class="calc-tags">{s.week === 4 ? <span class="calc-tag red">今週末 依頼</span> : <span class="calc-tag">月末まで{4 - s.week}週</span>}{next && next.weeks > 0 && <span class="calc-tag">{next.label}まで{next.weeks}週</span>}{next && next.weeks === 0 && <span class="calc-tag red">今週 {next.label}</span>}</span>
+      </div>
+    );
+  }
   const season = seasonOf(s.month);
   useArt();
   const bg = artUrl(`season_${season}`);

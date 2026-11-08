@@ -330,6 +330,15 @@ export function finishBattle(s: GameState): void {
   const planner = b.auto?.plan?.planner;
   if (planner && s.students[planner]?.status === 'enrolled' && (b.auto?.strats ?? []).length) addStrat(s.students[planner], STRAT.plannerGain);
   const evals = evaluateBattle(s, b, q, evalIds, auto.mvp ?? null, rivalsBefore, battlesBefore);
+  // 個人ページの記録：称号の数・最近の評価・重傷の回数
+  for (const e of evals) {
+    const st = s.students[e.id];
+    if (!st) continue;
+    for (const bd of e.badges) (st.honors ??= {})[bd] = (st.honors[bd] ?? 0) + 1;
+    (st.evalLog ??= []).push({ year: s.year, month: s.month, title: b.title, grade: e.grade, badges: e.badges, scene: e.scene });
+    if (st.evalLog.length > 12) st.evalLog.splice(0, st.evalLog.length - 12);
+    if (e.outcome === 'injured') st.wounds = (st.wounds ?? 0) + 1;
+  }
   const sortie = s.sortie;
   const talkFrom = sortie ? Math.min(sortie.pendFrom, s.pending.length) : 0;
   const firstTalk = s.pending.findIndex((p, i) => i >= talkFrom && p.type === 'talk');

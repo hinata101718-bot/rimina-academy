@@ -1,3 +1,5 @@
+import { Badge } from './Results';
+import { BADGES } from '../data/evaluation';
 import { useState } from 'preact/hooks';
 import { useStore, navigate, act } from './store';
 import { enrolled, effectiveStats } from '../core/game';
@@ -34,7 +36,7 @@ import { ClassMods, ClassCompare, GrowthTable, ClassBook } from './ClassInfo';
 export function StudentsTab() {
   const { s, route } = useStore();
   if (!s) return null;
-  if (route.page === 'detail' && route.id && s.students[route.id]) return <Detail s={s} st={s.students[route.id]} />;
+  if (route.page === 'detail' && route.id && s.students[route.id]) return <Detail key={route.id} s={s} st={s.students[route.id]} sub={route.sub as DetailTab | undefined} />;
   if (route.page === 'exam' && route.id && s.students[route.id]) return <Detail s={s} st={s.students[route.id]} exam />;
   if (route.page === 'exam') return <ExamList s={s} />;
   if (route.page === 'classbook') return <ClassBook s={s} />;
@@ -53,7 +55,7 @@ function Roster({ s }: { s: GameState }) {
   return (
     <div>
       <SecTitle right={<span class="row nowrap gap4"><button class="btn small" onClick={() => navigate({ tab: 'students', page: 'classbook' })}><Icon name="book" size={16} /> 図鑑</button><button class="btn small" onClick={() => navigate({ tab: 'students', page: 'exam' })}><Icon name="exam" size={16} /> 兵種試験{exams.size ? `（${exams.size}）` : ''}</button></span>}>生徒名簿<span class="cnt">{enrolled(s).length}人</span></SecTitle>
-      <div class="pills">
+      <div class="pills fit">
         {[[0, '全学年'], [1, '1年'], [2, '2年'], [3, '3年'], [9, '★気にかける']].map(([g, label]) => <button class={grade === g ? 'on' : ''} onClick={() => { sfx('move'); setGrade(g as number); }}>{label}</button>)}
       </div>
       <div class="row between" style={{ marginBottom: 4 }}>
@@ -90,7 +92,9 @@ function promotionItems(st: Student): RankUpItem[] {
   return out;
 }
 
-function Detail({ s, st, exam }: { s: GameState; st: Student; exam?: boolean }) {
+function Detail({ s, st, exam, sub }: { s: GameState; st: Student; exam?: boolean; sub?: DetailTab }) {
+  const [tab, setTab0] = useState<DetailTab>(sub ?? s.settings.detailTab ?? 'stats');
+  const setTab = (x: DetailTab) => { sfx('move'); setTab0(x); act((g) => { g.settings.detailTab = x; }, true); };
   const [examOpen, setExamOpen] = useState(!!exam);
   const examReady = !st.status || st.status === 'enrolled' ? nextClasses(s, st).some((c) => classUnlocked(s, c) && meetsReq(st, c)) && canTakeExam(s, st) : false;
   const promo = promotionItems(st);
@@ -120,7 +124,8 @@ function Detail({ s, st, exam }: { s: GameState; st: Student; exam?: boolean }) 
             <NameLineBig st={st} />
             <div class="row gap4" style={{ marginTop: 2 }}><ClassName classId={st.classId} size={16} /><CountryChip o={st.origin} /><Chip>{PERSONALITIES[st.personality].name}</Chip></div>
             <div class="muted small" style={{ marginTop: 2 }}>{st.age}歳・{st.gender === 'm' ? '男性' : '女性'}・{grad ? `${st.cohort}期生` : `${st.grade}年生`}・{HOUSE_NAMES[st.house]}</div>
-            <div class="row nowrap gap6" style={{ marginTop: 4 }}><span class="small muted">EXP</span><Gauge v={st.exp} max={B.student.expPerLevel} tone="exp" /><span class="small muted">{st.exp}/100</span></div>
+            <div class="row nowrap gap6" style={{ marginTop: 4 }}><span class="small muted dt-gl">HP</span><Gauge v={es.hp} max={capHp} tone="main" /><span class="small muted">{es.hp}</span></div>
+            <div class="row nowrap gap6" style={{ marginTop: 2 }}><span class="small muted dt-gl">EXP</span><Gauge v={st.exp} max={B.student.expPerLevel} tone="exp" /><span class="small muted">{st.exp}/100</span></div>
             {grad && <div style={{ marginTop: 4 }}><b>{st.status === 'dropped' ? '退学' : st.status === 'dead' ? `在学中に戦死（${st.diedYear}年目）` : titleOf(st)}</b></div>}
             {flags.length > 0 && <div class="row gap4" style={{ marginTop: 4 }}>{flags.map((f) => <span class={`flag ${f.tone}`}>{f.text}</span>)}</div>}
           </div>
@@ -132,8 +137,57 @@ function Detail({ s, st, exam }: { s: GameState; st: Student; exam?: boolean }) 
           </div>
         )}
       </div>
-      <div class="two">
-        <div>
+      <div class="dt-tabs" role="tablist">
+        {DETAIL_TABS.map(([k, label]) => <button role="tab" class={tab === k ? 'on' : ''} onClick={() => setTab(k)}>{label}</button>)}
+      </div>
+      <div class="dt-body">
+      {tab === 'stats' && <>
+          <div class="card">
+            <h3>能力</h3>
+            <div class="statlist">
+              <div class="statrow sr-head"><span /><b /><span class="bonus">兵種</span><span class="small muted">（{cls.name}）</span><span class="gr">伸びやすさ</span></div>
+              {STATS.map((k) => {
+                const b = es[k] - st.stats[k];
+                const g = (cls.growth as Partial<Record<string, number>>)[k] ?? 0;
+                return <div class="statrow"><span>{STAT_NAMES[k]}</span><b>{es[k]}</b><span class={`bonus ${b > 0 ? 'up' : b < 0 ? 'down' : ''}`}>{b ? `${b > 0 ? '+' : '−'}${Math.abs(b)}` : ''}</span><Gauge v={es[k]} max={k === 'hp' ? capHp : cap} thin /><span class={`gr ${g > 0 ? 'up' : g < 0 ? 'down' : ''}`}>{g ? `${g > 0 ? '+' : '−'}${Math.abs(g)}%` : ''}</span></div>;
+              })}
+            </div>
+            <ClassMods c={cls} />
+            {!grad && (
+              <div class="traingrid">
+                <div class="small"><b>鍛錬ゲージ</b><span class="muted">（授業でたまり、満タンで+1。顔が出ている授業ほど早くたまる）</span></div>
+                {STATS.map((k) => (
+                  <div class="trainrow"><span class="small">{STAT_NAMES[k]}</span><span class="ggauge train grow"><span style={{ width: `${Math.round(st.train?.[k] ?? 0)}%` }} /></span><span class="small muted">{(st.trainGain?.[k] ?? 0) > 0 ? `+${st.trainGain![k]}` : ''}</span></div>
+                ))}
+              </div>
+            )}
+            {cls.ability && ABILITIES[cls.ability] && <div class="small ruled">兵種スキル：<b>{ABILITIES[cls.ability].name}</b>（{ABILITIES[cls.ability].desc}）</div>}
+          </div>
+          <div class="card">
+            <h3>成長率（レベルアップでの伸びやすさ）</h3>
+            <GrowthTable s={s} st={st} />
+          </div>
+      </>}
+      {tab === 'skills' && <>
+          <div class="card">
+            <h3>技能ランク</h3>
+            <div class="skillgrid">{SKILLS.filter((k) => skillUnlocked(s, k)).map((k) => <SkillBox k={k} p={st.skills[k]} target={!grad && st.targets.includes(k)} />)}</div>
+            {!grad && (
+              <div style={{ marginTop: 8 }}>
+                <div class="muted small">今月の目標技能（2つ・金の枠）：目標の授業でさらに伸びます（1つ目は×1.3）。月に一度決めます。夢に沿うとやる気が上がりやすい（夢に沿う技能：{dream.skills.map((k) => SKILL_NAMES[k]).join('・') || 'なし'}）</div>
+                {[0, 1].map((i) => (
+                  <select value={st.targets[i]} onChange={(e) => act((g) => { const x = g.students[st.id]; const t = [...x.targets] as [SkillId, SkillId]; t[i] = (e.target as HTMLSelectElement).value as SkillId; x.targets = t; x.targetsAuto = false; })} style={{ marginRight: 6 }}>
+                    {SKILLS.filter((k) => skillUnlocked(s, k)).map((k) => <option value={k}>{SKILL_NAMES[k]}</option>)}
+                  </select>
+                ))}
+                <label class="small"><input type="checkbox" checked={st.targetsAuto} onChange={(e) => act((g) => { g.students[st.id].targetsAuto = (e.target as HTMLInputElement).checked; })} /> 自動で決める</label>
+              </div>
+            )}
+          </div>
+          <SpellCard st={st} />
+          {cls.ability && ABILITIES[cls.ability] && <div class="card"><h3>兵種スキル</h3><div><b>{ABILITIES[cls.ability].name}</b>：{ABILITIES[cls.ability].desc}</div></div>}
+      </>}
+      {tab === 'person' && <>
           {!grad && (
             <div class="card">
               <h3>状態</h3>
@@ -159,49 +213,8 @@ function Detail({ s, st, exam }: { s: GameState; st: Student; exam?: boolean }) 
             <div style={{ marginTop: 4 }}>才能：<b>{talentText(st)}</b></div>
           </div>
           {st.status === 'enrolled' && <DiscoverCard st={st} />}
-          <div class="card">
-            <h3>成長率（レベルアップでの伸びやすさ）</h3>
-            <GrowthTable s={s} st={st} />
-          </div>
-          <div class="card">
-            <h3>能力</h3>
-            <div class="statlist">
-              <div class="statrow sr-head"><span /><b /><span class="bonus">兵種</span><span class="small muted">（{cls.name}）</span><span class="gr">伸びやすさ</span></div>
-              {STATS.map((k) => {
-                const b = es[k] - st.stats[k];
-                const g = (cls.growth as Partial<Record<string, number>>)[k] ?? 0;
-                return <div class="statrow"><span>{STAT_NAMES[k]}</span><b>{es[k]}</b><span class={`bonus ${b > 0 ? 'up' : b < 0 ? 'down' : ''}`}>{b ? `${b > 0 ? '+' : '−'}${Math.abs(b)}` : ''}</span><Gauge v={es[k]} max={k === 'hp' ? capHp : cap} thin /><span class={`gr ${g > 0 ? 'up' : g < 0 ? 'down' : ''}`}>{g ? `${g > 0 ? '+' : '−'}${Math.abs(g)}%` : ''}</span></div>;
-              })}
-            </div>
-            <ClassMods c={cls} />
-            {!grad && (
-              <div class="traingrid">
-                <div class="small"><b>鍛錬ゲージ</b><span class="muted">（授業でたまり、満タンで+1。顔が出ている授業ほど早くたまる）</span></div>
-                {STATS.map((k) => (
-                  <div class="trainrow"><span class="small">{STAT_NAMES[k]}</span><span class="ggauge train grow"><span style={{ width: `${Math.round(st.train?.[k] ?? 0)}%` }} /></span><span class="small muted">{(st.trainGain?.[k] ?? 0) > 0 ? `+${st.trainGain![k]}` : ''}</span></div>
-                ))}
-              </div>
-            )}
-            {cls.ability && ABILITIES[cls.ability] && <div class="small ruled">兵種スキル：<b>{ABILITIES[cls.ability].name}</b>（{ABILITIES[cls.ability].desc}）</div>}
-          </div>
-        </div>
-        <div>
-          <div class="card">
-            <h3>技能ランク</h3>
-            <div class="skillgrid">{SKILLS.filter((k) => skillUnlocked(s, k)).map((k) => <SkillBox k={k} p={st.skills[k]} target={!grad && st.targets.includes(k)} />)}</div>
-            {!grad && (
-              <div style={{ marginTop: 8 }}>
-                <div class="muted small">今月の目標技能（2つ・金の枠）：目標の授業でさらに伸びます（1つ目は×1.3）。月に一度決めます。夢に沿うとやる気が上がりやすい（夢に沿う技能：{dream.skills.map((k) => SKILL_NAMES[k]).join('・') || 'なし'}）</div>
-                {[0, 1].map((i) => (
-                  <select value={st.targets[i]} onChange={(e) => act((g) => { const x = g.students[st.id]; const t = [...x.targets] as [SkillId, SkillId]; t[i] = (e.target as HTMLSelectElement).value as SkillId; x.targets = t; x.targetsAuto = false; })} style={{ marginRight: 6 }}>
-                    {SKILLS.filter((k) => skillUnlocked(s, k)).map((k) => <option value={k}>{SKILL_NAMES[k]}</option>)}
-                  </select>
-                ))}
-                <label class="small"><input type="checkbox" checked={st.targetsAuto} onChange={(e) => act((g) => { g.students[st.id].targetsAuto = (e.target as HTMLInputElement).checked; })} /> 自動で決める</label>
-              </div>
-            )}
-          </div>
-          <SpellCard st={st} />
+      </>}
+      {tab === 'bonds' && <>
           <div class="card">
             <h3>仲間との支援</h3>
             {supList.length === 0 && <div class="muted">まだ特に親しい仲間はいない</div>}
@@ -209,15 +222,33 @@ function Detail({ s, st, exam }: { s: GameState; st: Student; exam?: boolean }) 
           </div>
           <RivalCard s={s} st={st} />
           <TalkArchive s={s} st={st} />
+      </>}
+      {tab === 'record' && <>
           <div class="card">
             <h3>記録</h3>
-            <div class="infogrid"><div><Icon name="battle" size={16} />出撃 <Num v={st.battles} /></div><div><Icon name="skull" size={16} />撃破 <Num v={st.kills} /></div><div><Icon name="medal" size={16} />講評の最高 <Num v={st.bestGrade ?? '—'} /></div>{st.keepsake && <div><Icon name="sword" size={16} />{st.keepsake}</div>}</div>
+            <div class="infogrid"><div><Icon name="battle" size={16} />出撃 <Num v={st.battles} /></div><div><Icon name="skull" size={16} />撃破 <Num v={st.kills} /></div><div><Icon name="bell" size={16} />重傷 <Num v={st.wounds ?? 0} /></div><div><Icon name="medal" size={16} />講評の最高 <Num v={st.bestGrade ?? '—'} /></div>{st.keepsake && <div><Icon name="sword" size={16} />{st.keepsake}</div>}</div>
             {st.farewell && <div class="serif ruled">卒業式のひとこと：「{st.farewell}」</div>}
             {st.history.length > 0 && <ul class="list">{st.history.slice(-15).map((h) => <li class="small">{h.year}年目：{h.text}</li>)}</ul>}
             {st.deathNote && <div class="muted">{st.diedYear}年目：{st.deathNote}</div>}
           </div>
-        </div>
+          <HonorCard st={st} />
+      </>}
       </div>
+    </div>
+  );
+}
+
+type DetailTab = 'stats' | 'skills' | 'person' | 'bonds' | 'record';
+const DETAIL_TABS: [DetailTab, string][] = [['stats', '能力'], ['skills', '技能'], ['person', '人柄'], ['bonds', '関係'], ['record', '記録']];
+
+/** これまでの評価と称号（9夜目） */
+function HonorCard({ st }: { st: Student }) {
+  const honors = Object.entries(st.honors ?? {}).filter(([k]) => k !== 'quiet').sort((a, b) => b[1] - a[1]);
+  return (
+    <div class="card">
+      <h3>これまでの評価と称号</h3>
+      {honors.length ? <div class="ev-badges">{honors.map(([k, n]) => <span class="row nowrap gap4"><Badge id={k} />{n > 1 && <small class="muted">×{n}</small>}</span>)}</div> : <div class="muted small">まだない（出撃すると、戦いのあとに称号がつく）</div>}
+      {(st.evalLog ?? []).length > 0 && <ul class="list" style={{ marginTop: 6 }}>{[...(st.evalLog ?? [])].reverse().slice(0, 8).map((e) => <li class="small">{e.year}年目 {MONTH_NAMES[e.month]}「{e.title}」<span class={`ev-grade g${e.grade}`}>{e.grade}</span> {e.badges.filter((x) => x !== 'quiet').map((x) => BADGES[x]?.name).join('・')}{e.scene ? <div class="muted">{e.scene}</div> : null}</li>)}</ul>}
     </div>
   );
 }

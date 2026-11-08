@@ -59,6 +59,8 @@ function targetHit(st: Student, l: LessonDef): boolean {
 export function LessonBoard({ s }: { s: GameState }) {
   const [sel, setSel] = useState<number | null>(null);
   const [who, setWho] = useState<string | null>(null);
+  // 9夜目：説明は初めのうちだけ（あとは「？」で）
+  const [help, setHelp] = useState(() => s.year === 1 && s.month === 0 && s.week <= 2);
   const day = s.today && s.today.key === s.absWeek * 5 + ((s.day ?? 1) - 1) ? s.today : null;
   useEffect(() => { if (!day) act((g) => { todayCards(g); }); }, [day]);
   useEffect(() => { setSel(null); setWho(null); }, [s.absWeek, s.day]);
@@ -73,14 +75,13 @@ export function LessonBoard({ s }: { s: GameState }) {
     <div class="lessonboard">
       <div class="lb-sheet">
       <div class="row between nowrap">
-        <h2 class="serif" style={{ margin: '6px 0 0' }}>本日の授業 <small class="muted">一つを選び、命ず</small></h2>
-        <span class="lb-day">{DAY_NAMES[(s.day ?? 1) - 1]}曜日{day.rain ? '・雨' : ''}</span>
+        <h2 class="serif" style={{ margin: '2px 0 0' }}>本日の授業 <small class="muted">一つを選び、命ず</small></h2>
+        <span class="row nowrap gap4"><span class="lb-day">{DAY_NAMES[(s.day ?? 1) - 1]}曜日{day.rain ? '・雨' : ''}</span><button class={`lb-help${help ? ' on' : ''}`} aria-label="説明" onClick={() => { sfx('move'); setHelp(!help); }}>？</button></span>
       </div>
-      <div class="muted small">1つ選ぶ。全員が伸びて、顔が出ている子は特に伸びる。授業は先生の体力を使い、休講で回復する。</div>
-      <TeacherStamina s={s} />
-      <div class="targetbox" onClick={() => { sfx('move'); navigate({ tab: 'school', page: 'targets' }); }}>
-        <b class="gold">今月の目標技能</b>
-        <span class="small"><span class="fmark t inline">目</span> の子は自分の目標の授業でさらに伸びる（タップで見る・変える）</span>
+      {help && <div class="muted small">1つ選ぶ。全員が伸びて、顔が出ている子は特に伸びる。授業は先生の体力を使い、休講で回復する。<span class="fmark t inline">目</span> の子は自分の目標技能の授業でさらに伸びる。顔が2人以上（仲の良い組・恋人・ライバル）重なると友情タッグ✦</div>}
+      <div class="lb-mini">
+        <span class="lb-st"><span class="small">体力</span><span class={`ggauge grow${teacherStamina(s) < B.teacher.lowAt ? ' low' : ''}`}><span style={{ width: `${(teacherStamina(s) / teacherMax(s)) * 100}%` }} /></span><b class="small">{Math.round(teacherStamina(s))}</b></span>
+        <button class="lb-target" onClick={() => { sfx('move'); navigate({ tab: 'school', page: 'targets' }); }}><span class="fmark t inline">目</span> 今月の目標技能 ›</button>
       </div>
       {teacherSick(s) && <div class="guide">{s.instructor.name}先生が寝込んでいます。今日は自動で休講になります（あと{s.instructor.sickDays}日）。</div>}
       </div>
@@ -134,7 +135,7 @@ function LessonCardView({ s, c, on, rec, onPick, onFace }: { s: GameState; c: Le
         <div class="lc-faces">
           {faces.map((st) => (
             <span class={`lc-face${tagged.has(st.id) ? ' tag' : ''}`} onClick={(e) => { e.stopPropagation(); onFace(st.id); }}>
-              <Portrait st={st} size={44} frame={countryColor(st.origin)} />
+              <Portrait st={st} size={38} frame={countryColor(st.origin)} />
               {targetHit(st, l) && <i class="fmark t">目</i>}
               {c.consult?.includes(st.id) && <i class="fmark c">相</i>}
               {tagged.has(st.id) && <i class="fmark s">✦</i>}

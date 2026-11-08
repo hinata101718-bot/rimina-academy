@@ -1332,3 +1332,47 @@ body[data-season="winter"] { --tint: rgba(190, 210, 235, .14); }
 .levelup .lvbox > * { position: relative; }
 .levelup .lvtitle { color: #b8862b; text-shadow: 0 0 10px rgba(255, 210, 100, .9); animation: fxGold 1.2s ease-in-out infinite alternate; }
 @keyframes fxGold { from { text-shadow: 0 0 4px rgba(255, 210, 100, .6); } to { text-shadow: 0 0 16px rgba(255, 220, 120, 1); } }
+/* ===== 9夜目（途中の感想）：授業の頁をひと目で ===== */
+.today-top { display: flex; align-items: center; gap: 6px; margin-top: 2px; }
+.today-top > .btn { flex: none; min-height: 44px; padding: 0 10px; }
+.calendar.compact { flex: 1; min-width: 0; display: flex; align-items: center; flex-wrap: wrap; gap: 2px 6px; margin: 0 !important; padding: 5px 8px; min-height: 44px; }
+.calc-m { font-size: 18px; }
+.calc-w { font-size: 13px; color: var(--sub); }
+.calc-days { display: inline-flex; gap: 2px; }
+.calc-days i { font-style: normal; width: 20px; height: 20px; border-radius: 50%; font-size: 12px; line-height: 20px; text-align: center; background: rgba(140, 115, 70, .12); color: var(--sub); }
+.calc-days i.past { background: rgba(140, 115, 70, .3); color: #fff; }
+.calc-days i.now { background: var(--accent); color: #fff; font-weight: bold; }
+.calc-tags { display: inline-flex; gap: 3px; flex-wrap: wrap; }
+.calc-tag { font-size: 12px; border: 1px solid var(--line); border-radius: 8px; padding: 0 5px; color: var(--sub); white-space: nowrap; }
+.calc-tag.red { border-color: #c97a68; color: var(--accent); font-weight: bold; }
+.todaypage .lb-sheet { padding: 6px 10px 8px; margin: 6px 0 8px; }
+.lb-help { width: 32px; height: 32px; min-width: 32px; border-radius: 50%; border: 1.5px solid var(--line); background: var(--paper2); font-weight: bold; color: var(--sub); cursor: pointer; position: relative; }
+.lb-help::after { content: ''; position: absolute; inset: -6px; }
+.lb-help.on { background: var(--main); color: #fff; }
+.lb-mini { display: flex; align-items: center; gap: 8px; margin-top: 4px; }
+.lb-st { flex: 1; min-width: 0; display: flex; align-items: center; gap: 4px; }
+.lb-st .ggauge { height: 6px; }
+.lb-st .ggauge > span { background: linear-gradient(90deg, #4f9a6a, #7cc08f); }
+.lb-st .ggauge.low > span { background: linear-gradient(90deg, #c0533e, #e08a6a); }
+.lb-target { flex: none; min-height: 44px; font-size: 13px; border: 1.5px dashed var(--gold); border-radius: 10px; background: rgba(184, 134, 43, .08); padding: 0 8px; cursor: pointer; color: #6b4e12; font-weight: bold; }
+.todaypage .lcards { gap: 9px 8px; }
+.todaypage .lcard { min-height: 0; padding: 5px 7px 6px; gap: 3px; }
+.todaypage .lc-mark { width: 24px; height: 24px; font-size: 13px; }
+.todaypage .lc-name { font-size: 15px; }
+.todaypage .lc-group { display: none; }
+.todaypage .lc-faces { gap: 3px; }
+.todaypage .lcard .small.muted { font-size: 12px; line-height: 1.3; }
+.todaypage .lb-notes { display: none; }
+.calendar.compact { background: #f3e8cf !important; background-image: none !important; border-radius: 3px; box-shadow: 0 4px 10px rgba(0, 0, 0, .45); border-top: 2px solid #c9a24f; color: var(--ink); }
+/* 名簿の学年の切り替え：5つを1行に（横にスクロールしない） */
+.pills.fit { overflow: visible; flex-wrap: wrap; gap: 4px; }
+.pills.fit button { flex: 1 1 auto; min-width: 0; min-height: 44px; padding: 0 6px; font-size: 13px; white-space: nowrap; }
+.sc-flags { flex-wrap: wrap; justify-content: flex-end; overflow: visible; row-gap: 2px; }
+.sc-flags .flag { white-space: nowrap; }
+/* ===== 9夜目（途中の感想）：個人ページのタブ（書類の上の付箋） ===== */
+.dt-gl { width: 30px; flex: none; }
+.dt-tabs { display: grid; grid-template-columns: repeat(5, 1fr); gap: 3px; margin: 10px 0 0; position: relative; z-index: 1; }
+.dt-tabs button { min-height: 44px; min-width: 0; padding: 0 2px; font-family: var(--mincho); font-weight: bold; font-size: 14px; color: #6b5a44; background: linear-gradient(#efe1c0, #e2cfa4); border: 1px solid #c6b08a; border-bottom: none; border-radius: 8px 8px 0 0; box-shadow: 0 -1px 3px rgba(0, 0, 0, .12) inset; cursor: pointer; transform: translateY(3px); }
+.dt-tabs button.on { background: #fffaf0; color: var(--accent); transform: none; box-shadow: 0 -2px 4px rgba(0, 0, 0, .12); border-color: #c9a24f; border-top: 3px solid var(--accent); }
+.dt-body { background: rgba(255, 250, 240, .55); border: 1px solid #c6b08a; border-radius: 0 0 10px 10px; padding: 6px; margin-bottom: 10px; }
+.dt-body > .card:first-child { margin-top: 0; }

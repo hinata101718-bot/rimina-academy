@@ -74,6 +74,12 @@ export function SkillBox({ k, p, target }: { k: SkillId; p: number; target?: boo
 }
 
 /** カード右上のお知らせの札 */
+/** 札から個人ページのどのタブを開くか（9夜目） */
+export function flagTab(text: string): string {
+  if (text === '宿敵') return 'bonds';
+  if (text.startsWith('けが')) return 'record';
+  return 'person';
+}
 export function studentFlags(s: GameState, st: Student, exams?: Set<string>): { text: string; tone: 'main' | 'red' | 'gold' }[] {
   const out: { text: string; tone: 'main' | 'red' | 'gold' }[] = [];
   if (st.status !== 'enrolled') return out;
@@ -85,6 +91,7 @@ export function studentFlags(s: GameState, st: Student, exams?: Set<string>): { 
   if (st.motivation <= 1) out.push({ text: 'やる気低下', tone: 'red' });
   if (st.talent && st.talentReveal >= B.talent.hint1 && st.talentReveal < B.talent.full) out.push({ text: '才能のヒント', tone: 'main' });
   if (s.students[st.id] && isBirthdayWeek(s, st)) out.push({ text: '誕生日', tone: 'gold' });
+  if (Object.values(s.rivalries ?? {}).some((r) => r.sid === st.id && !r.settled && (r.stage >= 2 || r.vow))) out.push({ text: '宿敵', tone: 'red' });
   return out;
 }
 /** 誕生日の週か（誕生日がまだない生徒は false） */
@@ -120,7 +127,7 @@ export function StuCard({ s, st, exams, onClick, extra }: { s: GameState; st: St
       <div class="sc-body">
         <div class="sc-head">
           <NameLine st={st} />
-          <span class="sc-flags">{pinned && <span class="pinstar"><Icon name="star" size={18} /></span>}{flags.slice(0, 2).map((f) => <span class={`flag ${f.tone}`} onClick={f.text === '試験OK' ? (e) => { e.stopPropagation(); navigate({ tab: 'students', page: 'exam', id: st.id }); } : undefined}>{f.text}</span>)}</span>
+          <span class="sc-flags">{pinned && <span class="pinstar"><Icon name="star" size={18} /></span>}{flags.slice(0, 2).map((f) => <span class={`flag ${f.tone}`} onClick={(e) => { e.stopPropagation(); if (f.text === '試験OK') navigate({ tab: 'students', page: 'exam', id: st.id }); else navigate({ tab: 'students', page: 'detail', id: st.id, sub: flagTab(f.text) }); }}>{f.text}</span>)}</span>
         </div>
         <div class="row nowrap gap4"><ClassName classId={st.classId} /><CountryChip o={st.origin} /><Chip>{PERSONALITIES[st.personality].name}</Chip>{st.grade > 0 && <span class="muted small">{st.grade}年</span>}</div>
         <div class="row nowrap gap6 expline"><span class="lbl">EXP</span><Gauge v={st.exp} max={B.student.expPerLevel} tone="exp" /></div>

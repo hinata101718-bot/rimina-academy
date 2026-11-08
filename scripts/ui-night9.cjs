@@ -76,6 +76,12 @@ const ONLY = process.env.ONLY ? process.env.ONLY.split(',') : null;
     await click('.org-playbtn'); await p.waitForTimeout(1400); await shot('21-org-change-play');
     await click('.org-player'); await p.waitForTimeout(1400); await shot('22-org-change-play2');
   }
+  if (want('ui')) {
+    await open('org.json');
+    await tab(0); await click('.command'); await shot('30-today-lessons');
+    await tab(1); await shot('31-roster');
+    await click('.stucard >> nth=0'); await shot('32-detail');
+  }
   console.log('wide', wide.join(', ') || 'なし');
   console.log('errors', errors.join('\n') || 'なし');
   await b.close();
