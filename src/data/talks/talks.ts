@@ -84,7 +84,7 @@ export const TALKS: TalkDef[] = [
       { by: 'a', say: 'g_promise_q' },
       { by: 'b', say: 'g_promise_a' },
       { by: 'n', say: 'n_laugh' },
-      { by: 'a', say: 'g_glad' },
+      // 8夜目：締めのあいさつが3つ続いて一つ多く感じたので「よかった」を外す（ありがとう→またね）
       { by: 'b', say: 'thanks_deep' },
       { by: 'a', say: 'close_warm' },
     ],
