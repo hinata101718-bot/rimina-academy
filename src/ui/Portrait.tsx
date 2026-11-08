@@ -4,12 +4,25 @@ import type { Student, FaceParts, GameState } from '../core/state';
 import { getGame } from './store';
 
 let faceFiles: string[] = [];
+/** 顔の表情（11夜目）：laugh・smile・neutral・stern・shy。性格に合う顔を選ぶ */
+let faceExpr: Record<string, string> = {};
 export async function loadFaceManifest(): Promise<void> {
   try {
     const r = await fetch(`${import.meta.env.BASE_URL}faces/index.json`, { cache: 'no-cache' });
     if (r.ok) { const j = await r.json(); faceFiles = Array.isArray(j.files) ? j.files : []; }
   } catch { /* なくてよい */ }
+  try {
+    const r = await fetch(`${import.meta.env.BASE_URL}faces/expressions.json`, { cache: 'no-cache' });
+    if (r.ok) { const j = await r.json(); faceExpr = j.faces ?? {}; }
+  } catch { /* なくてよい */ }
 }
+/** 性格ごとに合う表情（11夜目：大笑いの顔で口下手な台詞、のような食い違いを避ける） */
+const EXPR_OK: Record<string, string[]> = {
+  hot: ['laugh', 'smile', 'stern'], calm: ['neutral', 'smile', 'stern'], timid: ['shy', 'neutral', 'smile'], cynic: ['stern', 'neutral', 'smile'],
+  gentle: ['smile', 'neutral', 'shy'], serious: ['stern', 'neutral'], cheerful: ['laugh', 'smile'], shy: ['shy', 'neutral'],
+  competitive: ['stern', 'laugh', 'smile'], whimsical: ['smile', 'neutral', 'laugh'],
+};
+export function exprFits(file: string, personality: string): boolean { const e = faceExpr[file]; return !e || (EXPR_OK[personality] ?? []).includes(e); }
 function hash(s: string): number { let h = 0; for (const c of s) h = (h * 31 + c.charCodeAt(0)) | 0; return Math.abs(h); }
 
 /** ファイル名から性別と髪色を読む。新形式 {性別}_{髪色}_{番号}、旧形式 {国}_{性別}_{髪色}_{番号} の両方に対応 */
@@ -35,7 +48,8 @@ export function faceImageFor(st: Student, game?: GameState | null): string | nul
   const hair = HAIR_NAMES[st.face.hair];
   const all = faceFiles.map((f) => ({ f, p: parseFace(f) })).filter((x) => x.p && x.p.g === st.gender);
   const free = all.filter((x) => !used.has(x.f));
-  const tiers = [free.filter((x) => x.p!.hair === hair), free, all];
+  const fits = (x: { f: string }) => exprFits(x.f, st.personality);
+  const tiers = [free.filter((x) => x.p!.hair === hair && fits(x)), free.filter(fits), free.filter((x) => x.p!.hair === hair), free, all];
   const list = tiers.find((t) => t.length) ?? [];
   if (!list.length) return null;
   const pick = list[hash(st.id) % list.length].f;

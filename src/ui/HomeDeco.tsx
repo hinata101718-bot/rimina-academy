@@ -46,7 +46,7 @@ export function MonthCalendar({ s, compact }: { s: GameState; compact?: boolean 
       <div class="calendar compact">
         <b class="calc-m serif">{MONTH_NAMES[s.month]}</b><span class="calc-w">第{s.week}週</span>
         <span class="calc-days">{DAYS.map((d, i) => <i class={i + 1 === day ? 'now' : i + 1 < day ? 'past' : ''}>{d}</i>)}</span>
-        <span class="calc-tags">{s.week === 4 ? <span class="calc-tag red">今週末 依頼</span> : <span class="calc-tag">月末まで{4 - s.week}週</span>}{next && next.weeks > 0 && <span class="calc-tag">{next.label}まで{next.weeks}週</span>}{next && next.weeks === 0 && <span class="calc-tag red">今週 {next.label}</span>}</span>
+        <span class="calc-tags">{s.week === 4 ? <span class="calc-tag red">今週末は依頼</span> : <span class="calc-tag">月末まであと{4 - s.week}週</span>}{next && next.weeks > 0 && <span class="calc-tag">{next.label}まであと{next.weeks}週</span>}{next && next.weeks === 0 && <span class="calc-tag red">今週は{next.label}</span>}</span>
       </div>
     );
   }

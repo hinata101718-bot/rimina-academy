@@ -72,7 +72,7 @@ export function SkillBox({ k, p, target, st }: { k: SkillId; p: number; target?:
   const bloomed = st?.bud?.done && st.bud.skill === k;
   return (
     <div class={`skillbox${target ? ' target' : ''}${good ? ' good' : ''}${bad ? ' bad' : ''}`}>
-      <div class="row between nowrap"><span class="sk">{SKILL_NAMES[k]}{bloomed ? <i class="apt bloom" title="開花">花</i> : good ? <i class="apt good" title="得意（伸び×1.5）">得</i> : bad ? <i class="apt bad" title="苦手（伸び×0.5）">苦</i> : null}{bud && <i class="apt bud" title="眠った芽">芽</i>}</span><b class="rank">{rankOf(p)}</b></div>
+      <div class="row between nowrap"><span class="sk">{SKILL_NAMES[k]}{bloomed ? <i class="apt bloom" title="開花">花</i> : good ? <i class="apt good" title="得意：よく伸びます">得</i> : bad ? <i class="apt bad" title="苦手：伸びにくいです">苦</i> : null}{bud && <i class="apt bud" title="眠った芽">芽</i>}</span><b class="rank">{rankOf(p)}</b></div>
       <Gauge v={n ? p - cur : 1} max={n ? n - cur : 1} tone="skill" thin />
     </div>
   );
@@ -141,7 +141,7 @@ export function StuCard({ s, st, exams, onClick, extra }: { s: GameState; st: St
         <div class="sc-foot">
           <span class="nowrap">やる気 <MoodDots m={st.motivation} /></span>
         </div>
-        <div class="dream">夢：{dream?.text ? dream.name : '特になし'}</div>
+        <div class="dream">夢：{dream?.text ? dream.name : 'まだない'}</div>
         {extra}
       </div>
     </div>

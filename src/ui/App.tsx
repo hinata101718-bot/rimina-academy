@@ -82,7 +82,7 @@ export function App() {
       </div>
       <div class={`content${desk ? ' desk-wrap' : ''}`}>
         {exportDays >= B.exportReminderDays && route.tab === 'school' && !route.page && (
-          <div class="guide" onClick={() => navigate({ tab: 'settings' })}>最後の書き出しから{exportDays}日たちました。念のため「設定」からセーブデータを書き出しておきましょう。</div>
+          <div class="guide" onClick={() => navigate({ tab: 'settings' })}>前にセーブデータを書き出してから、{exportDays}日たちました。念のため「設定」から書き出しておきましょう。</div>
         )}
         {wood ? page : <div class={`page-paper ${paperKind}`}>{paperStamp && <span class="stamp page-stamp">{paperStamp}</span>}{page}</div>}
       </div>

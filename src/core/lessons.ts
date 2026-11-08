@@ -158,6 +158,11 @@ function lessonMul(s: GameState, st: Student, k: SkillId): number {
 /** レベルが上がるほど、授業の経験値は少なくなる */
 export function expDamp(level: number): number { const d = B.day.expDamp; return clamp(d.base - level * d.perLevel, d.min, d.max); }
 export interface Boost { face: boolean; tag: boolean }
+/** 先輩後輩のタッグで、この子が先輩か（11夜目） */
+function seniorInTag(s: GameState, card: LessonCard, id: string): boolean {
+  const st = s.students[id];
+  return card.tags.some((t) => { if (!t.includes(id)) return false; const o = s.students[t[0] === id ? t[1] : t[0]]; return !!o && s.supports[pairKey(t[0], t[1])]?.kind === 'senpai' && st.grade > o.grade; });
+}
 function boostOf(card: LessonCard, id: string): Boost {
   return { face: card.faces.includes(id), tag: card.tags.some((t) => t.includes(id)) };
 }
@@ -236,6 +241,8 @@ export function resolveLesson(s: GameState, r: Rng, idx: number, talkWith?: stri
 
   for (const st of list) {
     const b = boostOf(card, st.id);
+    // 11夜目：先輩後輩のタッグ：後輩はよく伸び、先輩は教えることで人を動かす力（魅力）が少し育つ
+    if (b.tag && seniorInTag(s, card, st.id)) { b.tag = false; trainUp(st, 'cha', B.support.senpaiChaTrain); }
     const faceM = faceMulOf(s, b);
     const tagM = tagMulOf(s, b);
     // 技能
@@ -253,6 +260,11 @@ export function resolveLesson(s: GameState, r: Rng, idx: number, talkWith?: stri
     if (b.face) st.lastAttention = s.absWeek;
   }
 
+  // 11夜目：同じ授業のカードに顔が並んだ、学年の違う子どうしは少し親しくなる（先輩と後輩のはじまり）
+  {
+    const fs = card.faces.map((id) => s.students[id]).filter((x): x is Student => !!x && x.status === 'enrolled');
+    for (let i = 0; i < fs.length; i++) for (let j = i + 1; j < fs.length; j++) if (fs[i].grade !== fs[j].grade) { const t = addSupport(s, r, fs[i].id, fs[j].id, B.support.crossFace); if (t) talks.push(t); }
+  }
   // 交流・休講
   const faces = card.faces.map((id) => s.students[id]).filter((x): x is Student => !!x && attends(x));
   const push = (t: TalkLog | null) => { if (t) talks.push(t); };
@@ -364,9 +376,12 @@ function practiceEvent(s: GameState, r: Rng, card: LessonCard, l: LessonDef, fac
     const A = s.students[a], Bs = s.students[b];
     if (!A || !Bs) continue;
     const sp = s.supports[pairKey(a, b)];
+    if (sp?.kind === 'senpai') { const [hi, lo] = A.grade > Bs.grade ? [A, Bs] : [Bs, A]; cands.push({ kind: 'senpai', w: 4, ids: [hi, lo] }); continue; }
     cands.push({ kind: sp?.kind === 'love' ? 'love' : sp?.kind === 'rival' ? 'rival' : 'tag', w: 4, ids: [A, Bs] });
   }
   const f = faces[0];
+  // 11夜目：紅白戦で学年の違う顔がそろうと、学年対抗に
+  if (l.special === 'spar') { const g2 = faces.find((x) => faces[0] && x.grade !== faces[0].grade); if (g2) cands.push({ kind: 'gradewar', w: 3, ids: [faces[0], g2] }); }
   if (l.skills || l.stats) cands.push({ kind: 'teacher', w: 2, ids: [r.pick(faces)] });
   if (l.skills) cands.push({ kind: 'extra', w: 1.5, ids: [r.pick(faces)] });
   const sp = faces.find((x) => x.bud && !x.bud.done && x.bud.skill && x.bud.reveal < B.apt.known && l.skills && Object.keys(l.skills).includes(x.bud.skill));
@@ -378,7 +393,7 @@ function practiceEvent(s: GameState, r: Rng, card: LessonCard, l: LessonDef, fac
   const teacherName = s.instructor.name;
   const fill = (x: string) => x.replace(/\{a\}/g, a.given).replace(/\{b\}/g, b?.given ?? '').replace(/\{t\}/g, `${teacherName}先生`).replace(/\{l\}/g, l.name);
   const lines: TalkLineLog[] = [{ by: 'narr', text: fill(tpl.narr) }];
-  const speaker = c.kind === 'tag' || c.kind === 'rival' || c.kind === 'love' ? (b ?? a) : a;
+  const speaker = c.kind === 'tag' || c.kind === 'rival' || c.kind === 'love' || c.kind === 'senpai' ? (b ?? a) : a;
   lines.push({ by: speaker.id, text: fill(tpl.say[speaker.personality] ?? tpl.say.default) });
   // 小さな効果
   if (c.kind === 'tag' || c.kind === 'love') addSupport(s, r, a.id, b.id, 3);

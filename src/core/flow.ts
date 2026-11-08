@@ -38,7 +38,8 @@ import { retireCheck, viceOf, cleanVice } from './instructor';
 import { checkEndings, peaceEraYear, seedHelp } from './ending';
 import { TRAITS } from '../data/people';
 import type { BattleCtx } from './battle/engine';
-import { supportValue } from './support';
+import { supportValue, bestFriend } from './support';
+import { NIGHT_AFTER_DEATH, FRIEND_GRIEF, TEACHER_GRIEF, KEEPSAKE, RECOVERY } from '../data/aftermath_war';
 
 export function rng(s: GameState): Rng { return new Rng(s); }
 
@@ -302,11 +303,14 @@ export function finishBattle(s: GameState): void {
     grades.push({ id: st.id, grade: g, note });
     if (g === 'S' || g === 'A') changeMotivation(st, 1);
     if (q?.kind === 'exhibition') { st.exhibitionScore += score; }
-    if (f?.outcome === 'dead') killStudent(s, st, `「${b.title}」で戦死`);
+    if (f?.outcome === 'dead') { killStudent(s, st, `「${b.title}」で戦死`); warAfterScene(s, r, st, 'dead', u.weaponId); }
     else if (f?.outcome === 'injured') {
       st.injuredWeeks = r.int(...B.battle.injuryWeeks);
       addRecent(s, st, 'ev_injury', b.title);
       lines.push(`${st.given}は重傷（${st.injuredWeeks}週間休み）`);
+      // 11夜目：傷跡が残る（年表に）。療養の場面
+      st.history.push({ year: s.year, text: `「${b.title}」で${r.pick(['左の肩', '右の脇腹', '額', '左の腿', '背中', '右の腕'])}に深い傷を負った` });
+      warAfterScene(s, r, st, 'injured', u.weaponId);
     }
     if (u.hp < u.maxHp / 2 && !f) {
       const helper = b.units.find((o) => o !== u && o.studentId && !o.dead && o.side === 'player' && Math.abs(o.x - u.x) + Math.abs(o.y - u.y) <= 1);
@@ -439,6 +443,24 @@ export function battleFindings(s: GameState, growth: GrowthEntry[], lines: strin
   for (const l of lines) if (l.includes('才能') || l.includes('特徴')) { const st = Object.values(s.students).find((x) => x.status === 'enrolled' && l.startsWith(`戦場で${x.given}`) || l.startsWith(`${x.given}の特徴`)); out.push({ id: st?.id, icon: 'lantern', text: l }); }
   for (const p of talks) if (p.type === 'talk') { const a = s.students[p.talk.a], c = s.students[p.talk.b]; if (a && c) out.push({ id: a.id, icon: 'heart', text: `${a.given}と${c.given}の支援が${p.talk.rank}に` }); }
   return out;
+}
+
+/** 戦いのあとの場面（11夜目）：戦死はその夜の学校・仲間の言葉・遺品、重傷は療養。戦の描写が「ふつう」のときは出さない */
+function warAfterScene(s: GameState, r: Rng, st: Student, kind: 'dead' | 'injured', weaponId: string | null | undefined): void {
+  if ((s.settings.battleProse ?? 'dense') === 'normal') return;
+  const fr = bestFriend(s, st) ?? enrolled(s).find((x) => x.id !== st.id && x.grade === st.grade) ?? null;
+  const fill = (t: string) => t.replace(/\{a\}/g, st.given).replace(/\{f\}/g, fr?.given ?? '仲間').replace(/\{w\}/g, weaponId && WEAPONS[weaponId] ? WEAPONS[weaponId].name : '剣');
+  const L: import('./state').SceneLine[] = [];
+  if (kind === 'dead') {
+    for (const t of r.pick(NIGHT_AFTER_DEATH)) L.push({ by: 'narr', text: fill(t) });
+    if (fr) L.push({ by: fr.id, text: fill(r.pick(FRIEND_GRIEF[fr.personality] ?? FRIEND_GRIEF.serious)) });
+    L.push({ by: 'narr', text: fill(r.pick(TEACHER_GRIEF)) });
+    if (weaponId && WEAPONS[weaponId] && !WEAPONS[weaponId].spell) L.push({ by: 'narr', text: fill(r.pick(KEEPSAKE)) });
+    s.pending.push({ type: 'scene', title: `${st.given}を弔う夜`, lines: L.map((l, i) => (i === 0 ? { ...l, faces: [st.id] } : l)) });
+  } else {
+    for (const t of r.pick(RECOVERY)) L.push({ by: 'narr', text: fill(t) });
+    s.pending.push({ type: 'scene', title: `${st.given}の療養`, lines: L.map((l, i) => (i === 0 ? { ...l, faces: [st.id] } : l)) });
+  }
 }
 
 export function killStudent(s: GameState, st: Student, note: string): void {

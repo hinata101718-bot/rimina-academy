@@ -1,7 +1,7 @@
 // 月末の出撃（9夜目）：依頼掲示板から部隊の数だけ依頼を選び、部隊ごとにメンバー・方針・策・部隊長を決める。10夜目：2つ目・3つ目の部隊は、はじめ教官が同行しない（結果だけ）
 import { useEffect, useState } from 'preact/hooks';
 import { act } from './store';
-import { Sheet } from './common';
+import { Sheet, HelpTip } from './common';
 import { Portrait } from './Portrait';
 import { Icon } from './icons';
 import { sfx } from './sound';
@@ -33,8 +33,8 @@ export function QuestCard({ x, onClick, tag }: { x: Quest; onClick?: () => void;
         <div>危険度 <Stars n={x.danger} /></div>
         <div><Icon name="coin" size={17} />{x.reward ? <Num v={x.reward.toLocaleString()} unit="G" /> : '報酬なし'}</div>
         {x.rewardWeapon && WEAPONS[x.rewardWeapon] && <div class="q-rw"><Icon name="sword" size={17} />報酬：{WEAPONS[x.rewardWeapon].name}</div>}
-        <div><Icon name="target" size={17} />推奨 <LvBadge lv={x.level} /></div>
-        <div class={x.real ? '' : 'muted'}>{x.real ? <><Icon name="skull" size={17} />戦死あり</> : '誰も死なない'}</div>
+        <div><Icon name="target" size={17} />目安 <LvBadge lv={x.level} /></div>
+        <div class={x.real ? '' : 'muted'}>{x.real ? <><Icon name="skull" size={17} />戦死あり</> : '誰も死にません'}</div>
       </div>
     </div>
   );
@@ -57,8 +57,8 @@ export function SortiePrep({ s }: { s: GameState }) {
     return (
       <Sheet title="月末の依頼掲示板">
         {s.month === 5 && <ArtSlot name="event_exhibition" />}
-        {s.settings.guide && s.year === 1 && s.month === 0 && <div class="guide">最初は「演習」を選びましょう。演習では誰も死にません。実戦は報酬と評判がもらえますが、倒れた生徒が戦死することがあります。</div>}
-        {enrolled(s).length > 12 && <div class="small muted">在籍が{SQUADS.two}人を超えると、月末に2部隊を別々の依頼へ出せます（{SQUADS.three}人で3部隊）</div>}
+        {s.settings.guide && s.year === 1 && s.month === 0 && <div class="guide">はじめは「演習」を選びましょう。演習では誰も死にません。実戦ではお金と評判がもらえますが、倒れた子が戦死することもあります。</div>}
+        {enrolled(s).length > 12 && <div class="small muted">生徒が{SQUADS.two}人をこえると、月末に2つの部隊を別々の依頼へ出せます。{SQUADS.three}人になると3部隊です</div>}
         {s.quests.map((x) => <QuestCard x={x} onClick={() => { sfx('ok'); setDrafts([newDraft(s, x, squadLimit(s, 0))]); setEdit(0); }} />)}
       </Sheet>
     );
@@ -79,14 +79,14 @@ export function SortiePrep({ s }: { s: GameState }) {
   return (
     <Sheet title="月末の出撃">
       <div class="sq-head">
-        <div><b>今月は{n}部隊まで出せます</b><span class="small muted">（在籍{enrolled(s).length}人）</span></div>
-        <div class="small muted">先生は第一部隊に同行して、戦いを見守ります。ほかの部隊は部隊長にまかせて、結果だけを見ます（札の「同行する」で、先生がついていくこともできます）。順番は ▲▼ で変えられます。</div>
-        <button class="btn small" onClick={() => { sfx('ok'); setDrafts(recommendSquads(s, drafts.map((d) => d.questId)).map((x) => draftFromSquad(s, x))); }}>おすすめの編成（全部隊）</button>
+        <div><b>今月は{n}部隊まで出せます</b><span class="small muted">（生徒{enrolled(s).length}人）</span></div>
+        <div class="small muted">先生は第一部隊についていき、戦いを見守ります。ほかの部隊は部隊長にまかせて、結果だけを見ます。<HelpTip text="部隊の札で「同行する」を選ぶと、先生がその部隊にもついていきます。部隊の順番は ▲▼ で入れかえられます。" /></div>
+        <button class="btn small" onClick={() => { sfx('ok'); setDrafts(recommendSquads(s, drafts.map((d) => d.questId)).map((x) => draftFromSquad(s, x))); }}>おすすめで組む</button>
       </div>
       {drafts.map((d, i) => <SquadCard key={`${i}${d.questId}`} s={s} d={d} i={i} n={drafts.length} onAway={(v) => { sfx('move'); setDraft(i, { ...d, away: v }); }} onOpen={() => { sfx('ok'); setEdit(i); }} onMove={(k) => move(i, k)} onRemove={drafts.length > 1 ? () => { sfx('cancel'); setDrafts(drafts.filter((_, j) => j !== i)); } : undefined} />)}
       {drafts.length < n && freeQ.length > 0 && (
         <div class="sq-add">
-          <div class="small"><b>{SQUAD_NAMES[drafts.length]}を出す</b>：依頼を選んでください</div>
+          <div class="small"><b>{SQUAD_NAMES[drafts.length]}も出す</b>：依頼を選んでください</div>
           {freeQ.map((x) => <QuestCard x={x} onClick={() => { sfx('ok'); const { ex, arms } = others(-1); const nd = newDraft(s, x, squadLimit(s, drafts.length), ex, arms); setDrafts([...drafts, nd]); setEdit(drafts.length); }} />)}
         </div>
       )}
@@ -120,18 +120,18 @@ function SquadCard({ s, d, i, n, onOpen, onMove, onRemove, onAway }: { s: GameSt
         <div class="row between nowrap"><b class="serif">{q.title}</b><span class={`flag ${q.real ? 'red' : ''}`}>{q.real ? '実戦' : '演習'}</span></div>
         <div class="small muted">{OBJECTIVE_NAMES[q.objective]}・{WEATHER_NAMES[q.weather]}・危険度{'★'.repeat(q.danger)}{q.reward ? `・報酬${q.reward}G` : ''}</div>
         <div class="sq-faces">{d.deploy.map((x) => { const st = s.students[x.studentId]; return st ? <span class="sq-face"><Portrait st={st} size={34} frame={countryColor(st.origin)} />{plan.captain === st.id && <i class="sq-captmark">長</i>}</span> : null; })}</div>
-        <div class="small">部隊長：<b>{cap?.given ?? '—'}</b>　方針：{TACTICS[plan.tactic].name}　{d.manual ? '自分で指揮' : ''}</div>
+        <div class="small">部隊長：<b>{cap?.given ?? '—'}</b>　方針：{TACTICS[plan.tactic].name}　{d.manual ? '先生が指揮' : ''}</div>
         <div class="small">策：{(plan.strats ?? []).length ? (plan.strats ?? []).map((x) => <span class="st-chip">{STRATS[x].mark} {STRATS[x].name}</span>) : <span class="muted">なし</span>}</div>
       </div>
       {i > 0 && !d.manual && (
         <div class="sq-away">
-          <button class={`btn small${d.away !== false ? ' primary' : ''}`} onClick={() => onAway(true)}>同行しない（結果だけ）</button>
+          <button class={`btn small${d.away !== false ? ' primary' : ''}`} onClick={() => onAway(true)}>同行しない</button>
           <button class={`btn small${d.away === false ? ' primary' : ''}`} onClick={() => onAway(false)}>同行する</button>
         </div>
       )}
-      {i > 0 && !d.manual && d.away !== false && <div class="small muted">ここぞの判断は部隊長の{cap?.given ?? ''}がします。統率と軍略が高いほど、よい判断になりやすい</div>}
+      {i > 0 && !d.manual && d.away !== false && <div class="small muted">ここぞの判断は部隊長の{cap?.given ?? ''}がします。統率と軍略が高い子ほど、うまく決めてくれます</div>}
       <div class="tap" onClick={onOpen}>
-        <div class="row between nowrap small"><span>{d.deploy.length}人　勝ち目：<b class={`ab-oddsv ${est?.key === key ? ({ 優勢: 'good', 五分: 'even', 苦しい: 'bad' } as Record<string, string>)[est.label] ?? '' : ''}`}>{est?.key === key ? est.label : '…'}</b></span><span class="muted">タップで編成 ›</span></div>
+        <div class="row between nowrap small"><span>{d.deploy.length}人　勝ち目：<b class={`ab-oddsv ${est?.key === key ? ({ 優勢: 'good', 五分: 'even', 苦しい: 'bad' } as Record<string, string>)[est.label] ?? '' : ''}`}>{est?.key === key ? est.label : '…'}</b></span><span class="muted">タップして組む ›</span></div>
       </div>
     </div>
   );

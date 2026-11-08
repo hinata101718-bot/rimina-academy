@@ -1,7 +1,7 @@
 // バランス値。ゲームの数値はすべてここに集める（設計書の「ふつう」が初期値）。
 import type { Rank, SkillId, StatId } from '../core/types';
 
-export const SAVE_VERSION = 10;
+export const SAVE_VERSION = 11;
 
 export const RANKS: Rank[] = ['E', 'E+', 'D', 'D+', 'C', 'C+', 'B', 'B+', 'A', 'A+', 'S'];
 export const RANK_POINTS: Record<Rank, number> = {
@@ -166,6 +166,10 @@ export const B = {
     },
     range: 2, maxPartners: 2,
     loveChance: 0.35,
+    /** 11夜目：学年の違う二人が支援Cになったとき、先輩と後輩になる見込み。先輩後輩のタッグは後輩だけ伸び（×tagMul）、先輩は魅力の鍛錬が少したまる */
+    senpaiChance: 0.6, senpaiChaTrain: 6,
+    /** 11夜目：同じ授業のカードに顔が並んだ、学年の違う子どうしの支援 */
+    crossFace: 3,
   },
   trust: { max: 100, letterAt: 50, consultBeforeDropAt: 60, specialAt: [40, 70, 90] },
   archive: { perStudent: 24, departedKeep: 8, departedYears: 3 },
@@ -280,6 +284,8 @@ export const B = {
   },
   // ---- 進路 ----
   career: {
+    /** 11夜目：先輩から託されたノートで伸びる技能ポイント */
+    senpaiNote: 25,
     acceptBase: 30, acceptPerTrust: 0.6,
     matchGrowth: 0.1, forcedGrowth: -0.1,
     friendshipPerGrad: 5,

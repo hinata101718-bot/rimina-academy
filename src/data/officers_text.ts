@@ -46,7 +46,7 @@ export const VOW_SAY: ByP = {
   gentle: '{v}は、優しい子なんです。……どうして、あんなことを。',
   serious: '{v}の無念は、私が晴らします。覚悟してください。',
   cheerful: '……今日は、笑えないや。{v}の分まで戦う。',
-  shy: '{v}……見てて。わたし、やるから。',
+  shy: '{v}、見てて。わたし、やるから。',
   competitive: '{v}を倒したやつに、負けてたまるか！',
   whimsical: '{v}のこと、忘れてないよ。……だから、今日は本気。',
 };
@@ -61,7 +61,7 @@ export const RIVAL_SAY: ByP = {
   gentle: '{leader}さん……どうして、いつもこうなるんでしょう。',
   serious: '{leader}。何度でも、正面から受けて立ちます。',
   cheerful: 'やっほー、{leader}！ ……なんて言ってる場合じゃないか。',
-  shy: '{leader}……また、あの人だ。',
+  shy: '{leader}、また、あの人だ。',
   competitive: '{leader}！ 前の続きだ、今度は負けない！',
   whimsical: 'あ、{leader}だ。今日はどっちが勝つかな。',
 };

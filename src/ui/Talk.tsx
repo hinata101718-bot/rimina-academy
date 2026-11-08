@@ -106,7 +106,7 @@ export function TalkPlayer({ s, t, onDone, onChoice }: { s: GameState; t: TalkLo
         </div>
       )}
       <div class="row" style={{ marginTop: 8 }} onClick={(e) => e.stopPropagation()}>
-        <span class="muted small grow">{i + 1}／{lines.length + (t.choice && chosen === undefined ? t.choice.options[0].lines.length : 0)}　タップで進む</span>
+        <span class="muted small grow">{i + 1}／{lines.length + (t.choice && chosen === undefined ? t.choice.options[0].lines.length : 0)}　タップすると進みます</span>
         <button class="btn ghost small" onClick={() => setAll(true)}>すべて表示</button>
         <button class="btn ghost small" onClick={() => { sfx('cancel'); if (t.choice && chosen === undefined) { setChosen(0); onChoice?.(0); } onDone(); }}>スキップ</button>
       </div>
@@ -131,7 +131,7 @@ export function TalkView({ s, t }: { s: GameState; t: TalkLog }) {
           </>
         );
       })}
-      {t.choice && t.chosen === undefined && <div class="muted small">（返事はまだ選んでいない）</div>}
+      {t.choice && t.chosen === undefined && <div class="muted small">（返事は、まだ選んでいません）</div>}
     </div>
   );
 }

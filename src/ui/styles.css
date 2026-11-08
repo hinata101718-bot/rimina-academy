@@ -1570,3 +1570,17 @@ i.apt { font-style: normal; display: inline-flex; align-items: center; justify-c
 @media (max-width: 380px) { .dq-line { font-size: 16px; } .dq-line.dmg { font-size: 17px; } }
 .aw-head { align-items: flex-start; }
 .aw-head b { flex: 1; min-width: 0; white-space: normal; }
+/* 11夜目：戦の描写の文 */
+.dq-line.prose { color: #d8cdb8; font-size: 16px; }
+.dq-line.prose.strong { color: #f0b0a0; }
+.rb-line.prose { color: #6a5a4a; }
+/* 凄惨：必殺・撃破の血しぶき（顔の絵は変えず、上に重ねる） */
+.fx-over.splat::after { content: ''; position: absolute; inset: 0; pointer-events: none; background:
+  radial-gradient(circle at 22% 30%, rgba(150, 10, 10, .75) 0 3%, transparent 3.5%),
+  radial-gradient(circle at 70% 24%, rgba(130, 0, 0, .7) 0 2%, transparent 2.5%),
+  radial-gradient(circle at 60% 62%, rgba(160, 10, 10, .65) 0 4%, transparent 4.6%),
+  radial-gradient(circle at 34% 72%, rgba(120, 0, 0, .6) 0 1.5%, transparent 2%),
+  radial-gradient(circle at 82% 80%, rgba(150, 0, 0, .7) 0 2.5%, transparent 3%),
+  radial-gradient(ellipse at 50% 50%, transparent 55%, rgba(90, 0, 0, .35) 100%); animation: splatIn .25s ease-out both; }
+@keyframes splatIn { from { transform: scale(.6); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+.fx-fall.dead.splat { background: radial-gradient(ellipse at 50% 80%, #3a0606, #0a0303 70%); }

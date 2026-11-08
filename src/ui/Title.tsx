@@ -29,7 +29,7 @@ export function Title() {
       <div class="serif">―戦争が終わる日まで―</div>
       {!isStandalone() && (
         <div class="guide" style={{ textAlign: 'left', marginTop: 16 }}>
-          {isIos() ? 'Safariの共有ボタン（□に↑）から「ホーム画面に追加」すると、アプリのように遊べて、セーブも消えにくくなります。' : 'ブラウザのメニューから「ホーム画面に追加」（アプリとしてインストール）すると、遊びやすくなります。'}
+          {isIos() ? 'ホーム画面に置くと、アプリのように遊べて、セーブも消えにくくなります。Safariの共有ボタン（□に↑）から「ホーム画面に追加」を選んでください。' : 'ホーム画面に置くと、遊びやすくなります。ブラウザのメニューから「ホーム画面に追加」を選んでください。'}
         </div>
       )}
       <div style={{ marginTop: 20, textAlign: 'left' }}>
@@ -40,7 +40,7 @@ export function Title() {
               {sl.exists ? (
                 <div class="row">
                   <button class="btn primary" onClick={async () => { unlockAudio(); sfx('ok'); const g = await loadSlot(sl.slot); if (g) setGame(g); else alert('読み込めませんでした'); }}>続きから</button>
-                  <button class="btn ghost small" onClick={async () => { if (confirm(`セーブ枠${sl.slot + 1}を消しますか？（元に戻せません）`)) { await deleteSlot(sl.slot); refresh(); } }}>消す</button>
+                  <button class="btn ghost small" onClick={async () => { if (confirm(`セーブ枠${sl.slot + 1}を消しますか？　消すと元に戻せません。`)) { await deleteSlot(sl.slot); refresh(); } }}>消す</button>
                 </div>
               ) : (
                 <button class="btn" onClick={() => { unlockAudio(); sfx('ok'); setSlot(sl.slot); setMode('new'); }}>はじめから</button>
@@ -56,7 +56,7 @@ export function Title() {
             try {
               const g = await importFile(f);
               const free = slots.find((x) => !x.exists)?.slot ?? 0;
-              const target = Number(prompt(`どのセーブ枠に読み込みますか？（1〜3）`, String(free + 1))) - 1;
+              const target = Number(prompt(`どのセーブ枠に読み込みますか？　1から3の数字を入れてください`, String(free + 1))) - 1;
               if (!(target >= 0 && target <= 2)) return;
               g.slot = target; setGame(g);
             } catch (err) { alert('読み込めませんでした：' + (err as Error).message); }
@@ -107,7 +107,7 @@ function Opening({ slot, onCancel }: { slot: number; onCancel: () => void }) {
           <div class="card">
             <h3>学校の始まり</h3>
             <div class="seg">{(['poor', 'normal', 'elite'] as StartKind[]).map((k) => <button class={start === k ? 'on' : ''} onClick={() => setStart(k)}>{B.starts[k].name}</button>)}</div>
-            <div class="muted small" style={{ marginTop: 4 }}>{start === 'poor' ? '施設はボロボロ、お金も評判もわずか。名もない分校から、評判を上げて立て直していく。' : start === 'normal' ? `施設はすべて段階${B.starts.normal.facility}、所持金${B.starts.normal.money}G・評判${B.starts.normal.rep}から。` : `施設はすべて段階${B.starts.elite.facility}、所持金${B.starts.elite.money}G・評判${B.starts.elite.rep}から。素質のある志願者が集まる。`}</div>
+            <div class="muted small" style={{ marginTop: 4 }}>{start === 'poor' ? '施設はボロボロで、お金も評判もわずかです。名もない分校を、少しずつ立て直していきます。' : start === 'normal' ? `施設はすべて段階${B.starts.normal.facility}、所持金${B.starts.normal.money}G、評判${B.starts.normal.rep}から始まります。` : `施設はすべて段階${B.starts.elite.facility}、所持金${B.starts.elite.money}G、評判${B.starts.elite.rep}から始まります。素質のある子が集まります。`}</div>
           </div>
         )}
         <details class="card"><summary class="muted">テスト用の設定</summary>
@@ -138,7 +138,7 @@ function Opening({ slot, onCancel }: { slot: number; onCancel: () => void }) {
           {who && <div><b>{who}</b></div>}
           {text}
         </div>
-        <div class="muted" style={{ textAlign: 'center' }}>（タップで進む）</div>
+        <div class="muted" style={{ textAlign: 'center' }}>（タップすると進みます）</div>
         <div style={{ textAlign: 'center', marginTop: 20 }}><button class="btn ghost small" onClick={(e) => { e.stopPropagation(); setStep(lines.length); }}>読み飛ばす</button></div>
       </div></div>
     );
@@ -147,7 +147,7 @@ function Opening({ slot, onCancel }: { slot: number; onCancel: () => void }) {
   return (
     <div class="app"><div class="content">
       <h2>一期生との対面</h2>
-      <div class="card serif">講堂に集まったのは、たった{studs.length}人の生徒たち。緊張した顔で、新しい教官を見つめている。</div>
+      <div class="card serif">講堂に集まったのは、たった{studs.length}人の生徒たちでした。みんな緊張した顔で、新しい教官を見つめています。</div>
       <div class="card">
         {studs.map((st) => (
           <div class="stu"><Portrait st={st} size={56} game={game!} /><div class="grow"><b>{st.given}</b> <span class="muted">{st.family}</span><div class="muted small">{st.age}歳</div></div></div>

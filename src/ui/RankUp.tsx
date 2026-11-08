@@ -64,7 +64,7 @@ export function RankUpPlayer({ s, items, onDone, title = 'ランクアップ' }:
         {it.note && <div class="small muted">{it.note}</div>}
       </div>
       <div class="row between" style={{ marginTop: 10 }}>
-        <span class={`small ${waiting ? 'ru-next' : 'muted'}`}>{waiting ? 'タップで次へ ▼' : 'タップで早送り'}</span>
+        <span class={`small ${waiting ? 'ru-next' : 'muted'}`}>{waiting ? 'タップしてつづきへ ▼' : 'タップすると早送りします'}</span>
         <button class="btn small ghost" onClick={(e) => { e.stopPropagation(); seq.current?.cancel(); tap.current?.(); setAll(true); }}>スキップ</button>
       </div>
     </div>

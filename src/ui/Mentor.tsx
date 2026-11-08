@@ -4,7 +4,7 @@ import type { GameState } from '../core/state';
 import type { SkillId } from '../core/types';
 import type { VicePolicy } from '../core/state';
 import { act, navigate } from './store';
-import { Back } from './common';
+import { Back, HelpTip } from './common';
 import { Portrait } from './Portrait';
 import { TeacherFace } from './Talk';
 import { Num, countryColor } from './cards';
@@ -50,22 +50,22 @@ export function InstructorPage({ s }: { s: GameState }) {
           <div class="grow" style={{ minWidth: 0 }}>
             <div class="nameline"><b class="given" style={{ fontSize: 22 }}>{ins.name}</b><span class="family">教官</span></div>
             <div class="small">{BG_NAMES[ins.background] ?? ''}{me ? `（${me.cohort}期生）` : ''}・{ins.age}歳・在任{s.year - (ins.since ?? 1)}年</div>
-            <div class="small muted">教えた生徒 延べ{ins.experience}人・体力 {Math.round(teacherStamina(s))}／{teacherMax(s)}</div>
+            <div class="small muted">これまでに教えた子 {ins.experience}人・体力 {Math.round(teacherStamina(s))}／{teacherMax(s)}</div>
           </div>
           <span class="stamp">教官</span>
         </div>
         <div class="mt-xp">
-          <span class="small">経験ポイント</span>
+          <span class="small">先生の経験値</span>
           <b class="mt-xpnum">{xp.toLocaleString()}</b><span class="small muted">pt</span>
           <span class="grow" />
-          <span class="small muted">これまで {Math.floor(ins.xpTotal ?? 0).toLocaleString()}pt</span>
+          <span class="small muted">これまでの合計 {Math.floor(ins.xpTotal ?? 0).toLocaleString()}</span>
         </div>
-        <div class="small muted">授業のたびにたまります（顔の子が多い・友情タッグ・ランクアップやレベルアップした子がいると多め。休講はなし）。ポイントで先生の技能と特殊能力を上げます。</div>
+        <div class="small muted">経験値は授業のたびにたまります。たまった経験値で、先生の技能や心得を上げられます。<HelpTip text="顔の子が多いとき、友情タッグのとき、ランクやレベルが上がった子がいるときは、多めにたまります。休講の日はたまりません。" /></div>
       </div>
 
       <div class="ledger">
         <h3 class="ledger-title">技能の頁</h3>
-        <div class="small muted">先生の技能が高いほど、その授業でみんながよく伸びます。上限は得意科目（★）が S、それ以外が {B.instructor.capOther}{ins.background === 'wanderer' && !ins.studentId ? '（流れの旅人はすべて A）' : ''}。雇った講師・卒業生講師は、今までどおり教えるほど自動で上がります。</div>
+        <div class="small muted">先生の技能が高いほど、その授業でみんながよく伸びます。<HelpTip text={`★の得意科目はSまで、ほかは${B.instructor.capOther}まで上げられます。${ins.background === 'wanderer' && !ins.studentId ? '流れの旅人は、すべてAまでです。' : ''}雇った講師や卒業生の講師は、教えるうちに自然と上がります。`} /></div>
         {SKILLS.filter((k) => skillUnlocked(s, k)).map((k) => {
           const p = ins.skills[k] ?? 0;
           const c = skillCost(s, k, caps);
@@ -82,8 +82,8 @@ export function InstructorPage({ s }: { s: GameState }) {
       </div>
 
       <div class="ledger">
-        <h3 class="ledger-title">特殊能力の木 <span class="small muted">{learned.length}／{MENTOR_ABILITIES.length}</span></h3>
-        <div class="small muted">丸をタップすると説明が出ます。線でつながった能力は、上の能力を覚えてから。経歴によって安く覚えられる能力があります（値札が緑）。覚えるたびに、次の能力が少しずつ高くなります。</div>
+        <h3 class="ledger-title">心得の木 <span class="small muted">{learned.length}／{MENTOR_ABILITIES.length}</span></h3>
+        <div class="small muted">丸をタップすると、説明が出ます。線でつながったものは、上から順に覚えます。<HelpTip text="経歴によって、安く覚えられるものがあります。値札が緑のものです。覚えるたびに、次のものが少しずつ高くなります。" /></div>
         {(Object.keys(MENTOR_BRANCH_NAMES) as MentorBranch[]).map((br) => (
           <div class="mt-branch">
             <div class="mt-brname">{MENTOR_BRANCH_NAMES[br]}</div>
@@ -117,7 +117,7 @@ function Node({ s, a, on, onTap }: { s: GameState; a: MentorAbility; on: boolean
     <button class={`mt-node ${st}${on ? ' sel' : ''}`} onClick={onTap} aria-label={a.name}>
       <span class="mt-seal">{a.mark}</span>
       <span class="mt-name">{a.name}</span>
-      <span class={`mt-price${a.cheap?.[s.instructor.background] ? ' cheap' : ''}`}>{st === 'learned' ? '習得' : st === 'locked' ? '—' : `${abilityCost(s, a)}pt`}</span>
+      <span class={`mt-price${a.cheap?.[s.instructor.background] ? ' cheap' : ''}`}>{st === 'learned' ? '覚えた' : st === 'locked' ? '—' : `${abilityCost(s, a)}`}</span>
     </button>
   );
 }
@@ -128,11 +128,11 @@ function AbilityDetail({ s, a, onLearn }: { s: GameState; a: MentorAbility; onLe
   const pre = a.pre ? MENTOR_BY_ID[a.pre] : null;
   return (
     <div class="mt-detail">
-      <div class="row between nowrap"><b class="serif">{a.name}</b><span class="small muted">費用：{MENTOR_COST_NAMES[a.cost]}{a.cheap?.[s.instructor.background] ? '（経歴で安い）' : ''}</span></div>
+      <div class="row between nowrap"><b class="serif">{a.name}</b><span class="small muted">費用：{MENTOR_COST_NAMES[a.cost]}{a.cheap?.[s.instructor.background] ? '（経歴のおかげで安い）' : ''}</span></div>
       <div>{a.desc}</div>
-      {pre && <div class="small muted">先に「{pre.name}」を覚える</div>}
-      {st === 'learned' ? <div class="small" style={{ color: 'var(--gold)' }}>覚えている</div>
-        : <button class="btn primary block" style={{ marginTop: 6 }} disabled={st !== 'ready'} onClick={onLearn}>{st === 'locked' ? `「${pre?.name}」が先` : st === 'poor' ? `ポイントが足りない（${cost}pt）` : `覚える（${cost}pt）`}</button>}
+      {pre && <div class="small muted">先に「{pre.name}」を覚えてください</div>}
+      {st === 'learned' ? <div class="small" style={{ color: 'var(--gold)' }}>もう覚えています</div>
+        : <button class="btn primary block" style={{ marginTop: 6 }} disabled={st !== 'ready'} onClick={onLearn}>{st === 'locked' ? `「${pre?.name}」が先` : st === 'poor' ? `経験値が足りない（${cost}）` : `覚える（${cost}）`}</button>}
     </div>
   );
 }
@@ -144,11 +144,11 @@ function LearnFx({ s, fx, onDone }: { s: GameState; fx: Fx; onDone: () => void }
     <div class="levelup mt-fx" onClick={() => { sfx('ok'); onDone(); }}>
       <div class="mt-fxbox">
         <div class="small">{s.instructor.name}教官</div>
-        <div class="mt-fxtitle">{a ? '特殊能力を覚えた' : '技能が上がった'}</div>
+        <div class="mt-fxtitle">{a ? '心得を覚えました' : '技能が上がりました'}</div>
         {a ? <span class="mt-fxseal">{a.mark}</span> : <span class="mt-fxseal sk"><Icon name={skillIcon(fx.kind === 'skill' ? fx.k : 'sword')} size={38} /></span>}
         <div class="mt-fxname">{a ? `「${a.name}」` : fx.kind === 'skill' ? `${SKILL_NAMES[fx.k]}　${fx.from} → ${fx.to}` : ''}</div>
         {a && <div class="small">{a.desc}</div>}
-        <div class="ru-next" style={{ marginTop: 12 }}>タップで次へ ▼</div>
+        <div class="ru-next" style={{ marginTop: 12 }}>タップしてつづきへ ▼</div>
       </div>
     </div>
   );
@@ -159,7 +159,7 @@ function ViceCard({ s }: { s: GameState }) {
   return (
     <div class="ledger">
       <h3 class="ledger-title">副教官（学年の担任）</h3>
-      <div class="muted small">学校に残った卒業生の講師（講師になって{B.vice.minYears}年以上）を、1学年の担任にできます。担任は方針に沿って、担当学年の目標技能を自動で決めます（担任のいる学年は少しよく伸びる）。戦闘の指揮は任せません。</div>
+      <div class="muted small">卒業生の講師を、学年の担任にできます。担任のいる学年は、少しよく伸びます。<HelpTip text={`講師になって${B.vice.minYears}年たった卒業生が、担任になれます。担任は方針に合わせて、その学年の目標の技能を決めます。戦いの指揮はしません。`} /></div>
       {[1, 2, 3].map((g) => {
         const v = viceOf(s, g);
         return (
@@ -173,7 +173,7 @@ function ViceCard({ s }: { s: GameState }) {
             ) : (
               <div class="row" style={{ marginTop: 4 }}>
                 {elig.filter((t) => !(s.vice ?? []).some((x) => x.teacherId === t.id)).map((t) => <button class="btn small" onClick={() => { sfx('ok'); act((x) => setVice(x, t.id, g, 'balance')); }}>{t.name}に任せる</button>)}
-                {!elig.filter((t) => !(s.vice ?? []).some((x) => x.teacherId === t.id)).length && <span class="muted small">任せられる講師がいません（卒業生が「学校に残る」と講師になり、1年たつと担任にできます）</span>}
+                {!elig.filter((t) => !(s.vice ?? []).some((x) => x.teacherId === t.id)).length && <span class="muted small">任せられる講師がいません。卒業生が「学校に残る」と講師になり、1年たつと担任にできます</span>}
               </div>
             )}
           </div>
@@ -189,7 +189,7 @@ function PastCard({ s }: { s: GameState }) {
   return (
     <div class="ledger">
       <h3 class="ledger-title">歴代の教官</h3>
-      {(s.pastInstructors ?? []).map((p) => <div class="row between small ruled"><span>{kanjiNum(p.generation)}代目 <b>{p.name}</b>（{BG_NAMES[p.background] ?? ''}）</span><span class="muted">{p.from}〜{p.to}年目・延べ{p.taught}人</span></div>)}
+      {(s.pastInstructors ?? []).map((p) => <div class="row between small ruled"><span>{kanjiNum(p.generation)}代目 <b>{p.name}</b>（{BG_NAMES[p.background] ?? ''}）</span><span class="muted">{p.from}〜{p.to}年目・教えた子{p.taught}人</span></div>)}
       <div class="row between small ruled"><span>{kanjiNum(ins.generation)}代目 <b>{ins.name}</b>（在任中）</span><span class="muted">{ins.since ?? 1}年目〜</span></div>
     </div>
   );

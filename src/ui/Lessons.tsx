@@ -13,7 +13,7 @@ import { enrolled } from '../core/game';
 import { rankOf, nextRankPoints } from '../core/util';
 import { act, navigate } from './store';
 import { Portrait } from './Portrait';
-import { Back } from './common';
+import { Back, HelpTip } from './common';
 import { sfx } from './sound';
 import { Icon } from './icons';
 import { countryColor } from './cards';
@@ -46,7 +46,7 @@ export function TeacherStamina({ s }: { s: GameState }) {
       <span class="small"><b>先生の体力</b></span>
       <span class="ggauge grow"><span style={{ width: `${(v / m) * 100}%` }} /></span>
       <b class="small">{v}/{m}</b>
-      {teacherSick(s) ? <span class="small red">寝込んでいる（あと{s.instructor.sickDays}日）</span> : low ? <span class="small red">低いと授業の効果が落ちる</span> : null}
+      {teacherSick(s) ? <span class="small red">寝込んでいます（あと{s.instructor.sickDays}日）</span> : low ? <span class="small red">疲れていると、授業の伸びが落ちます</span> : null}
     </div>
   );
 }
@@ -75,15 +75,15 @@ export function LessonBoard({ s }: { s: GameState }) {
     <div class="lessonboard">
       <div class="lb-sheet">
       <div class="row between nowrap">
-        <h2 class="serif" style={{ margin: '2px 0 0' }}>本日の授業 <small class="muted">一つを選び、命ず</small></h2>
+        <h2 class="serif" style={{ margin: '2px 0 0' }}>今日の授業 <small class="muted">1つ選んでください</small></h2>
         <span class="row nowrap gap4"><span class="lb-day">{DAY_NAMES[(s.day ?? 1) - 1]}曜日{day.rain ? '・雨' : ''}</span><button class={`lb-help${help ? ' on' : ''}`} aria-label="説明" onClick={() => { sfx('move'); setHelp(!help); }}>？</button></span>
       </div>
-      {help && <div class="muted small">1つ選ぶ。全員が伸びて、顔が出ている子は特に伸びる。授業は先生の体力を使い、休講で回復する。<span class="fmark t inline">目</span> の子は自分の目標技能の授業でさらに伸びる。顔が2人以上（仲の良い組・恋人・ライバル）重なると友情タッグ✦</div>}
+      {help && <div class="muted small">授業を1つ選んでください。みんな伸びますが、顔が見えている子はとくによく伸びます。<span class="fmark t inline">目</span> の印の子は、今月の目標の授業なので、さらに伸びます。仲のよい子が2人そろうと、友情タッグ✦です。授業をすると先生は疲れるので、ときどき休講にしましょう。</div>}
       <div class="lb-mini">
         <span class="lb-st"><span class="small">体力</span><span class={`ggauge grow${teacherStamina(s) < B.teacher.lowAt ? ' low' : ''}`}><span style={{ width: `${(teacherStamina(s) / teacherMax(s)) * 100}%` }} /></span><b class="small">{Math.round(teacherStamina(s))}</b></span>
-        <button class="lb-target" onClick={() => { sfx('move'); navigate({ tab: 'school', page: 'targets' }); }}><span class="fmark t inline">目</span> 今月の目標技能 ›</button>
+        <button class="lb-target" onClick={() => { sfx('move'); navigate({ tab: 'school', page: 'targets' }); }}><span class="fmark t inline">目</span> 今月の目標を見る ›</button>
       </div>
-      {teacherSick(s) && <div class="guide">{s.instructor.name}先生が寝込んでいます。今日は自動で休講になります（あと{s.instructor.sickDays}日）。</div>}
+      {teacherSick(s) && <div class="guide">{s.instructor.name}先生が寝込んでいます。今日の授業はお休みです。あと{s.instructor.sickDays}日で起きられます。</div>}
       </div>
       <div class="lcards">
         {day.cards.map((c, i) => <LessonCardView s={s} c={c} on={sel === i} rec={i === rec} onPick={() => { sfx('move'); setSel(sel === i ? null : i); setWho(null); }} onFace={(id) => setWho(who === id ? null : id)} />)}
@@ -92,23 +92,23 @@ export function LessonBoard({ s }: { s: GameState }) {
         <div class="whobox" onClick={() => setWho(null)}>
           <Portrait st={whoSt} size={36} frame={countryColor(whoSt.origin)} />
           <div class="grow small"><b>{whoSt.given}</b>（{whoSt.grade}年・{PERSONALITIES[whoSt.personality].name}）目標：{SKILL_NAMES[whoSt.targets[0]]} {rankOf(whoSt.skills[whoSt.targets[0]])}・やる気{B.motivationLabel[whoSt.motivation]}</div>
-          <button class="btn ghost small" onClick={(e) => { e.stopPropagation(); navigate({ tab: 'students', page: 'detail', id: whoSt.id }); }}>個人ページ</button>
+          <button class="btn ghost small" onClick={(e) => { e.stopPropagation(); navigate({ tab: 'students', page: 'detail', id: whoSt.id }); }}>くわしく見る</button>
         </div>
       )}
-      <div class="muted small lb-notes" style={{ marginTop: 4 }}>・顔が出る子は毎日変わります（得意な技能・夢・性格に合う授業に出やすい）<br />・顔が2人以上（仲の良い組・恋人・ライバル）重なると友情タッグ✦</div>
+      <div class="muted small lb-notes" style={{ marginTop: 4 }}>・顔が見えている子は、毎日変わります。得意な技能や夢、性格に合う授業に出てきやすいです。<br />・仲のよい子や恋人、ライバルが2人そろうと、友情タッグ✦になります。</div>
       <div style={{ height: 64 }} />
       <div class="lessonbar">
         {teacherSick(s) ? (
-          <button class="btn primary block" onClick={() => { sfx('ok'); act((g) => chooseLesson(g, 0)); }}>今日は休講（先生が寝込んでいる）</button>
+          <button class="btn primary block" onClick={() => { sfx('ok'); act((g) => chooseLesson(g, 0)); }}>今日は休む（先生が寝込み中）</button>
         ) : card && l ? (
           talkFaces.length > 1 ? (
             <div class="row nowrap gap6" style={{ width: '100%' }}>
-              <span class="small">誰と話す？</span>
+              <span class="small">誰と話しますか？</span>
               {talkFaces.map((st) => <button class="btn primary small grow" onClick={() => go(st.id)}>{st.given}{card.consult?.includes(st.id) ? '（相談）' : ''}</button>)}
             </div>
           ) : <button class="btn primary block" onClick={() => go()}>「{l.name}」にする <Icon name="next" size={18} /></button>
         ) : (
-          <button class="btn ghost block omakase" onClick={() => { sfx('ok'); act((g) => weekAuto(g)); }}>今週はおまかせ（{DAY_NAMES[(s.day ?? 1) - 1]}〜金を先生のおすすめで）</button>
+          <button class="btn ghost block omakase" onClick={() => { sfx('ok'); act((g) => weekAuto(g)); }}>今週はおまかせ（{DAY_NAMES[(s.day ?? 1) - 1]}〜金曜をおすすめで）</button>
         )}
       </div>
     </div>
@@ -144,7 +144,7 @@ function LessonCardView({ s, c, on, rec, onPick, onFace }: { s: GameState; c: Le
         </div>
       )}
       {c.tags.length > 0 && <div class="lc-tag">✦ 友情タッグ {c.tags.map(([a, b]) => `${s.students[a]?.given}×${s.students[b]?.given}`).join('・')}</div>}
-      {l.special === 'rest' ? <div class="small muted">先生の体力 {Math.round(teacherStamina(s))}/{teacherMax(s)}</div> : l.note ? <div class="small muted">{l.note}</div> : teacher ? <div class="small muted">担当：{teacher}</div> : null}
+      {l.special === 'rest' ? <div class="small muted">先生の体力 いま{Math.round(teacherStamina(s))}/{teacherMax(s)}</div> : l.note ? <div class="small muted">{l.note}</div> : teacher ? <div class="small muted">担当：{teacher}</div> : null}
       {rec && !on && <span class="lc-rec">おすすめ</span>}
     </div>
   );
@@ -191,9 +191,9 @@ function LessonRows({ s, p, onNext, label }: { s: GameState; p: ResultP; onNext:
         <div class="grow"><div class="small muted">{DAY_NAMES[p.day - 1]}曜日の授業</div><b class="serif" style={{ fontSize: 20 }}>{l?.name}</b></div>
         {p.tags.length > 0 && <span class="lc-tag">✦ 友情タッグ</span>}
       </div>
-      {(p.xp ?? 0) > 0 && <div class="lr-xp" onClick={() => undefined}><Icon name="scroll" size={15} /> 教官の経験 <b>+{p.xp}pt</b><span class="muted small">（いま {Math.floor(s.instructor.xp ?? 0)}pt）</span></div>}
+      {(p.xp ?? 0) > 0 && <div class="lr-xp" onClick={() => undefined}><Icon name="scroll" size={15} /> 先生の経験値 <b>+{p.xp}</b><span class="muted small">（いま {Math.floor(s.instructor.xp ?? 0)}）</span></div>}
       {rows.map((r) => <ResultRow s={s} r={r} go={go} dur={dur} />)}
-      {p.others > 0 && l?.group !== 'rest' && <div class="muted small" style={{ margin: '4px 2px' }}>ほかの{p.others}人も少しずつ伸びた</div>}
+      {p.others > 0 && l?.group !== 'rest' && <div class="muted small" style={{ margin: '4px 2px' }}>ほかの{p.others}人も、少しずつ伸びました</div>}
       {p.lines.length > 0 && <ul class="list sumlist small">{p.lines.slice(0, 10).map((x) => <li>{x}</li>)}</ul>}
       <button class="btn primary block" style={{ marginTop: 8 }} onClick={() => { sfx('ok'); onNext(); }}>{label}</button>
     </div>
@@ -241,7 +241,7 @@ function PracticeEvent({ s, e, onNext }: { s: GameState; e: LessonEvent; onNext:
       <div class="small muted">練習のようす</div>
       <div class="row gap6" style={{ justifyContent: 'center', margin: '8px 0' }}>{faces.map((x) => <Portrait st={x} size={64} frame={countryColor(x.origin)} />)}</div>
       {st ? <div class="talk"><div class="line"><Portrait st={st} size={40} /><div class="bubble"><b class="small">{st.given}</b><div>{line.text}</div></div></div></div> : <div class="paper">{line.text}</div>}
-      <div class="small muted" style={{ textAlign: 'center', marginTop: 6 }}>タップで次へ ▼</div>
+      <div class="small muted" style={{ textAlign: 'center', marginTop: 6 }}>タップしてつづきへ ▼</div>
     </div>
   );
 }
@@ -254,7 +254,7 @@ export function TargetsPage({ s }: { s: GameState }) {
     <div>
       <Back to={() => navigate({ tab: 'school' })} />
       <h2>今月の目標技能</h2>
-      <div class="muted small">生徒ごとに、今月いちばん伸ばしたい技能（目標）と2番目を決めます。目標の授業ではその子がさらに3割伸びやすく、カードの顔に「目」の印が出ます。「自動」の子は毎月の初めに決まります（担任のいる学年は担任の方針で）。</div>
+      <div class="muted small">生徒ごとに、今月いちばん伸ばしたい技能を2つ決めます。目標の授業では、その子がいつもよりよく伸びます。授業のカードの顔には「目」の印が出ます。<HelpTip text="1つ目の目標は伸びが1.3倍です。「自動」の子は、毎月の初めに決まります。担任のいる学年は、担任の方針で決まります。" /></div>
       {grades.map((g) => {
         const v = viceOf(s, g);
         return (

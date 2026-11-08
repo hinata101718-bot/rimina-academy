@@ -146,10 +146,10 @@ export function GrowthPlayer({ s, entries, onDone, title }: { s: GameState; entr
           <button class="btn ghost" onClick={(ev) => { ev.stopPropagation(); seq.current?.cancel(); onDone(); }}>スキップ</button>
         </>}
       </div>
-      <div class={`small ${waiting ? 'ru-next' : 'muted'}`} style={{ textAlign: 'center' }}>{done ? '' : waiting ? 'タップで次へ ▼' : '画面をタップで早送り'}</div>
+      <div class={`small ${waiting ? 'ru-next' : 'muted'}`} style={{ textAlign: 'center' }}>{done ? '' : waiting ? 'タップしてつづきへ ▼' : 'タップすると早送りします'}</div>
       {lvShow && <LevelUp show={lvShow} waiting={waiting} />}
-      {learn && <div class="learn"><div><div class="small muted">新しい魔法</div><b>{st.given}は {WEAPONS[learn]?.name} を覚えた！</b><div class="small">{WEAPONS[learn]?.desc}</div>{waiting && <div class="small ru-next">タップで次へ ▼</div>}</div></div>}
-      {trainUp && <div class="learn train"><div><div class="small muted">鍛錬の成果</div><Portrait st={st} size={56} /><b>{st.given}の{[...new Set(trainUp)].map((k) => `${STAT_NAMES[k]}+${trainUp.filter((x) => x === k).length}`).join('・')}！</b><div class="small">授業でためた鍛錬ゲージが満タンになった</div>{waiting && <div class="small ru-next">タップで次へ ▼</div>}</div></div>}
+      {learn && <div class="learn"><div><div class="small muted">新しい魔法</div><b>{st.given}は {WEAPONS[learn]?.name} を覚えました！</b><div class="small">{WEAPONS[learn]?.desc}</div>{waiting && <div class="small ru-next">タップしてつづきへ ▼</div>}</div></div>}
+      {trainUp && <div class="learn train"><div><div class="small muted">鍛錬の成果</div><Portrait st={st} size={56} /><b>{st.given}の{[...new Set(trainUp)].map((k) => `${STAT_NAMES[k]}+${trainUp.filter((x) => x === k).length}`).join('・')}！</b><div class="small">授業でためた鍛錬ゲージが、いっぱいになりました</div>{waiting && <div class="small ru-next">タップしてつづきへ ▼</div>}</div></div>}
     </div>
   );
 }
@@ -171,7 +171,7 @@ function LevelUp({ show, waiting }: { show: LevelShow; waiting?: boolean }) {
             return <div class={`lvstat${on ? ' on' : ''}`}><span>{STAT_NAMES[k]}</span><b>{v}</b><i>{on ? `+${show.gains[k]}` : ''}</i></div>;
           })}
         </div>
-        {waiting && <div class="small ru-next" style={{ textAlign: 'center' }}>タップで次へ ▼</div>}
+        {waiting && <div class="small ru-next" style={{ textAlign: 'center' }}>タップしてつづきへ ▼</div>}
       </div>
     </div>
   );
@@ -190,9 +190,9 @@ export function GrowthList({ s, entries, onDone }: { s: GameState; entries: Grow
           <div class="card small">
             <div class="row"><Portrait st={st} size={32} /><b>{st.given}</b>{e.why && <span class="tag">{e.why}</span>}
               {e.lv1 > e.lv0 && <span class="tag red">Lv{e.lv0}→{e.lv1}</span>}</div>
-            {e.lv1 > e.lv0 && <div>{STATS.filter((k) => gains[k]).map((k) => `${STAT_NAMES[k]}+${gains[k]}`).join(' ') || '能力の変化なし'}</div>}
+            {e.lv1 > e.lv0 && <div>{STATS.filter((k) => gains[k]).map((k) => `${STAT_NAMES[k]}+${gains[k]}`).join(' ') || '能力は変わりませんでした'}</div>}
             {e.skills.length > 0 && <div>{e.skills.map((x) => `${SKILL_NAMES[x.k]}${rankOf(x.p0) !== rankOf(x.p1) ? ` ${rankOf(x.p0)}→${rankOf(x.p1)}` : ` +${Math.round(x.p1 - x.p0)}`}`).join('・')}</div>}
-            {e.spells.length > 0 && <div><b>{e.spells.map((id) => WEAPONS[id]?.name).join('・')}</b> を覚えた</div>}
+            {e.spells.length > 0 && <div><b>{e.spells.map((id) => WEAPONS[id]?.name).join('・')}</b> を覚えました</div>}
             {(e.train ?? []).length > 0 && <div>鍛錬：{[...new Set(e.train)].map((k) => `${STAT_NAMES[k]}+${e.train!.filter((x) => x === k).length}`).join(' ')}</div>}
           </div>
         );

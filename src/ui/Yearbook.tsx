@@ -60,8 +60,8 @@ function Roster({ s }: { s: GameState }) {
       <div class="muted small">{list.length}人</div>
       <div>
         {list.slice(0, limit).map((x) => <MiniCard st={x} sub={sub(x)} dim={x.status === 'dead' || (!!x.career && !x.career.alive)} right={x.status === 'dead' || (x.career && !x.career.alive) ? <Icon name="skull" size={18} /> : x.career?.country ? <CountryChip o={x.career.country} /> : undefined} />)}
-        {list.length > limit && <button class="btn block" onClick={() => setLimit(limit + 40)}>もっと見る（あと{list.length - limit}人）</button>}
-        {!list.length && <div class="empty-note">まだ卒業生はいません。3月の卒業式で巣立った生徒がここに載ります。</div>}
+        {list.length > limit && <button class="btn block" onClick={() => setLimit(limit + 40)}>あと{list.length - limit}人を見る</button>}
+        {!list.length && <div class="empty-note">まだ卒業生はいません。3月の卒業式で巣立った子が、ここに載ります。</div>}
       </div>
     </div>
   );
@@ -114,13 +114,13 @@ function Records({ s }: { s: GameState }) {
         <tr><td>卒業生の数</td><td>{s.stats.graduates}人</td></tr>
         <tr><td>在学中の戦死</td><td>{s.stats.deaths}人</td></tr>
         <tr><td>戦闘の勝敗</td><td>{s.stats.battlesWon}勝 {s.stats.battlesLost}敗</td></tr>
-        {kills && kills.kills > 0 && <tr><td>最多撃破（在学中）</td><td>{kills.given}（{kills.kills}）</td></tr>}
+        {kills && kills.kills > 0 && <tr><td>いちばん多く敵を倒した子（在学中）</td><td>{kills.given}（{kills.kills}）</td></tr>}
         {lv && <tr><td>最高レベル</td><td>{lv.given}（Lv{lv.level}）</td></tr>}
         {topCountry && <tr><td>最も多く送り出した国</td><td>{COUNTRY_SHORT[topCountry[0] as 'kingdom']}（{topCountry[1]}人）</td></tr>}
         <tr><td>最初の元帥</td><td>{marshal ? marshal.given : '—'}</td></tr>
         <tr><td>最初の宰相</td><td>{chancellor ? chancellor.given : '—'}</td></tr>
-        <tr><td>教官</td><td>{s.instructor.generation}代目 {s.instructor.name}（{s.instructor.age}歳・教えた生徒 延べ{s.instructor.experience}人）</td></tr>
-        {(s.pastInstructors ?? []).map((p) => <tr><td>歴代の教官（{p.generation}代目）</td><td>{p.name}（{p.from}〜{p.to}年目・延べ{p.taught}人）</td></tr>)}
+        <tr><td>教官</td><td>{s.instructor.generation}代目 {s.instructor.name}（{s.instructor.age}歳・これまでに教えた子 {s.instructor.experience}人）</td></tr>
+        {(s.pastInstructors ?? []).map((p) => <tr><td>歴代の教官（{p.generation}代目）</td><td>{p.name}（{p.from}〜{p.to}年目・教えた子 {p.taught}人）</td></tr>)}
       </tbody></table>
       <Nemeses s={s} />
     </div>
@@ -133,7 +133,7 @@ function Nemeses({ s }: { s: GameState }) {
   return (
     <>
       <h3>因縁の敵将</h3>
-      {!list.length && <div class="muted small">まだいません。戦場で会った敵将は「戦況」の「敵将の名簿」に記録されます。</div>}
+      {!list.length && <div class="muted small">まだいません。戦場で会った敵将は、「戦況」の「敵将の名簿」で見られます。</div>}
       {list.map((o) => (
         <div class="row nowrap gap6 ruled">
           <OfficerFace o={o} size={36} s={s} />
@@ -148,7 +148,7 @@ function Nemeses({ s }: { s: GameState }) {
 
 function News({ s }: { s: GameState }) {
   const [open, setOpen] = useState<string | null>(s.news[0]?.id ?? null);
-  if (!s.news.length) return <div class="empty-note">新聞はまだ発行されていません（年度末と大事件の月に届きます）</div>;
+  if (!s.news.length) return <div class="empty-note">新聞はまだ出ていません。年度末と、大事件があった月に届きます</div>;
   return (
     <div>
       {s.news.map((n) => (
@@ -181,7 +181,7 @@ function Hall({ s }: { s: GameState }) {
       <div class="card">
         <h3>到達したエンディング</h3>
         <div class="row gap6">{(Object.keys(ENDING_NAMES) as EndingKind[]).map((k) => <span class={`chip-o ${reached.has(k) ? 'main' : 'gray'}`}>{reached.has(k) ? ENDING_NAMES[k] : '？？？'}</span>)}</div>
-        <div class="muted small" style={{ marginTop: 4 }}>エンディングのあと「新しい学校で始める」を選ぶと、その学校の年鑑がここに保存されます（セーブ枠とは別に保存）。</div>
+        <div class="muted small" style={{ marginTop: 4 }}>エンディングのあとで「新しい学校で始める」を選ぶと、その学校の年鑑がここにしまわれます。セーブ枠とは別に残ります。</div>
       </div>
       {list === null && <div class="empty-note">読み込み中……</div>}
       {list && !list.length && <div class="empty-note">まだ殿堂に入った学校はありません</div>}
@@ -205,7 +205,7 @@ function Hall({ s }: { s: GameState }) {
               ))}</tbody>
             </table>
           </div>
-          <div class="muted small">表は横に動かせます。</div>
+          <div class="muted small">表は、横にずらすと続きが見られます。</div>
         </div>
       )}
     </div>
@@ -242,7 +242,7 @@ function HallPage({ h, onBack }: { h: HallEntry; onBack: () => void }) {
             <div class="photo big">
               {seats.map((g) => <div class="seat"><HallFace g={g} size={72} />{g.dead && <div class="deadmark">✝</div>}<div>{g.given}</div></div>)}
             </div>
-            <div class="muted small" style={{ marginTop: 4 }}>{seats.length}人が巣立った（✝は戦場で倒れた者）</div>
+            <div class="muted small" style={{ marginTop: 4 }}>{seats.length}人が巣立ちました（✝は戦場で倒れた子です）</div>
           </>
         ) : <div class="muted small">卒業写真はありません</div>}
       </div>
@@ -252,14 +252,14 @@ function HallPage({ h, onBack }: { h: HallEntry; onBack: () => void }) {
           <tr><td>卒業生の数</td><td>{gradCount}人</td></tr>
           <tr><td>在学中の戦死</td><td>{h.stats.deaths}人</td></tr>
           <tr><td>戦闘の勝敗</td><td>{h.stats.battlesWon}勝 {h.stats.battlesLost}敗</td></tr>
-          <tr><td>最多撃破（在学中）</td><td>{rec.topKills ? `${rec.topKills.name}（${rec.topKills.n}）` : '—'}</td></tr>
+          <tr><td>いちばん多く敵を倒した子（在学中）</td><td>{rec.topKills ? `${rec.topKills.name}（${rec.topKills.n}）` : '—'}</td></tr>
           <tr><td>最高レベル</td><td>{rec.topLevel ? `${rec.topLevel.name}（Lv${rec.topLevel.n}）` : '—'}</td></tr>
           <tr><td>最高位</td><td>{rec.topRank ? `${rec.topRank.name}（${rec.topRank.title}）` : '—'}</td></tr>
           <tr><td>最初の元帥</td><td>{rec.firstMarshal ?? '—'}</td></tr>
           <tr><td>最初の宰相</td><td>{rec.firstChancellor ?? '—'}</td></tr>
           {COUNTRIES.some((c) => rec.sent[c]) && <tr><td>三国へ送り出した数</td><td>{COUNTRIES.map((c) => `${COUNTRY_SHORT[c]}${rec.sent[c] ?? 0}`).join('・')}</td></tr>}
         </tbody></table>
-        {!h.v && <div class="muted small">古い殿堂のため、撃破数・最高位など一部の記録は残っていません。</div>}
+        {!h.v && <div class="muted small">古い殿堂なので、倒した数や最高位など、一部の記録は残っていません。</div>}
       </div>
       <div class="card">
         <h3>歴代の教官</h3>

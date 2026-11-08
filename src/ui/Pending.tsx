@@ -3,7 +3,7 @@ import { officerById, officerName } from '../core/officers';
 import { FACTION_COLOR } from '../data/officers';
 import { OfficerFace } from './Portrait';
 import { useStore, act, navigate } from './store';
-import { Sheet, StuRow, money } from './common';
+import { Sheet, StuRow, money, HelpTip } from './common';
 import { Portrait, faceImageFor } from './Portrait';
 import { GrowthPlayer } from './Growth';
 import { ScenePlayer } from './Scene';
@@ -72,11 +72,11 @@ export function PendingView() {
     case 'vassalOffer': return (
       <Sheet title="傘下への誘い">
         <div class="serif">{COUNTRY_NAMES[p.country]}の使者が来た。「貴校と我が国の縁は深い。我が国の傘下に入れば、十分な援助を約束しよう」</div>
-        <ul class="small" style={{ paddingLeft: '1.2em' }}><li>受けると：{COUNTRY_SHORT[p.country]}からの援助金が増え、志願者に{COUNTRY_SHORT[p.country]}の出身が増える。ほかの二国との友好度が下がり、ほかの国からの声かけが減る。学校の中立宣言・和平の円卓は、独立するまで届かない</li><li>断ると：今までどおり、どの国にも属さない学校のまま</li><li>傘下に入っても、評判{B.school.independenceRep}で年度末に独立を取り戻せる</li></ul>
+        <ul class="small" style={{ paddingLeft: '1.2em' }}><li>受けると：{COUNTRY_SHORT[p.country]}からの援助金が増え、{COUNTRY_SHORT[p.country]}出身の志願者も増えます。そのかわり、ほかの二国とは仲が悪くなり、声もかかりにくくなります。中立宣言と和平の円卓は、独立するまで届きません</li><li>断ると：今までどおり、どの国にも属さない学校のままです</li><li>傘下に入っても、評判が{B.school.independenceRep}になれば、年度末に独立を取り戻せます</li></ul>
         <div class="row nowrap gap8"><button class="btn block grow" onClick={() => { sfx('ok'); act((g) => acceptVassal(g, p.country)); }}>誘いを受ける</button><button class="btn primary block grow" onClick={done}>丁重に断る</button></div>
       </Sheet>
     );
-    case 'newspaper': return <Sheet title={s.news.find((n) => n.id === p.id)?.kind === 'extra' ? '号外が出た' : '新聞が届いた'}><NewsView id={p.id} /><button class="btn primary block" style={{ marginTop: 10 }} onClick={done}>閉じる</button></Sheet>;
+    case 'newspaper': return <Sheet title={s.news.find((n) => n.id === p.id)?.kind === 'extra' ? '号外が出ました' : '新聞が届きました'}><NewsView id={p.id} /><button class="btn primary block" style={{ marginTop: 10 }} onClick={done}>閉じる</button></Sheet>;
     default: return <Sheet title="お知らせ"><button class="btn primary block" onClick={done}>閉じる</button></Sheet>;
   }
 }
@@ -106,7 +106,7 @@ function WeekSummary({ lines, talks, growth, onDone }: { lines: string[]; talks:
   const [g, setG] = useState(growth?.length ? 0 : 1);
   const [i, setI] = useState(-1);
   if (!s) return null;
-  if (g === 0) return <Sheet title="今週の成長"><GrowthPlayer s={s} entries={growth ?? []} title="伸びた生徒" onDone={() => setG(1)} /></Sheet>;
+  if (g === 0) return <Sheet title="今週の成長"><GrowthPlayer s={s} entries={growth ?? []} title="伸びた子" onDone={() => setG(1)} /></Sheet>;
   if (i >= 0 && i < talks.length) {
     const t = talks[i];
     return <Sheet title={`${t.kind === 'support' || !t.kind ? '支援会話' : t.kind === 'special' ? '特別な面談' : '面談'}（${i + 1}／${talks.length}）`}><TalkPlayer key={i} s={s} t={t} onDone={() => setI(i + 1)} onChoice={(k) => act((g) => chooseReply(g, t, k))} /></Sheet>;
@@ -115,7 +115,7 @@ function WeekSummary({ lines, talks, growth, onDone }: { lines: string[]; talks:
     <Sheet title="今週のまとめ">
       <div class="pcard"><ul class="list sumlist">{lines.map((l) => <li><span class="todoicon"><Icon name={lineIcon(l)} size={16} /></span><span>{l}</span></li>)}</ul></div>
       {talks.length > 0 && i < 0 && <button class="btn accent block" style={{ marginTop: 8 }} onClick={() => setI(0)}>会話を見る（{talkCountLabel(talks)}）</button>}
-      {talks.length > 0 && i >= talks.length && <div class="muted small" style={{ marginTop: 6 }}>会話は生徒の個人ページの「会話の記録」で読み返せます。</div>}
+      {talks.length > 0 && i >= talks.length && <div class="muted small" style={{ marginTop: 6 }}>会話は、その子の個人ページの「会話の記録」で読み返せます。</div>}
       <button class="btn primary block" style={{ marginTop: 8 }} onClick={() => { sfx('ok'); onDone(); }}>閉じる</button>
     </Sheet>
   );
@@ -153,9 +153,9 @@ function Entrance({ s }: { s: GameState }) {
   return (
     <Sheet title={`${s.year}年目 入学試験`}>
       <ArtSlot name="event_entrance" />
-      <div class="muted">志願者{s.applicants.length}人。定員{cap}人まで合格にできます（選択中 {sel.length}人）。</div>
+      <div class="muted">志願者は{s.applicants.length}人です。{cap}人まで合格にできます（いま{sel.length}人を選んでいます）。</div>
       {s.applicants.map((a) => <ApplicantCard st={a} on={sel.includes(a.id)} toggle={() => setSel(sel.includes(a.id) ? sel.filter((x) => x !== a.id) : sel.length < cap ? [...sel, a.id] : sel)} />)}
-      <button class="btn primary block" disabled={!sel.length} onClick={() => { sfx('graduation'); act((g) => admit(g, sel)); }}>この{sel.length}人を合格にする（入学式へ）</button>
+      <button class="btn primary block" disabled={!sel.length} onClick={() => { sfx('graduation'); act((g) => admit(g, sel)); }}>この{sel.length}人を合格にする</button>
     </Sheet>
   );
 }
@@ -165,12 +165,12 @@ function Career({ s }: { s: GameState }) {
   const [plans, setPlans] = useState(() => third.map((st) => ({ studentId: st.id, recommend: autoRecommend(s, st), path: suitablePath(st) })));
   return (
     <Sheet title="進路の決定">
-      <div class="muted small">各国からの声かけ・本人の希望・教官の推薦の三つで決まります。推薦と希望が同じなら、やる気満々で巣立ちます。違うと、信頼が高いほど推薦を受け入れます（少し不満が残ります）。</div>
+      <div class="muted small">推薦と本人の希望が同じなら、やる気いっぱいで巣立っていきます。<HelpTip text="進路は、各国からの声かけ、本人の希望、先生の推薦の3つで決まります。推薦と希望がちがうときは、先生への信頼が高い子ほど推薦を受け入れます。そのときは、少し不満が残ります。" /></div>
       {third.map((st, i) => {
         const h = hopes(s, st).filter((x) => availableChoices(st).includes(x));
         return (
           <div class="card">
-            <StuRow st={st} onClick={() => undefined} sub={`信頼${Math.round(st.trust)}・推薦を受け入れる確率${Math.round(acceptRate(st, s))}%`} />
+            <StuRow st={st} onClick={() => undefined} sub={`信頼${Math.round(st.trust)}　推薦を聞いてくれる見込み${Math.round(acceptRate(st, s))}%`} />
             <div class="small">声かけ：{st.offers.length ? st.offers.map((c) => COUNTRY_SHORT[c]).join('・') : 'なし'}</div>
             <div class="small">本人の希望：{h.slice(0, 3).map((x) => CHOICE_NAMES[x]).join(' ＞ ')}</div>
             <div class="row">推薦：
@@ -212,7 +212,7 @@ function Graduation({ s, cohort, lines, onDone }: { s: GameState; cohort: number
         {photo.ids.map((id) => s.students[id]).filter(Boolean).map((st) => <div class="seat"><Portrait st={st} size={52} /><div>{st.given}</div></div>)}
         {photo.empty.map((id) => s.students[id]).filter(Boolean).map((st) => <div class="seat"><div class="empty" /><div class="muted">{st.given}</div></div>)}
       </div>}
-      <div class="muted small">写真は「年鑑」に保存されました。</div>
+      <div class="muted small">写真は「年鑑」にしまいました。いつでも見返せます。</div>
       <button class="btn primary block" onClick={() => { sfx('ok'); onDone(); navigate({ tab: 'school' }); }}>閉じる</button>
     </Sheet>
   );
@@ -225,15 +225,15 @@ function Retire({ s, forced }: { s: GameState; forced: boolean }) {
   const ins = s.instructor;
   return (
     <Sheet title={forced ? '引退のとき' : '引退を考える'}>
-      <div class="pcard row nowrap gap8"><TeacherFace s={s} size={72} /><div class="grow"><span class="ptitle">{ins.name}</span>（{ins.generation}代目教官）<div class="small">{ins.age}歳・{s.year - (ins.since ?? 1)}年間・教えた生徒 延べ{ins.experience}人</div></div></div>
+      <div class="pcard row nowrap gap8"><TeacherFace s={s} size={72} /><div class="grow"><span class="ptitle">{ins.name}</span>（{ins.generation}代目教官）<div class="small">{ins.age}歳・{s.year - (ins.since ?? 1)}年間・これまでに教えた子 {ins.experience}人</div></div></div>
       <div class="paper">
         {forced
-          ? <p>{ins.name}先生は{ins.age}歳になった。長いあいだ教壇に立ってきたが、ついに引退のときが来た。後継の教官を選ぼう。</p>
-          : <p>{ins.name}先生も{ins.age}歳。そろそろ後進に道をゆずることもできる。引退すると、卒業生（または外部の人）から後継の教官を選び、学校・生徒・お金・年鑑はそのまま引き継がれる。{ins.age >= 56 ? '（近ごろは疲れて、個人指導の回数が減る週もある）' : ''}</p>}
-        <p class="small">後継の候補：講師・副教官はすぐ引き受けます。各国にいる卒業生は、先生への信頼が高いほど引き受けてくれやすくなります。</p>
+          ? <p>{ins.name}先生は{ins.age}歳になりました。長いあいだ教壇に立ってきましたが、引退のときが来ました。あとを継ぐ教官を選びましょう。</p>
+          : <p>{ins.name}先生も{ins.age}歳です。そろそろ、若い人に道をゆずることもできます。引退すると、卒業生などからあとを継ぐ教官を選びます。学校も生徒もお金も年鑑も、そのまま引き継がれます。{ins.age >= 56 ? '近ごろは疲れて、個人指導が減る週もあります。' : ''}</p>}
+        <p class="small">講師と副教官は、頼めばすぐに引き受けてくれます。各国にいる卒業生は、先生への信頼が高いほど引き受けてくれやすいです。</p>
       </div>
       <button class="btn accent block" style={{ marginTop: 8 }} onClick={() => { sfx('ok'); act((g) => retireInstructor(g, rng(g))); }}>引退して、後継を選ぶ</button>
-      {!forced && <button class="btn block" style={{ marginTop: 8 }} onClick={() => { sfx('cancel'); act((g) => { g.pending.shift(); }); }}>まだ続ける（{B.instructor.retireMax}歳まで）</button>}
+      {!forced && <button class="btn block" style={{ marginTop: 8 }} onClick={() => { sfx('cancel'); act((g) => { g.pending.shift(); }); }}>まだ続ける（{B.instructor.retireMax}歳まで続けられます）</button>}
     </Sheet>
   );
 }
@@ -244,16 +244,16 @@ function Successor({ s }: { s: GameState }) {
   const KIND = { teacher: '講師', vice: '副教官', alumni: '卒業生' };
   return (
     <Sheet title="後継の教官を選ぶ">
-      <div class="muted small">卒業生なら誰でも教官になれます。新しい教官の得意な授業と三国との縁は、その人の兵種・道・所属していた国で決まり、技能は卒業生のときの値から始まります。</div>
+      <div class="muted small">卒業生なら、誰でも教官になれます。新しい教官の得意な授業は、その人の兵種と歩んだ道で決まります。<HelpTip text="三国との縁は、その人がいた国で決まります。技能は、卒業生だったときの値から始まります。" /></div>
       {msg && <div class="guide">{msg}</div>}
       {list.slice(0, 30).map((c) => (
         <MiniCard st={c.st} onClick={() => undefined} sub={<>{KIND[c.kind]}・{titleOf(c.st)}・{c.st.age}歳・信頼{Math.round(c.st.trust)}</>}
-          right={<button class="btn small primary" onClick={() => { sfx('ok'); act((g) => { const r = askSuccessor(g, rng(g), c.st.id); setMsg(r.text); }); }}>頼む<br />{c.chance}%</button>}>
+          right={<button class="btn small primary" onClick={() => { sfx('ok'); act((g) => { const r = askSuccessor(g, rng(g), c.st.id); setMsg(r.text); }); }}>頼んでみる<br />{c.chance}%</button>}>
           {c.recall && <div class="small" style={{ color: 'var(--accent)' }}>{c.recall}</div>}
         </MiniCard>
       ))}
       {!list.length && <div class="empty-note">頼める卒業生がいません</div>}
-      <button class="btn block" style={{ marginTop: 8 }} onClick={() => { if (!confirm('外部から「流れの旅人」の教官を迎えます。よろしいですか？')) return; sfx('ok'); act((g) => externalSuccessor(g, rng(g))); }}>外部から教官を迎える（流れの旅人）</button>
+      <button class="btn block" style={{ marginTop: 8 }} onClick={() => { if (!confirm('旅の人を、新しい教官として迎えます。よろしいですか？')) return; sfx('ok'); act((g) => externalSuccessor(g, rng(g))); }}>旅の人を教官に迎える</button>
     </Sheet>
   );
 }
@@ -273,8 +273,8 @@ function EndingChoice({ s, kind, country }: { s: GameState; kind: EndingKind; co
         <div class="row gap6">{(Object.keys(ENDING_NAMES) as EndingKind[]).map((k) => <span class={`chip-o ${reached.has(k) ? 'main' : 'gray'}`}>{reached.has(k) ? ENDING_NAMES[k] : '？？？'}</span>)}</div>
       </div>
       <div class="paper small">
-        <p><b>この学校を続ける</b>：平和な時代が始まります。戦争の大事件は起きず、依頼は魔物退治や治安維持が中心になります。ただし、戦争の終わり方によって「次の戦争の火種」がくすぶりはじめます（戦況タブで見られます。こちらの動きで遅らせることもできます）。</p>
-        <p><b>新しい学校で始める</b>：この学校の年鑑を「殿堂」に保存して、タイトル画面に戻ります（いつでも年鑑の「殿堂」で見られます）。次からは「ふつう」「名門」の学校からも始められます。このセーブもそのまま残ります。</p>
+        <p><b>この学校を続ける</b>：平和な時代が始まります。大きな戦争は起きず、依頼は魔物退治や見回りが中心になります。ただ、戦争の終わり方によっては、次の戦争の火種がくすぶりはじめます。<HelpTip text="火種のようすは「戦況」で見られます。先生たちの動きで、火がつくのを遅らせることもできます。" /></p>
+        <p><b>新しい学校で始める</b>：この学校の年鑑を「殿堂」にしまって、タイトル画面に戻ります。次からは「ふつう」や「名門」の学校からも始められます。今のセーブも、そのまま残ります。<HelpTip text="しまった年鑑は、いつでも年鑑の「殿堂」で見られます。" /></p>
       </div>
       <button class="btn primary block" style={{ marginTop: 8 }} disabled={busy} onClick={() => { sfx('ok'); unlockStarts(); act((g) => continueSchool(g)); }}>この学校を続ける</button>
       <button class="btn accent block" style={{ marginTop: 8 }} disabled={busy} onClick={async () => {

@@ -4,6 +4,7 @@ import { addSkill } from './week';
 import { STRATS, STRAT, STRAT_IDS, MAP_TAGS, SQUADS, FORMATION, type StratId, type StratDef, type StratEffect } from '../data/stratagems';
 import { OFFICER_TRAITS } from '../data/officers';
 import { CLASSES } from '../data/classes';
+import { WEAPONS } from '../data/weapons';
 import type { UnitMod, RoleId } from '../data/autobattle';
 import type { GameState, Quest, Student, EnemyOfficer } from './state';
 import type { BattleState, Unit } from './battle/types';
@@ -128,7 +129,9 @@ export function fireStrat(s: GameState, b: BattleState, q: Pick<Quest, 'template
   if (eff.duel) a.duelOffer = true;
   if (eff.noFlee && L) L.noFlee = true;
   if (eff.reveal) a.reveal = true;
-  const v = { leader: L?.name ?? '敵将', a: planner?.given ?? '策を立てた子', c: captain?.given ?? '部隊長' };
+  // 11夜目：策の文は、その子の今の武器に合わせる（杖の子が「剣を掲げる」と言わないように）
+  const raise = (st: Student | null) => { const u = st ? b.units.find((x) => x.studentId === st.id) : null; const w = u?.weaponId ? WEAPONS[u.weaponId] : null; return !w ? '声を張り上げる' : w.type === 'bow' ? '弓を空へ向ける' : w.type === 'gun' ? '銃を高く掲げる' : w.type === 'staff' || w.type === 'holy' ? '杖を高く掲げる' : w.type === 'magic' ? '魔道書を開き、光を灯す' : `${w.name}を掲げる`; };
+  const v = { leader: L?.name ?? '敵将', a: planner?.given ?? '策を立てた子', c: captain?.given ?? '部隊長', craise: raise(captain), araise: raise(planner) };
   const text = !ok && sees && !odds.dud ? `かつての教え子、${alum!.given}が策を見抜いた` : fill(r.pick(odds.dud ? d.dud ?? d.ng : ok ? d.ok : d.ng), v);
   const rec: StratRec = { id, ok, dud: odds.dud || undefined, weak: weakHit || undefined, rate: odds.rate, early: early || undefined, text };
   (a.strats ??= []).push(rec);

@@ -58,7 +58,7 @@ export const STRATS: Record<StratId, StratDef> = {
     desc: '部隊長が皆を奮い立たせる。どこでも使えるが、効き目は部隊長の魅力しだい',
     win: { ally: { hit: 4, avo: 2 } }, lose: { ally: { hit: -2 } }, unlock: { start: true },
     tip: '部隊長の魅力が高いほど効く',
-    ok: ['{c}の声が戦場に響いた。「行くぞ！」――皆の目に火がともる', '{c}が剣を掲げる。部隊の足並みがそろった'], ng: ['{c}の声は、敵の鬨の声にかき消された……'] },
+    ok: ['{c}の声が戦場に響いた。「行くぞ！」――皆の目に火がともる', '{c}が{craise}。部隊の足並みがそろった'], ng: ['{c}の声は、敵の鬨の声にかき消された……'] },
   ambush: { id: 'ambush', name: '伏兵', mark: '伏', when: 'open', base: 40, terrain: ['forest', 'hill', 'town', 'village'], weak: ['hothead', 'marshal'], bad: ['cautious', 'night_strong'],
     desc: '物陰に兵を伏せ、敵の背後を突く。森・丘・街で効きやすい',
     win: { foeHpPct: 0.12, ally: { hit: 4, crit: 3 } }, lose: { ally: { avo: -5 } }, unlock: { start: true },

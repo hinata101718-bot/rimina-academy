@@ -62,7 +62,9 @@ export function addSupport(s: GameState, rng: Rng, a: string, b: string, amount:
   return null;
 }
 
-function decideKind(rng: Rng, a: Student, b: Student): 'friend' | 'rival' {
+function decideKind(rng: Rng, a: Student, b: Student): 'friend' | 'rival' | 'senpai' {
+  // 11夜目：学年の違う二人は、先輩と後輩になりやすい
+  if (a.status === 'enrolled' && b.status === 'enrolled' && a.grade !== b.grade && rng.chance(B.support.senpaiChance)) return 'senpai';
   const pa = PERSONALITIES[a.personality], pb = PERSONALITIES[b.personality];
   let rival = 0.25;
   if (pa.rivals.includes(b.personality) || pb.rivals.includes(a.personality)) rival += 0.35;
@@ -213,7 +215,7 @@ export const TOPIC_TITLE: Record<string, string> = {
   dream: '夢の話', origin: '故郷の話', house: '生まれの話', trait: 'お互いの癖', ev_cover: 'かばってくれた日',
   ev_samekill: '息の合った一撃', ev_exam: '試験のあと', ev_loss: '去った仲間', ev_homewar: '故郷の知らせ',
   ev_festival: '収穫祭の夜', ev_spar: '手合わせのあと', ev_injury: 'けがのあと', rel_friend: '友として',
-  rel_rival: '好敵手', rel_love: '打ち明け話', daily: 'なにげない話',
+  rel_rival: '好敵手', rel_love: '打ち明け話', rel_senpai: '先輩と後輩', daily: 'なにげない話',
   food: '好きな食べもの', study: '授業のこと', teacher: '先生のこと', family: '家族の話', hobby: '休みの日',
   war: '戦争のこと', future: '卒業したら', fear: '怖いもの',
 };

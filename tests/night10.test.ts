@@ -8,6 +8,7 @@ import { battleCtx, startSortie, finishBattle, chooseLesson, squadAway } from '.
 import { todayCards, recommendCard } from '../src/core/lessons';
 import { skipAuto } from '../src/core/battle/auto';
 import { awayJudgeRate } from '../src/core/stratagems';
+import { SAVE_VERSION } from '../src/data/balance';
 import type { GameState } from '../src/core/state';
 
 export const fixture = (n: string) => readFileSync(new URL(`./fixtures/${n}`, import.meta.url), 'utf8');
@@ -64,7 +65,7 @@ void autoDay;
 describe('9夜目版のセーブ（形式9）', () => {
   it('ふつう（日の途中）：読み込めて、1年遊べる', () => {
     const s = deserialize(fixture('v9-day.json'));
-    expect(s.version).toBe(10);
+    expect(s.version).toBe(SAVE_VERSION);
     autoYears(s, 1);
     expect(s.gameOver).toBe(false);
   });

@@ -115,6 +115,18 @@ export function graduate(s: GameState, rng: Rng, plans: CareerPlan[]): { id: str
     st.seenTitle = careerTitleOnly(titleOf(st)); st.seenClass = st.classId;
     st.history.push({ year: s.year, text: `リミナ分校を卒業（${st.cohort}期生）。進路：${CHOICE_NAMES[choice]}${kind === 'army' ? `（${PATH_NAMES[plan.path]}）` : ''}` });
     lines.push({ id: st.id, text: st.farewell });
+    // 11夜目：先輩と後輩：卒業する先輩は、いちばん親しい後輩に、言葉・愛用の武器・ノートのどれかを託す
+    const kohai = Object.values(s.supports).filter((sp) => sp.kind === 'senpai' && (sp.a === st.id || sp.b === st.id)).map((sp) => ({ sp, o: s.students[sp.a === st.id ? sp.b : sp.a] })).filter((x) => x.o && x.o.status === 'enrolled' && x.o.grade < 3).sort((x, y) => y.sp.value - x.sp.value)[0]?.o;
+    if (kohai) {
+      const k = rng.pick(['word', 'note', ...(st.keepsake ? ['weapon'] : [])] as const);
+      const best = ARM_SKILLS.filter((x) => x !== 'gun').sort((x, y) => (st.skills[y] ?? 0) - (st.skills[x] ?? 0))[0];
+      const what = k === 'weapon' ? `愛用の${st.keepsake}` : k === 'note' ? `${SKILL_NAMES[best]}のノート` : '言葉';
+      if (k === 'note') kohai.skills[best] = Math.min(700, (kohai.skills[best] ?? 0) + B.career.senpaiNote);
+      if (k === 'weapon') { kohai.history.push({ year: s.year, text: `${st.given}先輩から、愛用の${st.keepsake}を託された` }); st.keepsake = null; }
+      else kohai.history.push({ year: s.year, text: `${st.given}先輩から${k === 'note' ? `${what}を託された` : '「次は、お前が誰かの背中になれ」と言葉を託された'}` });
+      st.history.push({ year: s.year, text: `後輩の${kohai.given}に${what}を託した` });
+      addTrust(kohai, 2);
+    }
     // 10夜目：気づかずに卒業した芽（年鑑と個人ページに「実は〇〇の芽があった」）
     if (st.bud && !st.bud.done) st.history.push({ year: s.year, text: st.bud.gold ? '実は、金の芽（英雄の器）を持っていた' : `実は、${SKILL_NAMES[st.bud.skill!]}に眠った芽があった` });
     s.stats.graduates += 1;

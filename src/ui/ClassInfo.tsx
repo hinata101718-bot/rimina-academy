@@ -9,7 +9,7 @@ import { STAT_NAMES, SKILL_NAMES, COUNTRY_SHORT } from '../data/people';
 import { STATS, B } from '../data/balance';
 import { growthParts } from '../core/growth';
 import { act, navigate } from './store';
-import { Back } from './common';
+import { Back, HelpTip } from './common';
 import { Icon } from './icons';
 import { classIcon, countryColor } from './cards';
 import { sfx } from './sound';
@@ -37,7 +37,7 @@ export function ClassMods({ c, note = true }: { c: ClassDef; note?: boolean }) {
     <div class="classmods">
       <div class="cm-row"><span class="cm-lab">この兵種でいるあいだ</span><StatMods bonus={c.bonus} /></div>
       <div class="cm-row"><span class="cm-lab">レベルアップでの伸びやすさ</span><GrowthMods growth={c.growth} /></div>
-      {note && <div class="small muted cm-note">兵種を変えると「いるあいだ」の補正は入れ替わります。伸びやすさで伸びた分は、兵種を変えても残ります。</div>}
+      {note && <div class="small muted cm-note">兵種を変えても、これまでに伸びた分はそのまま残ります。入れかわるのは「いるあいだ」の補正だけです。</div>}
     </div>
   );
 }
@@ -97,7 +97,7 @@ export function GrowthTable({ s, st }: { s: GameState; st: Student }) {
         );
       })}
       <div class="gt-sum"><span>合計成長率</span><b>{known && lit > STATS.length - 1 ? `${sum}%` : '？'}</b></div>
-      <div class="small muted">合計の％の確率で、レベルアップのときにその能力が上がります（5%きざみ）。</div>
+      <div class="small muted">数字が大きい能力ほど、レベルが上がったときに伸びやすくなります。<HelpTip text="合計の数字が、レベルが上がったときにその能力が1上がる見込みです。5%きざみで決まります。" /></div>
     </div>
   );
 }
@@ -126,7 +126,7 @@ export function ClassBook({ s }: { s: GameState }) {
       <Back to={() => navigate({ tab: 'students' })} />
       <div class="ledger">
         <div class="row between nowrap"><h2 class="ledger-title" style={{ margin: 0 }}>兵種図鑑</h2><span class="stamp">図鑑</span></div>
-        <div class="small muted">見習いから最上級・国専用までの木。まだ誰もなっていない上位の兵種は「？」で、生徒か卒業生が初めてなると埋まります。（{got}／{total}）</div>
+        <div class="small muted">見習いから最上級までの、兵種の木です。まだ誰もなっていない兵種は「？」のままです。生徒か卒業生が初めてなると、埋まります（{got}／{total}）。</div>
         <div class="cb-root"><Leaf c={CLASSES.novice} seen={seen} on={sel === 'novice'} onTap={() => setSel(sel === 'novice' ? null : 'novice')} /></div>
         <div class="cb-grid">
           {tier1.map((c) => <Leaf c={c} seen={seen} on={open === c.id} onTap={() => { sfx('move'); setOpen(open === c.id ? null : c.id); setSel(c.id); }} />)}
@@ -174,7 +174,7 @@ function ClassSheet({ s, c, known, onClose }: { s: GameState; c: ClassDef; known
             <div class="small">移動 {c.move}・使える武器：{c.weapons.map((w) => WEAPON_NAMES[w]).join('・')}</div>
             {c.ability && ABILITIES[c.ability] && <div class="small">スキル「{ABILITIES[c.ability].name}」：{ABILITIES[c.ability].desc}</div>}
           </>
-        ) : <div class="small muted">まだ誰もなっていない兵種。生徒か卒業生が初めてなると、補正やスキルが分かります。</div>}
+        ) : <div class="small muted">まだ誰もなっていない兵種です。生徒か卒業生が初めてなると、補正やスキルが分かります。</div>}
         {c.hidden && <div class="small" style={{ color: '#8a5a08' }}>金の芽が開いた子だけが、この道へ進めます</div>}
         {(good.length > 0 || bloom.length > 0) && <div class="small ruled">{bloom.length > 0 && <div>開花で道が開けた子：<b>{bloom.join('・')}</b></div>}{good.length > 0 && <div>要る技能が得意な子：{good.slice(0, 8).join('・')}{good.length > 8 ? ' ほか' : ''}</div>}</div>}
         <div class="small ruled">なる条件：{c.prereq.length ? `${c.prereq.map((p) => (known || CLASSES[p].tier <= 1 ? CLASSES[p].name : '？')).join('・')}から` : '入学したとき'}{Object.entries(c.req).length ? `・${Object.entries(c.req).map(([k, r]) => `${SKILL_NAMES[k as keyof typeof SKILL_NAMES]}${r as Rank}`).join('・')}` : ''}{c.tier >= 1 ? `・Lv${B.exam.levelReq[c.tier]}以上` : ''}{c.tier === 4 ? '（卒業後）' : ''}</div>

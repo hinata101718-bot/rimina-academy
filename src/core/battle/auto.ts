@@ -1,6 +1,8 @@
 // 自動の戦闘（5夜目）：今の戦闘の計算を裏で手早く回し、その記録から場面と出来事を拾う。
 // 出撃前の作戦の方針・役割、ここぞの選択（1〜2回）、敵将の口上と因縁、結果の講評。
 import { rollLoot } from '../loot';
+import { KILL_REACT } from '../../data/aftermath_war';
+import { PROSE_AFTER } from '../../data/warprose';
 import { B } from '../../data/balance';
 import { AUTO, TACTICS, TACTIC_OPTIONS, ROLES, LEADER_DUEL, LEADER_FLEE, BANDIT_EPITHETS, MONSTER_LEADERS, type TacticId, type RoleId, type UnitMod, type LeaderPersonality } from '../../data/autobattle';
 import { OPEN_KIND, MAP_TEXT, WEATHER_TEXT, MATCHUP_TEXT, CLASH_TEXT, CLIMAX_TEXT, END_TEXT, SAY, EVENT_TEXT, LEADER_TEXT, CHOICE_TEXT, CHOICE_RESULT, RESULT_TEXT, REVIEW_TEXT } from '../../data/autobattle_text';
@@ -521,10 +523,11 @@ function eventCandidates(s: GameState, b: BattleState, phase: 'open' | 'mid'): E
       if (st.recent.some((r) => r.type === 'ev_injury' && s.absWeek - r.week <= 10) && !used('recovered', st)) out.push({ id: 'recovered', a: st, u, weight: 2, apply: () => addMod(u, E.recovered) });
       if (st.lastClassWeek !== undefined && s.absWeek - st.lastClassWeek <= 4 && !used('newClass', st)) out.push({ id: 'newClass', a: st, u, weight: 2, apply: () => addMod(u, E.newSkill) });
       if (st.lastSpellWeek !== undefined && s.absWeek - st.lastSpellWeek <= 4 && !used('newSpell', st)) out.push({ id: 'newSpell', a: st, u, weight: 2, apply: () => addMod(u, E.newSkill) });
-      if ((st.traits.includes('early') && st.grade === 1 || st.traits.includes('late') && st.grade === 3) && !used('bloom', st)) out.push({ id: 'bloom', a: st, u, weight: 1, apply: () => { const tr = st.traits.includes('early') ? 'early' : 'late'; a.effects.push({ kind: 'trait', id: st.id, trait: tr }); } });
       continue;
     }
     // 戦いの最中
+    // 11夜目：伸び盛りの出来事は、戦いで当てた・倒したあとに（開戦には出さない）
+    if ((st.traits.includes('early') && st.grade === 1 || st.traits.includes('late') && st.grade === 3) && (u.kills > 0 || u.hits >= 2) && !used('bloom', st)) out.push({ id: 'bloom', a: st, u, weight: 1, apply: () => { const tr = st.traits.includes('early') ? 'early' : 'late'; a.effects.push({ kind: 'trait', id: st.id, trait: tr }); } });
     if (u.hp <= u.maxHp / 2 && (st.traits.includes('loser_hate') || st.personality === 'competitive') && !used('loserHate', st)) out.push({ id: 'loserHate', a: st, u, weight: 4, apply: () => { addMod(u, E.loserHate); if (st.traits.includes('loser_hate')) a.effects.push({ kind: 'trait', id: st.id, trait: 'loser_hate' }); } });
     if ((st.traits.includes('coward') || st.personality === 'timid') && st.battles <= 4 && (u.kills > 0 || u.hits > 0) && !used('coward', st)) out.push({ id: 'coward', a: st, u, weight: 3, apply: () => { addMod(u, E.coward); a.effects.push({ kind: 'motivation', id: st.id, v: 1 }); } });
     if (st.traits.includes('clutch') && b.real && u.hits >= 2 && !used('clutch', st)) out.push({ id: 'clutch', a: st, u, weight: 2.5, apply: () => a.effects.push({ kind: 'trait', id: st.id, trait: 'clutch' }) });
@@ -783,13 +786,24 @@ function endScene(s: GameState, b: BattleState): AutoScene {
   const lu = L ? b.units.find((u) => u.uid === L.uid) : null;
   if (L && lu && L.settled && L.settled !== 'kill') { /* 決着の場面で語り終えている */ }
   else if (L && lu) {
-    if (lu.dead && !L.fled && !b.retreated.includes(lu.uid)) { const l = leaderLine(s, b, r, 'fall'); if (l) lines.push(l); }
+    if (lu.dead && !L.fled && !b.retreated.includes(lu.uid)) {
+      const l = leaderLine(s, b, r, 'fall'); if (l) lines.push(l);
+      // 11夜目：敵将を討った子の受け止め方（性格ごと）
+      const hb = b.hitBy?.[lu.uid] ?? [];
+      const killer = hb.length ? stOf(s, b, hb[hb.length - 1]) : null;
+      if (killer && (s.settings.battleProse ?? 'dense') !== 'normal') {
+        const kr = r.pick(KILL_REACT[killer.personality] ?? KILL_REACT.serious);
+        const fl = (t: string) => t.replace(/\{a\}/g, killer.given).replace(/\{l\}/g, L.name);
+        lines.push({ by: 'narr', text: fl(kr.n) }, { by: killer.id, text: fl(kr.say) });
+      }
+    }
     else if (win || L.fled) { L.fled = true; const l = leaderLine(s, b, r, 'flee'); if (l) lines.push(l); }
     else { const l = leaderLine(s, b, r, 'duelWin'); if (l) lines.push(l); }
   }
   const alive = deployed(s, b).filter((x) => !b.fallen.some((f) => f.studentId === x.st.id));
   if (alive.length) { const x = alive.sort((p, q2) => (a.spot[q2.st.id] ?? 0) - (a.spot[p.st.id] ?? 0))[0]; lines.push(say(s, r, win ? 'win' : 'lose', x.st)); h.faces.push(x.st.id); }
   const q = s.quests.find((x) => x.id === b.questId);
+  if (s.settings.battleProse === 'brutal' && b.real) lines.push({ by: 'narr', text: r.pick(PROSE_AFTER) });
   const raise = q ? raiseGrunts(s, b, r, q, true) : [];
   // 10夜目：戦利品（雑兵の落とし物・敵将の銘入りの武器・依頼の報酬）
   const loot = rollLoot(s, b, q, (uid) => (q ? gruntLabel(s, b, q, uid) : '敵兵'));

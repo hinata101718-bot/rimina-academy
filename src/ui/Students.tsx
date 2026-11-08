@@ -70,7 +70,7 @@ function Roster({ s }: { s: GameState }) {
       {view === 'card'
         ? list.map((st) => <StuCard s={s} st={st} exams={exams} />)
         : <div class="notebook compact">{list.map((st) => <div class="nb-row" style={{ ['--band' as string]: countryColor(st.origin) }}><span class="nb-seal" aria-hidden="true" /><StuRow st={st} right={<span class="compright">{s.pinned.includes(st.id) && <span class="pinstar"><Icon name="star" size={16} /></span>}{studentFlags(s, st, exams).slice(0, 1).map((f) => <span class={`flag ${f.tone}`}>{f.text}</span>)}<MoodDots m={st.motivation} /></span>} /></div>)}</div>}
-      {!list.length && <div class="empty-note">{grade === 9 ? '気にかける生徒はまだいません（個人ページの★で登録できます）' : '生徒がいません'}</div>}
+      {!list.length && <div class="empty-note">{grade === 9 ? '気にかける生徒はまだいません。個人ページの★を押すと、ここに並びます' : '生徒がいません'}</div>}
     </div>
   );
 }
@@ -81,11 +81,11 @@ function AptCard({ st }: { st: Student }) {
   const b = st.bud;
   return (
     <div class="apt-card small">
-      <div><i class="apt good">得</i> 得意：<b>{good.map((k) => SKILL_NAMES[k]).join('・') || 'なし'}</b>（よく伸びる）</div>
-      <div><i class="apt bad">苦</i> 苦手：<b>{bad.map((k) => SKILL_NAMES[k]).join('・') || 'なし'}</b>（伸びにくい）</div>
-      {b?.done && <div class="apt-bloom"><i class="apt bloom">花</i> {b.gold ? '金の芽が開いた。英雄への道が開けている' : `苦手だった${SKILL_NAMES[b.skill!]}が開花した（${b.year}年目）`}{b.ability && ABILITIES[b.ability] ? `。技「${ABILITIES[b.ability].name}」：${ABILITIES[b.ability].desc}` : ''}</div>}
-      {b && !b.done && budKnown(st) && <div class="apt-bud"><i class="apt bud">芽</i> {b.gold ? '金の芽が見えている。得意の技能をC+まで上げ、Lv20になると開くかもしれない' : `${SKILL_NAMES[b.skill!]}に芽が見えている。目標技能にして${B.apt.bloomRank}まで上げると、花が開くかもしれない`}</div>}
-      {b && !b.done && !budKnown(st) && budHinted(st) && <div class="muted">……なにか眠っているものがあるかもしれない。授業や面談で見えてくる</div>}
+      <div><i class="apt good">得</i> 得意：<b>{good.map((k) => SKILL_NAMES[k]).join('・') || 'なし'}</b>（よく伸びます）</div>
+      <div><i class="apt bad">苦</i> 苦手：<b>{bad.map((k) => SKILL_NAMES[k]).join('・') || 'なし'}</b>（伸びにくいです）</div>
+      {b?.done && <div class="apt-bloom"><i class="apt bloom">花</i> {b.gold ? '金の芽が開花しました。英雄への道が開けています' : `苦手だった${SKILL_NAMES[b.skill!]}の芽が、${b.year}年目に開花しました`}{b.ability && ABILITIES[b.ability] ? `。技「${ABILITIES[b.ability].name}」：${ABILITIES[b.ability].desc}` : ''}</div>}
+      {b && !b.done && budKnown(st) && <div class="apt-bud"><i class="apt bud">芽</i> {b.gold ? '金の芽が見えています。得意な技能をC+まで上げてレベル20になると、開花するかもしれません' : `${SKILL_NAMES[b.skill!]}の芽が見えています。今月の目標にして${B.apt.bloomRank}まで上げると、開花するかもしれません`}</div>}
+      {b && !b.done && !budKnown(st) && budHinted(st) && <div class="muted">……なにか眠っているものがありそうです。授業や面談をするうちに、見えてきます</div>}
     </div>
   );
 }
@@ -141,7 +141,7 @@ function Detail({ s, st, exam, sub }: { s: GameState; st: Student; exam?: boolea
         </div>
         {!grad && (
           <div class="row" style={{ marginTop: 8 }}>
-            <button class="btn small" onClick={() => act((g) => { g.pinned = pinned ? g.pinned.filter((x) => x !== st.id) : [...g.pinned, st.id].slice(-5); })}><span class={pinned ? 'pinstar' : ''}><Icon name="star" size={16} /></span> {pinned ? '気にかけるをやめる' : '気にかける'}</button>
+            <button class="btn small" onClick={() => act((g) => { g.pinned = pinned ? g.pinned.filter((x) => x !== st.id) : [...g.pinned, st.id].slice(-5); })}><span class={pinned ? 'pinstar' : ''}><Icon name="star" size={16} /></span> {pinned ? '★を外す' : '気にかける'}</button>
             {nextClasses(s, st).length > 0 && <button class={`btn small${examReady ? ' primary glow' : ''}`} onClick={() => { sfx('move'); setExamOpen(true); }}><Icon name="exam" size={16} /> 兵種試験を受ける{examReady ? '（受験できます）' : ''}</button>}
           </div>
         )}
@@ -152,7 +152,7 @@ function Detail({ s, st, exam, sub }: { s: GameState; st: Student; exam?: boolea
       <div class="dt-body">
       {tab === 'stats' && <>
           <div class="card">
-            <div class="row between nowrap"><h3 style={{ margin: 0 }}>能力</h3><span class="small muted">合計成長率 <b class="dt-total">{st.growthKnown ? `${STATS.reduce((x, k) => x + gr[k], 0)}%` : '？'}</b></span></div>
+            <div class="row between nowrap"><h3 style={{ margin: 0 }}>能力</h3><span class="small muted">伸びやすさの合計 <b class="dt-total">{st.growthKnown ? `${STATS.reduce((x, k) => x + gr[k], 0)}%` : '？'}</b></span></div>
             <div class="statlist">
               <div class="statrow sr-head"><span /><b /><span class="bonus">兵種</span><span class="small muted">（{cls.name}）</span><span class="gr">成長率</span></div>
               {STATS.map((k) => {
@@ -161,11 +161,11 @@ function Detail({ s, st, exam, sub }: { s: GameState; st: Student; exam?: boolea
                 return <div class="statrow"><span>{STAT_NAMES[k]}</span><b>{es[k]}</b><span class={`bonus ${b > 0 ? 'up' : b < 0 ? 'down' : ''}`}>{b ? `${b > 0 ? '+' : '−'}${Math.abs(b)}` : ''}</span><Gauge v={es[k]} max={k === 'hp' ? capHp : cap} thin /><span class={`gr total ${g > 0 ? 'up' : g < 0 ? 'down' : ''}`}>{st.growthKnown ? `${gr[k]}%` : g ? `？${g > 0 ? '+' : '−'}${Math.abs(g)}` : '？'}</span></div>;
               })}
             </div>
-            <div class="small muted">成長率＝レベルアップでその能力が上がる見込み（本人＋兵種＋特徴。本人の成長率は入学したときから見えます。内わけは下の「内わけを見る」）</div>
+            <div class="small muted">数字が大きい能力ほど、レベルが上がったときに伸びやすくなります。<HelpTip text="成長率は、本人と兵種と特徴の分を足したものです。本人の分は入学したときから見えます。内わけは下の「成長率の内わけを見る」で見られます。" /></div>
             <ClassMods c={cls} />
             {!grad && (
               <div class="traingrid">
-                <div class="small"><b>鍛錬ゲージ</b><span class="muted">（授業でたまり、満タンで+1。顔が出ている授業ほど早くたまる）</span></div>
+                <div class="small"><b>鍛錬ゲージ</b><span class="muted">（授業でたまります。いっぱいになると、その能力が1上がります）</span></div>
                 {STATS.map((k) => (
                   <div class="trainrow"><span class="small">{STAT_NAMES[k]}</span><span class="ggauge train grow"><span style={{ width: `${Math.round(st.train?.[k] ?? 0)}%` }} /></span><span class="small muted">{(st.trainGain?.[k] ?? 0) > 0 ? `+${st.trainGain![k]}` : ''}</span></div>
                 ))}
@@ -174,7 +174,7 @@ function Detail({ s, st, exam, sub }: { s: GameState; st: Student; exam?: boolea
             {cls.ability && ABILITIES[cls.ability] && <div class="small ruled">兵種スキル：<b>{ABILITIES[cls.ability].name}</b>（{ABILITIES[cls.ability].desc}）</div>}
           </div>
           <details class="card dt-fold">
-            <summary><b>成長率の内わけを見る</b><span class="small muted">（本人＋兵種＋特徴）</span></summary>
+            <summary><b>成長率の内わけを見る</b><span class="small muted">（本人と兵種と特徴）</span></summary>
             <GrowthTable s={s} st={st} />
           </details>
       </>}
@@ -182,12 +182,12 @@ function Detail({ s, st, exam, sub }: { s: GameState; st: Student; exam?: boolea
           <div class="card">
             <h3>技能ランク</h3>
             <div class="skillgrid">{SKILLS.filter((k) => skillUnlocked(s, k) && !LEAD_SKILLS.includes(k)).map((k) => <SkillBox k={k} st={st} p={st.skills[k]} target={!grad && st.targets.includes(k)} />)}</div>
-            <h3 style={{ marginTop: 10 }}>采配の技能 <HelpTip text="統率：部隊長にすると、部隊の命中・回避が少し上がり、先生が同行しない戦いでもよい判断をしやすくなります。「指揮の演習」「行軍」の授業や、部隊長を務めた戦いで伸びます。軍略：策を立てる子にすると、策が決まりやすくなります。新しい策も思いつきます。「戦術論」「兵法の歴史」の授業や、策を立てた戦いで伸びます。" /></h3>
+            <h3 style={{ marginTop: 10 }}>統率と軍略 <HelpTip text="統率の高い子を部隊長にすると、部隊みんなの攻撃が当たりやすく、よけやすくなります。先生が行かない戦いでも、よい判断をしやすくなります。「指揮の演習」「行軍」の授業や、部隊長を務めた戦いで伸びます。軍略の高い子に策を立てさせると、策が決まりやすくなり、新しい策も思いつきます。「戦術論」「兵法の歴史」の授業や、策を立てた戦いで伸びます。" /></h3>
             <div class="skillgrid">{LEAD_SKILLS.map((k) => <SkillBox k={k} st={st} p={st.skills[k] ?? 0} target={!grad && st.targets.includes(k)} />)}</div>
             <AptCard st={st} />
             {!grad && (
               <div style={{ marginTop: 8 }}>
-                <div class="muted small">今月の目標技能（2つ・金の枠）：目標の授業でさらに伸びます（1つ目は×1.3）。月に一度決めます。夢に沿うとやる気が上がりやすい（夢に沿う技能：{dream.skills.map((k) => SKILL_NAMES[k]).join('・') || 'なし'}）</div>
+                <div class="muted small">金の枠の技能が、今月の目標です。この技能を伸ばす授業では、いつもよりよく伸びます。夢に合う技能を選ぶと、やる気も上がりやすくなります。<HelpTip text={`1つ目の目標は1.3倍、2つ目は少しだけ伸びが上がります。目標は月に一度決めます。夢に合う技能は、${dream.skills.map((k) => SKILL_NAMES[k]).join('と') || 'ありません'}です。`} /></div>
                 {[0, 1].map((i) => (
                   <select value={st.targets[i]} onChange={(e) => act((g) => { const x = g.students[st.id]; const t = [...x.targets] as [SkillId, SkillId]; t[i] = (e.target as HTMLSelectElement).value as SkillId; x.targets = t; x.targetsAuto = false; })} style={{ marginRight: 6 }}>
                     {SKILLS.filter((k) => skillUnlocked(s, k)).map((k) => <option value={k}>{SKILL_NAMES[k]}</option>)}
@@ -209,9 +209,9 @@ function Detail({ s, st, exam, sub }: { s: GameState; st: Student; exam?: boolea
                 <div class="row nowrap gap6"><span class="small" style={{ width: 52 }}>信頼</span><Gauge v={st.trust} max={100} thin /><Num v={Math.round(st.trust)} /></div>
                 {st.bud && !st.bud.done && <div class="row nowrap gap6"><span class="small" style={{ width: 52 }}>芽</span><Gauge v={Math.min(100, (st.bud.reveal / B.apt.known) * 100)} max={100} thin tone="skill" /><span class="small muted">{budKnown(st) ? budName(st) : budHinted(st) ? '兆しあり' : '？'}</span></div>}
               </div>
-              {st.sickWeeks > 0 && <div class="tag red">体調不良（あと{st.sickWeeks}週）</div>}
-              {st.injuredWeeks > 0 && <div class="tag red">重傷（あと{st.injuredWeeks}週）</div>}
-              {st.dropoutSign && <div class="tag red">退学の予兆あり：面談で話を聞こう（あと面談{st.dropoutSign.talksNeeded}回）</div>}
+              {st.sickWeeks > 0 && <div class="tag red">体調をくずしています（あと{st.sickWeeks}週）</div>}
+              {st.injuredWeeks > 0 && <div class="tag red">重傷で休んでいます（あと{st.injuredWeeks}週）</div>}
+              {st.dropoutSign && <div class="tag red">学校をやめたがっています。あと{st.dropoutSign.talksNeeded}回、面談で話を聞いてあげてください</div>}
             </div>
           )}
           <div class="card">
@@ -230,8 +230,8 @@ function Detail({ s, st, exam, sub }: { s: GameState; st: Student; exam?: boolea
       {tab === 'bonds' && <>
           <div class="card">
             <h3>仲間との支援</h3>
-            {supList.length === 0 && <div class="muted">まだ特に親しい仲間はいない</div>}
-            <FaceRow list={supList.map(({ sp, o }) => ({ st: o, label: `${supportRank(sp.value) ? `支援${supportRank(sp.value)}` : ''}${sp.kind !== 'none' ? { friend: '・友情', rival: '・好敵手', love: '・想い' }[sp.kind] : ''}` }))} />
+            {supList.length === 0 && <div class="muted">まだ、とくに親しい仲間はいません</div>}
+            <FaceRow list={supList.map(({ sp, o }) => ({ st: o, label: `${supportRank(sp.value) ? `支援${supportRank(sp.value)}` : ''}${sp.kind !== 'none' ? { friend: '・友情', rival: '・好敵手', love: '・想い', senpai: '・先輩と後輩' }[sp.kind] : ''}` }))} />
           </div>
           <RivalCard s={s} st={st} />
           <TalkArchive s={s} st={st} />
@@ -239,7 +239,7 @@ function Detail({ s, st, exam, sub }: { s: GameState; st: Student; exam?: boolea
       {tab === 'record' && <>
           <div class="card">
             <h3>記録</h3>
-            <div class="infogrid"><div><Icon name="battle" size={16} />出撃 <Num v={st.battles} /></div><div><Icon name="skull" size={16} />撃破 <Num v={st.kills} /></div><div><Icon name="bell" size={16} />重傷 <Num v={st.wounds ?? 0} /></div><div><Icon name="medal" size={16} />講評の最高 <Num v={st.bestGrade ?? '—'} /></div>{st.keepsake && <div><Icon name="sword" size={16} />{st.keepsake}</div>}</div>
+            <div class="infogrid"><div><Icon name="battle" size={16} />出撃 <Num v={st.battles} /></div><div><Icon name="skull" size={16} />倒した敵 <Num v={st.kills} /></div><div><Icon name="bell" size={16} />重傷 <Num v={st.wounds ?? 0} /></div><div><Icon name="medal" size={16} />講評の最高 <Num v={st.bestGrade ?? '—'} /></div>{st.keepsake && <div><Icon name="sword" size={16} />{st.keepsake}</div>}</div>
             {(() => { const fav = Object.entries(st.weaponUse).filter(([id]) => WEAPONS[id] && !WEAPONS[id].spell).sort((a, b) => b[1] - a[1])[0]; const won = s.armory.filter((a) => a.named?.by === st.id); return (fav || won.length) ? <div class="small ruled">{fav && <div>愛用の武器：<b>{WEAPONS[fav[0]].name}</b>（{fav[1]}回）</div>}{won.map((a) => <div>討ち取って手に入れた武器：<b class="serif">{a.named!.name}</b>（{a.named!.year}年目）</div>)}</div> : null; })()}
             <div class="small ruled">この子は――<b>{PATH_SAY[st.career?.kind === 'army' ? st.career.path : suitablePath(st)]}</b>{st.career?.kind === 'army' ? `（${PATH_NAMES[st.career.path]}の道）` : ''}</div>
             {st.farewell && <div class="serif ruled">卒業式のひとこと：「{st.farewell}」</div>}
@@ -262,7 +262,7 @@ function HonorCard({ st }: { st: Student }) {
   return (
     <div class="card">
       <h3>これまでの評価と称号</h3>
-      {honors.length ? <div class="ev-badges">{honors.map(([k, n]) => <span class="row nowrap gap4"><Badge id={k} />{n > 1 && <small class="muted">×{n}</small>}</span>)}</div> : <div class="muted small">まだない（出撃すると、戦いのあとに称号がつく）</div>}
+      {honors.length ? <div class="ev-badges">{honors.map(([k, n]) => <span class="row nowrap gap4"><Badge id={k} />{n > 1 && <small class="muted">×{n}</small>}</span>)}</div> : <div class="muted small">まだありません。出撃すると、戦いのあとに称号がつきます</div>}
       {(st.evalLog ?? []).length > 0 && <ul class="list" style={{ marginTop: 6 }}>{[...(st.evalLog ?? [])].reverse().slice(0, 8).map((e) => <li class="small">{e.year}年目 {MONTH_NAMES[e.month]}「{e.title}」<span class={`ev-grade g${e.grade}`}>{e.grade}</span> {e.badges.filter((x) => x !== 'quiet').map((x) => BADGES[x]?.name).join('・')}{e.scene ? <div class="muted">{e.scene}</div> : null}</li>)}</ul>}
     </div>
   );
@@ -295,7 +295,7 @@ function RivalCard({ s, st }: { s: GameState; st: Student }) {
   return (
     <div class="card">
       <h3>宿敵</h3>
-      {!list.length && <div class="muted small">まだいない。同じ敵将と何度も戦うと、因縁が生まれる。</div>}
+      {!list.length && <div class="muted small">まだいません。同じ敵将と何度も戦うと、因縁が生まれます。</div>}
       {list.map(({ rv, o }) => (
         <div class="row nowrap gap8 ruled tap" style={{ minHeight: 52 }} onClick={() => setOpen(o!.id)}>
           <OfficerFace o={o} size={48} frame={FACTION_COLOR[o!.faction]} s={s} />
@@ -327,10 +327,10 @@ function ExamList({ s }: { s: GameState }) {
     <div>
       <Back to={() => navigate({ tab: 'students' })} />
       <SecTitle>兵種試験<span class="cnt">受けられる生徒 {ready.length}人</span></SecTitle>
-      <div class="muted small">兵種試験は、その子の個人ページの「兵種試験を受ける」から受けます。Lvと技能ランクの条件を満たしていれば、必ず合格します。受験のレベル：初級 Lv{B.exam.levelReq[1]}・中級 Lv{B.exam.levelReq[2]}・上級 Lv{B.exam.levelReq[3]}（最上級は卒業後 Lv{B.exam.levelReq[4]}）。</div>
-      {ready.map((st) => <MiniCard st={st} sub={`${st.grade}年・${TIER_NAMES[CLASSES[st.classId].tier]}`} right={<button class="btn small primary" onClick={() => { sfx('move'); navigate({ tab: 'students', page: 'exam', id: st.id }); }}>受験へ</button>} />)}
+      <div class="muted small">レベルと技能ランクがそろっていれば、必ず合格します。試験は、その子の個人ページの「兵種試験を受ける」から受けます。<HelpTip text={`受けられるレベルは、初級が${B.exam.levelReq[1]}、中級が${B.exam.levelReq[2]}、上級が${B.exam.levelReq[3]}です。最上級は卒業したあと、レベル${B.exam.levelReq[4]}から受けられます。`} /></div>
+      {ready.map((st) => <MiniCard st={st} sub={`${st.grade}年・${TIER_NAMES[CLASSES[st.classId].tier]}`} right={<button class="btn small primary" onClick={() => { sfx('move'); navigate({ tab: 'students', page: 'exam', id: st.id }); }}>試験へ進む</button>} />)}
       {!ready.length && <div class="empty-note">今すぐ受けられる生徒はいません</div>}
-      {later.length > 0 && <div class="small muted" style={{ marginTop: 8 }}>もう少しで受けられる子：{later.slice(0, 12).map((st) => st.given).join('・')}（個人ページで足りない条件が見られます）</div>}
+      {later.length > 0 && <div class="small muted" style={{ marginTop: 8 }}>もう少しで受けられる子：{later.slice(0, 12).map((st) => st.given).join('・')}。足りない条件は、個人ページで見られます</div>}
     </div>
   );
 }
@@ -342,7 +342,7 @@ function ExamSheet({ s, st, onClose }: { s: GameState; st: Student; onClose: () 
   const can = canTakeExam(s, st);
   return (
     <Sheet title={`${st.given}の兵種試験`} onClose={onClose}>
-      <div class="small muted">今の兵種：<b>{CLASSES[st.classId].name}</b>（Lv{st.level}）。条件を満たしていれば、必ず合格します。</div>
+      <div class="small muted">今の兵種：<b>{CLASSES[st.classId].name}</b>（レベル{st.level}）です。条件がそろっていれば、必ず合格します。</div>
       {msg && <div class="guide">{msg}</div>}
       {opts.map((c) => {
         const ok = classUnlocked(s, c) && meetsReq(st, c);
@@ -351,19 +351,19 @@ function ExamSheet({ s, st, onClose }: { s: GameState; st: Student; onClose: () 
           <div class="pcard" style={{ ['--band' as string]: ok ? 'var(--good)' : '#cfc6b2', margin: '8px 0 0' }}>
             <div class="row between nowrap">
               <div class="grow"><ClassName classId={c.id} size={17} /> <span class="muted small">{TIER_NAMES[c.tier]}</span></div>
-              {ok ? <span class="flag" style={{ background: 'var(--good)' }}>条件を満たしています</span> : <span class="flag gray-flag">条件が足りない</span>}
+              {ok ? <span class="flag" style={{ background: 'var(--good)' }}>条件がそろっています</span> : <span class="flag gray-flag">条件が足りません</span>}
             </div>
             {!ok && <div class="small" style={{ color: 'var(--accent)' }}>{miss.join('／')}</div>}
             <div class="small muted">{c.desc}</div>
             <div class="small" style={{ marginTop: 4 }}><b>{CLASSES[st.classId].name} → {c.name}</b>に変わると</div>
             <ClassCompare from={CLASSES[st.classId]} to={c} />
-            <div class="small muted">「いるあいだ」の補正は入れ替わり、伸びやすさで伸びた分は残ります。</div>
-            <button class={`btn block${ok && can ? ' primary' : ''}`} style={{ marginTop: 6 }} disabled={!ok || !can} onClick={() => { act((g) => { const r = takeExam(g, rng(g), g.students[st.id], c.id); setMsg(r.text); sfx(r.ok ? 'pass' : 'cancel'); }); }}>{ok ? `${c.name}になる` : '条件が足りない'}</button>
+            <div class="small muted">兵種が変わっても、これまでに伸びた分はそのまま残ります。<HelpTip text="「いるあいだ」の補正だけが、新しい兵種のものに入れ替わります。" /></div>
+            <button class={`btn block${ok && can ? ' primary' : ''}`} style={{ marginTop: 6 }} disabled={!ok || !can} onClick={() => { act((g) => { const r = takeExam(g, rng(g), g.students[st.id], c.id); setMsg(r.text); sfx(r.ok ? 'pass' : 'cancel'); }); }}>{ok ? `${c.name}になる` : '条件が足りません'}</button>
           </div>
         );
       })}
       {!opts.length && <div class="empty-note">次の兵種はありません</div>}
-      {!can && <div class="muted small" style={{ marginTop: 4 }}>けがで休んでいるあいだは受けられません</div>}
+      {!can && <div class="muted small" style={{ marginTop: 4 }}>けがで休んでいるあいだは、試験を受けられません</div>}
     </Sheet>
   );
 }
@@ -374,7 +374,7 @@ function SpellCard({ st }: { st: Student }) {
   return (
     <div class="card">
       <h3>魔法</h3>
-      <div class="muted small">魔道・信仰の技能ランクが上がると、一人ひとり決まった魔法を覚えます。戦闘では、今の兵種で使える魔法を選んで使えます（回数の制限なし）。</div>
+      <div class="muted small">魔道や信仰の技能ランクが上がると、その子だけの魔法を覚えます。戦いでは、今の兵種で使える魔法を何度でも使えます。</div>
       {(['magic', 'faith'] as const).map((k) => {
         const slots = plan.filter((x) => x.skill === k);
         return (
@@ -388,12 +388,12 @@ function SpellCard({ st }: { st: Student }) {
                   ? <span class={`tag${usable.has(x.id) ? '' : ' gray'}`} title={w?.desc}>{w?.name}{w?.rare ? '★' : ''}</span>
                   : <span class="tag gray">{k === 'magic' ? '魔道' : '信仰'}{x.rank}で？？？</span>;
               })}
-              {!slots.length && <span class="muted small">覚える魔法はない</span>}
+              {!slots.length && <span class="muted small">覚える魔法はありません</span>}
             </div>
           </div>
         );
       })}
-      {st.spells.some((id) => !usable.has(id)) && <div class="muted small">灰色の魔法は、今の兵種では使えません。</div>}
+      {st.spells.some((id) => !usable.has(id)) && <div class="muted small">灰色の魔法は、今の兵種では使えません。兵種が変わると使えるようになります。</div>}
     </div>
   );
 }
@@ -404,7 +404,7 @@ function TalkArchive({ s, st }: { s: GameState; st: Student }) {
   return (
     <div class="card">
       <h3>会話の記録</h3>
-      {!list.length && <div class="muted">まだ記録はありません（支援会話や面談をすると、ここで読み返せます）</div>}
+      {!list.length && <div class="muted">まだ記録はありません。支援会話や面談をすると、ここで読み返せます</div>}
       {list.map((t) => {
         const other = t.a === st.id ? t.b : t.a;
         const who = other === 'teacher' ? '先生' : s.students[other]?.given ?? '';

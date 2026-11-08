@@ -4,7 +4,7 @@ import { sfx } from './sound';
 import { COUNTRIES, COUNTRY_NAMES, COUNTRY_SHORT, COUNTRY_COLOR } from '../data/people';
 import { PAIRS, relStage, REL_NAMES, STAGE_NAMES, tensionStage, activeAlumni, diplomats } from '../core/world';
 import { OBJECTIVE_NAMES, WEATHER_NAMES } from '../core/quests';
-import { Bar, money } from './common';
+import { Bar, money, HelpTip } from './common';
 import { Icon } from './icons';
 import { countryColor, Stars, OBJECTIVE_ICON, WEATHER_ICON } from './cards';
 import type { GameState } from '../core/state';
@@ -51,7 +51,7 @@ export function WarTab() {
             <MapSvg s={s} />
             <div class="row between" style={{ marginTop: 6 }}><b>大陸の緊張度：{Math.round(s.world.tension)}（{STAGE_NAMES[st]}）</b></div>
             <Bar v={s.world.tension} max={100} red={st !== 'peace'} />
-            <div class="muted small">35未満＝平和期／35〜65＝緊張期／65超＝激戦期。緊張度に合わせて画面の色合いも変わります。</div>
+            <div class="muted small">緊張度が上がるほど、戦いがはげしくなります。画面の色合いも、緊張度に合わせて変わります。<HelpTip text="35より下は平和期、35から65は緊張期、65より上は激戦期です。" /></div>
           </div>
           <div class="card">
             <h3>三国の国力</h3>
@@ -66,14 +66,14 @@ export function WarTab() {
           <div class="card">
             <h3>学校との友好度</h3>
             {COUNTRIES.map((c) => <div class="row between"><span>{COUNTRY_NAMES[c]}{s.world.vassal === c ? '（傘下）' : ''}</span><span>{Math.round(s.world.friendship[c])}　<span class="muted small">卒業生{activeAlumni(s, c).length}人</span></span></div>)}
-            {s.world.vassal && <div class="tag red">学校は{COUNTRY_NAMES[s.world.vassal]}の傘下にある（評判70で独立）</div>}
-            {s.world.gunUnlocked && <div class="tag">銃が登場している</div>}
+            {s.world.vassal && <div class="tag red">学校は{COUNTRY_NAMES[s.world.vassal]}の傘下です（評判70で独立できます）</div>}
+            {s.world.gunUnlocked && <div class="tag">銃が戦場に出てきました</div>}
           </div>
           <div class="card">
             <h3>和平への道</h3>
             {COUNTRIES.map((c) => { const n = diplomats(s, c); return <div class="row between"><span>{COUNTRY_SHORT[c]}の大使以上の教え子</span><b style={{ color: n ? 'var(--main)' : 'var(--sub)' }}>{n}人</b></div>; })}
-            <div class="muted small">文官の教え子が大使（文官の3段目）以上になると、和平会議を呼びかけられます。三国すべてに大使以上の教え子がいて、学校が独立していれば、和平会議は「和平の円卓」になります。和平会議はこれまでに{s.world.peaceTalksHeld}回。</div>
-            {s.world.peaceRoundYear && <div class="tag">{s.world.peaceRoundYear}年目に和平の円卓が開かれた</div>}
+            <div class="muted small">文官の教え子が大使になると、和平会議を呼びかけられます。三国すべてに大使の教え子がいて、学校が独立していれば、「和平の円卓」が開けます。<HelpTip text={`大使は文官の3段目で、それより上でもかまいません。和平会議は、これまでに${s.world.peaceTalksHeld}回開かれました。`} /></div>
+            {s.world.peaceRoundYear && <div class="tag">{s.world.peaceRoundYear}年目に、和平の円卓が開かれました</div>}
           </div>
           {s.world.era === 'peace' && <SeedCard s={s} />}
           <NeutralCard s={s} />
@@ -86,11 +86,11 @@ export function WarTab() {
                   <div><Icon name={OBJECTIVE_ICON[q.objective]} size={16} />{OBJECTIVE_NAMES[q.objective]}</div>
                   <div><Icon name={WEATHER_ICON[q.weather]} size={16} />{WEATHER_NAMES[q.weather]}</div>
                   <div>危険度 <Stars n={q.danger} /></div>
-                  <div><Icon name="coin" size={16} />{q.reward ? money(q.reward) : 'なし'}・推奨Lv{q.level}</div>
+                  <div><Icon name="coin" size={16} />{q.reward ? money(q.reward) : 'なし'}　目安Lv{q.level}</div>
                 </div>
               </div>
             ))}
-            <div class="muted small">月の最後の週が終わると、この中から1つを選んで出撃します。</div>
+            <div class="muted small">月の最後の週が終わったら、この中から依頼を選んで出撃します。</div>
           </div>
         </div>
       </div>
@@ -101,7 +101,7 @@ export function WarTab() {
 /** 次の戦争の火種（7夜目：平和な時代だけ） */
 function SeedCard({ s }: { s: GameState }) {
   const sd = s.world.seed;
-  if (!sd) return <div class="card"><h3>火種</h3><div class="muted small">いまのところ、大陸は静かだ。</div></div>;
+  if (!sd) return <div class="card"><h3>火種</h3><div class="muted small">いまのところ、大陸は静かです。</div></div>;
   const def = SEEDS[sd.kind];
   const f = seedFactor(s);
   const v = Math.round(sd.smolder);
@@ -110,12 +110,12 @@ function SeedCard({ s }: { s: GameState }) {
   return (
     <div class="card seedcard">
       <h3>次の戦争の火種</h3>
-      <div class="small muted">{last ? `${endingTitle(last.kind, last.country, last.n)}から${s.year - sd.since}年。` : ''}平和な時代にも、火種は少しずつくすぶっている。</div>
+      <div class="small muted">{last ? `${endingTitle(last.kind, last.country, last.n)}から${s.year - sd.since}年。` : ''}平和な時代にも、火種は少しずつくすぶっています。</div>
       <div class="row between nowrap" style={{ marginTop: 6 }}><b>{def.name}</b><span class={`flag ${tone === 'red' ? 'red' : ''}`}>{smolderStage(v)}</span></div>
       <Bar v={v} max={100} red={tone !== 'main'} />
       <div class="small" style={{ marginTop: 6 }}><b class="ngmark">▲</b> 強まる：{def.grows}{f.up.length ? `（いま：${f.up.join('・')}）` : ''}</div>
       <div class="small"><b class="okmark">▼</b> 遅らせる：{def.slows}{f.down.length ? `（いま：${f.down.join('・')}）` : ''}</div>
-      <div class="muted small">くすぶりの速さ：{f.mul >= 1.25 ? '速い' : f.mul <= 0.75 ? 'ゆっくり' : 'ふつう'}（×{f.mul.toFixed(2)}）。満ちると{warOrdinal((s.world.warNo ?? 1) + 1)}の戦争が始まる。</div>
+      <div class="muted small">くすぶりの速さ：{f.mul >= 1.25 ? '速い' : f.mul <= 0.75 ? 'ゆっくり' : 'ふつう'}です。いっぱいになると、{warOrdinal((s.world.warNo ?? 1) + 1)}の戦争が始まります。</div>
     </div>
   );
 }
@@ -136,7 +136,7 @@ function NeutralCard({ s }: { s: GameState }) {
             </div>
           ))}
           <div class="muted small">どの国にも属さない「学校の中立」を宣言できるかもしれません。条件がすべてそろった年度に、学校防衛戦に勝つと……。</div>
-          {(s.endings ?? []).some((e) => e.kind === 'neutral') && <div class="tag">学校の中立宣言をした</div>}
+          {(s.endings ?? []).some((e) => e.kind === 'neutral') && <div class="tag">学校の中立を宣言しました</div>}
         </>
       ) : (
         <>

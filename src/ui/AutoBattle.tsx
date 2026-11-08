@@ -33,6 +33,7 @@ import { B, RANK_POINTS } from '../data/balance';
 import { rankOf } from '../core/util';
 import { usableSpells } from '../core/spells';
 import { armoryItem, armoryName, isStock, stockList } from '../core/loot';
+import { PROSE_DENSE, PROSE_BRUTAL, PROSE_FALL } from '../data/warprose';
 
 const FIT_MARK = ['△', '○', '◎'];
 const SQUAD_LABEL = ['第一部隊', '第二部隊', '第三部隊'];
@@ -621,12 +622,34 @@ function sentences(s: GameState, b: BattleState, it: BItem, nameOf: (uid: string
   // 10夜目の途中：1回の行動＝2行（ドラクエのような流れ）。反撃・追撃も同じ形
   const isMagic = w?.type === 'magic' || w?.type === 'holy';
   const verb = e.role === 'counter' ? '反撃' : e.role === 'follow' ? '追撃' : e.role === 'duel' ? '一騎打ち' : '攻撃';
+  // 11夜目：位置の動きも文で（騎馬・飛行の子が回りこむ・舞い降りる）
+  const au = b.units.find((u) => u.uid === e.a);
+  const mt = au ? CLASSES[au.classId]?.moveType : undefined;
+  if (e.role === 'atk' && (mt === 'cavalry' || mt === 'flying') && (e.x + e.hp0) % 3 === 0) out.push({ cls: 'narr', text: mt === 'cavalry' ? `${A}は馬で回りこみ、${D}の背後を突いた。` : `${A}は空から${D}へ舞い降りた。` });
   out.push({ cls: side, text: isMagic && e.role !== 'counter' && e.role !== 'follow' ? `${A}は${w!.name}を唱えた！` : `${A}の${verb}！${e.eff ? '　特効！' : ''}` });
   const du = b.units.find((u) => u.uid === e.d);
+  // 11夜目：戦の描写（武器ごと・当たり方ごと）。生徒が倒れたときは、重傷・戦死の文
+  const level = s.settings.battleProse ?? 'dense';
+  const salt = e.x * 13 + e.hp0 * 7 + e.dmg;
+  const pick = (list?: string[]) => (list && list.length ? list[Math.abs(salt) % list.length] : '');
+  const hitKind = !e.hit ? 'miss' : e.kill ? 'kill' : e.crit ? 'crit' : e.dmg >= e.max * 0.35 ? 'heavy' : 'hit';
+  const wkey = !w ? 'none' : w.type === 'staff' ? 'holy' : w.type;
+  const fillP = (t: string) => t.replace(/\{a\}/g, A).replace(/\{d\}/g, D);
+  const studentDown = e.kill && du && du.side !== 'enemy' && du.studentId;
+  let prose = '';
+  if (level !== 'normal' && !studentDown) {
+    const br = level === 'brutal' ? pick(PROSE_BRUTAL[wkey]?.[hitKind]) : '';
+    prose = br || (hitKind === 'miss' ? '' : pick(PROSE_DENSE[wkey]?.[hitKind] ?? PROSE_DENSE.none[hitKind]));
+  }
+  if (studentDown) {
+    const oc = b.fallen.find((f) => f.studentId === du!.studentId)?.outcome;
+    if (oc === 'dead' || oc === 'injured') prose = pick(PROSE_FALL[oc][level]);
+  }
   if (!e.hit) out.push({ cls: 'narr', text: `${D}は ひらりとかわした！` });
   else out.push({ cls: 'dmg', text: `${e.crit ? '会心の一撃！ ' : ''}${D}に ${e.dmg}のダメージ！` });
-  if (e.kill) out.push({ cls: du?.side === 'enemy' ? 'narr' : 'down', text: du?.side === 'enemy' ? `${D}を倒した！` : `${D}は倒れた……` });
-  else if (e.hit && e.hp1 > 0 && e.hp1 <= e.max * 0.25) out.push({ cls: 'narr', text: `${D}はひざをついた……` });
+  if (prose && !studentDown) out.push({ cls: hitKind === 'kill' || hitKind === 'crit' ? 'prose strong' : 'prose', text: fillP(prose) });
+  if (e.kill) out.push({ cls: du?.side === 'enemy' ? 'narr' : 'down', text: studentDown && prose ? prose.replace(/\{a\}/g, D) : du?.side === 'enemy' ? `${D}を倒した！` : `${D}は倒れた……` });
+  else if (e.hit && e.hp1 > 0 && e.hp1 <= e.max * 0.25 && !prose) out.push({ cls: 'narr', text: `${D}はひざをついた……` });
   return out;
 }
 
@@ -785,7 +808,7 @@ function FxOverlay({ s, b, fx, level, leader, leaderColor, nameOf, onTap }: { s:
   if (fx.k === 'crit') {
     const foe = b.units.find((u) => u.uid === fx.a)?.side === 'enemy';
     return (
-      <div class={`fx-over fx-cutin${foe ? ' foe' : ''}${level === 'big' ? ' big' : ''}`} onClick={tap}>
+      <div class={`fx-over fx-cutin${foe ? ' foe' : ''}${level === 'big' ? ' big' : ''}${s.settings.battleProse === 'brutal' ? ' splat' : ''}`} onClick={tap}>
         <div class="fx-lines" />
         <div class="fx-band"><span class="fx-bandface"><BigFace s={s} b={b} uid={fx.a} size={210} leader={leader} leaderColor={leaderColor} /></span></div>
         <div class="fx-crit-title">必殺！</div>
@@ -801,7 +824,7 @@ function FxOverlay({ s, b, fx, level, leader, leaderColor, nameOf, onTap }: { s:
     const g = b.auto?.raised?.find((x) => x.uid === fx.d);
     const sub = o ? `${factionName(o.faction)}・${rankName(o)}` : g ? `${g.given}・見込みのある兵` : du?.boss ? '敵の大将' : '';
     return (
-      <div class="fx-over fx-kill" onClick={tap}>
+      <div class={`fx-over fx-kill${s.settings.battleProse === 'brutal' ? ' splat' : ''}`} onClick={tap}>
         <div class="fx-killface"><BigFace s={s} b={b} uid={fx.d} size={170} leader={leader} leaderColor="#222" gray /><span class="fx-cracks" /><i class="fx-frag f1" /><i class="fx-frag f2" /><i class="fx-frag f3" /><i class="fx-frag f4" /></div>
         <div class="stamp fx-killstamp">撃破</div>
         <div class="fx-killname serif">{nameOf(fx.d)}{sub ? `（${sub}）` : ''}</div>
@@ -812,9 +835,10 @@ function FxOverlay({ s, b, fx, level, leader, leaderColor, nameOf, onTap }: { s:
   }
   if (fx.k === 'fall') {
     const name = nameOf(fx.d);
-    const list = fx.outcome === 'dead' ? FALL_TEXT.dead : FALL_TEXT.injured;
+    const lv = s.settings.battleProse ?? 'dense';
+    const list = lv === 'normal' ? (fx.outcome === 'dead' ? FALL_TEXT.dead : FALL_TEXT.injured) : PROSE_FALL[fx.outcome === 'dead' ? 'dead' : 'injured'][lv];
     return (
-      <div class={`fx-over fx-fall ${fx.outcome}`} onClick={tap}>
+      <div class={`fx-over fx-fall ${fx.outcome}${s.settings.battleProse === 'brutal' ? ' splat' : ''}`} onClick={tap}>
         <div class="fx-fallface"><BigFace s={s} b={b} uid={fx.d} size={150} leader={leader} leaderColor={leaderColor} gray={fx.outcome === 'dead'} /></div>
         <div class="fx-falltext serif">{fill(list[name.length % list.length], { a: name })}</div>
         <div class="fx-skip">タップで次へ</div>

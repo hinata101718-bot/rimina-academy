@@ -219,7 +219,7 @@ export function BattleView() {
     const k = y * W + x;
     setMsg('');
     if (mode.kind === 'command') {
-      if (u && u.side === 'player') { act((g) => { const t = command(g.battle!, ctx, mode.cmd, g.battle!.units.find((z) => z.uid === u.uid)!); setMsg(t || 'その生徒には出せない指示です'); }); setMode({ kind: 'idle' }); }
+      if (u && u.side === 'player') { act((g) => { const t = command(g.battle!, ctx, mode.cmd, g.battle!.units.find((z) => z.uid === u.uid)!); setMsg(t || 'その子には、この指示を出せません'); }); setMode({ kind: 'idle' }); }
       return;
     }
     if (mode.kind === 'idle' || mode.kind === 'selected') {
@@ -274,7 +274,7 @@ export function BattleView() {
         <span>{objective}{b.objective === 'escape' ? `（${b.escaped ?? 0}／${b.escapeNeed ?? 3}人）` : ''}</span>
         <span>{WEATHER_NAMES[b.weather]}</span>
         <span>敵{enemies}</span>
-        {!b.real && <span>演習（死なない）</span>}
+        {!b.real && <span>演習（誰も死にません）</span>}
       </div>
       <div class="board">
         {b.tiles.map((t, k) => {
@@ -304,10 +304,10 @@ export function BattleView() {
       <div class="panel">
         {msg && <div class="guide">{msg}</div>}
         {s.settings.guide && s.year === 1 && s.month === 0 && b.phase === 'player' && !msg && !busy && (
-          <div class="guide">{mode.kind === 'idle' ? '青い丸が味方です。タップすると、動ける範囲（青）と攻撃できる範囲（赤）が出ます。赤い丸（敵）をタップすると、その敵の攻撃範囲が見えます。' : mode.kind === 'selected' ? '青いマスをタップして移動します。その場で行動するなら、自分のマスをもう一度タップ。' : mode.kind === 'menu' ? '攻撃するなら「攻撃」、何もしないなら「待機」。「戻る」で移動をやり直せます。' : '戦闘予測を見て「決定」。命中・威力・反撃を確かめましょう。全員が動いたら「ターン終了」。'}</div>
+          <div class="guide">{mode.kind === 'idle' ? '青い丸が味方です。タップすると、動ける所が青、攻撃できる所が赤で出ます。赤い丸の敵をタップすると、その敵が届く所が見えます。' : mode.kind === 'selected' ? '青いマスをタップして移動します。その場で動くなら、自分のマスをもう一度タップしてください。' : mode.kind === 'menu' ? '攻撃するなら「攻撃」、何もしないなら「待機」を押してください。「戻る」で動きをやり直せます。' : '予測を見て、よければ「決定」を押してください。全員が動いたら「ターン終了」です。'}</div>
         )}
         {busy ? (
-          <div class="card row between"><span>{busy === 'enemy' ? '敵の行動中…（画面をタップで早送り）' : '…'}</span>{busy === 'enemy' && <button class="btn small" onClick={(e) => { e.stopPropagation(); seqRef.current?.cancel(); }}>スキップ</button>}</div>
+          <div class="card row between"><span>{busy === 'enemy' ? '敵が動いています（タップで早送り）' : '…'}</span>{busy === 'enemy' && <button class="btn small" onClick={(e) => { e.stopPropagation(); seqRef.current?.cancel(); }}>スキップ</button>}</div>
         ) : b.phase === 'done' ? (
           <div class="card" style={{ textAlign: 'center' }}>
             <h2>{b.result === 'win' ? '勝利！' : '敗北……'}</h2>
@@ -317,7 +317,7 @@ export function BattleView() {
           <>
             {mode.kind === 'menu' && sel && <ActionMenu b={b} u={sel} s={s} onAttack={() => setMode({ kind: 'target', uid: sel.uid, from: mode.from })} onHeal={() => setMode({ kind: 'target', uid: sel.uid, from: mode.from, heal: true })}
               onDone={(t, before) => { setMsg(t ?? ''); setMode({ kind: 'idle' }); if (before) void afterAction(before); }} snapshot={snapshotViews} onBack={() => { sfx('cancel'); undoMove(sel.uid, mode.from); setMode({ kind: 'selected', uid: sel.uid }); }} />}
-            {mode.kind === 'target' && <div class="card row between"><span>{mode.heal ? '回復する味方' : '攻撃する敵'}をタップ</span><button class="btn ghost small" onClick={() => setMode({ kind: 'menu', uid: mode.uid, from: mode.from })}>戻る</button></div>}
+            {mode.kind === 'target' && <div class="card row between"><span>{mode.heal ? '回復する味方' : '攻撃する敵'}をタップしてください</span><button class="btn ghost small" onClick={() => setMode({ kind: 'menu', uid: mode.uid, from: mode.from })}>戻る</button></div>}
             {mode.kind === 'confirm' && sel && <Confirm b={b} s={s} a={sel} d={b.units.find((u) => u.uid === mode.target)!} heal={mode.heal} wid={mode.wid}
               onWeapon={(wid) => { sfx('move'); setMode({ ...mode, wid }); }}
               onOk={() => {
@@ -327,7 +327,7 @@ export function BattleView() {
                 void afterAction(before);
               }}
               onBack={() => { sfx('cancel'); setMode({ kind: 'target', uid: sel.uid, from: mode.from, heal: mode.heal }); }} />}
-            {mode.kind === 'command' && <div class="card row between"><span>指示を出す生徒をタップ</span><button class="btn ghost small" onClick={() => setMode({ kind: 'idle' })}>やめる</button></div>}
+            {mode.kind === 'command' && <div class="card row between"><span>指示を出す子をタップしてください</span><button class="btn ghost small" onClick={() => setMode({ kind: 'idle' })}>やめる</button></div>}
             {(mode.kind === 'idle' || mode.kind === 'selected') && (
               <div class="row" style={{ margin: '6px 0' }}>
                 <button class={`btn small ${showThreat ? 'primary' : ''}`} onClick={() => setShowThreat(!showThreat)}>敵の範囲</button>
@@ -340,7 +340,7 @@ export function BattleView() {
         )}
         {info && <UnitInfo u={info} s={s} b={b} />}
         <div class="log">{[...b.log].reverse().slice(0, 6).map((l) => <div>{l.text}</div>)}</div>
-        {b.phase !== 'done' && !busy && <details class="muted small" style={{ marginTop: 6 }}><summary>あきらめる</summary><button class="btn ghost small" onClick={() => { if (confirm('撤退しますか？（敗北になります）')) act((g) => { g.battle!.phase = 'done'; g.battle!.result = 'lose'; }); }}>撤退する</button></details>}
+        {b.phase !== 'done' && !busy && <details class="muted small" style={{ marginTop: 6 }}><summary>あきらめる</summary><button class="btn ghost small" onClick={() => { if (confirm('退きますか？　この戦いは負けになります。')) act((g) => { g.battle!.phase = 'done'; g.battle!.result = 'lose'; }); }}>撤退する</button></details>}
       </div>
       {combat && <CombatPanel c={combat} b={b} s={s} />}
       {banner && <div class="banner"><span>{banner}</span></div>}
@@ -407,7 +407,7 @@ function UnitInfo({ u, s, b }: { u: Unit; s: GameState; b: BattleState }) {
       <div>装備：{w ? `${w.name}（威力${w.might}・射程${w.minRange === w.maxRange ? w.minRange : `${w.minRange}-${w.maxRange}`}）` : 'なし'}{u.item ? `・${u.item === 'elixir' ? '特効薬' : '傷薬'}` : ''}</div>
       {others.length > 0 && <div class="muted">ほかに：{others.map((x) => x.name).join('・')}</div>}
       <div class="muted">地形：{t.name}{t.avo ? ` 回避+${t.avo}` : ''}{t.def ? ` 守備+${t.def}` : ''}{u.poison ? '・毒' : ''}{u.weaken ? '・弱体' : ''}{u.ward ? `・魔防+${u.ward}` : ''}{u.reloadTurn === b.turn ? '・装填中' : ''}</div>
-      {u.studentId && s.students[u.studentId] && u.side === 'player' && <div class="muted">信頼{Math.round(s.students[u.studentId].trust)}（指示の成功率{Math.round(commandRate(battleCtx(s), u))}%）</div>}
+      {u.studentId && s.students[u.studentId] && u.side === 'player' && <div class="muted">信頼{Math.round(s.students[u.studentId].trust)}（指示がうまくいく見込み{Math.round(commandRate(battleCtx(s), u))}%）</div>}
     </div>
   );
 }
@@ -430,16 +430,16 @@ function ActionMenu({ b, u, s, onAttack, onHeal, onDone, onBack, snapshot }: { b
         {canAtk && <button class="btn small accent" onClick={onAttack}>攻撃</button>}
         {canHeal && <button class="btn small primary" onClick={onHeal}>回復</button>}
         {u.item && u.hp < u.maxHp && <button class="btn small" onClick={() => doAct((bb, uu) => { useItem(bb, uu); }, true)}>{u.item === 'elixir' ? '特効薬' : '傷薬'}</button>}
-        {canVisit(b, u) && <button class="btn small" onClick={() => doAct((bb, uu) => visit(bb, uu))}>訪問</button>}
-        {canOpenChest(b, u) && <button class="btn small" onClick={() => doAct((bb, uu) => openChest(bb, uu))}>宝箱</button>}
+        {canVisit(b, u) && <button class="btn small" onClick={() => doAct((bb, uu) => visit(bb, uu))}>村を訪ねる</button>}
+        {canOpenChest(b, u) && <button class="btn small" onClick={() => doAct((bb, uu) => openChest(bb, uu))}>宝箱を開ける</button>}
         {canOpenDoor(b, u) && <button class="btn small" onClick={() => doAct((bb, uu) => openDoor(bb, uu))}>扉を開ける</button>}
-        {canPersuade(b, u) && <button class="btn small primary" onClick={() => doAct((bb, uu) => persuade(bb, ctx, uu))}>説得</button>}
-        {canRescue(b, u) && <button class="btn small accent" onClick={() => doAct((bb, uu) => rescue(bb, uu))}>救出</button>}
+        {canPersuade(b, u) && <button class="btn small primary" onClick={() => doAct((bb, uu) => persuade(bb, ctx, uu))}>説得する</button>}
+        {canRescue(b, u) && <button class="btn small accent" onClick={() => doAct((bb, uu) => rescue(bb, uu))}>助け出す</button>}
         {canEscape(b, u) && <button class="btn small accent" onClick={() => doAct((bb, uu) => escape(bb, uu))}>脱出</button>}
         <button class="btn small" onClick={() => doAct((bb, uu) => { wait(bb, uu); })}>待機</button>
         <button class="btn small ghost" onClick={onBack}>戻る</button>
       </div>
-      {w && w.type === 'gun' && !canUseNow(b, u, w) && <div class="muted small">{b.weather === 'rain' ? '雨で銃が使えない' : '装填中で撃てない'}</div>}
+      {w && w.type === 'gun' && !canUseNow(b, u, w) && <div class="muted small">{b.weather === 'rain' ? '雨のため、銃が使えません' : '弾をこめているので、まだ撃てません'}</div>}
     </div>
   );
 }
@@ -478,7 +478,7 @@ function Confirm({ b, s, a, d, heal: isHeal, wid, onWeapon, onOk, onBack }: { b:
         <div>{f.atk.hit}%</div><div class="lbl">命中</div><div>{f.def.canAttack ? `${f.def.hit}%` : '—'}</div>
         <div>{f.atk.crit}%</div><div class="lbl">必殺</div><div>{f.def.canAttack ? `${f.def.crit}%` : '—'}</div>
       </div>
-      {!f.def.canAttack && <div class="muted small" style={{ textAlign: 'center' }}>相手は反撃できない</div>}
+      {!f.def.canAttack && <div class="muted small" style={{ textAlign: 'center' }}>相手は反撃できません</div>}
       <div class="row" style={{ marginTop: 6 }}><button class="btn accent grow" onClick={onOk}>決定</button><button class="btn ghost" onClick={onBack}>戻る</button></div>
     </div>
   );
@@ -500,7 +500,7 @@ function CommandButtons({ b, onPick }: { b: BattleState; onPick: (c: 'again' | '
 function RewindButton({ b }: { b: BattleState }) {
   const [open, setOpen] = useState(false);
   const n = canRewind(b);
-  if (!open) return <button class="btn small" onClick={() => setOpen(true)}>巻き戻し（{b.rewindsLeft}）</button>;
+  if (!open) return <button class="btn small" onClick={() => setOpen(true)}>やり直す（あと{b.rewindsLeft}）</button>;
   return (
     <span class="row">
       {Array.from({ length: n }, (_, i) => i + 1).map((k) => <button class="btn small" onClick={() => { sfx('cancel'); act((g) => { g.battle = rewind(g.battle!, k); }); setOpen(false); }}>{k === 1 ? 'このターンの最初' : `${k - 1}ターン前`}</button>)}

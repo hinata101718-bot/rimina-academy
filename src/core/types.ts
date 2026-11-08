@@ -97,7 +97,7 @@ export interface WeaponDef {
 export type TalkTopic =
   | 'dream' | 'origin' | 'house' | 'trait'
   | 'ev_cover' | 'ev_samekill' | 'ev_exam' | 'ev_loss' | 'ev_homewar' | 'ev_festival' | 'ev_spar' | 'ev_injury'
-  | 'rel_friend' | 'rel_rival' | 'rel_love' | 'daily'
+  | 'rel_friend' | 'rel_rival' | 'rel_love' | 'rel_senpai' | 'daily'
   | 'food' | 'study' | 'teacher' | 'family' | 'hobby' | 'war' | 'future' | 'fear';
 
 /** 会話の片方（a または b）にかける条件 */
@@ -137,7 +137,7 @@ export interface TalkCond {
   sameCountry?: boolean;
   sameHouse?: boolean;
   sameGrade?: boolean;
-  kind?: 'friend' | 'rival' | 'love';
+  kind?: 'friend' | 'rival' | 'love' | 'senpai';
   /** 戦況（平和期・緊張期・激戦期） */
   stage?: 'peace' | 'tension' | 'war';
   /** 会話を組み立てるときに渡される目印（面談の結果など） */

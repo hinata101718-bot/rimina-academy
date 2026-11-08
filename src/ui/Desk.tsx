@@ -56,7 +56,7 @@ export function WarMap({ s }: { s: GameState }) {
   }
   const stage = stageOf(s);
   return (
-    <button class={`deskmap st-${stage}`} onClick={() => { sfx('move'); navigate({ tab: 'war' }); }} aria-label="作戦地図（戦況へ）">
+    <button class={`deskmap st-${stage}`} onClick={() => { sfx('move'); navigate({ tab: 'war' }); }} aria-label="作戦地図。押すと戦況を開きます">
       <span class="pin l" /><span class="pin r" />
       <svg viewBox="0 0 360 210" preserveAspectRatio="none">
         <defs>
@@ -93,21 +93,21 @@ export function deskTodos(s: GameState): DeskTodo[] {
   const out: DeskTodo[] = [];
   const list = enrolled(s);
   const day = DAY_NAMES[(s.day ?? 1) - 1];
-  out.push({ text: `${day}曜　本日の授業を決める`, go: () => navigate({ tab: 'school', page: 'today' }) });
-  if (s.week === 1 && (s.day ?? 1) === 1) out.push({ text: '今月の目標技能を決める', go: () => navigate({ tab: 'school', page: 'targets' }), red: true });
-  for (const st of list) if (st.dropoutSign) out.push({ text: `${st.given}　退学の予兆`, go: () => navigate({ tab: 'students', page: 'detail', id: st.id }), red: true });
-  for (const id of s.consults) { const st = s.students[id]; if (st) out.push({ text: `${st.given}　相談あり`, go: () => navigate({ tab: 'students', page: 'detail', id }), red: true }); }
+  out.push({ text: `${day}曜　今日の授業を決める`, go: () => navigate({ tab: 'school', page: 'today' }) });
+  if (s.week === 1 && (s.day ?? 1) === 1) out.push({ text: '今月の目標の技能を決める', go: () => navigate({ tab: 'school', page: 'targets' }), red: true });
+  for (const st of list) if (st.dropoutSign) out.push({ text: `${st.given}　やめたがっている`, go: () => navigate({ tab: 'students', page: 'detail', id: st.id }), red: true });
+  for (const id of s.consults) { const st = s.students[id]; if (st) out.push({ text: `${st.given}　相談したいことがある`, go: () => navigate({ tab: 'students', page: 'detail', id }), red: true }); }
   const ex = examCandidates(s);
-  if (ex.length) out.push({ text: `兵種試験　${kanjiNum(ex.length)}名`, go: () => navigate({ tab: 'students', page: 'exam' }), red: true });
+  if (ex.length) out.push({ text: `兵種試験を受けられる子　${kanjiNum(ex.length)}名`, go: () => navigate({ tab: 'students', page: 'exam' }), red: true });
   for (const st of list) if (budKnown(st)) { out.push({ text: `${st.given}　${st.bud?.gold ? '金の芽' : `${SKILL_NAMES[st.bud!.skill!]}の芽`}を育てよう`, go: () => navigate({ tab: 'students', page: 'detail', id: st.id, sub: 'skills' }) }); break; }
-  for (const st of list) if (st.birthday && st.birthday.month === s.month && st.birthday.week === s.week) out.push({ text: `${st.given}　誕生日の週`, go: () => navigate({ tab: 'students', page: 'detail', id: st.id }) });
+  for (const st of list) if (st.birthday && st.birthday.month === s.month && st.birthday.week === s.week) out.push({ text: `${st.given}　今週が誕生日`, go: () => navigate({ tab: 'students', page: 'detail', id: st.id }) });
   const ne = nextEvent(s);
   if (ne) out.push({ text: ne.weeks === 0 ? `今週　${ne.label}` : `${ne.label}まで　${kanjiNum(ne.weeks)}週`, go: () => navigate({ tab: 'school', page: 'today' }) });
   const t = repTier(s.reputation);
   if (REP_TIERS[t + 1] && s.year <= 6) out.push({ text: `「${REP_TIERS[t + 1].name}」まで　評判あと${kanjiNum(Math.ceil(REP_TIERS[t + 1].at - s.reputation))}`, go: () => navigate({ tab: 'school', page: 'notebook' }) });
   const ready = MENTOR_ABILITIES.filter((a) => abilityState(s, a) === 'ready');
-  if (ready.length) out.push({ text: `教官の心得　覚えられる（${mentorXp(s)}pt）`, go: () => navigate({ tab: 'school', page: 'instructor' }) });
-  else { const next = MENTOR_ABILITIES.filter((a) => abilityState(s, a) === 'poor').map((a) => abilityCost(s, a)).sort((a, b) => a - b)[0]; if (next) out.push({ text: `教官の経験　${mentorXp(s)}／${next}pt`, go: () => navigate({ tab: 'school', page: 'instructor' }) }); }
+  if (ready.length) out.push({ text: `教官の心得を覚えられる（${mentorXp(s)}）`, go: () => navigate({ tab: 'school', page: 'instructor' }) });
+  else { const next = MENTOR_ABILITIES.filter((a) => abilityState(s, a) === 'poor').map((a) => abilityCost(s, a)).sort((a, b) => a - b)[0]; if (next) out.push({ text: `先生の経験値　${mentorXp(s)}／${next}`, go: () => navigate({ tab: 'school', page: 'instructor' }) }); }
   return out;
 }
 
@@ -144,12 +144,12 @@ export function Desk({ s }: { s: GameState }) {
           <div class="deskletter" role="button" onClick={() => { sfx('move'); navigate({ tab: 'school', page: 'mail' }); }}>
             {unread.length > 0 && <span class="dl-count">{unread.length}</span>}
             <div class="dl-title">{unread.length ? '急報' : '書状'}</div>
-            <div class="dl-text">{latestMail ? `${latestMail.title}。${latestMail.body}` : 'まだ書状は届いていない'}</div>
+            <div class="dl-text">{latestMail ? `${latestMail.title}。${latestMail.body}` : 'まだ書状は届いていません'}</div>
             <span class="dl-seal">✦</span>
           </div>
           <div class="deskpaper" role="button" onClick={() => { sfx('page'); navigate({ tab: 'school', page: 'news' }); }}>
             <div class="dp-title">{PAPER_NAME}</div>
-            <div class="dp-text">{paper ? paper.headline : '次の号は九月の終わり'}</div>
+            <div class="dp-text">{paper ? paper.headline : '次の号は、九月の終わりに出ます'}</div>
           </div>
         </div>
       </div>
@@ -171,7 +171,7 @@ export function Desk({ s }: { s: GameState }) {
         ))}
       </div>
       <button class="command" onClick={() => { sfx('ok'); navigate({ tab: 'school', page: 'today' }); }}>
-        <span class="cmd-seal">授</span>{sick ? '本日は休講（先生が寝込んでいる）' : '本日の授業を命ず'}
+        <span class="cmd-seal">授</span>{sick ? '今日は休み（先生が寝込み中）' : '今日の授業を決める'}
       </button>
       <div style={{ height: 20 }} />
     </div>

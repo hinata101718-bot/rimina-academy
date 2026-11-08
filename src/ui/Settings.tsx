@@ -1,3 +1,4 @@
+import { PROSE_NAMES } from '../data/warprose';
 import { FX_NAMES } from '../data/battlefx';
 import type { GameState } from '../core/state';
 import { useStore, act, setGame, emit } from './store';
@@ -45,6 +46,8 @@ export function SettingsTab() {
         <div class="muted small">戦いの記録の下のボタンでも、いつでも切り替えられます。「結果へ」で残りをとばせます。</div>
         <div class="small" style={{ marginTop: 8 }}><b>戦闘の演出</b></div>
         <div class="seg" style={{ marginTop: 4 }}>{(['big', 'normal', 'low'] as const).map((v) => <button class={(s.settings.battleFx ?? 'big') === v ? 'on' : ''} onClick={() => set((x) => { x.battleFx = v; })}>{FX_NAMES[v]}</button>)}</div>
+        <div class="small" style={{ marginTop: 8 }}>戦の描写：戦いの文で、傷や死をどこまで書くかを選べます</div>
+        <div class="seg" style={{ marginTop: 4 }}>{(['normal', 'dense', 'brutal'] as const).map((v) => <button class={(s.settings.battleProse ?? 'dense') === v ? 'on' : ''} onClick={() => { if (v === 'brutal' && !s.settings.proseAsked && !confirm('むごい描写が増えます（斬り落とされる手足や血しぶきなど）。よろしいですか？')) return; set((x) => { x.battleProse = v; if (v === 'brutal') x.proseAsked = true; }); }}>{PROSE_NAMES[v]}</button>)}</div>
         <div class="muted small">派手：攻撃ごとの斬撃・必殺のカットイン・撃破の判・宿命の対決の画面。ふつう：見せ場を短く。控えめ：カードだけ。どれもタップで早送りできます。</div>
       </div>
       <div class="card">

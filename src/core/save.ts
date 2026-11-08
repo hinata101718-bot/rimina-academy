@@ -48,6 +48,7 @@ export function migrate(s: GameState, from: number): GameState {
   if (from < 9) migrateTo9(s);
   if (from < 10) migrateTo10(s);
   ensure10(s);
+  if (from < 11) migrateTo11(s);
   s.heirs ??= [];
   s.archive ??= {};
   s.notices ??= [];
@@ -337,4 +338,21 @@ function ensure10(s: GameState): void {
   }
   if (s.instructor?.caps) { s.instructor.caps.tactics = Math.max(s.instructor.caps.tactics, RANK_POINTS.B); s.instructor.caps.command = Math.max(s.instructor.caps.command, RANK_POINTS.B); }
   if (s.instructor?.skills && !s.instructor.skills.tactics && !s.instructor.skills.command) { s.instructor.skills.tactics = RANK_POINTS.D; s.instructor.skills.command = RANK_POINTS.D; }
+}
+
+/**
+ * 10夜目の版（version 10）→ 11夜目の版（version 11）
+ * - 戦の描写の設定（はじめは「濃い」）。先輩と後輩・戦いのあとの場面・書き直した文は、そのまま使える
+ */
+function migrateTo11(s: GameState): void {
+  s.settings.battleProse ??= 'dense';
+  s.pending ??= [];
+  s.pending.push({
+    type: 'event', title: '11夜目の新しいこと',
+    lines: [
+      '画面の文と、生徒たちの台詞を読みやすく書き直しました。',
+      '学年の違う二人が親しくなると「先輩と後輩」になることがあります。いっしょの授業では後輩がよく伸び、卒業する先輩は後輩に何かを託していきます。',
+      '戦いの文が、武器や当たり方ごとに書き分けられるようになりました。設定の「戦の描写」で、ふつう・濃い・凄惨を選べます（はじめは濃い）。',
+    ],
+  });
 }

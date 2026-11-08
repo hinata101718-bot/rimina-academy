@@ -66,7 +66,7 @@ export function ScenePlayer({ s, lines, onDone }: { s: GameState; lines: SceneLi
         <div class="ttext">{full.slice(0, shown)}{typing ? '' : <span class="tnext">{i + 1 < lines.length ? ' ▼' : ' ■'}</span>}</div>
       </div>
       <div class="row" style={{ marginTop: 8 }} onClick={(e) => e.stopPropagation()}>
-        <span class="muted small grow">{i + 1}／{lines.length}　タップで進む</span>
+        <span class="muted small grow">{i + 1}／{lines.length}　タップすると進みます</span>
         <button class="btn ghost small" onClick={() => { sfx('cancel'); onDone(); }}>読み飛ばす</button>
       </div>
     </div>

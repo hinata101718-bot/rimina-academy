@@ -150,7 +150,7 @@ export interface LessonDay { key: number; cards: LessonCard[]; rain?: boolean }
 export interface LessonRow { id: string; face: boolean; tag?: boolean; target?: boolean; skills: { k: SkillId; p0: number; p1: number }[]; train: { k: StatId; g0: number; g1: number; up: number }[] }
 export interface LessonEvent { kind: string; ids: string[]; lines: TalkLineLog[] }
 
-export interface Support { a: string; b: string; value: number; kind: 'none' | 'friend' | 'rival' | 'love'; seen: string[]; lastRank: '' | 'C' | 'B' | 'A' }
+export interface Support { a: string; b: string; value: number; kind: 'none' | 'friend' | 'rival' | 'love' | 'senpai'; seen: string[]; lastRank: '' | 'C' | 'B' | 'A' }
 
 export interface Teacher { id: string; name: string; skill: SkillId; points: number; salary: number; alumniId?: string; baseSalary?: number; /** 学校に来た年 */ since?: number }
 
@@ -518,6 +518,9 @@ export interface Settings {
   battleLog?: 'tap' | 'normal' | 'fast';
   /** 戦闘の演出（9夜目）：派手／ふつう／控えめ */
   battleFx?: 'big' | 'normal' | 'low';
+  /** 戦の描写（11夜目）：ふつう／濃い（はじめ）／凄惨（一度だけ確かめる） */
+  battleProse?: 'normal' | 'dense' | 'brutal';
+  proseAsked?: boolean;
   rewind: boolean;
   guide: boolean;
   sound: boolean;

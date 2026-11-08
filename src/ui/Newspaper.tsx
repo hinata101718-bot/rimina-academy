@@ -62,7 +62,7 @@ export function NewsView({ id, onLeave }: { id: string; onLeave?: () => void }) 
         <div class="np-cols">
           <section class="np-col">
             <h3 class="np-sec">各組織の移り変わり</h3>
-            {!(n.orgs ?? []).length && <div class="small muted">目立った動きはなかった</div>}
+            {!(n.orgs ?? []).length && <div class="small muted">目立った動きはありませんでした</div>}
             {(n.orgs ?? []).map((o) => {
               const off = officerById(s, o.officerId);
               return (
@@ -150,7 +150,7 @@ export function NewsPage({ s }: { s: GameState }) {
   return (
     <div class="deskpage">
       <Back to={() => navigate({ tab: 'school' })} />
-      {!s.news.length && <div class="ledger"><div class="empty-note">新聞はまだ届いていません（9月の終わりに前期号、3月に後期号。大事件の月は号外）</div></div>}
+      {!s.news.length && <div class="ledger"><div class="empty-note">新聞はまだ届いていません。9月の終わりと3月に届きます。大事件があった月は、号外も出ます</div></div>}
       {open && <NewsView id={open} />}
       {s.news.length > 1 && (
         <div class="ledger">

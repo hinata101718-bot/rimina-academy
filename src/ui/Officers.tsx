@@ -39,7 +39,7 @@ export function OfficerRoster({ s }: { s: GameState }) {
   const met = all.filter((o) => o.meets.length && !o.prospect).length;
   return (
     <div>
-      <div class="card small muted">三国の軍と盗賊団の組織図。戦場で会うほど、敵将のことが分かっていきます（会ったことのない敵将は「？」）。これまでに会った敵将：<b>{met}人</b></div>
+      <div class="card small muted">三国の軍と盗賊団の組織図です。戦場で会うほど、敵将のことが分かっていきます。これまでに会った敵将は<b>{met}人</b>です。</div>
       <div class="pills ofc-tabs">
         {tabs.map((x) => <button class={tab === x ? 'on' : ''} style={x !== 'gone' ? { ['--band' as string]: FACTION_COLOR[x as FactionId] } : undefined} onClick={() => { sfx('move'); setTab(x); }}>{x === 'gone' ? '去った敵将' : factionName(x as FactionId)}{x !== 'gone' && x !== 'monster' && (diffs[x]?.length ?? 0) > 0 && <span class="org-dot">{diffs[x].length}</span>}</button>)}
       </div>
@@ -96,19 +96,19 @@ function OrgChart({ s, f, changes, focus, onOpen }: { s: GameState; f: FactionId
     <div class="org-wrap" style={{ ['--band' as string]: FACTION_COLOR[f] }}>
       {changes.length > 0 && (
         <div class="org-changes">
-          <div class="org-chead">✦ 前に見たときからの変化（{changes.length}件）</div>
+          <div class="org-chead">✦ 前に見たときから、{changes.length}件変わりました</div>
           {changes.slice(0, 8).map((c, i) => <div class={`org-ch ${c.kind}`} onClick={() => { sfx('ok'); setPlay(i); }}><span class="org-chi">{CH_ICON[c.kind]}</span><span>{c.text}</span></div>)}
           {changes.length > 8 && <div class="small muted">ほか{changes.length - 8}件</div>}
           <div class="row nowrap gap6" style={{ marginTop: 6 }}>
             <div class="seg org-seg"><button class={prev ? 'on' : ''} onClick={() => { sfx('move'); setPrev(true); }}>前回</button><button class={!prev ? 'on' : ''} onClick={() => { sfx('move'); setPrev(false); }}>今</button></div>
-            <button class="btn small org-playbtn" onClick={() => { sfx('ok'); setPlay(0); }}>▶ 変化を順に見る</button>
+            <button class="btn small org-playbtn" onClick={() => { sfx('ok'); setPlay(0); }}>▶ 変わったところを見る</button>
           </div>
         </div>
       )}
       <div class="org-tree" ref={treeRef}>
         <ul class="org-root">
           <li>
-            {head ? <Node n={head} /> : <div class="org-vacant">{RANK_NAMES[kind][0]}の座は空いている</div>}
+            {head ? <Node n={head} /> : <div class="org-vacant">{RANK_NAMES[kind][0]}の座は空いています</div>}
             {(mids.length > 0 || orphans.length > 0) && (
               <ul>
                 {mids.map((m) => (
@@ -124,7 +124,7 @@ function OrgChart({ s, f, changes, focus, onOpen }: { s: GameState; f: FactionId
         </ul>
       </div>
       <div class="org-legend small"><span class="lg new">新任</span><span class="lg promote">昇進</span><span class="lg fell">討ち取り</span><span class="lg contest">争い中</span><span class="lg epithet">二つ名</span><span class="lg raised">抜擢</span><span class="lg alumni">教え子</span></div>
-      <h3 style={{ marginBottom: 2 }}>見込みのある兵 <span class="small muted">戦いで目立った一般兵。{RANK_NAMES[kind][2]}の席が空くと抜擢されることがある</span></h3>
+      <h3 style={{ marginBottom: 2 }}>見込みのある兵 <span class="small muted">戦いで目立った兵です。{RANK_NAMES[kind][2]}の席が空くと、選ばれることがあります</span></h3>
       {prospects.length ? (
         <div class="org-prospects">
           {prospects.map((o) => (
@@ -136,7 +136,7 @@ function OrgChart({ s, f, changes, focus, onOpen }: { s: GameState; f: FactionId
             </div>
           ))}
         </div>
-      ) : <div class="small muted">まだいない</div>}
+      ) : <div class="small muted">まだいません</div>}
       {play !== null && changes[play] && <ChangePlayer s={s} c={changes[play]} i={play} n={changes.length} onNext={() => setPlay(play + 1 < changes.length ? play + 1 : null)} onClose={() => setPlay(null)} />}
     </div>
   );
@@ -199,7 +199,7 @@ function ChangePlayer({ s, c, i, n, onNext, onClose }: { s: GameState; c: OrgCha
         )}
         <div class="org-pname serif">{officerName(o)}</div>
         <div class="org-ptext">{c.text}</div>
-        <div class="small muted">タップで次の変化へ</div>
+        <div class="small muted">タップすると、次の変化へ進みます</div>
         <button class="btn small" onClick={(e) => { e.stopPropagation(); onClose(); }}>閉じる</button>
       </div>
     </div>
@@ -216,7 +216,7 @@ function OfficerRow({ s, o, onOpen }: { s: GameState; o: EnemyOfficer; onOpen: (
         <div class="grow" style={{ minWidth: 0 }}>
           <div class="row nowrap gap6"><b class="serif ofc-name" style={{ fontSize: 16 }}>{officerName(o)}</b>{o.alumniId && <Chip tone="gold">教え子</Chip>}{o.status !== 'active' && <span class="flag">{o.status === 'dead' ? '討死' : o.status === 'defeated' ? '敗退' : '引退'}</span>}</div>
           <div class="small">{o.kind === 'monster' ? '魔物の主' : `${factionName(o.faction)}・${rankName(o)}`}{k > 0 ? `　兵種：${CLASSES[o.classId]?.name ?? ''}・Lv${o.level}` : '　兵種：？'}</div>
-          <div class="small muted">{k === 0 ? 'まだ会ったことがない' : `会った回数 ${o.meets.length}回${o.scars ? '・傷あり' : ''}${o.victims.length ? `・教え子を${o.victims.length}人倒した` : ''}`}</div>
+          <div class="small muted">{k === 0 ? 'まだ会ったことがありません' : `会った回数 ${o.meets.length}回${o.scars ? '・傷あり' : ''}${o.victims.length ? `・教え子を${o.victims.length}人倒した` : ''}`}</div>
         </div>
         {o.kind !== 'monster' && <div class="ofc-mini">{o.traits.map((t) => <span class={o.knownTraits.includes(t) ? (OFFICER_TRAITS[t].weak ? 'w' : 'st') : 'q'}>{o.knownTraits.includes(t) ? (OFFICER_TRAITS[t].style ? (t === 'valor' ? '武' : '采') : OFFICER_TRAITS[t].weak ? '弱' : '強') : '？'}</span>)}</div>}
       </div>
@@ -247,19 +247,19 @@ export function OfficerSheet({ s, o, onClose }: { s: GameState; o: EnemyOfficer;
         </div>
         {o.endNote && <div class="small" style={{ marginTop: 4 }}>{o.endYear}年目：{o.endNote}</div>}
         {o.prospect && <div class="small" style={{ marginTop: 4 }}>見込みのある兵：{o.deed}</div>}
-        {o.raisedYear && <div class="small" style={{ marginTop: 4 }}>{o.raisedYear}年目に一兵卒から抜擢された（{o.deed}）</div>}
+        {o.raisedYear && <div class="small" style={{ marginTop: 4 }}>{o.raisedYear}年目に、一兵卒から取り立てられました（{o.deed}）</div>}
       </div>
       {o.kind !== 'monster' && (
         <>
           <h3>隠れた特徴</h3>
           {o.traits.map((t) => o.knownTraits.includes(t)
             ? <div class="ofc-traitrow"><span class={`ofc-trait ${OFFICER_TRAITS[t].style ? 'style' : OFFICER_TRAITS[t].weak ? 'weak' : 'strong'}`}>{OFFICER_TRAITS[t].style ? '型' : OFFICER_TRAITS[t].weak ? '弱点' : '強み'}：{OFFICER_TRAITS[t].name}</span><div class="small">{OFFICER_TRAITS[t].desc}。{OFFICER_TRAITS[t].tip}</div></div>
-            : <div class="ofc-traitrow"><span class="ofc-trait unknown">？</span><span class="small muted">まだ分からない（戦う・偵察・卒業生からの手紙で分かる）</span></div>)}
+            : <div class="ofc-traitrow"><span class="ofc-trait unknown">？</span><span class="small muted">まだ分かりません。戦ったり、偵察したり、卒業生から手紙が来たりすると分かります</span></div>)}
         </>
       )}
       {(o.victims.length > 0 || grudge) && <h3>この敵将の記憶</h3>}
       {o.victims.map((v) => <div class="small"><Icon name="skull" size={14} /> {v.year}年目、{v.name}を{v.dead ? '討った' : '重傷に追いこんだ'}</div>)}
-      {grudge && o.status === 'active' && <div class="small ofc-warn"><Icon name="target" size={14} /> {grudge.given}に負けたことを根に持ち、つけ狙っている</div>}
+      {grudge && o.status === 'active' && <div class="small ofc-warn"><Icon name="target" size={14} /> {grudge.given}に負けたことを根に持って、つけ狙っています</div>}
       {rivals.length > 0 && <h3>教え子との因縁</h3>}
       {rivals.map((r) => { const st = s.students[r.sid]; return (
         <div class="row nowrap gap6 ruled" onClick={() => { onClose(); navigate({ tab: 'students', page: 'detail', id: st.id }); }}>
@@ -268,7 +268,7 @@ export function OfficerSheet({ s, o, onClose }: { s: GameState; o: EnemyOfficer;
         </div>
       ); })}
       <h3>戦いの記録</h3>
-      {o.meets.length ? <ul class="list small" style={{ margin: 0 }}>{o.meets.map((m) => <li>{m.year}年目 {MONTH_NAMES[m.month]}「{m.title}」：{MEET_NAMES[m.result] ?? m.result}{m.foes?.length ? `（${m.foes.map((id) => s.students[id]?.given).filter(Boolean).slice(0, 3).join('・')}）` : ''}</li>)}</ul> : <div class="small muted">まだ戦ったことがない</div>}
+      {o.meets.length ? <ul class="list small" style={{ margin: 0 }}>{o.meets.map((m) => <li>{m.year}年目 {MONTH_NAMES[m.month]}「{m.title}」：{MEET_NAMES[m.result] ?? m.result}{m.foes?.length ? `（${m.foes.map((id) => s.students[id]?.given).filter(Boolean).slice(0, 3).join('・')}）` : ''}</li>)}</ul> : <div class="small muted">まだ戦ったことがありません</div>}
     </Sheet>
   );
 }
