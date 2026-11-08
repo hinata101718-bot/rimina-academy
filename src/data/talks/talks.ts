@@ -296,7 +296,7 @@ export const TALKS: TalkDef[] = [
       { by: 'a', say: 'exam_your_turn' },
       { by: 'b', say: 'exam_pressure' },
       { by: 'a', say: 'exam_believe' },
-      { by: 'b', say: 'thanks_soft' },
+      { by: 'b', say: 'exam_thanks_help' },
     ],
   },
   {
@@ -313,7 +313,6 @@ export const TALKS: TalkDef[] = [
       { by: 'a', say: iff({ a: { group: 'loud' } }, 'exam_pull_up', 'exam_wait_you') },
       { by: 'b', say: 'exam_catch_up' },
       { by: 'a', say: 'exam_cheer2' },
-      { by: 'b', say: 'close_promise' },
     ],
   },
 
