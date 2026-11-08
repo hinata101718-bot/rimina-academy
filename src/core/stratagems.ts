@@ -41,6 +41,11 @@ export function captainMod(st: Student | null | undefined): UnitMod {
   if (!st) return {};
   return { hit: Math.min(SQUADS.captainMax, Math.floor((captainScore(st) / 10) * SQUADS.captainPer10)) };
 }
+/** 教官が同行しない部隊（10夜目）：部隊長がここぞの判断でよい手を選ぶ見込み（0〜1） */
+export function awayJudgeRate(captain: Student | null | undefined, planner: Student | null | undefined): number {
+  const A = SQUADS.away;
+  return Math.min(A.max, A.base + (captain ? captainScore(captain) * A.perCaptain : 0) + (planner ? plannerScore(planner) * A.perPlanner : 0));
+}
 /** 役割から前列・後列 */
 export function defaultRow(role: RoleId): 'front' | 'back' { return role === 'back' || role === 'heal' ? 'back' : 'front'; }
 export function formationMod(row: 'front' | 'back'): UnitMod { return row === 'front' ? FORMATION.front : FORMATION.back; }

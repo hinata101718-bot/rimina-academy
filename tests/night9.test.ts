@@ -45,7 +45,7 @@ describe('8夜目版のセーブ（形式8）', () => {
     expect(raw.version).toBe(8);
     const s = deserialize(fixture('v8-day.json'));
     expect(s.version).toBe(SAVE_VERSION);
-    expect(SAVE_VERSION).toBe(9);
+    expect(SAVE_VERSION).toBeGreaterThanOrEqual(9);
     expect(knownStrats(s)).toEqual(START_STRATS);
     expect(START_STRATS.length).toBeGreaterThanOrEqual(3);
     expect(START_STRATS.length).toBeLessThanOrEqual(4);
@@ -123,7 +123,7 @@ describe('月末に最大3部隊', () => {
   it('部隊の順番に1つずつ戦い、最後にまとめた結果が1枚。月は1つだけ進む', () => {
     const s = fresh();
     const m0 = s.month, y0 = s.year;
-    const sq = recommendSquads(s);
+    const sq = recommendSquads(s).map((x) => ({ ...x, away: false }));
     startSortie(s, sq);
     expect(s.sortie?.squads.length).toBe(sq.length);
     const seen: string[] = [];
@@ -137,7 +137,7 @@ describe('月末に最大3部隊', () => {
   });
   it('途中の部隊で保存しても、読み込んで続きの部隊から戦える', () => {
     const s = fresh();
-    startSortie(s, recommendSquads(s));
+    startSortie(s, recommendSquads(s).map((x) => ({ ...x, away: false })));
     skipAuto(s, battleCtx(s)); finishBattle(s);
     expect(s.sortie?.idx).toBe(1);
     const t = deserialize(serialize(s));

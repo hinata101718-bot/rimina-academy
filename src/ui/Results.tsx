@@ -74,11 +74,31 @@ export function EvalCard({ s, e }: { s: GameState; e: StudentEval }) {
   );
 }
 
+/** 教官が同行しなかった部隊：部隊長の判断と、大事な出来事の短い場面（10夜目） */
+export function AwayBlock({ s, p, short }: { s: GameState; p: BattleReport; short?: boolean }) {
+  if (!p.away) return null;
+  const cap = p.captain ? s.students[p.captain] : null;
+  const calls = p.calls ?? [];
+  return (
+    <div class="paper small aw-block">
+      <div class="row nowrap gap6">{cap && <Portrait st={cap} size={30} frame={countryColor(cap.origin)} />}<b>先生は同行しませんでした。{cap ? `部隊長の${cap.given}がまかされました` : ''}</b></div>
+      {calls.length === 0 && <div class="muted">ここぞの判断が要る場面はありませんでした。</div>}
+      {calls.map((c) => <div class={`aw-call ${c.good ? 'good' : 'bad'}`}>{cap ? `${cap.given}の判断` : '部隊長の判断'}：{c.label} → <b>{c.good ? 'うまくいった' : '迷いが出た'}</b></div>)}
+      {!short && (p.moments ?? []).length > 0 && (
+        <div class="aw-moments">
+          {(p.moments ?? []).map((m) => { const st = s.students[m.by]; return <div class={`aw-m ${m.by === 'leader' ? 'leader' : ''}`}>{st && <Portrait st={st} size={26} />}<span>{st ? `${st.given}「${m.text}」` : m.text}</span></div>; })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 /** 1つの戦いの結果の中身 */
 export function ReportBody({ s, p, compact }: { s: GameState; p: BattleReport; compact?: boolean }) {
   return (
     <>
       {!compact && <AutoResultHead s={s} mvp={p.mvp} review={p.review} />}
+      <AwayBlock s={s} p={p} />
       {p.stratReview && p.stratReview.length > 0 && <div class="paper small st-review"><b>策の講評</b>{p.stratReview.map((r) => <div>・{r}</div>)}</div>}
       {p.officerId && <ResultOfficer s={s} id={p.officerId} />}
       {p.findings && p.findings.length > 0 && (
@@ -134,6 +154,7 @@ export function SortieResult({ s, reports, onDone }: { s: GameState; reports: Ba
             <b class="serif">{r.title}</b>
             {mvp && <div class="row nowrap gap6 small"><Portrait st={mvp} size={30} frame={countryColor(mvp.origin)} /><span>MVP <b>{mvp.given}</b></span></div>}
             {scene && <div class="small ev-scene">名場面：{scene}</div>}
+            {r.away && <AwayBlock s={s} p={r} short />}
             {top.length > 0 && <div class="ev-badges">{top.map((e) => <span class="sr-who">{s.students[e.id]?.given}<Badge id={e.badges[0]} /></span>)}</div>}
             {(r.fallen ?? []).length > 0 && <div class="small sr-fall">{(r.fallen ?? []).map((f) => `${s.students[f.id]?.given ?? ''}${f.outcome === 'dead' ? '（戦死）' : '（重傷）'}`).join('・')}</div>}
             {(r.stratReview ?? []).length > 0 && <div class="small muted">{r.stratReview!.join('　')}</div>}

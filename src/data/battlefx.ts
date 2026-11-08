@@ -6,7 +6,7 @@ export const FX_NAMES: Record<FxLevel, string> = { big: '派手', normal: 'ふ�
 
 export const FX = {
   /** 見せ場の長さ（ミリ秒。タップで早送り）。「ふつう」はこの倍率 */
-  cutin: 1500, kill: 1300, fall: 1900, duel: 2200, normalMul: 0.65,
+  cutin: 1500, kill: 1300, fall: 1900, duel: 2200, strat: 1500, normalMul: 0.65,
   /** 戦いの記録の「速く」のとき、見せ場の長さの倍率 */
   fastMul: 0.5,
   /** 新しいカードだけはっきり、前のカードは薄く（この枚数より前） */

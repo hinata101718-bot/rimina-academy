@@ -5,7 +5,7 @@ import { WEAPONS } from '../data/weapons';
 import type { CountryId, SkillId } from './types';
 import type { GameState, Quest, Student, GrowthEntry, BattleFinding, TalkLog, SquadPlan, BattleReport } from './state';
 import { SQUADS, STRAT } from '../data/stratagems';
-import { checkStratUnlocks, addStrat } from './stratagems';
+import { checkStratUnlocks, addStrat, awayJudgeRate } from './stratagems';
 import { evaluateBattle } from './evaluate';
 import { rivalryOf } from './officers';
 import { LESSON_BY_ID } from '../data/lessons';
@@ -21,7 +21,7 @@ import { gainExp, startGrowthLog, stopGrowthLog, snapGrowth, diffGrowth } from '
 import { learnSpells } from './spells';
 import { createBattle, unitFromStudent, defaultWeaponFor, type Deploy } from './battle/setup';
 import { startPlayerPhase, setReinforcementFactory, weaponSkillId } from './battle/engine';
-import { startAutoBattle, applyAutoResults, setupLeader, officerAfterBattle, officerForQuest, questSeed, type AutoPlan } from './battle/auto';
+import { startAutoBattle, applyAutoResults, setupLeader, officerAfterBattle, officerForQuest, questSeed, skipAuto, type AutoPlan, type AwayCall } from './battle/auto';
 import { ensureRosters, yearlyOfficers, revealOne } from './officers';
 import { fx } from './mentor';
 import { publishIssue } from './newspaper';
@@ -152,12 +152,39 @@ export function startSortie(s: GameState, squads: SquadPlan[]): void {
   s.sortie = { squads: list, idx: 0, reports: [], pendFrom: s.pending.length };
   startSquad(s);
 }
+/** 教官が同行しない部隊か（10夜目：2つ目・3つ目の部隊は、はじめ同行しない） */
+export function squadAway(sq: SquadPlan, idx: number): boolean { return idx > 0 && !sq.manual && sq.away !== false; }
+/** これから戦う部隊のうち、教官が同行するものが残っているか */
+export function moreEscorted(s: GameState): boolean {
+  const so = s.sortie;
+  if (!so) return false;
+  return so.squads.some((sq, i) => i > so.idx && !squadAway(sq, i));
+}
 function startSquad(s: GameState): void {
   const so = s.sortie;
   if (!so) return;
   const sq = so.squads[so.idx];
   if (sq.manual) startBattle(s, sq.questId, sq.deploy);
   else startAutoQuest(s, sq.questId, sq.deploy, sq.plan);
+  if (squadAway(sq, so.idx) && s.battle?.auto) {
+    // 教官が同行しない部隊：部隊長がここぞの判断を下し、最後まで自動で進む
+    const b = s.battle;
+    const cap = sq.plan.captain ? s.students[sq.plan.captain] : null;
+    const pl = sq.plan.planner ? s.students[sq.plan.planner] : null;
+    const rate = awayJudgeRate(cap, pl);
+    const r = new Rng({ rng: questSeed(s, s.quests.find((q) => q.id === sq.questId) ?? ({ id: sq.questId } as Quest)) ^ 0x2f17 });
+    const calls: AwayCall[] = [];
+    b.auto!.away = { calls };
+    skipAuto(s, battleCtx(s), (c) => {
+      const good = r.chance(rate);
+      let i = c.recommended;
+      if (!good && c.options.length > 1) { i = r.int(0, c.options.length - 2); if (i >= c.recommended) i += 1; }
+      calls.push({ kind: c.kind, prompt: c.prompt.split('\n')[0], label: c.options[i].label, good: i === c.recommended, by: cap?.id });
+      return i;
+    });
+    if (s.battle && s.battle.phase !== 'done') { s.battle.phase = 'done'; s.battle.result = 'lose'; }
+    finishBattle(s);
+  }
 }
 
 /** 戦闘を始める */
@@ -344,6 +371,7 @@ export function finishBattle(s: GameState): void {
   const firstTalk = s.pending.findIndex((p, i) => i >= talkFrom && p.type === 'talk');
   const findings = [...battleFindings(s, growth, lines, s.pending.slice(firstTalk >= 0 ? firstTalk : s.pending.length)), ...officerFind];
   const report: BattleReport = { lines, grades, win, growth, mvp: auto.mvp ?? undefined, review: auto.review, title: b.title, findings, officerId: (b.auto?.leader ?? b.leader)?.officerId,
+    away: b.auto?.away ? true : undefined, calls: b.auto?.away?.calls, moments: b.auto?.away ? awayMoments(b) : undefined,
     evals, stratReview: auto.stratReview.length ? auto.stratReview : undefined, captain: b.auto?.plan?.captain, fallen: b.fallen.filter((f) => f.outcome !== 'out' && s.students[f.studentId] && evalIds.includes(f.studentId)).map((f) => ({ id: f.studentId, outcome: f.outcome as 'dead' | 'injured' })) };
   s.battle = null;
   if (q?.kind === 'schoolDefense' && win) checkEndings(s, r, 'month');
@@ -364,6 +392,18 @@ export function finishBattle(s: GameState): void {
   s.pending.splice(firstTalk >= 0 ? firstTalk : s.pending.length, 0, { type: 'battleResult', ...report });
   deferShows(s, pendFrom);
   endMonth(s);
+}
+
+/** 同行しない部隊の大事な出来事（宿敵・一騎打ち・抜擢・敵将の口上）。結果の画面で短い場面に（10夜目） */
+function awayMoments(b: NonNullable<GameState['battle']>): { by: string; text: string }[] {
+  const out: { by: string; text: string }[] = [];
+  for (const sc of b.auto?.scenes ?? []) {
+    const big = !!sc.duo || sc.title === '宿命の対決';
+    for (const l of sc.lines) {
+      if (big || l.by.startsWith('raise:') || (l.by === 'leader' && out.filter((x) => x.by === 'leader').length < 1)) out.push({ by: l.by.startsWith('raise:') ? 'narr' : l.by, text: l.text });
+    }
+  }
+  return out.slice(0, 6);
 }
 
 /** 戦闘のあとの「この戦いで伸びた・分かったこと」（レベル・技能ランク・魔法・才能・特徴・支援） */

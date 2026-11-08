@@ -150,6 +150,8 @@ export const SQUADS = {
   extraLimit: 6,
   /** 部隊長の腕前（魅力＋軍略）10ごとの命中+ */
   captainPer10: 0.5, captainMax: 2,
+  /** 教官が同行しない部隊（10夜目）：部隊長がここぞの判断で「おすすめ」を選ぶ見込み。もと＋部隊長の腕前・策を立てる子の腕前（上限あり） */
+  away: { base: 0.4, perCaptain: 0.01, perPlanner: 0.004, max: 0.9 },
 };
 
 export const ROW_NAMES = { front: '前列', back: '後列' };

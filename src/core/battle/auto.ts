@@ -81,14 +81,18 @@ export interface AutoState {
   /** 戦いのはじめの両軍のHP（uid→[今, 最大]。7夜目） */
   hp0?: Record<string, [number, number]>;
   /** 9夜目：出撃前の計画（策・策を立てる子・部隊長・陣形） */
-  plan?: { planner?: string; captain?: string };
+  plan?: { planner?: string; captain?: string; rows?: Record<string, 'front' | 'back'> };
   /** 切った策の記録、まだ切っていない策（ぶつかり合いのあと） */
   strats?: StratRec[]; held?: StratId[];
   /** 策の効き目：重傷で済む確率+、一騎打ちを申し込ませる、戦いのあと特徴が分かる */
   injury?: number; duelOffer?: boolean; reveal?: boolean;
   /** 戦いで目立った一般兵（9夜目：名前と顔を得て「見込みのある兵」に） */
   raised?: RaisedGrunt[];
+  /** 教官が同行しない部隊（10夜目）：部隊長が下した判断 */
+  away?: { calls: AwayCall[] };
 }
+/** 同行しない部隊の判断の記録 */
+export interface AwayCall { kind: string; prompt: string; label: string; good: boolean; by?: string }
 /** 戦いで目立った一般兵 */
 export interface RaisedGrunt { uid: string; label: string; given: string; family: string; gender: 'm' | 'f'; face: FaceParts; faceImage: string | null; classId: string; level: number; deed: string; victim?: string; dead?: boolean; weapon?: string | null }
 
@@ -376,7 +380,7 @@ function buildBattle(s: GameState, q: Quest, deploys: Deploy[], plan: AutoPlan, 
   if (TACTICS[plan.tactic].focusBoss && b.auto.leader) b.focus = b.auto.leader.uid;
   b.auto.hp0 = Object.fromEntries(b.units.map((u) => [u.uid, [u.hp, u.maxHp] as [number, number]]));
   // 策（9夜目）：開戦で切るものはここで、ぶつかり合いのあとのものは手元に残す
-  b.auto.plan = { planner: plan.planner, captain: plan.captain };
+  b.auto.plan = { planner: plan.planner, captain: plan.captain, rows: plan.rows };
   b.auto.held = [];
   const o = officerById(s, b.auto.leader?.officerId);
   for (const id of plan.strats ?? []) {

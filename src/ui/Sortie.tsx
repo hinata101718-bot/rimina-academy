@@ -1,4 +1,4 @@
-// 月末の出撃（9夜目）：依頼掲示板から部隊の数だけ依頼を選び、部隊ごとにメンバー・方針・策・部隊長を決める。教官はすべての部隊に同行する
+// 月末の出撃（9夜目）：依頼掲示板から部隊の数だけ依頼を選び、部隊ごとにメンバー・方針・策・部隊長を決める。10夜目：2つ目・3つ目の部隊は、はじめ教官が同行しない（結果だけ）
 import { useEffect, useState } from 'preact/hooks';
 import { act } from './store';
 import { Sheet } from './common';
@@ -78,10 +78,10 @@ export function SortiePrep({ s }: { s: GameState }) {
     <Sheet title="月末の出撃">
       <div class="sq-head">
         <div><b>今月は{n}部隊まで出せます</b><span class="small muted">（在籍{enrolled(s).length}人）</span></div>
-        <div class="small muted">教官はすべての部隊に同行します。上の部隊から順に戦い、それぞれの戦いの記録とここぞの判断を見ます。順番は ▲▼ で変えられます。</div>
+        <div class="small muted">先生は第一部隊に同行して、戦いを見守ります。ほかの部隊は部隊長にまかせて、結果だけを見ます（札の「同行する」で、先生がついていくこともできます）。順番は ▲▼ で変えられます。</div>
         <button class="btn small" onClick={() => { sfx('ok'); setDrafts(recommendSquads(s, drafts.map((d) => d.questId)).map((x) => draftFromSquad(s, x))); }}>おすすめの編成（全部隊）</button>
       </div>
-      {drafts.map((d, i) => <SquadCard key={`${i}${d.questId}`} s={s} d={d} i={i} n={drafts.length} onOpen={() => { sfx('ok'); setEdit(i); }} onMove={(k) => move(i, k)} onRemove={drafts.length > 1 ? () => { sfx('cancel'); setDrafts(drafts.filter((_, j) => j !== i)); } : undefined} />)}
+      {drafts.map((d, i) => <SquadCard key={`${i}${d.questId}`} s={s} d={d} i={i} n={drafts.length} onAway={(v) => { sfx('move'); setDraft(i, { ...d, away: v }); }} onOpen={() => { sfx('ok'); setEdit(i); }} onMove={(k) => move(i, k)} onRemove={drafts.length > 1 ? () => { sfx('cancel'); setDrafts(drafts.filter((_, j) => j !== i)); } : undefined} />)}
       {drafts.length < n && freeQ.length > 0 && (
         <div class="sq-add">
           <div class="small"><b>{SQUAD_NAMES[drafts.length]}を出す</b>：依頼を選んでください</div>
@@ -93,7 +93,7 @@ export function SortiePrep({ s }: { s: GameState }) {
   );
 }
 
-function SquadCard({ s, d, i, n, onOpen, onMove, onRemove }: { s: GameState; d: SquadDraft; i: number; n: number; onOpen: () => void; onMove: (k: -1 | 1) => void; onRemove?: () => void }) {
+function SquadCard({ s, d, i, n, onOpen, onMove, onRemove, onAway }: { s: GameState; d: SquadDraft; i: number; n: number; onAway: (v: boolean) => void; onOpen: () => void; onMove: (k: -1 | 1) => void; onRemove?: () => void }) {
   const q = s.quests.find((x) => x.id === d.questId)!;
   const plan = planOf(s, d);
   const key = `${q.id}|${d.deploy.map((x) => x.studentId).join(',')}|${plan.tactic}|${(plan.strats ?? []).join(',')}`;
@@ -120,6 +120,15 @@ function SquadCard({ s, d, i, n, onOpen, onMove, onRemove }: { s: GameState; d: 
         <div class="sq-faces">{d.deploy.map((x) => { const st = s.students[x.studentId]; return st ? <span class="sq-face"><Portrait st={st} size={34} frame={countryColor(st.origin)} />{plan.captain === st.id && <i class="sq-captmark">長</i>}</span> : null; })}</div>
         <div class="small">部隊長：<b>{cap?.given ?? '—'}</b>　方針：{TACTICS[plan.tactic].name}　{d.manual ? '自分で指揮' : ''}</div>
         <div class="small">策：{(plan.strats ?? []).length ? (plan.strats ?? []).map((x) => <span class="st-chip">{STRATS[x].mark} {STRATS[x].name}</span>) : <span class="muted">なし</span>}</div>
+      </div>
+      {i > 0 && !d.manual && (
+        <div class="sq-away">
+          <button class={`btn small${d.away !== false ? ' primary' : ''}`} onClick={() => onAway(true)}>同行しない（結果だけ）</button>
+          <button class={`btn small${d.away === false ? ' primary' : ''}`} onClick={() => onAway(false)}>同行する</button>
+        </div>
+      )}
+      {i > 0 && !d.manual && d.away !== false && <div class="small muted">ここぞの判断は部隊長の{cap?.given ?? ''}がします。統率と軍略が高いほど、よい判断になりやすい</div>}
+      <div class="tap" onClick={onOpen}>
         <div class="row between nowrap small"><span>{d.deploy.length}人　勝ち目：<b class={`ab-oddsv ${est?.key === key ? ({ 優勢: 'good', 五分: 'even', 苦しい: 'bad' } as Record<string, string>)[est.label] ?? '' : ''}`}>{est?.key === key ? est.label : '…'}</b></span><span class="muted">タップで編成 ›</span></div>
       </div>
     </div>

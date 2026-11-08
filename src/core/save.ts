@@ -43,6 +43,8 @@ export function migrate(s: GameState, from: number): GameState {
   if (from < 7) migrateTo7(s);
   if (from < 8) migrateTo8(s);
   if (from < 9) migrateTo9(s);
+  if (from < 10) migrateTo10(s);
+  ensure10(s);
   s.heirs ??= [];
   s.archive ??= {};
   s.notices ??= [];
@@ -273,4 +275,17 @@ function migrateTo9(s: GameState): void {
       '戦いの記録の演出が派手になりました（設定の「戦闘」で、派手／ふつう／控えめを選べます）。',
     ],
   });
+}
+
+/**
+ * 9夜目の版（version 9）→ 10夜目の版（version 10）
+ * - 月末の出撃の途中：9夜目は教官がすべての部隊に同行していたので、残りの部隊も「同行する」のまま
+ */
+function migrateTo10(s: GameState): void {
+  if (s.sortie) for (const sq of s.sortie.squads) sq.away ??= false;
+}
+
+/** 10夜目の形をそろえる（作業の途中で公開した版のセーブにも効くよう、何度呼んでも同じになる） */
+function ensure10(s: GameState): void {
+  void s;
 }

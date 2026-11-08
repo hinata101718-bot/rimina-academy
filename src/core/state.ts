@@ -404,7 +404,13 @@ export interface BattleReport {
   lines: string[]; grades: { id: string; grade: string; note: string }[]; win: boolean; growth?: GrowthEntry[]; mvp?: string; review?: string[]; title?: string; findings?: BattleFinding[]; officerId?: string;
   /** 9夜目 */
   squad?: number; captain?: string; evals?: StudentEval[]; stratReview?: string[]; fallen?: { id: string; outcome: 'dead' | 'injured' }[];
+  /** 10夜目：教官が同行しなかった部隊。部隊長の判断と、大事な出来事の短い場面 */
+  away?: boolean; calls?: import('./battle/auto').AwayCall[]; moments?: { by: string; text: string }[];
+  /** 10夜目：この戦いで手に入れた武器（戦利品） */
+  loot?: LootItem[];
 }
+/** 戦利品（10夜目） */
+export interface LootItem { uid: string; weaponId: string; engraved?: string; from: string; kind: 'drop' | 'named' | 'reward' | 'gift' }
 /** 戦闘後の生徒ごとの評価（9夜目） */
 export interface StudentEval {
   id: string; grade: string;
@@ -429,6 +435,8 @@ export interface SquadPlan {
   plan: import('./battle/auto').AutoPlan;
   /** 自分で指揮する（マスを動かす戦闘） */
   manual?: boolean;
+  /** 教官が同行しない（10夜目：2つ目・3つ目の部隊ははじめ同行しない。false で同行する） */
+  away?: boolean;
 }
 export interface Sortie { squads: SquadPlan[]; idx: number; reports: BattleReport[]; pendFrom: number }
 
