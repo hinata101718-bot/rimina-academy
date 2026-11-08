@@ -1,4 +1,7 @@
 import { useState } from 'preact/hooks';
+import { officerById, officerName } from '../core/officers';
+import { FACTION_COLOR } from '../data/officers';
+import { OfficerFace } from './Portrait';
 import { useStore, act, navigate } from './store';
 import { Sheet, StuRow, money } from './common';
 import { Portrait, faceImageFor } from './Portrait';
@@ -103,12 +106,33 @@ function WeekSummary({ lines, talks, growth, onDone }: { lines: string[]; talks:
   );
 }
 
+const RESULT_MEET: Record<string, string> = { win: '取り逃がした', lose: 'に敗れた', fled: 'は傷を負って逃げのびた', fell: 'を討ち取った', spared: 'を見逃した', persuaded: 'を説き伏せた', yielded: 'を一騎打ちで破った' };
+/** 結果の画面：この戦いの敵将（顔と、どうなったか） */
+function ResultOfficer({ s, id }: { s: GameState; id: string }) {
+  const o = officerById(s, id);
+  const m = o?.meets[o.meets.length - 1];
+  if (!o || !m) return null;
+  return (
+    <div class="pcard" style={{ ['--band' as string]: FACTION_COLOR[o.faction] }}>
+      <div class="row nowrap gap8">
+        <OfficerFace o={o} size={52} frame={FACTION_COLOR[o.faction]} s={s} />
+        <div class="grow" style={{ minWidth: 0 }}>
+          <div class="small muted">この戦いの敵将</div>
+          <b class="serif">{officerName(o)}</b>
+          <div class="small">{m.result === 'fled' ? `${officerName(o)}${RESULT_MEET.fled}` : m.result === 'lose' ? `${officerName(o)}${RESULT_MEET.lose}` : `${officerName(o)}${RESULT_MEET[m.result] ?? ''}`}{o.status === 'active' && o.meets.length > 1 ? `（会うのは${o.meets.length}回目）` : ''}</div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function BattleResult({ s, p, onDone }: { s: GameState; p: Extract<GameState['pending'][number], { type: 'battleResult' }>; onDone: () => void }) {
   const [step, setStep] = useState(p.growth?.length ? 0 : 1);
   if (step === 0) return <Sheet title={p.win ? '勝利 ― 成長の記録' : '敗北 ― 成長の記録'}><GrowthPlayer s={s} entries={p.growth ?? []} title="出撃した生徒" onDone={() => setStep(1)} /></Sheet>;
   return (
     <Sheet title={`${p.win ? '勝利' : '敗北'}${p.title ? `：${p.title}` : ''}`}>
       <AutoResultHead s={s} mvp={p.mvp} review={p.review} />
+      {p.officerId && <ResultOfficer s={s} id={p.officerId} />}
       {p.findings && p.findings.length > 0 && (
         <div class="pcard" style={{ ['--band' as string]: 'var(--gold)' }}>
           <h3 style={{ marginTop: 0 }}>この戦いで伸びた・分かったこと</h3>

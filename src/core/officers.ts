@@ -428,6 +428,7 @@ export function revealOne(o: EnemyOfficer, r: Rng): string | null {
 }
 
 // ---------- 年度末 ----------
+const OFFICER_MARK = /と呼ばれるようになった|昇進した|宿敵|仇|因縁に決着|討ち取った|権力争い|に就いた/;
 /** 年度末：敵将が年をとる・引退・権力争い・卒業生が敵将になる・卒業生からの手紙。新聞に載せる文を返す */
 export function yearlyOfficers(s: GameState, r: Rng): string[] {
   const report: string[] = [];
@@ -484,6 +485,8 @@ export function yearlyOfficers(s: GameState, r: Rng): string[] {
     const st = s.students[rv.sid];
     if (rv.stage === 0 && !rv.vow && (rv.settled || !o || o.status !== 'active' || !st || st.status !== 'enrolled')) delete s.rivalries![k];
   }
+  // 新聞：この1年の敵将の動き（昇進・二つ名・因縁の決着など）
+  for (const c of s.chronicle) if (c.year === s.year && OFFICER_MARK.test(c.text) && !report.includes(c.text)) report.push(c.text);
   // 名簿の古い記録を整理（去った敵将は新しい40人まで）
   const gone = officers(s).filter((o) => o.status !== 'active');
   if (gone.length > 40) { const keep = new Set(gone.slice(-40)); s.officers = officers(s).filter((o) => o.status === 'active' || keep.has(o)); }

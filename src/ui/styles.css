@@ -610,3 +610,4 @@ body { background-attachment: fixed; }
 .dc-step { font-size: 11px; padding: 2px 7px; border-radius: 10px; background: #e8dfcd; color: var(--sub); }
 .dc-step.on { background: #b8862b; color: #fff; }
 .pills.ofc-tabs button { min-height: 44px; }
+.ru-next { color: var(--accent); font-weight: bold; }

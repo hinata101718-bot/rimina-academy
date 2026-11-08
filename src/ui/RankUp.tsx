@@ -16,6 +16,8 @@ export function RankUpPlayer({ s, items, onDone, title = 'ランクアップ' }:
   const [stamp, setStamp] = useState(false);
   const [all, setAll] = useState(false);
   const seq = useRef<Seq | null>(null);
+  const tap = useRef<(() => void) | null>(null);
+  const [waiting, setWaiting] = useState(false);
   useEffect(() => {
     if (all) return;
     const q = new Seq();
@@ -31,11 +33,13 @@ export function RankUpPlayer({ s, items, onDone, title = 'ランクアップ' }:
         await q.sleep(RANKUP.gaugeMs * Math.max(0.3, it.p1 - it.p0));
         if (!q.cancelled) sfx('pass');
         setStamp(true);
-        await q.sleep(RANKUP.stampMs);
+        await q.sleep(Math.min(400, RANKUP.stampMs));
+        // ランクアップの画面は、タップするまで次に進まない（感想メモ：上がったところをしっかり見たい）
+        if (!q.cancelled) { setWaiting(true); await new Promise<void>((res) => { tap.current = res; }); tap.current = null; setWaiting(false); }
       }
       if (!q.cancelled) setAll(true);
     })();
-    return () => q.cancel();
+    return () => { q.cancel(); tap.current?.(); };
   }, [all]);
   const it = items[Math.min(i, items.length - 1)];
   if (!it) return null;
@@ -49,7 +53,7 @@ export function RankUpPlayer({ s, items, onDone, title = 'ランクアップ' }:
     );
   }
   return (
-    <div class="ru-wrap" onClick={() => seq.current?.speedUp()}>
+    <div class="ru-wrap" onClick={() => { if (tap.current) tap.current(); else seq.current?.speedUp(); }}>
       <div class="ru-title">{title}<span class="small muted">　{i + 1}／{items.length}</span></div>
       <div class="ru-card">
         <RankIcon s={s} it={it} size={72} />
@@ -60,8 +64,8 @@ export function RankUpPlayer({ s, items, onDone, title = 'ランクアップ' }:
         {it.note && <div class="small muted">{it.note}</div>}
       </div>
       <div class="row between" style={{ marginTop: 10 }}>
-        <span class="small muted">タップで早送り</span>
-        <button class="btn small ghost" onClick={(e) => { e.stopPropagation(); seq.current?.cancel(); setAll(true); }}>スキップ</button>
+        <span class={`small ${waiting ? 'ru-next' : 'muted'}`}>{waiting ? 'タップで次へ ▼' : 'タップで早送り'}</span>
+        <button class="btn small ghost" onClick={(e) => { e.stopPropagation(); seq.current?.cancel(); tap.current?.(); setAll(true); }}>スキップ</button>
       </div>
     </div>
   );

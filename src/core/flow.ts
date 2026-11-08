@@ -214,7 +214,7 @@ export function finishBattle(s: GameState): void {
   const officerFind = officerAfterBattle(s, b, r, lines);
   const firstTalk = s.pending.findIndex((p) => p.type === 'talk');
   const findings = [...battleFindings(s, growth, lines, s.pending.slice(firstTalk >= 0 ? firstTalk : s.pending.length)), ...officerFind];
-  s.pending.splice(firstTalk >= 0 ? firstTalk : s.pending.length, 0, { type: 'battleResult', lines, grades, win, growth, mvp: auto.mvp ?? undefined, review: auto.review, title: b.title, findings });
+  s.pending.splice(firstTalk >= 0 ? firstTalk : s.pending.length, 0, { type: 'battleResult', lines, grades, win, growth, mvp: auto.mvp ?? undefined, review: auto.review, title: b.title, findings, officerId: (b.auto?.leader ?? b.leader)?.officerId });
   s.battle = null;
   deferShows(s, pendFrom);
   if (q?.kind === 'schoolDefense' && win) checkEndings(s, r, 'month');

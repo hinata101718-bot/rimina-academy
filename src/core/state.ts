@@ -289,7 +289,7 @@ export type EndingKind = 'peace' | 'unify' | 'ceasefire' | 'neutral';
 export type Pending =
   | { type: 'weekSummary'; lines: string[]; talks: TalkLog[]; growth?: GrowthEntry[] }
   | { type: 'questBoard' }
-  | { type: 'battleResult'; lines: string[]; grades: { id: string; grade: string; note: string }[]; win: boolean; growth?: GrowthEntry[]; mvp?: string; review?: string[]; title?: string; findings?: BattleFinding[] }
+  | { type: 'battleResult'; lines: string[]; grades: { id: string; grade: string; note: string }[]; win: boolean; growth?: GrowthEntry[]; mvp?: string; review?: string[]; title?: string; findings?: BattleFinding[]; officerId?: string }
   | { type: 'event'; title: string; lines: string[] }
   | { type: 'entrance' }
   | { type: 'career' }
