@@ -39,7 +39,7 @@ export function defaultPlanner(s: GameState, ids: string[]): string | undefined 
 /** 部隊長の腕前による補正（命中+） */
 export function captainMod(st: Student | null | undefined): UnitMod {
   if (!st) return {};
-  return { hit: Math.min(SQUADS.captainMax, Math.floor(captainScore(st) / 10) * SQUADS.captainPer10) };
+  return { hit: Math.min(SQUADS.captainMax, Math.floor((captainScore(st) / 10) * SQUADS.captainPer10)) };
 }
 /** 役割から前列・後列 */
 export function defaultRow(role: RoleId): 'front' | 'back' { return role === 'back' || role === 'heal' ? 'back' : 'front'; }

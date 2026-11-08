@@ -56,7 +56,7 @@ export interface StratDef {
 export const STRATS: Record<StratId, StratDef> = {
   rally: { id: 'rally', name: '鼓舞', mark: '鼓', when: 'open', base: 55, captainCha: true,
     desc: '部隊長が皆を奮い立たせる。どこでも使えるが、効き目は部隊長の魅力しだい',
-    win: { ally: { hit: 5, avo: 3 } }, lose: { ally: { hit: -2 } }, unlock: { start: true },
+    win: { ally: { hit: 4, avo: 2 } }, lose: { ally: { hit: -2 } }, unlock: { start: true },
     tip: '部隊長の魅力が高いほど効く',
     ok: ['{c}の声が戦場に響いた。「行くぞ！」――皆の目に火がともる', '{c}が剣を掲げる。部隊の足並みがそろった'], ng: ['{c}の声は、敵の鬨の声にかき消された……'] },
   ambush: { id: 'ambush', name: '伏兵', mark: '伏', when: 'open', base: 40, terrain: ['forest', 'hill', 'town', 'village'], weak: ['hothead'], bad: ['cautious', 'night_strong'],
@@ -149,7 +149,7 @@ export const SQUADS = {
   /** 2つ目・3つ目の部隊の人数の上限 */
   extraLimit: 6,
   /** 部隊長の腕前（魅力＋軍略）10ごとの命中+ */
-  captainPer10: 1, captainMax: 4,
+  captainPer10: 0.5, captainMax: 2,
 };
 
 export const ROW_NAMES = { front: '前列', back: '後列' };
