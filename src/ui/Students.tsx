@@ -331,7 +331,7 @@ function RivalCard({ s, st }: { s: GameState; st: Student }) {
         <div class="row nowrap gap8 ruled tap" style={{ minHeight: 52 }} onClick={() => setOpen(o!.id)}>
           <OfficerFace o={o} size={48} frame={FACTION_COLOR[o!.faction]} s={s} />
           <div class="grow" style={{ minWidth: 0 }}>
-            <div class="row nowrap gap6"><b class="serif ofc-name" style={{ fontSize: 15 }}>{officerName(o!)}</b><span class={`flag ${rv.settled ? '' : 'red'}`}>{rv.settled ? '決着' : rv.vow ? '仇討ちの誓い' : stageName(rv.stage)}</span></div>
+            <div class="row nowrap gap6"><b class="serif ofc-name" style={{ fontSize: 15 }}>{officerName(o!)}</b><span class={`flag ${rv.settled ? '' : 'red'}`}>{rv.settled === 'ally' ? '味方' : rv.settled ? '決着' : rv.oath ? '好敵手' : rv.vow ? '仇討ちの誓い' : stageName(rv.stage)}</span></div>
             <div class="small muted">{o!.kind === 'monster' ? '魔物' : `${factionName(o!.faction)}・${rankName(o!)}`}・戦った回数 {rv.battles}回</div>
             <div class="small">{rv.settled ? SETTLE_NAMES[rv.settled] : rv.vow && s.students[rv.vow] ? `${s.students[rv.vow].given}の仇` : o!.status !== 'active' ? (o!.endNote ?? '戦場を去った') : (rv.log[rv.log.length - 1]?.text ?? '')}</div>
           </div>
@@ -341,7 +341,7 @@ function RivalCard({ s, st }: { s: GameState; st: Student }) {
     </div>
   );
 }
-const SETTLE_NAMES = { persuade: '説き伏せて、剣を置かせた', duel: '一騎打ちで破った', kill: '討ち取った', spare: '見逃した' };
+const SETTLE_NAMES = { persuade: '説き伏せて、剣を置かせた', duel: '一騎打ちで破った', kill: '討ち取った', spare: '見逃した', ally: '学校の味方になった' };
 
 function NameLineBig({ st }: { st: Student }) {
   const len = st.given.length;

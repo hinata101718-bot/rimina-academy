@@ -10,7 +10,9 @@ import { effectiveStats } from '../game';
 import { armoryItem } from '../loot';
 import { battleTechs } from '../techs';
 import { officerName } from '../officers';
-import { intents, key } from './engine';
+import { intents, key, myTurnStart } from './engine';
+import { TEACHER_RANK } from '../../data/balance';
+import { teacherRank } from '../instructor';
 
 function hash(s: string): number { let h = 7; for (const c of s) h = (h * 31 + c.charCodeAt(0)) | 0; return h; }
 export function questSeed(s: GameState, q: Pick<Quest, 'id'>): number { return hash(`${q.id}|${s.year}|${s.month}|${s.createdAt}`) ^ 0x5bd1e995; }
@@ -87,7 +89,7 @@ export function unitFromStudent(s: GameState, st: Student, uid: string, x: numbe
 export function applyClass(u: TUnit, classId: string, wtype?: string, enemy = false): void {
   const c = CLASSES[classId];
   if (!c) return;
-  const NOT_FOE = ['guard', 'paladin', 'prayer', 'spot', 'trap', 'trick', 'ambush', 'farsight', 'hunter_n', 'undying', 'pilfer', 'mend'];
+  const NOT_FOE = ['guard', 'paladin', 'paladin2', 'prayer', 'spot', 'trap', 'ambush', 'farsight', 'allseeing', 'mend', 'ring', 'miracle', 'raise', 'raise2', 'forbid', 'seal', 'snare', 'huntking', 'steal', 'swap', 'swap2', 'barrier', 'wargod', 'mikiri', 'mikiri_all', 'cursearea'];
   u.traits = c.traits.filter((t) => !enemy || !NOT_FOE.includes(t));
   const has = (t: string) => u.traits!.includes(t);
   const atks = c.atk.length ? c.atk : [u.type];
@@ -95,33 +97,51 @@ export function applyClass(u: TUnit, classId: string, wtype?: string, enemy = fa
   const wt = wtype ? WTYPE_ATK[wtype]?.type : undefined;
   u.type = wt && atks.includes(wt) ? wt : atks[0];
   u.magic = MAGIC_TYPES.includes(u.type);
-  if (has('flameblade') || has('firearrow')) { u.dual = atks.find((t) => t !== u.type) ?? undefined; u.atks = [u.type]; }
+  u.dual = undefined;
+  if (has('rune')) {
+    // ルーン：斬に、炎・雷・氷（ルーンロードは5つの理）のどれかを重ねる
+    u.atks = has('allarts') ? ['fire', 'thunder', 'ice', 'light', 'dark'] : atks.filter((t) => MAGIC_TYPES.includes(t));
+    u.type = u.atks[0]; u.dual = 'slash'; u.magic = false;
+  } else if (has('flameblade') || has('firearrow')) { u.dual = atks.find((t) => t !== u.type) ?? undefined; u.atks = [u.type]; }
   else u.atks = atks.length > 1 ? [...atks] : [u.type];
-  if (has('allarts')) u.atks = ['fire', 'thunder', 'ice', 'light', 'dark'];
+  if (has('allarts') && !has('rune')) u.atks = ['fire', 'thunder', 'ice', 'light', 'dark'];
   // 届く距離
   if (u.type === 'shot' || has('longshot')) { u.rmin = 2; u.rmax = 3; }
   if (u.magic) { u.rmin = 1; u.rmax = 2; }
-  if (has('reach') || has('spear')) { u.rmin = 1; u.rmax = 2; }
-  if (has('ironspear')) { u.rmin = 1; u.rmax = 3; }
+  if (has('rune') || has('flameblade')) { u.rmin = 1; u.rmax = 1; }
+  if (has('reach')) { u.rmin = 1; u.rmax = 2; }
+  if (has('spear')) { u.rmin = 1; u.rmax = 3; }
   if (has('aim')) { u.rmin = 2; u.rmax = 4; }
+  if (has('axebow') || has('bowsword')) { u.rmin = 1; u.rmax = 3; }
+  if (has('oneeye')) { u.rmin = 2; u.rmax = 2; }
   if (has('thousand')) { u.rmin = 1; u.rmax = 8; }
   if (u.type === 'blunt' && !wtype) u.might = Math.max(u.might, 4);
-  // 動ける歩数（兵種の移動は data/classes の move）
-  u.mov = c.move + (has('step') ? 1 : 0) + (has('falcon') ? 1 : 0) + (has('shadow') ? 1 : 0);
+  // 動ける歩数（兵種の移動は data/classes の move）。天翔は盤のどこへでも
+  u.mov = c.move + (has('step') ? 1 : 0);
+  if (has('skyward')) u.mov = 12;
 }
 
-/** 戦いのはじめに効く特技（見抜き・読み切り・罠・いたずら・闇討ち・宿敵狩り） */
+/** 戦いのはじめに効く特技（見抜き・読み切り・天眼・罠・闇討ち・結界・呪王の気） */
 export function startTraits(b: TBattle): void {
   const bs = b.units.find((u) => u.boss) ?? b.units.filter((u) => u.side === 'foe').sort((a, c) => c.max - a.max)[0];
   for (const u of b.units.filter((x) => x.side === 'me')) {
     const has = (t: string) => !!u.traits?.includes(t);
-    if (bs && has('farsight')) { for (const w of bs.weak) if (!bs.known.includes(w)) bs.known.push(w); b.log.push({ turn: 1, text: `${u.name}の読み切り：${bs.name}の弱点がすべて分かった` }); }
+    if (bs && (has('farsight') || has('allseeing'))) { for (const w of bs.weak) if (!bs.known.includes(w)) bs.known.push(w); b.log.push({ turn: 1, text: `${u.name}の${has('allseeing') ? '天眼' : '読み切り'}：${bs.name}の弱点がすべて分かった${has('allseeing') && bs.resist.length ? '（効かない種類も）' : ''}` }); }
     else if (bs && has('spot')) { const h = bs.weak.find((w) => !bs.known.includes(w)); if (h) { bs.known.push(h); b.log.push({ turn: 1, text: `${u.name}の見抜き：${bs.name}の弱点は「${ATK_NAME[h]}」` }); } }
     if (has('trap')) { const f = b.units.filter((x) => x.side === 'foe' && !x.boss).sort((a, c) => c.hp - a.hp)[0]; if (f) { const d = Math.min(f.hp - 1, 6); f.hp -= d; b.log.push({ turn: 1, text: `${u.name}の罠に、${f.name}がかかった（−${d}）` }); } }
-    if (has('trick')) { const f = b.units.filter((x) => x.side === 'foe' && x.sh > 0)[0]; if (f) { f.sh -= 1; b.log.push({ turn: 1, text: `${u.name}のいたずらで、${f.name}の盾が1つ減った` }); } }
     if (bs && has('ambush') && bs.broken === 0) { bs.sh = 0; bs.broken = 2; b.log.push({ turn: 1, text: `${u.name}の闇討ち！ ${bs.name}が崩れた`, big: true }); }
-    if (bs?.nemesis && has('hunter_n') && bs.sh > 1) { bs.sh -= 1; bs.shMax -= 1; b.log.push({ turn: 1, text: `${u.name}は宿敵の盾を見抜いている（盾−1）` }); }
+    // 結界：前（敵の側）に光の壁を立てる。3ターンで消える
+    if (has('barrier')) {
+      for (const dx of [-1, 0, 1]) {
+        const x = u.x + dx, y = u.y - 1, k = key(x, y);
+        if (x < 0 || y < 0 || x >= b.w || b.rock.includes(k) || b.units.some((o) => o.alive && o.x === x && o.y === y)) continue;
+        (b.walls ??= []).includes(k) || b.walls!.push(k);
+      }
+      b.wallTurns = 3;
+      b.log.push({ turn: 1, text: `${u.name}が結界を張った（光の壁は敵を通さない。3ターン）` });
+    }
   }
+  myTurnStart(b);
 }
 
 function teacherUnit(s: GameState, x: number, y: number, lv0 = 1): TUnit {
@@ -133,7 +153,7 @@ function teacherUnit(s: GameState, x: number, y: number, lv0 = 1): TUnit {
   const age = ins.age ?? 35;
   const e = st ? effectiveStats(st) : null;
   const decline = Math.max(0, Math.floor((age - 50) / 5));
-  return {
+  const u: TUnit = {
     uid: 'teacher', side: 'me', name: `${ins.name}先生`, teacher: true, studentId: st?.id, classId: 'novice', x, y,
     // 先生も、学校の強さに合わせて少しずつ戦い慣れていく（年をとると衰える）
     hp: Math.max(20, Math.max(e?.hp ?? 0, 28 + lv0) - decline * 2), max: Math.max(20, Math.max(e?.hp ?? 0, 28 + lv0) - decline * 2),
@@ -141,6 +161,9 @@ function teacherUnit(s: GameState, x: number, y: number, lv0 = 1): TUnit {
     mov: 3, rmin: atk.range[0], rmax: atk.range[1], type: atk.type, magic: !!atk.magic, might: 5,
     techs: [], sh: 0, shMax: 0, weak: [], resist: [], known: [], broken: 0, acted: false, alive: true, kills: 0, dealt: 0, taken: 0, weakHits: 0, breaks: 0,
   };
+  // 20夜目：教え子が先生になったときは、その子の兵種を持ったまま（特技・届く距離）
+  if (st && CLASSES[st.classId] && st.classId !== 'novice') { applyClass(u, st.classId, undefined, false); u.classId = st.classId; u.traits = (u.traits ?? []).filter((t) => !['skyward'].includes(t)); u.mov = Math.min(u.mov, 4); }
+  return u;
 }
 
 function baseStat(k: string, lv: number, mul: number): number { const [a, p] = ENEMY_BASE[k]; return Math.max(1, Math.round((a + lv * p) * mul)); }
@@ -169,7 +192,7 @@ export function createTactics(s: GameState, q: Quest, deploys: Deploy[], opt: Se
   const b: TBattle = {
     v: 19, questId: q.id, title: q.title, field: F.id, w: TB.w, h: TB.h, forest: [...F.forest], rock: [...F.rock],
     units: [], turn: 1, phase: 'player', result: null, objective, teacherUid: 'teacher',
-    command: TB.command, insight: TB.insight, undo: null, log: [], scenes: [], fx: [], said: [], foes0: 0, real: q.real,
+    command: TEACHER_RANK.command[teacherRank(s)] ?? TB.command, insight: TEACHER_RANK.insight[teacherRank(s)] ?? TB.insight, teacherRank: teacherRank(s), undo: null, log: [], scenes: [], fx: [], said: [], foes0: 0, real: q.real,
     tutorial: opt.tutorial, nemesisId: opt.nemesisId ?? undefined, lines: opt.lines,
   };
   if (objective === 'defend') b.holdTurns = q.defendTurns ?? 5;
@@ -179,7 +202,7 @@ export function createTactics(s: GameState, q: Quest, deploys: Deploy[], opt: Se
   if (objective === 'rescue') { const cx = r.int(1, 4); b.rock = b.rock.filter((k) => k !== key(cx, 0)); b.captive = { x: cx, y: 0, name: q.kind === 'rescue' ? '捕らわれた村人' : '捕らわれた仲間', freed: false }; }
   // 味方：先生は後ろ、教え子は前の列
   const [tx, ty] = place([[2, 7], [3, 7], [1, 7], [4, 7]]);
-  b.units.push(teacherUnit(s, tx, ty, Math.max(1, q.level)));
+  { const tu = teacherUnit(s, tx, ty, Math.max(1, q.level)); b.units.push(tu); }
   const spots: [number, number][] = [[1, 6], [3, 6], [2, 6], [4, 6], [0, 6], [5, 6], [1, 7], [4, 7], [0, 7], [5, 7]];
   for (const d of deploys) {
     const st = s.students[d.studentId];
@@ -241,6 +264,6 @@ function bossUnit(s: GameState, o: EnemyOfficer | null, kind: 'army' | 'bandit' 
     str: Math.round(baseStat('str', lv, mul) * oM), mag: Math.round(baseStat('mag', lv, mul) * oM), skl: Math.round(baseStat('skl', lv, mul) * oM), spd: Math.round(baseStat('spd', lv, mul) * oM), def: Math.round(baseStat('def', lv, mul) * oM),
     mov: Math.min(4, c.move), rmin: atk.range[0], rmax: atk.range[1], type: atk.type, magic: !!atk.magic, might: 5 + Math.floor(lv / 6),
     techs: [], sh, shMax: sh, weak, resist, known: o?.knownWeak ? o.knownWeak.filter((t) => weak.includes(t)) : [], broken: 0, acted: false, alive: true,
-    grudge: o?.grudge ?? undefined, revived: !!o?.revived, kills: 0, dealt: 0, taken: 0, weakHits: 0, breaks: 0,
+    grudge: o?.grudge ?? undefined, revived: !!o?.revived, fledBefore: !!o?.meets.some((m) => m.result === 'fled'), kills: 0, dealt: 0, taken: 0, weakHits: 0, breaks: 0,
   };
 }

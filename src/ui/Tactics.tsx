@@ -14,6 +14,7 @@ import { reach, attackable, healable, attacksOf, healsOf, bestSpot, calc, unit, 
 import { autoTurn } from '../core/tactics/ai';
 import { finishBattle, finishAuto, noDeath } from '../core/flow';
 import { ATK_NAME, TB, FIELD_BY_ID } from '../data/tactics';
+import { TEACHER_RANK } from '../data/balance';
 import { CLASSES } from '../data/classes';
 import { officerById } from '../core/officers';
 
@@ -157,7 +158,7 @@ export function TacticsView() {
           const k = key(x, y);
           const rock = b.rock.includes(k), forest = isForest(b, x, y);
           const u = view.units.find((o) => o.alive && o.x === x && o.y === y);
-          let cls = 'tb-cell' + (rock ? ' rock' : '') + (forest ? ' forest' : '');
+          let cls = 'tb-cell' + (rock ? ' rock' : '') + (forest ? ' forest' : '') + (b.walls?.includes(k) ? ' wall' : '') + (b.burn?.[k] ? ' burn' : '');
           if (!busy && R && k in R && (!u || u.uid === sel)) cls += ' move';
           if (!busy && u && atkable.some((f) => f.uid === u.uid)) cls += ' tgt';
           if (!busy && u && healOk.some((f) => f.uid === u.uid)) cls += ' ally';
@@ -204,7 +205,7 @@ export function TacticsView() {
           </>
         ) : selU ? (
           <>
-            <div class="tb-who"><span class="tb-wf"><UnitFace u={selU} /></span><div><b>{selU.name}</b>　HP {selU.hp}/{selU.max}　{CLASSES[selU.classId]?.name ?? ''}<div class="tb-techs">{selU.teacher ? <span>号令 のこり{b.command}・見極め のこり{b.insight}</span> : selU.techs.map((t) => <span class="tb-tch">{techOf(t.id)?.name}<small>{ATK_NAME[techOf(t.id)!.type]}・のこり{t.left}</small></span>)}</div></div></div>
+            <div class="tb-who"><span class="tb-wf"><UnitFace u={selU} /></span><div><b>{selU.name}</b>　HP {selU.hp}/{selU.max}　{selU.teacher ? `${selU.classId !== 'novice' && CLASSES[selU.classId] ? `${CLASSES[selU.classId].name}の` : ''}${TEACHER_RANK.names[b.teacherRank ?? 0]}` : CLASSES[selU.classId]?.name ?? ''}<div class="tb-techs">{selU.teacher ? <span>号令 のこり{b.command}・見極め のこり{b.insight}</span> : selU.techs.map((t) => <span class="tb-tch">{techOf(t.id)?.name}<small>{ATK_NAME[techOf(t.id)!.type]}・のこり{t.left}</small></span>)}</div></div></div>
             <div class="tb-msg small">{atkable.length ? '赤く光る敵をタップすると、札が並びます。' : '届く敵がいない。'}{healOk.length ? '緑の仲間をタップで回復。' : ''}動くだけなら青いマス。</div>
             <div class="tb-acts">
               <button class="btn small grow" onClick={() => run((g) => wait(g.battle!, selU.uid))}>待機</button>
@@ -239,9 +240,10 @@ interface Card { id: string | null; name: string; type: import('../data/tactics'
 function attackCards(b: TBattle, u: TUnit, f: TUnit): Card[] {
   return attacksOf(u).map((t) => {
     const spot = bestSpot(b, u, f, t);
+    const steps = spot ? reach(b, u)[key(spot.x, spot.y)] ?? 0 : 0;
     const ox = u.x, oy = u.y;
     if (spot) { u.x = spot.x; u.y = spot.y; }
-    const c = calc(b, u, f, t);
+    const c = calc(b, u, f, t, { steps });
     u.x = ox; u.y = oy;
     const tech = techOf(t);
     return { id: t, name: tech?.name ?? '攻撃', type: c.type, total: c.total, per: c.per, hits: c.hits, weak: c.weak, shields: c.shields, brk: c.brk, kill: c.kill, resisted: c.resisted, broken: c.broken, left: tech ? u.techs.find((x) => x.id === t)?.left ?? 0 : null, spot };

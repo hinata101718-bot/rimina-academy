@@ -19,11 +19,29 @@ import { questWorldEffect } from '../world';
 import { seedHelp } from '../ending';
 import { afterTactics, moveMind } from '../nemesis';
 import { checkBloom } from '../aptitude';
+import { teacherWonNemesis } from '../instructor';
 
 const WT_SKILL: Record<string, SkillId> = { sword: 'sword', lance: 'lance', axe: 'axe', bow: 'bow', magic: 'magic', holy: 'faith', staff: 'faith', gun: 'gun' };
 function gradeFor(score: number): string { return score >= 9 ? 'S' : score >= 5 ? 'A' : score >= 2 ? 'B' : 'C'; }
 
 export interface TacticsOutcome { report: BattleReport; dead: { st: Student; u: TUnit }[]; injured: { st: Student; u: TUnit }[] }
+
+/** 20夜目：最上級の条件になる出来事を、生徒の記録（deeds）に足す */
+export function addBattleDeeds(b: TBattle, u: TUnit, st: Student, win: boolean, bossU?: TUnit): void {
+  const add = (k: string, n = 1) => { if (n > 0) (st.deeds ??= {})[k] = (st.deeds?.[k] ?? 0) + n; };
+  for (const [k, n] of Object.entries(u.deeds ?? {})) if (k !== 'surroundedTurn') add(k, n);
+  if (u.deeds?.surroundedTurn && u.alive) add('surrounded');
+  const hitBoss = !!bossU && (bossU.hitBy?.[st.id] ?? 0) > 0;
+  const kids = b.units.filter((x) => x.side === 'me' && x.studentId && !x.teacher && !x.raised);
+  if (!win) { if (b.nemesisId && u.alive && b.objective === 'escape') add('outwit'); return; }
+  if (b.real && u.alive && u.taken === 0) add('unhurt');
+  if (b.nemesisId && bossU && bossU.resist.length > 0 && hitBoss) add('overcome');
+  if (b.objective === 'defend' && hitBoss) add('holdGeneral');
+  if (b.field === 'fort' && u.usedFire) add('burnFort');
+  if (b.nemesisId && (u.traits?.includes('spot') || u.traits?.includes('trap')) && kids.every((x) => x.alive)) add('seeTrap');
+  if (b.objective === 'escape' && u.alive) { add('rearguard'); if (b.nemesisId) add('outwit'); }
+  if (kids.length >= 3 && kids.filter((x) => !x.alive).length * 2 >= kids.length && u.alive) add('turnTide');
+}
 
 /** 戦いの結果を学校に反映し、結果の報告を返す（戦死・重傷の後始末は呼ぶ側で） */
 export function applyTactics(s: GameState, b: TBattle, r: Rng): TacticsOutcome {
@@ -64,7 +82,8 @@ export function applyTactics(s: GameState, b: TBattle, r: Rng): TacticsOutcome {
     addSkill(st, k, uses * B.battle.skillPerUse * B.motivationMul[st.motivation] * (s.settings.mods.skill ?? 1));
     revealTalent(s, st, B.talent.battleReveal / 4);
     // 盗賊のかすめ取り
-    if (win && u.traits?.includes('pilfer')) addMoney(s, 60 + u.kills * 20);
+    if (win && u.traits?.includes('steal')) addMoney(s, 60 + u.kills * 20);
+    addBattleDeeds(b, u, st, win, bossU);
     if (u.armoryUid) { const a = s.armory.find((x) => x.uid === u.armoryUid); if (a) (a.uses ??= {})[st.id] = (a.uses[st.id] ?? 0) + 1; }
     const learned = learnTechs(s, st);
     growth.push(diffGrowth(st, snap, learned));
@@ -84,6 +103,10 @@ export function applyTactics(s: GameState, b: TBattle, r: Rng): TacticsOutcome {
     checkBloom(s, st);
   }
   stopGrowthLog();
+  // 先生の兵種：宿敵戦に勝つと上がることがある
+  if (win && b.nemesisId && b.real) { const t = teacherWonNemesis(s); if (t) lines.push(t); }
+  // 禁呪の番人のいた戦で討った宿敵は、二度と蘇らない
+  if (b.forbidden && b.nemesisId) { const o = (s.officers ?? []).find((x) => x.id === b.nemesisId); if (o) o.noRevive = true; }
   // 支援：最後にとなりにいた組
   const alive = b.units.filter((u) => u.side === 'me' && u.studentId && !u.teacher);
   for (let i = 0; i < alive.length; i++) for (let j = i + 1; j < alive.length; j++) {

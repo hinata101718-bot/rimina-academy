@@ -1,7 +1,24 @@
 // バランス値。ゲームの数値はすべてここに集める（設計書の「ふつう」が初期値）。
 import type { Rank, SkillId, StatId } from '../core/types';
 
-export const SAVE_VERSION = 19;
+export const SAVE_VERSION = 20;
+
+/** 20夜目：先生の兵種（教官 → 指揮官 → 軍師 → 名将）。在任の年数と、勝った宿敵戦の数で上がる。段階で号令の回数・見極めの深さが増える */
+export const TEACHER_RANK = {
+  names: ['教官', '指揮官', '軍師', '名将'],
+  desc: [
+    '号令（教え子をもう一度動かす）と見極め（隠れた弱点を明かす）で戦う。攻撃は弱い。',
+    '号令を2回使える。',
+    '号令を2回、見極めを3回。見極め1回で、隠れた弱点を2つ明かす。',
+    '号令を3回、見極めを4回。見極めは遠くまで届き、隠れた弱点を2つ明かす。',
+  ],
+  years: [0, 4, 10, 18] as number[],
+  wins: [0, 1, 4, 8] as number[],
+  command: [1, 2, 2, 3] as number[],
+  insight: [2, 2, 3, 4] as number[],
+  depth: [1, 1, 2, 2] as number[],
+  range: [3, 3, 4, 5] as number[],
+};
 
 export const RANKS: Rank[] = ['E', 'E+', 'D', 'D+', 'C', 'C+', 'B', 'B+', 'A', 'A+', 'S'];
 export const RANK_POINTS: Record<Rank, number> = {
@@ -406,7 +423,9 @@ export const B = {
     lowCommandAt: 50, lowCommandFail: 0.12, championDeed: 0.18,
     promoteBase: 0.25,
     promoteLevel: 22, // 昇進のしやすさの基準のレベル（7夜目：卒業時のレベルが上がったので 15→22）
-    tier4Level: 45,
+    tier4Level: 40,
+    /** 20夜目：卒業後の戦いで、最上級の条件の出来事を成し遂げる見込みの倍率（data/deeds の odds に掛ける） */
+    deedMul: 1,
   },
   // ---- 戦況 ----
   world: {

@@ -31,7 +31,7 @@ import { simulateAlumni, aidMoney, titleOf } from './alumni';
 import { prepareCareers, graduate, type CareerPlan } from './career';
 import { generateStudent } from './student';
 import { absMonth, MONTH_NAMES } from './util';
-import { retireCheck } from './instructor';
+import { retireCheck, teacherRankYear } from './instructor';
 import { checkEndings, peaceEraYear } from './ending';
 import { supportValue, bestFriend } from './support';
 import { closeYear, markYear } from './review';
@@ -396,6 +396,8 @@ export function yearEnd(s: GameState, graduated: string[]): void {
       if (nem) { addIntel(nem); pushReunion(s, nem, [], 'reunion', [`和平の席で、${officerName(nem)}と顔を合わせた。剣を抜かずに向かい合うのは、はじめてのことだ。`, ...reunionLines(s, nem)]); }
     }
   }
+  // 20夜目：先生の兵種（在任の年数で上がる）
+  { const t = teacherRankYear(s); if (t) notify(s, t); }
   // 敵将の名簿（6夜目）：年をとる・引退・権力争い・卒業生が敵将に・手紙
   const officerNews = yearlyOfficers(s, r);
   // 19夜目⑧：蘇り・捕らわれた教え子・追放・二代目・衰え・敵に回る教え子・さらわれた先代

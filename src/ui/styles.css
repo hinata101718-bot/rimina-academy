@@ -2204,3 +2204,20 @@ body[data-light="day"], body[data-light="day"][data-season] {
 body[data-light="day"] .desk-candle { opacity: .35; box-shadow: none; }
 body[data-light="day"] .desk-candle::before { display: none; }
 .tb-wrap small, .nem-card small { font-size: max(12px, 1em); }
+/* 20夜目：兵種図鑑の木（中級 → 上級 → 最上級） */
+.ct-tree { margin-top: 10px; display: flex; flex-direction: column; gap: 8px; }
+.ct-cols { display: grid; grid-template-columns: 1fr 1fr 1fr; text-align: center; }
+.ct-row { display: grid; grid-template-columns: 1fr 2fr; gap: 4px; border-top: 1px dashed #b9a47d; padding-top: 6px; }
+.ct-sub { display: flex; flex-direction: column; gap: 4px; }
+.ct-pair { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; position: relative; }
+.ct-c { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.cb-leaf.ct-leaf { min-height: 48px; padding: 4px 2px; }
+.ct-leaf .cb-name { font-size: 13px; word-break: break-all; }
+.ct-leaf.unknown .cb-name { font-weight: normal; }
+.ct-cond { font-size: 12px; line-height: 1.3; color: #6a4a12; }
+.ct-cond.q { color: var(--sub); }
+.ct-hidden { margin-top: 12px; display: flex; flex-direction: column; gap: 4px; }
+.ct-trait { margin-top: 2px; }
+.ct-todo { font-style: normal; color: var(--sub); }
+.tb-cell.wall { box-shadow: inset 0 0 0 3px rgba(255, 236, 150, .9); background-color: rgba(255, 245, 190, .55); }
+.tb-cell.burn { box-shadow: inset 0 0 0 3px rgba(230, 90, 40, .85); background-color: rgba(255, 140, 70, .35); }

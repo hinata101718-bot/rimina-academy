@@ -14,6 +14,7 @@ import { effectiveStats, chronicle, mail, addFriendship, notify } from './game';
 import { tensionStage, atWar } from './world';
 import { loveOf } from './support';
 import { fx } from './mentor';
+import { DEEDS } from '../data/deeds';
 
 export function titleOf(st: Student): string {
   if (!st.career) return '';
@@ -34,13 +35,57 @@ export interface AlumniNews { id: string; text: string; big: boolean }
 /** いちばん高い武器の技能（勇士の道） */
 function bestArmSkill(st: Student): SkillId { return ARM_SKILLS.filter((k) => k !== 'gun' || st.skills.gun > 0).sort((a, b) => (st.skills[b] ?? 0) - (st.skills[a] ?? 0))[0]; }
 
+/** 20夜目：卒業後の戦いで、最上級の条件の出来事を成し遂げる（上級の卒業生だけ。戦時ほど多い） */
+function alumniDeed(s: GameState, rng: Rng, st: Student, clsId: string, news: AlumniNews[]): void {
+  const next = CLASS_LIST.find((k) => k.prereq.includes(clsId) && k.tier === 4);
+  const D = next?.deed ? DEEDS[next.deed] : null;
+  const c = st.career;
+  if (!next || !D || !c) return;
+  const have = st.deeds?.[D.id] ?? 0;
+  if (have >= (next.need ?? 1)) return;
+  if (D.kind === 'school') { if (c.kind === 'stay' || c.instructor) { (st.deeds ??= {})[D.id] = 1; st.history.push({ year: s.year, text: D.alumni[0] }); } return; }
+  const fighting = c.kind === 'army' || c.kind === 'merc';
+  if (!fighting) return;
+  const war = !!c.country && COUNTRIES.some((o) => o !== c.country && atWar(s, c.country!, o));
+  let p = D.odds * (war || c.kind === 'merc' ? 1 : 1 / 3) * B.alumni.deedMul;
+  if (D.id === 'ledArmy' && !(c.kind === 'army' && c.path === 'warrior' && c.rank >= 2)) p *= 0.3;
+  if (D.kind === 'spy' && c.path === 'strategist') p *= 2;
+  if (!rng.chance(Math.min(0.9, p))) return;
+  (st.deeds ??= {})[D.id] = have + 1;
+  const text = rng.pick(D.alumni).replace('{a}', c.country ? COUNTRY_SHORT[c.country] : '雇い主');
+  if (D.kind === 'count') { if (have + 1 >= (next.need ?? 1)) st.history.push({ year: s.year, text }); return; }
+  st.history.push({ year: s.year, text });
+  news.push({ id: st.id, text: `${st.given}（${st.cohort}期生）が${text}`, big: false });
+}
+
+/** 20夜目：卒業生の兵種が上がる（最上級は、なる条件の出来事を成し遂げた子だけ） */
+function classUp(s: GameState, rng: Rng, st: Student, news: AlumniNews[], big: (st: Student, text: string) => void): void {
+  // 兵種：中級・上級は、レベルがそろえば上がる。最上級は、なる条件の出来事を成し遂げた子だけ（20夜目）
+  const cls = CLASSES[st.classId];
+  if (cls && cls.tier === 3) alumniDeed(s, rng, st, cls.id, news);
+  if (cls && cls.tier < 3 && st.level >= (B.exam.levelReq[cls.tier + 1] ?? 99)) {
+    const kids = CLASS_LIST.filter((k) => k.prereq.includes(cls.id) && !k.hidden);
+    if (kids.length && rng.chance(0.5)) { const next = rng.pick(kids); st.classId = next.id; markClassSeen(s, next.id); st.history.push({ year: s.year, text: `${next.name}になった` }); }
+  } else if (cls && cls.tier === 3 && st.level >= B.alumni.tier4Level) {
+    const next = CLASS_LIST.find((k) => k.prereq.includes(cls.id) && k.tier === 4);
+    if (next?.deed && (st.deeds?.[next.deed] ?? 0) >= (next.need ?? 1)) {
+      st.classId = next.id;
+      markClassSeen(s, next.id);
+      big(st, `が「${next.unlock}」を成し遂げ、最上級の兵種「${next.name}」になった`);
+      chronicle(s, `卒業生の${st.given}が最上級の${next.name}に（${next.unlock}）`, 'student');
+      notify(s, `卒業生の${st.given}が最上級の${next.name}になった`, st.id);
+      if (st.trust >= 30) mail(s, `${st.given}（${st.cohort}期生）`, '昇格のお知らせ', promotionLetter(rng, st, next.name, false, false), st.id);
+    }
+  }
+}
+
 export function simulateAlumni(s: GameState, rng: Rng): AlumniNews[] {
   const news: AlumniNews[] = [];
   const stage = tensionStage(s.world.tension);
   const big = (st: Student, text: string) => { news.push({ id: st.id, text: `${st.given}（${st.cohort}期生）${text}`, big: true }); st.history.push({ year: s.year, text }); };
   for (const st of Object.values(s.students)) {
     if (st.status !== 'graduated' || !st.career || !st.career.alive || st.career.retired) continue;
-    if (st.career.instructor) { st.age = s.instructor.age; continue; } // 教官になった教え子は教官として年をとる
+    if (st.career.instructor) { st.age = s.instructor.age; classUp(s, rng, st, news, big); continue; } // 教官になった教え子は教官として年をとる
     const c = st.career;
     st.age += 1;
     if (c.injuredYears > 0) c.injuredYears -= 1;
@@ -50,26 +95,7 @@ export function simulateAlumni(s: GameState, rng: Rng): AlumniNews[] {
     const before = st.level;
     gainExp(s, rng, st, exp, false);
     if (st.level >= before + 3 && rng.chance(0.2)) st.history.push({ year: s.year, text: `Lv${st.level}に成長` });
-    // 最上級兵種
-    const cls = CLASSES[st.classId];
-    // 19夜目：最上級は、宿敵を討った・大きな戦で名を上げた（役職が高い）子だけ
-    const famed = (st.nemKills ?? 0) >= 1 || c.rank >= 3 || !!st.epithet;
-    if (cls && cls.tier < 4 && st.level >= (B.exam.levelReq[cls.tier + 1] ?? B.alumni.tier4Level) && (cls.tier < 3 || famed)) {
-      const kids = CLASS_LIST.filter((k) => k.prereq.includes(cls.id) && !k.hidden);
-      if (kids.length && rng.chance(0.5)) {
-        const nation = kids.filter((k) => k.nation);
-        const next = nation.length && rng.chance(0.5) ? rng.pick(nation) : rng.pick(kids);
-        st.classId = next.id;
-        markClassSeen(s, next.id);
-        if (next.tier >= 4) {
-          big(st, `が${next.nation ? `${COUNTRY_SHORT[next.nation]}だけの兵種、` : next.hidden ? '伝説の兵種、' : '最上級の兵種、'}${next.name}になった`);
-          notify(s, `卒業生の${st.given}が${next.name}に昇格した`, st.id);
-          if (st.trust >= 30) mail(s, `${st.given}（${st.cohort}期生）`, '昇格のお知らせ', promotionLetter(rng, st, next.name, !!next.nation, !!next.hidden), st.id);
-          if (next.hidden || next.nation) chronicle(s, `卒業生の${st.given}が${next.name}に`, 'student');
-        }
-        else st.history.push({ year: s.year, text: `${next.name}になった` });
-      }
-    }
+    classUp(s, rng, st, news, big);
     if (c.kind === 'army') {
       c.rankYears += 1;
       const max = RANK_TITLES[c.path].length - 1;

@@ -83,6 +83,16 @@ export interface TUnit {
   hitBy?: Record<string, number>;
   /** 受けた攻撃の種類（最後の一撃） */
   lastType?: import('../../data/tactics').AtkType;
+  /** 20夜目：この番に動いた（不動）・見切りを使った（戦い／番）・戦神で踏みとどまっている（この番の終わりに倒れる） */
+  moved?: boolean; mikiriUsed?: boolean; mikiriTurn?: number; lastStand?: number; lastStandUsed?: boolean;
+  /** 20夜目：死霊術士に起こされた敵兵（味方として動く。学校には残らない） */
+  raised?: boolean;
+  /** 20夜目：前に逃げのびたことのある宿敵（狩りの王の条件） */
+  fledBefore?: boolean;
+  /** 20夜目：最上級の条件になる出来事（この戦いでの数）。戦いのあと Student.deeds に足す */
+  deeds?: Record<string, number>;
+  /** 20夜目：炎を当てた（砦を焼く） */
+  usedFire?: boolean;
 }
 
 export type Objective = 'boss' | 'rout' | 'defend' | 'rescue' | 'escape';
@@ -144,4 +154,14 @@ export interface TBattle {
   support?: { kind: 'potion' | 'trap' | 'study'; by: string; text: string }[];
   /** 生徒のid→心の揺れ（暴走・すくむ） */
   mood?: Record<string, string>;
+  /** 20夜目：結界の光の壁（敵は通れない）と、のこりのターン */
+  walls?: string[]; wallTurns?: number;
+  /** 20夜目：燃えているマス（のこりの敵の番の数） */
+  burn?: Record<string, number>;
+  /** 20夜目：戦いで一度だけの特技を使った印（奇跡・劫火・起こす など） */
+  once?: string[];
+  /** 20夜目：禁呪の番人のいる戦で宿敵を討った（二度と蘇らない） */
+  forbidden?: boolean;
+  /** 20夜目：先生の兵種の段階（0=教官〜3=名将） */
+  teacherRank?: number;
 }

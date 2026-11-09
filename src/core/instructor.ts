@@ -2,7 +2,7 @@ import { presence } from './util';
 // 教官：教えるほど上がる技能（③）、加齢・引退・後継（④）、副教官（⑤）。DOMに依存しない
 import { goodOf } from './aptitude';
 import { RANK_TITLES } from '../data/people';
-import { B, SKILLS, RANK_POINTS } from '../data/balance';
+import { B, SKILLS, RANK_POINTS, TEACHER_RANK } from '../data/balance';
 import { skillRankUp } from './discovery';
 import { BACKGROUNDS, COUNTRY_SHORT, SKILL_NAMES, PERSONALITIES, TALENTS, DREAMS } from '../data/people';
 import { NAMES } from '../data/names';
@@ -315,4 +315,46 @@ export function ensureTeacherSince(s: GameState): void {
     const st = t.alumniId ? s.students[t.alumniId] : undefined;
     t.since = st ? st.enrollYear + 3 : s.year - 1;
   }
+}
+
+/** 20夜目：先生の兵種の段階（0=教官 1=指揮官 2=軍師 3=名将） */
+export function teacherRank(s: GameState): number {
+  const R = TEACHER_RANK;
+  const years = s.year - (s.instructor.since ?? s.year);
+  const wins = s.instructor.nemWins ?? 0;
+  let r = 0;
+  for (let i = 1; i < R.names.length; i++) if (years >= R.years[i] && wins >= R.wins[i]) r = i;
+  return r;
+}
+/** 先生の兵種の名前（教え子が先生になったときは「剣神の教官」のように） */
+export function teacherClassName(s: GameState): string {
+  const st = s.instructor.studentId ? s.students[s.instructor.studentId] : null;
+  const own = st ? CLASSES[st.classId]?.name : null;
+  const n = TEACHER_RANK.names[teacherRank(s)];
+  return own ? `${own}の${n}` : n;
+}
+/** 次の段階まで（なければ null） */
+export function teacherNext(s: GameState): { name: string; years: number; wins: number } | null {
+  const r = teacherRank(s);
+  const R = TEACHER_RANK;
+  if (r >= R.names.length - 1) return null;
+  const years = s.year - (s.instructor.since ?? s.year);
+  return { name: R.names[r + 1], years: Math.max(0, R.years[r + 1] - years), wins: Math.max(0, R.wins[r + 1] - (s.instructor.nemWins ?? 0)) };
+}
+/** 宿敵戦に勝った（先生の兵種が上がることがある） */
+export function teacherWonNemesis(s: GameState): string | null {
+  const before = teacherRank(s);
+  s.instructor.nemWins = (s.instructor.nemWins ?? 0) + 1;
+  const after = teacherRank(s);
+  if (after > before) { s.instructor.rankShown = after; const t = `${s.instructor.name}先生が「${TEACHER_RANK.names[after]}」になった（${TEACHER_RANK.desc[after]}）`; chronicle(s, t, 'school'); return t; }
+  return null;
+}
+/** 年度末：在任の年数で先生の兵種が上がったら知らせる */
+export function teacherRankYear(s: GameState): string | null {
+  const r = teacherRank(s);
+  if (r <= (s.instructor.rankShown ?? 0)) return null;
+  s.instructor.rankShown = r;
+  const t = `${s.instructor.name}先生が「${TEACHER_RANK.names[r]}」になった（${TEACHER_RANK.desc[r]}）`;
+  chronicle(s, t, 'school');
+  return t;
 }

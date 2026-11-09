@@ -70,6 +70,8 @@ export interface Student {
   techs?: string[];
   /** 19夜目：宿敵戦に出た回数・討った宿敵の数・仲間をかばった回数・蘇った（呪い）・双星の縁 */
   nemBattles?: number; nemKills?: number; guards?: number; revivedBy?: string; twinStar?: string;
+  /** 20夜目：最上級の条件になる出来事の記録（鍵→回数。data/classes の deed） */
+  deeds?: Record<string, number>;
   /** 19夜目：戦死したと思われたが、捕らわれて生きている（この年に戻る）・裏切りの兆し */
   secretAlive?: { year: number; by: string };
   betraySign?: number;
@@ -225,6 +227,8 @@ export interface Instructor {
   studentId?: string;
   /** 着任した年 */
   since?: number;
+  /** 20夜目：この先生が勝った宿敵戦の数（先生の兵種が上がる） */
+  nemWins?: number; rankShown?: number;
   /** 先生の体力（7夜目）と、寝込んでいる残りの日数 */
   stamina?: number;
   sickDays?: number;
@@ -420,6 +424,12 @@ export interface EnemyOfficer {
   heart?: 'steady' | 'careful' | 'mad' | 'mellow' | 'fallen';
   /** 19夜目：蘇った回数と理由（一度蘇った者は、次に討てば本当に死ぬ） */
   revived?: number; reviveNote?: string;
+  /** 20夜目：禁呪で封じられた（二度と蘇らない） */
+  noRevive?: boolean;
+  /** 20夜目：学校の味方になった（恩返し・国に裏切られた） */
+  allied?: { year: number; why: 'debt' | 'betrayed' };
+  /** 20夜目：密偵が調べたこと（弱点・性格・次の動き）と、捕らわれた教え子 */
+  spied?: { year: number; month: number; weak?: string; trait?: string; plan?: string }[];
   /** 19夜目：呪いで蘇った（光に弱い・闇の者） */
   cursed?: boolean;
   /** 19夜目：分かっていること（0＝顔と名前だけ … 4＝恨みの中身まで） */
@@ -458,8 +468,10 @@ export interface Rivalry {
   /** 仇討ちの誓い（殺された・重傷にされた仲間のid） */
   vow?: string | null;
   log: { year: number; month: number; text: string }[];
-  settled?: 'persuade' | 'duel' | 'kill' | 'spare' | null;
+  settled?: 'persuade' | 'duel' | 'kill' | 'spare' | 'ally' | null;
   settledYear?: number;
+  /** 20夜目：好敵手（たがいに名を呼び合い、決着を約束した年） */
+  oath?: { year: number; month: number };
 }
 
 /** 手応えの演出（ゲージが伸びて「ランクアップ！」）。6夜目 */
@@ -758,7 +770,7 @@ export interface GameState {
   nextId: number;
   settings: Settings;
   guideStep: number;
-  stats: { battlesWon: number; battlesLost: number; deaths: number; graduates: number };
+  stats: { battlesWon: number; battlesLost: number; deaths: number; graduates: number; /** 20夜目：送った密偵の数 */ spies?: number };
   gameOver: boolean;
   log: string[];
 }

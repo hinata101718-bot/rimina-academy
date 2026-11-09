@@ -103,9 +103,9 @@ export const TECHS: TechDef[] = [
   { id: 'dive', name: '急降下', type: 'thrust', pow: 5, hits: 1, uses: 2, skill: 'flying', at: 140, desc: '空から突く' },
   { id: 'shieldbash', name: '盾打ち', type: 'blunt', pow: 3, hits: 1, uses: 3, skill: 'heavy', at: 140, desc: '盾で打つ' },
   { id: 'blizzard', name: 'ブリザー', type: 'ice', pow: 3, hits: 1, uses: 2, range: [1, 2], skill: 'magic', at: 140, desc: '氷の魔法' },
-  { id: 'miasma', name: 'ミアズマ', type: 'dark', pow: 4, hits: 1, uses: 2, range: [1, 2], skill: 'magic', at: 140, desc: '闇の魔法', cls: ['hexer', 'warlock', 'necromancer', 'cursechild', 'sage'] },
-  { id: 'barrage', name: '連打', type: 'blunt', pow: -3, hits: 3, uses: 2, skill: 'axe', at: 0, desc: '3回打つ', cls: ['brawler', 'shura', 'bareblade'] },
-  { id: 'mendhand', name: '手当て', type: 'light', pow: 0, hits: 1, uses: 9, range: [1, 1], heal: 8, skill: 'faith', at: 0, desc: '隣の仲間のHP+8', cls: ['cleric', 'priest', 'bishop', 'holy_saint'] },
+  { id: 'miasma', name: 'ミアズマ', type: 'dark', pow: 4, hits: 1, uses: 2, range: [1, 2], skill: 'magic', at: 140, desc: '闇の魔法', cls: ['hexer', 'warlock', 'necromancer', 'cursemaster', 'netherlord', 'cursechild', 'archsage', 'runelord'] },
+  { id: 'barrage', name: '連打', type: 'blunt', pow: -3, hits: 3, uses: 2, skill: 'axe', at: 0, desc: '3回打つ', cls: ['brawler', 'shura', 'ashura'] },
+  { id: 'mendhand', name: '手当て', type: 'light', pow: 0, hits: 1, uses: 9, range: [1, 1], heal: 8, skill: 'faith', at: 0, desc: '隣の仲間のHP+8', cls: ['cleric', 'priest', 'bishop', 'holy_saint', 'lightmage', 'holyknight', 'lightking'] },
   { id: 'snipe', name: '狙撃', type: 'shot', pow: 10, hits: 1, uses: 1, range: [2, 4], skill: 'gun', at: 50, desc: '銃の一撃' },
 ];
 export const TECH_BY_ID: Record<string, TechDef> = Object.fromEntries(TECHS.map((t) => [t.id, t]));

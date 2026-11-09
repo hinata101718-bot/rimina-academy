@@ -35,15 +35,12 @@ export function gradeOk(st: Student, c: ClassDef): boolean {
 export function sortiesNeed(c: ClassDef): number { return c.hidden ? 0 : B.exam.sorties[c.tier] ?? 0; }
 /** 隠れた兵種の道が開いたか（出来事で横道が開く） */
 export function hiddenOpen(s: GameState, st: Student, c: ClassDef): boolean {
-  const rv = Object.values(s.rivalries ?? {}).filter((r) => r.sid === st.id);
+  void s;
   switch (c.id) {
+    // 宿敵に片目を奪われる（弓・密偵の系統、どの段階でも）
     case 'oneeye': return (st.scars ?? []).some((x) => x.text.includes('目')) && ['bow', 'dagger'].includes((CLASSES[st.classId] as { line?: string })?.line ?? '');
-    case 'avenger': return rv.some((r) => !!r.vow && !r.settled) && (st.mind?.grudge ?? 0) >= 80;
-    case 'undying': return (st.wounds ?? 0) >= 2;
-    case 'nemhunter': return (st.nemKills ?? 0) >= 3;
-    case 'oathshield': return (st.guards ?? 0) >= 3 && (st.wounds ?? 0) >= 3;
+    // 呪いで蘇った味方
     case 'cursechild': return !!st.revivedBy;
-    case 'twinstar': return !!st.twinStar;
     default: return false;
   }
 }

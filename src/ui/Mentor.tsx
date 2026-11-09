@@ -10,12 +10,12 @@ import { TeacherFace } from './Talk';
 import { Num, countryColor } from './cards';
 import { Icon } from './icons';
 import { sfx } from './sound';
-import { B, SKILLS } from '../data/balance';
+import { B, SKILLS, TEACHER_RANK } from '../data/balance';
 import { SKILL_NAMES, PERSONALITIES } from '../data/people';
 import { rankOf, nextRankPoints } from '../core/util';
 import { RANK_POINTS } from '../data/balance';
 import { skillUnlocked } from '../core/week';
-import { instructorCaps, goodSkillsOf, viceEligible, viceOf, setVice, removeVice, VICE_POLICY_NAMES } from '../core/instructor';
+import { instructorCaps, goodSkillsOf, viceEligible, viceOf, setVice, removeVice, VICE_POLICY_NAMES, teacherRank, teacherNext, teacherClassName } from '../core/instructor';
 import { mentorXp, abilityCost, abilityState, learnAbility, skillCost, trainSkill } from '../core/mentor';
 import { MENTOR_ABILITIES, MENTOR_BY_ID, MENTOR_BRANCH_NAMES, MENTOR_COST_NAMES, type MentorAbility, type MentorBranch } from '../data/mentor';
 import { teacherMax, teacherStamina } from '../core/lessons';
@@ -51,6 +51,7 @@ export function InstructorPage({ s }: { s: GameState }) {
             <div class="nameline"><b class="given" style={{ fontSize: 22 }}>{ins.name}</b><span class="family">教官</span></div>
             <div class="small">{BG_NAMES[ins.background] ?? ''}{me ? `（${me.cohort}期生）` : ''}・{ins.age}歳・在任{s.year - (ins.since ?? 1)}年</div>
             <div class="small muted">これまでに教えた子 {ins.experience}人・体力 {Math.round(teacherStamina(s))}／{teacherMax(s)}</div>
+            <div class="small mt-tclass">先生の兵種：<b>{teacherClassName(s)}</b>（勝った宿敵戦 {ins.nemWins ?? 0}）</div>
           </div>
           <span class="stamp">教官</span>
         </div>
@@ -60,6 +61,7 @@ export function InstructorPage({ s }: { s: GameState }) {
           <span class="grow" />
           <span class="small muted">これまでの合計 {Math.floor(ins.xpTotal ?? 0).toLocaleString()}</span>
         </div>
+        <TeacherRankCard s={s} />
         <div class="small muted">経験値は授業のたびにたまります。たまった経験値で、先生の技能や心得を上げられます。<HelpTip text="顔の子が多いとき、友情タッグのとき、ランクやレベルが上がった子がいるときは、多めにたまります。休講の日はたまりません。" /></div>
       </div>
 
@@ -191,6 +193,20 @@ function PastCard({ s }: { s: GameState }) {
       <h3 class="ledger-title">歴代の教官</h3>
       {(s.pastInstructors ?? []).map((p) => <div class="row between small ruled"><span>{kanjiNum(p.generation)}代目 <b>{p.name}</b>（{BG_NAMES[p.background] ?? ''}）</span><span class="muted">{p.from}〜{p.to}年目・教えた子{p.taught}人</span></div>)}
       <div class="row between small ruled"><span>{kanjiNum(ins.generation)}代目 <b>{ins.name}</b>（在任中）</span><span class="muted">{ins.since ?? 1}年目〜</span></div>
+    </div>
+  );
+}
+
+/** 20夜目：先生の兵種（教官 → 指揮官 → 軍師 → 名将） */
+function TeacherRankCard({ s }: { s: GameState }) {
+  const r = teacherRank(s);
+  const nx = teacherNext(s);
+  return (
+    <div class="mt-rankcard">
+      <div class="mt-rankrow">{TEACHER_RANK.names.map((n, i) => <span class={`mt-rk${i === r ? ' on' : i < r ? ' done' : ''}`}>{n}</span>)}</div>
+      <div class="small">{TEACHER_RANK.desc[r]}</div>
+      <div class="small muted">号令 {TEACHER_RANK.command[r]}回・見極め {TEACHER_RANK.insight[r]}回（1回で弱点を{TEACHER_RANK.depth[r]}つ・{TEACHER_RANK.range[r]}マス先まで）</div>
+      {nx ? <div class="small muted">次の「{nx.name}」まで：{nx.years > 0 ? `在任あと${nx.years}年` : '在任の年数はそろった'}・{nx.wins > 0 ? `宿敵戦にあと${nx.wins}勝` : '宿敵戦の勝ちはそろった'}</div> : <div class="small muted">先生の兵種は、いちばん上の「名将」です。</div>}
     </div>
   );
 }

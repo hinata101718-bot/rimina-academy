@@ -4,7 +4,7 @@ import { newGame, enrolled } from '../src/core/game';
 import { autoYears, autoPending, autoWeek } from '../src/core/autoplay';
 import { deserialize, serialize } from '../src/core/save';
 import { CLASSES } from '../src/data/classes';
-import { STATS } from '../src/data/balance';
+import { STATS, SAVE_VERSION } from '../src/data/balance';
 import { TB } from '../src/data/tactics';
 import type { TBattle, TUnit } from '../src/core/tactics/types';
 import { attack, endTurn, undoLast, calc, intents, unit, attackable, bestSpot, reach, insight, command } from '../src/core/tactics/engine';
@@ -78,7 +78,7 @@ describe('19夜目：新しい戦い（運なし）', () => {
     const a = unit(b, 'a')!; a.hp = 3; a.y = 4;
     intents(b);
     expect((unit(b, 'boss')!.aim as { lethal: boolean }).lethal).toBe(false);
-    b.nemesisId = 'o1';
+    b.nemesisId = 'o1'; unit(b, 'boss')!.nemesis = true; // 20夜目：命の危険は宿敵その人の一撃だけ
     intents(b);
     expect((unit(b, 'boss')!.aim as { lethal: boolean }).lethal).toBe(true);
     const b2: TBattle = JSON.parse(JSON.stringify(b));
@@ -189,7 +189,7 @@ describe('19夜目：古いセーブ（17夜目版・16夜目版）を読み込�
   for (const f of files) {
     it(`${f}：変換して1年遊べる`, () => {
       const s = deserialize(readFileSync(new URL(f, dir), 'utf8'));
-      expect(s.version).toBe(19);
+      expect(s.version).toBe(SAVE_VERSION);
       expect(s.oldSave).toBeLessThan(19);
       expect(s.battle).toBeNull();
       for (const st of Object.values(s.students)) {

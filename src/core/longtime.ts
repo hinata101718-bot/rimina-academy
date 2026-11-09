@@ -17,7 +17,7 @@ export function yearlyLong(s: GameState, r: Rng, report: string[]): void {
   const L = B.long;
   // ---- 蘇り（名前のある敵だけ・理由つき・一度だけ） ----
   for (const o of officers(s)) {
-    if (o.status !== 'dead' || o.kind === 'monster') continue;
+    if (o.status !== 'dead' || o.kind === 'monster' || o.noRevive) continue;
     if (o.presumed === 'dead' && !o.revived && r.chance(L.revive)) revive(s, r, o, r.pick(REVIVE_WHY), false, report);
     else if (!o.presumed && !o.revived && (o.endYear ?? 0) >= s.year - 8 && Object.values(s.rivalries ?? {}).some((rv) => rv.oid === o.id && rv.stage >= 2) && r.chance(L.curse)) revive(s, r, o, r.pick(CURSE_WHY), true, report);
   }

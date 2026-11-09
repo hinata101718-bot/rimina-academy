@@ -4,7 +4,7 @@ import { TECHS, ATK_NAME } from '../data/tactics';
 import { useEffect, useState } from 'preact/hooks';
 import type { GameState, Student } from '../core/state';
 import type { ClassDef, Stats, StatId, Rank } from '../core/types';
-import { CLASSES, CLASS_LIST } from '../data/classes';
+import { CLASSES, CLASS_LIST, TRAITS_C, type ClassDefX } from '../data/classes';
 import { STAT_NAMES, SKILL_NAMES, COUNTRY_SHORT } from '../data/people';
 import { STATS, B } from '../data/balance';
 import { growthParts } from '../core/growth';
@@ -112,13 +112,32 @@ export function seenClasses(s: GameState): Set<string> {
 function visible(c: ClassDef, seen: Set<string>): boolean { return c.tier <= 1 || seen.has(c.id); }
 function parentOf(c: ClassDef): string | null { return c.prereq[0] ?? null; }
 
+/** 20夜目：最上級の条件の明かし方（0=？？？ 1=はじめの数文字 2=全部）。上級になった子がいると少し、条件の出来事を成し遂げかけた子がいると全部 */
+export function deedReveal(s: GameState, c: ClassDefX, seen: Set<string>): number {
+  if (seen.has(c.id)) return 2;
+  const all = Object.values(s.students);
+  if (c.deed && all.some((x) => (x.deeds?.[c.deed!] ?? 0) > 0)) return 2;
+  if (c.prereq.some((p) => seen.has(p))) return 1;
+  return 0;
+}
+function unlockText(c: ClassDefX, lv: number): string {
+  if (!c.unlock) return '';
+  if (lv >= 2) return c.unlock;
+  if (lv === 1) return `${[...c.unlock].slice(0, 4).join('')}……`;
+  return '？？？';
+}
+/** その兵種になったことのある子（生徒・卒業生） */
+function holders(s: GameState, id: string): string[] {
+  return Object.values(s.students).filter((x) => x.classId === id || x.history?.some((h) => h.text.includes(`「${CLASSES[id]?.name}」`) || h.text === `${CLASSES[id]?.name}になった`)).map((x) => `${x.given}（${x.cohort}期）`);
+}
+
 export function ClassBook({ s, embedded }: { s: GameState; embedded?: boolean }) {
   const seen = seenClasses(s);
   const [open, setOpen] = useState<string | null>(null);
   const [sel, setSel] = useState<string | null>(null);
-  const tier1 = CLASS_LIST.filter((c) => c.tier === 1 && (!c.needGun || s.world.gunUnlocked || seen.has(c.id)));
-  const total = CLASS_LIST.filter((c) => !c.hidden || seen.has(c.id)).length;
-  const got = CLASS_LIST.filter((c) => visible(c, seen) && (!c.hidden || seen.has(c.id))).length;
+  const tier1 = CLASS_LIST.filter((c) => c.tier === 1);
+  const total = CLASS_LIST.length;
+  const got = CLASS_LIST.filter((c) => seen.has(c.id)).length;
   const kids = (id: string) => CLASS_LIST.filter((c) => parentOf(c) === id && !c.hidden);
   const selC = sel ? CLASSES[sel] : null;
   return (
@@ -126,36 +145,54 @@ export function ClassBook({ s, embedded }: { s: GameState; embedded?: boolean })
       {!embedded && <Back to={() => navigate({ tab: 'students' })} />}
       <div class="ledger">
         {!embedded && <div class="row between nowrap"><h2 class="ledger-title" style={{ margin: 0 }}>兵種図鑑</h2><span class="stamp">図鑑</span></div>}
-        <div class="small muted">見習いから最上級までの、兵種の木です。まだ誰もなっていない兵種は「？」のままです。生徒か卒業生が初めてなると、埋まります（{got}／{total}）。</div>
-        <div class="cb-root"><Leaf c={CLASSES.novice} seen={seen} on={sel === 'novice'} onTap={() => setSel(sel === 'novice' ? null : 'novice')} /></div>
+        <div class="small muted">初級 → 中級 → 上級 → 最上級 の木です。だれかがなった兵種は明るく、まだの兵種は名前だけ。最上級になる条件は「？」から少しずつ分かります（{got}／{total}）。</div>
         <div class="cb-grid">
           {tier1.map((c) => <Leaf c={c} seen={seen} on={open === c.id} onTap={() => { sfx('move'); setOpen(open === c.id ? null : c.id); setSel(c.id); }} />)}
         </div>
-        {open && <Branch id={open} seen={seen} kids={kids} sel={sel} onSel={(id) => { sfx('move'); setSel(sel === id ? null : id); }} />}
-        {CLASS_LIST.filter((c) => c.hidden).map((c) => <div class="cb-hidden">{seen.has(c.id) ? <Leaf c={c} seen={seen} on={sel === c.id} onTap={() => setSel(c.id)} /> : <span class="small muted">隠された兵種：？？？</span>}</div>)}
+        {open ? <Tree s={s} id={open} seen={seen} kids={kids} sel={sel} onSel={(id) => { sfx('move'); setSel(sel === id ? null : id); }} /> : <div class="small muted" style={{ marginTop: 8 }}>初級の兵種をタップすると、その先の枝分かれが出ます。</div>}
+        <div class="ct-hidden">
+          <div class="small"><b>隠れた兵種</b>（出来事で道が開く）</div>
+          {CLASS_LIST.filter((c) => c.hidden).map((c) => seen.has(c.id) ? <Leaf c={c} seen={seen} on={sel === c.id} onTap={() => setSel(c.id)} /> : <div class="small muted">？？？ —— {c.id === 'oneeye' ? '弓か密偵の子に、ある出来事が起きると……' : '死の淵から戻った子に……'}</div>)}
+        </div>
       </div>
       {selC && <ClassSheet s={s} c={selC} known={visible(selC, seen)} onClose={() => setSel(null)} />}
     </div>
   );
 }
-function Leaf({ c, seen, on, onTap }: { c: ClassDef; seen: Set<string>; on: boolean; onTap: () => void }) {
-  const v = visible(c, seen);
+function Leaf({ c, seen, on, onTap, small }: { c: ClassDef; seen: Set<string>; on: boolean; onTap: () => void; small?: boolean }) {
+  const v = seen.has(c.id) || c.tier <= 1;
   return (
-    <button class={`cb-leaf${v ? '' : ' unknown'}${on ? ' on' : ''}`} style={{ ['--band' as string]: c.nation ? countryColor(c.nation) : 'var(--line)' }} onClick={onTap}>
-      <span class="cb-ic">{v ? <Icon name={classIcon(c.id)} size={18} /> : '？'}</span>
-      <span class="cb-name">{v ? c.name : '？？？'}</span>
-      <span class="cb-tier">{TIER_NAMES[c.tier]}{c.nation ? `・${COUNTRY_SHORT[c.nation]}` : ''}</span>
+    <button class={`cb-leaf${v ? '' : ' unknown'}${on ? ' on' : ''}${small ? ' ct-leaf' : ''}`} style={{ ['--band' as string]: c.nation ? countryColor(c.nation) : 'var(--line)' }} onClick={onTap}>
+      {!small && <span class="cb-ic">{v ? <Icon name={classIcon(c.id)} size={18} /> : '・'}</span>}
+      <span class="cb-name">{c.hidden && !v ? '？？？' : c.name}</span>
+      <span class="cb-tier">{TIER_NAMES[c.tier]}</span>
     </button>
   );
 }
-function Branch({ id, seen, kids, sel, onSel }: { id: string; seen: Set<string>; kids: (id: string) => ClassDef[]; sel: string | null; onSel: (id: string) => void }) {
-  const render = (c: ClassDef, depth: number): preact.JSX.Element => (
-    <div class="cb-node" style={{ marginLeft: depth ? 14 : 0 }}>
-      <Leaf c={c} seen={seen} on={sel === c.id} onTap={() => onSel(c.id)} />
-      {kids(c.id).length > 0 && <div class="cb-kids">{kids(c.id).map((k) => render(k, depth + 1))}</div>}
+/** 4段階の枝分かれ：初級 → 中級（2〜4）→ 上級 → 最上級。最上級には条件（少しずつ明かす） */
+function Tree({ s, id, seen, kids, sel, onSel }: { s: GameState; id: string; seen: Set<string>; kids: (id: string) => ClassDef[]; sel: string | null; onSel: (id: string) => void }) {
+  return (
+    <div class="ct-tree">
+      <div class="ct-cols small muted"><span>中級</span><span>上級</span><span>最上級</span></div>
+      {kids(id).map((m) => (
+        <div class="ct-row">
+          <div class="ct-c"><Leaf small c={m} seen={seen} on={sel === m.id} onTap={() => onSel(m.id)} /></div>
+          <div class="ct-sub">
+            {kids(m.id).map((u) => {
+              const top = kids(u.id)[0] as ClassDefX | undefined;
+              const lv = top ? deedReveal(s, top, seen) : 0;
+              return (
+                <div class="ct-pair">
+                  <div class="ct-c"><Leaf small c={u} seen={seen} on={sel === u.id} onTap={() => onSel(u.id)} /></div>
+                  <div class="ct-c">{top && <><Leaf small c={top} seen={seen} on={sel === top.id} onTap={() => onSel(top.id)} /><div class={`ct-cond${lv < 2 ? ' q' : ''}`}>条件：{unlockText(top, lv)}</div></>}</div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      ))}
     </div>
   );
-  return <div class="cb-branch">{kids(id).map((c) => render(c, 0))}{!kids(id).length && <div class="small muted">この先の兵種はありません</div>}</div>;
 }
 function ClassSheet({ s, c, known, onClose }: { s: GameState; c: ClassDef; known: boolean; onClose: () => void }) {
   // 10夜目：この兵種に要る技能が得意な子・開花で道が開けた子
@@ -175,7 +212,9 @@ function ClassSheet({ s, c, known, onClose }: { s: GameState; c: ClassDef; known
           </>
         ) : <div class="small muted">まだ誰もなっていない兵種です。生徒か卒業生が初めてなると、補正やスキルが分かります。</div>}
         {known && <div class="small ruled">この兵種で使える技：{TECHS.filter((t) => c.weapons.some((w) => ({ sword: 'sword', lance: 'lance', axe: 'axe', bow: 'bow', magic: 'magic', holy: 'faith', staff: 'faith', gun: 'gun' } as Record<string, string>)[w] === t.skill)).map((t) => `${t.name}（${ATK_NAME[t.type]}）`).join('・') || 'なし'}</div>}
-        {c.hidden && <div class="small" style={{ color: '#8a5a08' }}>金の芽が開いた子だけが、この道へ進めます</div>}
+        {known && <div class="small ruled"><b>特技</b>{(c as ClassDefX).traits.map((t) => TRAITS_C[t] && <div class="ct-trait"><b>{TRAITS_C[t].name}</b>：{TRAITS_C[t].desc}{TRAITS_C[t].todo ? <em class="ct-todo">（まだ説明だけ）</em> : TRAITS_C[t].part ? <em class="ct-todo">（{TRAITS_C[t].part}）</em> : null}</div>)}<div class="muted">下の段階の特技は、上がっても残ります。</div></div>}
+        {(c as ClassDefX).unlock && <div class="small ruled"><b>{c.hidden ? '道が開く出来事' : 'なる条件の出来事'}</b>：{c.hidden && !known ? '？？？' : unlockText(c as ClassDefX, c.hidden ? 2 : deedReveal(s, c as ClassDefX, seenClasses(s)))}{c.tier === 4 && <div class="muted">卒業生のうち、この出来事を成し遂げた子だけがなれます。</div>}</div>}
+        {known && c.tier >= 2 && holders(s, c.id).length > 0 && <div class="small ruled">なった子：{holders(s, c.id).slice(0, 8).join('・')}</div>}
         {(good.length > 0 || bloom.length > 0) && <div class="small ruled">{bloom.length > 0 && <div>開花で道が開けた子：<b>{bloom.join('・')}</b></div>}{good.length > 0 && <div>要る技能が得意な子：{good.slice(0, 8).join('・')}{good.length > 8 ? ' ほか' : ''}</div>}</div>}
         <div class="small ruled">なる条件：{c.prereq.length ? `${c.prereq.map((p) => (known || CLASSES[p].tier <= 1 ? CLASSES[p].name : '？')).join('・')}から` : '入学したとき'}{Object.entries(c.req).length ? `・${Object.entries(c.req).map(([k, r]) => `${SKILL_NAMES[k as keyof typeof SKILL_NAMES]}${r as Rank}`).join('・')}` : ''}{c.tier >= 1 ? `・Lv${B.exam.levelReq[c.tier]}以上` : ''}{c.tier === 4 ? '（卒業後）' : ''}</div>
       </div>
