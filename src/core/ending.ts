@@ -45,6 +45,8 @@ export function yearlyUnifyCount(s: GameState): void {
 export function endingReady(s: GameState, when: 'year' | 'month'): { kind: EndingKind; country?: CountryId } | null {
   const w = s.world;
   if (w.era === 'peace') return null;
+  // 19夜目：最初の戦争は、すぐには終わらない（最初のエンディングは20〜30年目。和平の大成功でも、この年から）
+  if ((w.warNo ?? 1) === 1 && !(s.endings ?? []).length && s.year < B.ending.minYear) return null;
   // 同じ戦争のうちは、同じエンディングは一度だけ（7夜目：二度目以降の戦争では、同じ種類のエンディングもまた見られる）
   const no = w.warNo ?? 1;
   const done = new Set((s.endings ?? []).filter((e) => (e.n ?? 1) === no).map((e) => e.kind));

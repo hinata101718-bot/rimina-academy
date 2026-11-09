@@ -29,11 +29,12 @@ function run(policy: CareerPolicy, seed: number): Run {
   const bonds: number[] = [];
   let error: string | null = null;
   let revived = 0;
-  setPendingHook((_g, p) => { if (p.type === 'nemesis' && p.kind === 'revived') revived++; });
+  setPendingHook(() => undefined);
   try {
     autoYears(s, YEARS, (g: GameState) => { bonds.push(bondedOfficers(g).length); });
   } catch (e) { error = String((e as Error).stack ?? e).split('\n').slice(0, 4).join(' | '); }
   const turned = officers(s).filter((o) => o.alumniId).length;
+  revived = s.chronicle.filter((c) => c.text.startsWith('死んだはずの')).length;
   const named = officers(s).filter((o) => o.status === 'active').length;
   return {
     policy, seed, error, firstEnding: s.endings?.[0]?.year ?? null, firstKind: s.endings?.[0]?.kind ?? null, endings: (s.endings ?? []).length,

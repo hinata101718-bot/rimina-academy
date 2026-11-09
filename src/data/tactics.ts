@@ -43,7 +43,7 @@ export const TB = {
   /** 宿敵：HPがこの割合以下で逃げはじめる（追いつめられると逃げる） */
   fleeAt: 0.25,
   /** 命の危険：体力がこの割合以下の子への、宿敵の倒れる一撃 */
-  lethalHp: 0.5,
+  lethalHp: 0.35,
   /** 宿敵：HPがこの割合以下になると、次の敵の番に大技 */
   rageAt: 0.5, ragePow: 8,
   /** 盾の数（ふつうの兵・隊長・宿敵）。宿敵は因縁の深さで+ */
@@ -149,7 +149,7 @@ export const ENEMY_MIX: Record<'army' | 'bandit' | 'monster', string[]> = {
 /** 敵の素の強さ（レベルから）：体力・力・魔力・技・速さ・守り */
 export const ENEMY_BASE = { hp: [17, 1.1], str: [6, 0.5], mag: [5, 0.45], skl: [3, 0.35], spd: [3, 0.36], def: [3, 0.33] } as Record<string, [number, number]>;
 /** 敵将・宿敵の強さの倍率（体力・ほか） */
-export const BOSS_MUL = { hp: 1.7, other: 1.15, nemesisHp: 2.2, nemesisOther: 1.1, perMeet: 0.03 };
+export const BOSS_MUL = { hp: 1.7, other: 1.15, nemesisHp: 2.2, nemesisOther: 1.1, perMeet: 0.03, /** 宿敵のレベルは、依頼のレベル＋この数まで */ lvCap: 5 };
 /** 兵種の武器の種類 → 攻撃の種類・届く距離 */
 export const WTYPE_ATK: Record<string, { type: AtkType; range: [number, number]; magic?: boolean }> = {
   sword: { type: 'slash', range: [1, 1] }, lance: { type: 'thrust', range: [1, 1] }, axe: { type: 'crush', range: [1, 1] }, fist: { type: 'blunt', range: [1, 1] },

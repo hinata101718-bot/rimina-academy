@@ -124,7 +124,7 @@ export function startTraits(b: TBattle): void {
   }
 }
 
-function teacherUnit(s: GameState, x: number, y: number): TUnit {
+function teacherUnit(s: GameState, x: number, y: number, lv0 = 1): TUnit {
   const ins = s.instructor;
   const st = ins.studentId ? s.students[ins.studentId] : null;
   const best = [...SKILLS].sort((a, b) => (ins.skills[b] ?? 0) - (ins.skills[a] ?? 0))[0];
@@ -135,8 +135,9 @@ function teacherUnit(s: GameState, x: number, y: number): TUnit {
   const decline = Math.max(0, Math.floor((age - 50) / 5));
   return {
     uid: 'teacher', side: 'me', name: `${ins.name}先生`, teacher: true, studentId: st?.id, classId: 'novice', x, y,
-    hp: Math.max(20, (e?.hp ?? 30) - decline * 2), max: Math.max(20, (e?.hp ?? 30) - decline * 2),
-    str: Math.max(4, (e?.str ?? 9) - decline), mag: Math.max(4, (e?.mag ?? 8) - decline), skl: 8, spd: Math.max(3, (e?.spd ?? 7) - decline), def: Math.max(3, (e?.def ?? 7) - decline),
+    // 先生も、学校の強さに合わせて少しずつ戦い慣れていく（年をとると衰える）
+    hp: Math.max(20, Math.max(e?.hp ?? 0, 28 + lv0) - decline * 2), max: Math.max(20, Math.max(e?.hp ?? 0, 28 + lv0) - decline * 2),
+    str: Math.max(4, Math.max(e?.str ?? 0, 8 + Math.floor(lv0 * 0.4)) - decline), mag: Math.max(4, Math.max(e?.mag ?? 0, 7 + Math.floor(lv0 * 0.4)) - decline), skl: 8 + Math.floor(lv0 * 0.3), spd: Math.max(3, Math.max(e?.spd ?? 0, 6 + Math.floor(lv0 * 0.35)) - decline), def: Math.max(3, Math.max(e?.def ?? 0, 7 + Math.floor(lv0 * 0.35)) - decline),
     mov: 3, rmin: atk.range[0], rmax: atk.range[1], type: atk.type, magic: !!atk.magic, might: 5,
     techs: [], sh: 0, shMax: 0, weak: [], resist: [], known: [], broken: 0, acted: false, alive: true, kills: 0, dealt: 0, taken: 0, weakHits: 0, breaks: 0,
   };
@@ -178,7 +179,7 @@ export function createTactics(s: GameState, q: Quest, deploys: Deploy[], opt: Se
   if (objective === 'rescue') { const cx = r.int(1, 4); b.rock = b.rock.filter((k) => k !== key(cx, 0)); b.captive = { x: cx, y: 0, name: q.kind === 'rescue' ? '捕らわれた村人' : '捕らわれた仲間', freed: false }; }
   // 味方：先生は後ろ、教え子は前の列
   const [tx, ty] = place([[2, 7], [3, 7], [1, 7], [4, 7]]);
-  b.units.push(teacherUnit(s, tx, ty));
+  b.units.push(teacherUnit(s, tx, ty, Math.max(1, q.level)));
   const spots: [number, number][] = [[1, 6], [3, 6], [2, 6], [4, 6], [0, 6], [5, 6], [1, 7], [4, 7], [0, 7], [5, 7]];
   for (const d of deploys) {
     const st = s.students[d.studentId];
@@ -224,7 +225,8 @@ function bossUnit(s: GameState, o: EnemyOfficer | null, kind: 'army' | 'bandit' 
   const cid = newClassId(o?.classId ?? (kind === 'monster' ? 'fighter' : 'lancer'));
   const c = CLASSES[cid] ?? CLASSES.lancer;
   const atk = WTYPE_ATK[c.weapons[0]] ?? WTYPE_ATK.lance;
-  const lv = Math.max(lv0, o?.level ?? lv0);
+  // 宿敵は会うたび強くなるが、学校の強さから離れすぎない
+  const lv = Math.min(lv0 + BOSS_MUL.lvCap, Math.max(lv0, o?.level ?? lv0));
   const meets = o?.meets.length ?? 0;
   const hpM = (nemesis ? BOSS_MUL.nemesisHp : BOSS_MUL.hp) * (1 + meets * BOSS_MUL.perMeet);
   const oM = (nemesis ? BOSS_MUL.nemesisOther : BOSS_MUL.other) * (1 + meets * BOSS_MUL.perMeet);

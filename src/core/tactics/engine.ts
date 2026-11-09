@@ -113,7 +113,14 @@ export function calc(b: TBattle, a: TUnit, d: TUnit, techId?: string | null, opt
     if (T(a, 'charge') && (opt.steps ?? 0) >= 3) atk += 3 + (T(a, 'greatknight') ? 3 : 0);
     if ((T(a, 'backstab') || T(a, 'shadow')) && mine(b).concat(foes(b)).some((o) => o.side === a.side && o !== a && o.alive && adj(o, d))) atk += 4 + (T(a, 'shadow') ? 2 : 0);
     if (T(a, 'twinstar') && b.units.some((o) => o.side === a.side && o !== a && o.alive && adj(o, a))) atk += 3;
+    if (T(a, 'skyward') && type === 'thrust') atk += 3;
+    if (T(a, 'wargod') && hpLow) atk += 6;
+    if (T(a, 'huntking') && !d.boss) atk += 4;
+    if (T(a, 'inferno') && type === 'fire') atk += 4;
   }
+  // 英雄の声：仲間全員の傷+2
+  if (b.units.some((o) => o.side === a.side && o.alive && T(o, 'herald'))) atk += 2;
+  if (b.units.some((o) => o.side === a.side && o !== a && o.alive && T(o, 'warflag') && adj(o, a, 2))) atk += 2;
   // 旗印：隣（将軍旗は2マス）にいる仲間の攻撃+2
   if (b.units.some((o) => o.side === a.side && o !== a && o.alive && (T(o, 'banner') && adj(o, a, T(o, 'general_flag') ? 2 : 1)))) atk += 2;
   if (a.teacher) atk = Math.round(atk * TB.teacherAtk);
@@ -126,6 +133,7 @@ export function calc(b: TBattle, a: TUnit, d: TUnit, techId?: string | null, opt
   if (T(d, 'ranger') && isForest(b, d.x, d.y)) df += 2;
   if (b.units.some((o) => o.side === d.side && o !== d && o.alive && T(o, 'barrier') && adj(o, d, T(o, 'seal') ? 2 : 1))) df += 2;
   df -= d.cursed ? 2 : 0;
+  if (T(d, 'mikiri')) df += 3;
   const resisted = types.every((t) => d.resist.includes(t));
   let per = Math.max(1, atk - Math.max(0, df));
   if (resisted) per = Math.max(1, Math.floor(per / TB.resistDiv));
@@ -135,10 +143,10 @@ export function calc(b: TBattle, a: TUnit, d: TUnit, techId?: string | null, opt
   const broken = d.broken > 0;
   if (broken) per *= TB.breakMul;
   const always2 = !tech && (T(a, 'brave') || T(a, 'bowknight'));
-  const hits = tech ? tech.hits : always2 || a.spd >= d.spd + (T(a, 'twin') ? 1 : TB.doubleSpd) ? 2 : 1;
+  const hits = tech ? (tech.id === 'barrage' && T(a, 'ashura') ? 4 : tech.hits) : always2 || a.spd >= d.spd + (T(a, 'twin') ? 1 : TB.doubleSpd) ? 2 : 1;
   const weakTypes = d.side === 'foe' ? types.filter((t) => d.weak.includes(t) && !d.resist.includes(t)) : [];
   const weak = weakTypes.length > 0;
-  const perHit = (weak ? weakTypes.length * (T(a, 'sniper') || (T(a, 'oneeye') && Math.abs(a.x - d.x) + Math.abs(a.y - d.y) === 2) ? 2 : 1) : 0) + (!weak && tech?.smash && (a.traits?.includes('smash')) ? 1 : 0);
+  const perHit = (weak ? weakTypes.length * (T(a, 'sniper') || (T(a, 'oneeye') && Math.abs(a.x - d.x) + Math.abs(a.y - d.y) === 2) ? 2 : 1) : 0) + (!weak && tech?.smash && (a.traits?.includes('smash')) ? (T(a, 'kingsaxe') ? 2 : 1) : 0);
   const shields = !broken && d.side === 'foe' ? Math.min(d.sh, perHit * hits) : 0;
   const total = per * hits;
   const brk = !broken && shields > 0 && d.sh - shields <= 0 && d.hp - total > 0;
@@ -251,6 +259,7 @@ function strike(b: TBattle, a: TUnit, d0: TUnit, techId: string | null, fx: TFx[
     if (g) { d = g; g.guarded = (g.guarded ?? 0) + 1; fx.push({ k: 'say', by: g.uid, text: `${d0.name}、下がって！`, tone: 'me' }); log(b, `${g.name}が${d0.name}をかばった`); }
   }
   const halve = d !== d0 && T(d, 'fortress');
+  const nullify = d !== d0 && T(d, 'unfallen');
   const tech = techOf(techId);
   const tt = a.techs.find((t) => t.id === techId);
   if (tt) tt.left -= 1;
@@ -258,7 +267,7 @@ function strike(b: TBattle, a: TUnit, d0: TUnit, techId: string | null, fx: TFx[
   const c = calc(b, a, d, techId, { rage, steps });
   let shieldGone = 0;
   for (let i = 0; i < c.hits && d.alive; i++) {
-    let dmg = halve ? Math.max(1, Math.floor(c.per / 2)) : c.per;
+    let dmg = nullify ? 0 : halve ? Math.max(1, Math.floor(c.per / 2)) : c.per;
     // 死に損ない：一度だけ立ち上がる（教え子）
     if (T(d, 'undying') && !d.clung && d.hp - dmg <= 0) { dmg = d.hp - 1; d.clung = true; log(b, `${d.name}は倒れなかった！`, true); }
     // 執念：ブレイクしていないとき、一度だけ持ちこたえる（宿敵）

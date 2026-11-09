@@ -61,7 +61,7 @@ export function yearlyLong(s: GameState, r: Rng, report: string[]): void {
     officers(s).push(h);
     const t = `${officerName(o)}の${h.gender === 'f' ? '娘' : '息子'}、${officerName(h)}が名のりをあげた。${killer && s.students[killer] ? `父の仇、${s.students[killer].given}を討つと誓って` : '父の仇を討つと誓って'}`;
     chronicle(s, t, 'world'); report.push(t);
-    mail(s, '旅の行商人', `うわさ：${h.given}`, t, killer, true);
+    mail(s, '旅の行商人', `うわさ：${h.given}`, t, killer, false);
   }
   // ---- 全盛期と衰え（卒業生） ----
   for (const st of Object.values(s.students)) if (st.status === 'graduated' && st.career?.alive) decline(st, r);

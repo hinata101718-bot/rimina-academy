@@ -21,7 +21,7 @@ function bestFor(b: TBattle, u: TUnit, noDeath: boolean): Plan | null {
   if (u.potion && u.hp < u.max * 0.4) consider(30, () => usePotion(b, u.uid));
   // 宿敵戦：深手の子は、宿敵の届かない場所へ下がる（命の危険を読んで避ける）
   const nem = b.nemesisId ? foes(b).find((f) => f.nemesis && f.broken === 0) : null;
-  if (nem && !u.teacher && u.hp <= u.max * 0.55) {
+  if (nem && !u.teacher && u.hp <= u.max * 0.6) {
     const R = reach(b, u);
     let safe: { x: number; y: number; d: number } | null = null;
     for (const k of Object.keys(R)) { const [x, y] = k.split('-').map(Number); const d = Math.abs(nem.x - x) + Math.abs(nem.y - y); if (!safe || d > safe.d) safe = { x, y, d }; }

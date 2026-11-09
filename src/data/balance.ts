@@ -261,13 +261,13 @@ export const B = {
   /** 19夜目：人の地図。教え子が領主になる役職の段階・見込み、大きな戦で将の力をどれだけ足すか */
   rulers: { alumniRank: 3, alumniChance: 0.5, generalWeight: 0.05, /** 評判で仲立ち・和平の席 */ mediateRep: 65, mediateChance: 0.3, mediateRel: 12, mediateTension: 6 },
   /** 19夜目⑧：長い時間。蘇り（死んだと思われた者が1年に戻る見込み・呪いで蘇る見込み）・捕らわれて生きていた教え子・追放・二代目・先生がさらわれる・敵に回る教え子 */
-  long: { revive: 0.25, curse: 0.03, captured: 0.2, exileShame: 3, exile: 0.25, heir: 0.35, teacherCaptured: 0.2, teacherReturn: [3, 6] as [number, number], turnMax: 3, turnBase: 0.2, turnPerDistrust: 0.008, turnForced: 0.3 },
+  long: { revive: 0.25, curse: 0.03, captured: 0.2, exileShame: 3, exile: 0.25, heir: 0.35, teacherCaptured: 0.2, teacherReturn: [3, 6] as [number, number], turnMax: 4, turnBase: 0.5, turnPerDistrust: 0.01, turnForced: 0.3 },
   /** 19夜目：入学の希望者（10人ほど＋評判25ごとに1人）・仇討ちの子が来る見込み */
   admission: { base: 10, perRep: 25, avenger: 0.3 },
   /** 19夜目：全盛期と衰え（年齢）：伸び盛り〜27歳、28〜34歳は伸びが0.6倍、35〜44歳は0.3倍、45歳から伸びなくなり、毎年少しずつ衰える */
   prime: { peakEnd: 27, slowEnd: 34, slowMul: 0.6, stopAt: 44, lateMul: 0.3, declineAt: 45, declineChance: 0.15, declinePerYear: 0.02 },
   /** 19夜目：月末の出撃（教え子の人数）・出撃しない子の罠の傷 */
-  sortie: { members: 4, trapDmg: 6, /** ふつうの戦いで討った名前のある将が、深手を負って逃げのびる見込み */ officerEscape: 0.65 },
+  sortie: { members: 4, trapDmg: 6, /** ふつうの戦いで討った名前のある将が、深手を負って逃げのびる見込み */ officerEscape: 0.5 },
   battle: {
     width: 8, height: 12,
     deployBase: 6, deployAt12: 8, deployAt20: 10,
@@ -470,7 +470,9 @@ export const B = {
   // ---- エンディング（設計書 §15） ----
   ending: {
     unifyYears: 2,               // 一国の国力が他の二国の合計を上回る状態が2年続く
-    ceasefireWarYears: 8,        // 戦いの疲れ（激戦期1年=1、緊張期1年=0.5、平和期は−1）が8年分
+    /** 19夜目：最初の戦争のエンディングは、この年から（和平の大成功などの早い道でも） */
+    minYear: 17,
+    ceasefireWarYears: 11, // 19夜目：8→11（最初のエンディングを20〜30年目に）        // 戦いの疲れ（激戦期1年=1、緊張期1年=0.5、平和期は−1）が8年分
     ceasefirePower: 35,          // 三国すべての国力が35以下
     neutralRep: 90, neutralGrads: 100, neutralFriendship: 60, // 学校の中立宣言（4夜目にゆるめた）
     neutralBalance: 1.15, neutralAlumniMin: 10, // 三国にいる教え子の数が釣り合っている（多い国が少ない国の1.15倍まで・各国10人以上）

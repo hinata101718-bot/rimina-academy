@@ -1,0 +1,209 @@
+[
+ {
+  "name": "01-opening-guide-360",
+  "over": false,
+  "small": 0,
+  "overlap": 0,
+  "tiny": 0,
+  "cards": 0,
+  "errors": []
+ },
+ {
+  "name": "02-opening-select-360",
+  "over": false,
+  "small": 0,
+  "overlap": 0,
+  "tiny": 3,
+  "cards": 0,
+  "errors": []
+ },
+ {
+  "name": "01-opening-guide-390",
+  "over": false,
+  "small": 0,
+  "overlap": 0,
+  "tiny": 0,
+  "cards": 0,
+  "errors": []
+ },
+ {
+  "name": "02-opening-select-390",
+  "over": false,
+  "small": 0,
+  "overlap": 0,
+  "tiny": 3,
+  "cards": 0,
+  "errors": []
+ },
+ {
+  "name": "01-opening-guide-430",
+  "over": false,
+  "small": 0,
+  "overlap": 0,
+  "tiny": 0,
+  "cards": 0,
+  "errors": []
+ },
+ {
+  "name": "02-opening-select-430",
+  "over": false,
+  "small": 0,
+  "overlap": 0,
+  "tiny": 3,
+  "cards": 0,
+  "errors": []
+ },
+ {
+  "name": "04-nemesis-cards-360",
+  "over": false,
+  "small": 0,
+  "overlap": 0,
+  "tiny": 1,
+  "cards": 5,
+  "errors": []
+ },
+ {
+  "name": "03-nemesis-start-390",
+  "over": false,
+  "small": 0,
+  "overlap": 0,
+  "tiny": 1,
+  "cards": 0,
+  "errors": []
+ },
+ {
+  "name": "04-nemesis-cards-390",
+  "over": false,
+  "small": 0,
+  "overlap": 0,
+  "tiny": 1,
+  "cards": 2,
+  "errors": []
+ },
+ {
+  "name": "05-nemesis-duel-390",
+  "over": false,
+  "small": 1,
+  "overlap": 0,
+  "tiny": 2,
+  "cards": 0,
+  "errors": []
+ },
+ {
+  "name": "06-nemesis-break-390",
+  "over": false,
+  "small": 1,
+  "overlap": 0,
+  "tiny": 2,
+  "cards": 0,
+  "errors": []
+ },
+ {
+  "name": "07-nemesis-after-390",
+  "over": false,
+  "small": 0,
+  "overlap": 0,
+  "tiny": 2,
+  "cards": 0,
+  "errors": []
+ },
+ {
+  "name": "04-nemesis-cards-430",
+  "over": false,
+  "small": 0,
+  "overlap": 0,
+  "tiny": 1,
+  "cards": 4,
+  "errors": []
+ },
+ {
+  "name": "08-reunion-390",
+  "over": false,
+  "small": 0,
+  "overlap": 0,
+  "tiny": 0,
+  "cards": 0,
+  "errors": []
+ },
+ {
+  "name": "09-ledger-390",
+  "over": false,
+  "small": 1,
+  "overlap": 0,
+  "tiny": 0,
+  "cards": 0,
+  "errors": []
+ },
+ {
+  "name": "10-ledger-card-390",
+  "over": false,
+  "small": 2,
+  "overlap": 0,
+  "tiny": 0,
+  "cards": 0,
+  "errors": []
+ },
+ {
+  "name": "11-week-390",
+  "over": false,
+  "small": 3,
+  "overlap": 0,
+  "tiny": 0,
+  "cards": 0,
+  "errors": []
+ },
+ {
+  "name": "12-week-social-390",
+  "over": false,
+  "small": 3,
+  "overlap": 0,
+  "tiny": 0,
+  "cards": 0,
+  "errors": []
+ },
+ {
+  "name": "13-map-faces-390",
+  "over": false,
+  "small": 20,
+  "overlap": 0,
+  "tiny": 11,
+  "cards": 0,
+  "errors": []
+ },
+ {
+  "name": "14-map-ruler-390",
+  "over": false,
+  "small": 21,
+  "overlap": 0,
+  "tiny": 11,
+  "cards": 0,
+  "errors": []
+ },
+ {
+  "name": "15-admission-360",
+  "over": false,
+  "small": 0,
+  "overlap": 0,
+  "tiny": 0,
+  "cards": 0,
+  "errors": []
+ },
+ {
+  "name": "15-admission-390",
+  "over": false,
+  "small": 0,
+  "overlap": 0,
+  "tiny": 0,
+  "cards": 0,
+  "errors": []
+ },
+ {
+  "name": "16-newgame-difficulty-390",
+  "over": false,
+  "small": 3,
+  "overlap": 0,
+  "tiny": 0,
+  "cards": 0,
+  "errors": []
+ }
+]

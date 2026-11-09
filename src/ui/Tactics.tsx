@@ -243,7 +243,7 @@ function attackCards(b: TBattle, u: TUnit, f: TUnit): Card[] {
     const c = calc(b, u, f, t);
     u.x = ox; u.y = oy;
     const tech = techOf(t);
-    return { id: t, name: tech?.name ?? '攻撃', type: c.type, total: c.total, per: c.per, hits: c.hits, weak: c.weak, shields: c.shields, brk: c.brk, kill: c.kill, resisted: c.resisted, broken: c.broken, left: t ? u.techs.find((x) => x.id === t)?.left ?? 0 : null, spot };
+    return { id: t, name: tech?.name ?? '攻撃', type: c.type, total: c.total, per: c.per, hits: c.hits, weak: c.weak, shields: c.shields, brk: c.brk, kill: c.kill, resisted: c.resisted, broken: c.broken, left: tech ? u.techs.find((x) => x.id === t)?.left ?? 0 : null, spot };
   });
 }
 

@@ -6,8 +6,8 @@ import { loadFaceManifest } from './ui/Portrait';
 
 // 19夜目：画面の確かめ用（?debug のときだけ。遊ぶ人には関係ない）
 if (/debug/.test(location.search)) {
-  void Promise.all([import('./ui/store'), import('./core/game'), import('./core/flow'), import('./core/autoplay'), import('./core/sortie'), import('./core/rng')]).then(([store, game, flow, auto, sortie, rng]) => {
-    (window as unknown as Record<string, unknown>).__rimina = { store, game, flow, auto, sortie, rng };
+  void Promise.all([import('./ui/store'), import('./core/game'), import('./core/flow'), import('./core/autoplay'), import('./core/sortie'), import('./core/rng'), import('./core/nemesis')]).then(([store, game, flow, auto, sortie, rng, nemesis]) => {
+    (window as unknown as Record<string, unknown>).__rimina = { store, game, flow, auto, sortie, rng, nemesis };
   });
 }
 

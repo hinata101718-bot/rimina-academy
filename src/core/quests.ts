@@ -26,9 +26,11 @@ export function restLevel(s: GameState, k = 1): number {
 }
 
 export function partyLevel(s: GameState): number {
-  const lv = enrolled(s).map((st) => st.level).sort((a, b) => b - a).slice(0, 6);
+  // 19夜目：出撃は4人で、ふつうの戦いは交代で全員が出るので、在籍のまん中あたりのレベルに合わせる
+  const lv = enrolled(s).map((st) => st.level).sort((a, b) => b - a);
   if (!lv.length) return 1;
-  return Math.max(1, Math.round(lv.reduce((a, b) => a + b, 0) / lv.length));
+  const top = lv.slice(0, Math.max(4, Math.ceil(lv.length * 0.6)));
+  return Math.max(1, Math.round(top.reduce((a, b) => a + b, 0) / top.length));
 }
 
 function hostileTo(s: GameState, c: CountryId): CountryId {

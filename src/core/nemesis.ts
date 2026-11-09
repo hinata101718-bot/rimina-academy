@@ -421,6 +421,6 @@ export function rumor(s: GameState, r: Rng, o: EnemyOfficer): void {
     `${officerName(o)}が${rankName(o)}として兵を集めているらしい。`,
     o.grudge && s.students[o.grudge] ? `${officerName(o)}が「${s.students[o.grudge].given}」という名を口にしていたらしい。` : `${officerName(o)}が、学校のことを調べているらしい。`,
   ]);
-  mail(s, '旅の行商人', `うわさ：${o.given}`, t, undefined, true);
+  mail(s, '旅の行商人', `うわさ：${o.given}`, t, undefined, false);
   if (r.chance(0.5)) addIntel(o);
 }
