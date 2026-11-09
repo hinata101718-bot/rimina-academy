@@ -189,7 +189,7 @@ export function takeExam(s: GameState, rng: Rng, st: Student, classId: string, d
     notify(s, `${st.given}が兵種試験に合格し、${c.name}になった`, st.id);
     if (pick.own) {
       st.history.push({ year: s.year, text: `先生の勧めた${advised.name}ではなく、自分で選んだ${c.name}の道へ` });
-      return { ok, rate, classId: c.id, own: true, text: `「先生、ありがとうございます。でも、わたしは${c.name}の道を行きたいんです」——${st.given}は自分で道を選び、${c.name}になった` };
+      return { ok, rate, classId: c.id, own: true, text: `「先生、ありがとうございます。でも、${st.gender === 'm' ? '僕' : 'わたし'}は${c.name}の道を行きたいんです」——${st.given}は自分で道を選び、${c.name}になった` };
     }
     return { ok, rate, classId: c.id, text: `合格！ ${st.given}は${c.name}になった` };
   }
