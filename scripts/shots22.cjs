@@ -83,6 +83,15 @@ const SETUP = () => {
     if (leaf) { await leaf.click(); await p.waitForTimeout(400); await shot(p, '06-classbook-sheet-390'); }
     await p.close();
   }
+  // ---- 4. 21夜目：引退を考える場面（57歳） ----
+  {
+    const p = await page(b, 390);
+    await p.evaluate(SETUP);
+    await p.evaluate(() => { const R = window.__rimina; const g = window.__g; g.instructor.age = 57; g.pending = [{ type: 'retire', forced: false }]; R.store.setGame(g); R.store.navigate({ tab: 'school' }); });
+    await p.waitForTimeout(900);
+    await shot(p, '07-retire-think-390');
+    await p.close();
+  }
   await b.close();
   fs.writeFileSync(`${OUT}/check.json`, JSON.stringify(report, null, 1));
   console.log(report.map((r) => [r.name, r.over ? 'はみ出し' : '', r.small ? `小さいボタン${r.small} ${r.smallList.join('/')}` : '', r.tiny ? `小さい字${r.tiny}` : '', r.errors.length ? r.errors.join('|') : ''].filter(Boolean).join(' ')).join('\n'));

@@ -37,7 +37,8 @@ export function addBattleDeeds(b: TBattle, u: TUnit, st: Student, win: boolean, 
   // 傷を負わない戦：宿敵戦か、危ない依頼（危険度2以上）だけを数える
   if (b.real && u.alive && u.taken === 0 && (b.nemesisId || (b.foes0 >= 5))) add('unhurt');
   if (b.nemesisId && bossU && bossU.resist.length > 0 && hitBoss) add('overcome');
-  if (b.objective === 'defend' && hitBoss) add('holdGeneral');
+  // 22夜目：守り抜いたうえで、名のある将を退けた（倒すか、逃がした）ときだけ
+  if (b.objective === 'defend' && hitBoss && bossU && !bossU.alive && (bossU.nemesis || bossU.officerId)) add('holdGeneral');
   if (b.field === 'fort' && u.usedFire && !u.deeds?.burnFort) add('burnFort');
   if (b.nemesisId && (u.traits?.includes('spot') || u.traits?.includes('trap')) && kids.every((x) => x.alive)) add('seeTrap');
   if (b.objective === 'escape' && u.alive) { add('rearguard'); if (b.nemesisId) add('outwit'); }

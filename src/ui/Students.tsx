@@ -4,7 +4,7 @@ import { useState } from 'preact/hooks';
 import { useStore, navigate, act } from './store';
 import { enrolled, effectiveStats } from '../core/game';
 import { growthRates } from '../core/growth';
-import { nextClasses, classUnlocked, meetsReq, passRate, canTakeExam, takeExam, recommendedClass, onBranch, hasNextTier } from '../core/exam';
+import { nextClasses, classUnlocked, meetsReq, passRate, canTakeExam, takeExam, recommendedClass, onBranch, hasNextTier, branchAhead } from '../core/exam';
 import { rng } from '../core/flow';
 import { skillUnlocked } from '../core/week';
 import { StuRow, Back, Bar, moodIcon, Sheet, HelpTip } from './common';
@@ -388,7 +388,7 @@ function ExamSheet({ s, st, onClose }: { s: GameState; st: Student; onClose: () 
   const can = canTakeExam(s, st);
   const rec = recommendedClass(s, st);
   // 22夜目：技能の条件を満たす兵種だけが並ぶ。まだ満たしていない「おすすめの道」は、要る技能を一言で
-  const branchTodo = CLASS_LIST.filter((c) => onBranch(st, c) && !c.hidden && !opts.includes(c));
+  const branchTodo = branchAhead(st).filter((c) => !opts.includes(c));
   return (
     <Sheet title={`${st.given}の兵種試験`} onClose={onClose}>
       <div class="small muted">今の兵種：<b>{CLASSES[st.classId].name}</b>（レベル{st.level}）です。技能の条件を満たした兵種だけが並びます。枝分かれの先（おすすめの道）でなくても受けられます。先生が勧め、{st.given}が決めます（先生への信頼が高いほど、勧めを聞きます）。</div>

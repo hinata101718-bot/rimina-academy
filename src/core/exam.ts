@@ -86,7 +86,11 @@ function nextTierPool(s: GameState, st: Student): ClassDef[] {
 }
 /** 次の段階があるか（試験のボタンを出すか） */
 export function hasNextTier(s: GameState, st: Student): boolean {
-  return nextTierPool(s, st).length > 0 || CLASS_LIST.some((c) => onBranch(st, c) && !c.hidden);
+  return nextTierPool(s, st).length > 0 || branchAhead(st).length > 0;
+}
+/** 枝分かれの先のうち、いまの立場で受けられる段階のもの（在学中は上級まで） */
+export function branchAhead(st: Student): ClassDef[] {
+  return CLASS_LIST.filter((c) => onBranch(st, c) && !c.hidden && (c.tier <= SCHOOL_MAX_TIER || st.status === 'graduated'));
 }
 /** 最上級：その兵種の、なる条件の出来事を成し遂げたか */
 export function deedOk(st: Student, c: ClassDef): boolean {

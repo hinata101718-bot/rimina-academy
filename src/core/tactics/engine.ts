@@ -419,7 +419,8 @@ function strike(b: TBattle, a: TUnit, d0: TUnit, techId: string | null, fx: TFx[
       // 最上級の条件になる出来事（討ち方）
       if (d.boss && a.side === 'me') {
         if (a.hp <= Math.max(1, Math.floor(a.max * 0.1))) addDeed(a, 'lastBreath');
-        if (c.type === 'crush') addDeed(a, 'axeBoss');
+        // 22夜目：「大将を斧で討つ」は名のある将（宿敵・名簿の敵将）だけ（雑兵の隊長は数えない）
+        if (c.type === 'crush' && (d.nemesis || d.officerId)) addDeed(a, 'axeBoss');
         if (d.nemesis) {
           if (c.type === 'shot' && dist(a, d) >= 2) addDeed(a, 'snipeNemesis');
           if (flyer(a)) addDeed(a, 'skyKill');
@@ -513,7 +514,8 @@ function down(b: TBattle, a: TUnit, d: TUnit, fx: TFx[], noDeath: boolean, letha
     if (d.nemesis) {
       say(b, d, 'fall', fx); log(b, `${d.name}を討ち取った！`, true);
       // 冥府の主の条件：最期の言葉を聞いた子／禁呪：二度と蘇らない
-      for (const m of mine(b)) if (!m.teacher && !m.raised) addDeed(m, 'lastWords');
+      // 22夜目：最期の言葉を聞けるのは、そばにいた子（2マス以内）だけ
+      for (const m of mine(b)) if (!m.teacher && !m.raised && m.alive && near(m, d, 2)) addDeed(m, 'lastWords');
       const keeper = mine(b).find((m) => T(m, 'forbid'));
       if (keeper) { b.forbidden = true; log(b, `${keeper.name}の禁呪が、${d.name}を二度と戻れぬ眠りに封じた`, true); }
       if (d.revived || T(d, 'cursed')) for (const m of mine(b)) if (T(m, 'seal') || T(m, 'barrier')) addDeed(m, 'sealRevived');
