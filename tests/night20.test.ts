@@ -254,3 +254,16 @@ describe('20夜目③：数字の調整', () => {
     expect(B.ending.minYear).toBe(21);
   });
 });
+
+import { nemesisMonth } from '../src/core/nemesis';
+describe('20夜目：止まらないこと', () => {
+  it('次の宿敵が戦場を去っていて、因縁のある宿敵もいない月でも止まらない', () => {
+    const s = newGame({ name: 'テスト', background: 'knight', seed: 11, opening: false });
+    const o = officers(s).find((x) => x.kind !== 'monster')!;
+    o.status = 'retired';
+    s.nextNemesis = o.id;
+    s.rivalries = {};
+    s.quests = [];
+    expect(() => nemesisMonth(s, new Rng({ rng: 2 }))).not.toThrow();
+  });
+});

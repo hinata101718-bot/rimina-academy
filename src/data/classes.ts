@@ -81,7 +81,7 @@ export const TRAITS_C: Record<string, TraitDef> = {
   ambush: { id: 'ambush', name: '闇討ち', desc: '戦いのはじめに、敵将1人をブレイク状態に' },
   trap: { id: 'trap', name: '罠と見張り', desc: '戦いのはじめに、罠で敵1人に傷を負わせる', part: '敵の狙いは、いまもだれでも1手先まで見える' },
   farsight: { id: 'farsight', name: '読み切り', desc: '敵将の隠れた弱点をすべて明かし、宿敵の逃げ道をふさぐ', part: '2手先の狙いを見せるのは、まだ説明だけ' },
-  allseeing: { id: 'allseeing', name: '天眼', desc: '宿敵の弱点・効かない種類がすべて見え、宿敵の大技の狙いも外させる' },
+  allseeing: { id: 'allseeing', name: '天眼', desc: '戦いのはじめに、宿敵の隠れた弱点がすべて見える', part: '宿敵の狙いを2手先まで見せるのは、まだ説明だけ' },
   steal: { id: 'steal', name: '盗む', desc: '勝った戦いで、お金が少し多く手に入る', part: '宝箱や扉を開けるのは、まだ説明だけ' },
   swap: { id: 'swap', name: '入れ替え', desc: '仲間や敵と場所を入れ替える', todo: true },
   swap2: { id: 'swap2', name: '道化の手', desc: '敵どうしの場所も入れ替えられる', todo: true },
@@ -100,7 +100,7 @@ export const TRAITS_C: Record<string, TraitDef> = {
   volley: { id: 'volley', name: '駆け撃ち', desc: '動いてから撃つと、ふつうの攻撃が3回' },
   // ---- 隠れた兵種 ----
   oneeye: { id: 'oneeye', name: '隻眼', desc: '届くのは2マス先まで。2マス先への射は、必ず盾を割る' },
-  cursed: { id: 'cursed', name: '呪いの子', desc: '闇を使える。光に弱い（受ける傷1.5倍）。蘇りの記憶を語る' },
+  cursed: { id: 'cursed', name: '呪いの子', desc: '闇を使える。光に弱い（受ける傷1.5倍）', part: '蘇りの記憶を語る会話は、まだない' },
 };
 
 type Def = {

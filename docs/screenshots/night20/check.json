@@ -1,0 +1,130 @@
+[
+ {
+  "name": "01-classbook-tree-360",
+  "over": false,
+  "small": 0,
+  "smallList": [],
+  "tiny": 0,
+  "errors": []
+ },
+ {
+  "name": "01-classbook-tree-390",
+  "over": false,
+  "small": 0,
+  "smallList": [],
+  "tiny": 0,
+  "errors": []
+ },
+ {
+  "name": "02-classbook-top-390",
+  "over": false,
+  "small": 0,
+  "smallList": [],
+  "tiny": 0,
+  "errors": []
+ },
+ {
+  "name": "01-classbook-tree-430",
+  "over": false,
+  "small": 0,
+  "smallList": [],
+  "tiny": 0,
+  "errors": []
+ },
+ {
+  "name": "03-news-top-390",
+  "over": false,
+  "small": 0,
+  "smallList": [],
+  "tiny": 0,
+  "errors": []
+ },
+ {
+  "name": "04-alumni-top-390",
+  "over": false,
+  "small": 0,
+  "smallList": [],
+  "tiny": 0,
+  "errors": []
+ },
+ {
+  "name": "05-yearbook-390",
+  "over": false,
+  "small": 0,
+  "smallList": [],
+  "tiny": 0,
+  "errors": []
+ },
+ {
+  "name": "06-teacher-rank-390",
+  "over": false,
+  "small": 4,
+  "smallList": [
+   "lb-help:？",
+   "lb-help:？",
+   "lb-help:？",
+   "lb-help:？"
+  ],
+  "tiny": 0,
+  "errors": []
+ },
+ {
+  "name": "07-ally-360",
+  "over": false,
+  "small": 0,
+  "smallList": [],
+  "tiny": 0,
+  "errors": []
+ },
+ {
+  "name": "07-ally-390",
+  "over": false,
+  "small": 0,
+  "smallList": [],
+  "tiny": 0,
+  "errors": []
+ },
+ {
+  "name": "08-rival-390",
+  "over": false,
+  "small": 0,
+  "smallList": [],
+  "tiny": 0,
+  "errors": []
+ },
+ {
+  "name": "09-spy-choose-390",
+  "over": false,
+  "small": 0,
+  "smallList": [],
+  "tiny": 0,
+  "errors": []
+ },
+ {
+  "name": "10-spy-report-390",
+  "over": false,
+  "small": 0,
+  "smallList": [],
+  "tiny": 0,
+  "errors": []
+ },
+ {
+  "name": "11-map-390",
+  "over": false,
+  "small": 2,
+  "smallList": [
+   "lb-help:？",
+   "lb-help:？"
+  ],
+  "tiny": 1,
+  "errors": []
+ },
+ {
+  "name": "12-title-390",
+  "over": false,
+  "small": 0,
+  "smallList": [],
+  "tiny": 0,
+  "errors": []
+ }
+]

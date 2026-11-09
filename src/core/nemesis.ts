@@ -430,6 +430,7 @@ export function nemesisMonth(s: GameState, r: Rng): void {
   }
   // 蘇った者・敵として戻った先代は、すぐに現れる
   if (s.nextNemesis) { const o = officerById(s, s.nextNemesis); s.nextNemesis = undefined; if (o && o.status === 'active') { mk(o, 'quest'); return; } }
+  if (!bonded.length) return; // 20夜目：次の宿敵（蘇り・密偵）がもういないとき、因縁のある宿敵がいなければここまで
   const grudging = bonded.filter((o) => o.grudge && enrolledIds.has(o.grudge));
   if (grudging.length && r.chance(NEM_MONTH.challenge)) { mk(r.pick(grudging), 'challenge'); return; }
   if (r.chance(NEM_MONTH.quest)) mk(r.weighted(bonded, (o) => 1 + bondOf(s, o)), 'quest');

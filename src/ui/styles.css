@@ -2237,3 +2237,11 @@ body[data-light="day"] .desk-candle::before { display: none; }
 .wm-label.school::before { border: 2px solid #e8c45a; height: 26px; }
 .wm-star { font-size: 12px; }
 .wm-alum { font-size: 12px; min-width: 18px; height: 18px; }
+/* 20夜目②：先生の兵種 */
+.mt-tclass { margin-top: 2px; }
+.mt-rankcard { border: 1px solid #c8b088; border-radius: 8px; padding: 6px 8px; margin: 6px 0; background: #fbf3df; display: flex; flex-direction: column; gap: 3px; }
+.mt-rankrow { display: flex; gap: 4px; flex-wrap: wrap; }
+.mt-rk { font-size: 12px; padding: 2px 8px; border-radius: 6px; border: 1px solid #c8b088; color: var(--sub); }
+.mt-rk.done { color: #6a4a12; }
+.mt-rk.on { background: #6a4a12; color: #fbf3df; border-color: #6a4a12; font-weight: bold; }
+.nem-who small, .nem-bond small, .nem-card small { font-size: 12px; }
