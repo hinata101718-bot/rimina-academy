@@ -84,6 +84,8 @@ export interface WeaponDef {
   desc?: string;
   /** 魔法（技能ランクで覚える。武器庫・購入なし） */
   spell?: boolean;
+  /** 15夜目：魔法の属性（最期の文などを、とどめの攻撃に合わせる）。なければ属性を言わない */
+  element?: 'fire' | 'wind' | 'thunder' | 'ice' | 'dark' | 'light';
   /** 才能のある子だけが覚える珍しい魔法 */
   rare?: boolean;
   /** 古いセーブを変換するときの元の値段 */

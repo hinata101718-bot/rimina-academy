@@ -34,7 +34,7 @@ import { rankOf } from '../core/util';
 import { usableSpells } from '../core/spells';
 import { armoryItem, armoryName, isStock, stockList } from '../core/loot';
 import { legendFits } from '../core/rarity';
-import { PROSE_DENSE, PROSE_BRUTAL, PROSE_FALL, PROSE_LIGHT, PROSE_GRUNT_KILL } from '../data/warprose';
+import { PROSE_DENSE, PROSE_BRUTAL, PROSE_LIGHT, PROSE_GRUNT_KILL, proseKey, fallLines } from '../data/warprose';
 import { ARTS } from '../data/arts';
 import { officerArts, artsLabel, equippedSpells } from '../core/arts';
 
@@ -652,7 +652,8 @@ function sentences(s: GameState, b: BattleState, it: BItem, nameOf: (uid: string
   const salt = e.x * 13 + e.hp0 * 7 + e.dmg;
   const pick = (list?: string[]) => (list && list.length ? list[Math.abs(salt) % list.length] : '');
   const hitKind = !e.hit ? 'miss' : e.kill ? 'kill' : e.crit ? 'crit' : e.dmg >= e.max * 0.35 ? 'heavy' : 'hit';
-  const wkey = !w ? 'none' : w.type === 'staff' ? 'holy' : w.type;
+  // 15夜目：魔法は属性ごとの文（違う属性の文は使わない）
+  const wkey = proseKey(w);
   const fillP = (t: string) => t.replace(/\{a\}/g, A).replace(/\{d\}/g, D);
   const studentDown = e.kill && du && du.side !== 'enemy' && du.studentId;
   let prose = '';
@@ -667,7 +668,7 @@ function sentences(s: GameState, b: BattleState, it: BItem, nameOf: (uid: string
   }
   if (studentDown) {
     const oc = b.fallen.find((f) => f.studentId === du!.studentId)?.outcome;
-    if (oc === 'dead' || oc === 'injured') prose = pick(PROSE_FALL[oc][level]);
+    if (oc === 'dead' || oc === 'injured') prose = pick(fallLines(wkey, oc, level));
   }
   if (!e.hit) out.push({ cls: 'narr', text: `${D}は ひらりとかわした！` });
   else out.push({ cls: 'dmg', text: `${e.crit ? '会心の一撃！ ' : ''}${D}に ${e.dmg}のダメージ！` });
@@ -783,7 +784,7 @@ type FxShow =
   | { k: 'strat'; text: string }
   | { k: 'crit'; a: string; d: string; dmg: number; say: string }
   | { k: 'kill'; a: string; d: string }
-  | { k: 'fall'; d: string; outcome: 'dead' | 'injured' | 'out' }
+  | { k: 'fall'; d: string; outcome: 'dead' | 'injured' | 'out'; key?: string }
   | { k: 'duel'; a: string; title: string; say: string };
 
 /** この攻撃で出す見せ場：必殺（生徒・敵将）、敵将・名のある敵の撃破、生徒が倒れた */
@@ -801,7 +802,7 @@ function fxFor(s: GameState, b: BattleState, e: AtkLog, level: FxLevel): FxShow[
   }
   if (e.kill && du) {
     if (du.side === 'enemy' && (du.boss || (L && du.uid === L.uid) || du.studentId || (level === 'big' && (b.auto?.raised ?? []).some((g) => g.uid === du.uid)))) out.push({ k: 'kill', a: e.a, d: e.d });
-    else if (du.side !== 'enemy' && du.studentId) out.push({ k: 'fall', d: e.d, outcome: b.fallen.find((f) => f.studentId === du.studentId)?.outcome ?? 'out' });
+    else if (du.side !== 'enemy' && du.studentId) out.push({ k: 'fall', d: e.d, outcome: b.fallen.find((f) => f.studentId === du.studentId)?.outcome ?? 'out', key: proseKey(e.w ? WEAPONS[e.w] : null) });
   }
   return out;
 }
@@ -860,7 +861,7 @@ function FxOverlay({ s, b, fx, level, leader, leaderColor, nameOf, onTap }: { s:
   if (fx.k === 'fall') {
     const name = nameOf(fx.d);
     const lv = s.settings.battleProse ?? 'dense';
-    const list = lv === 'normal' ? (fx.outcome === 'dead' ? FALL_TEXT.dead : FALL_TEXT.injured) : PROSE_FALL[fx.outcome === 'dead' ? 'dead' : 'injured'][lv];
+    const list = lv === 'normal' ? (fx.outcome === 'dead' ? FALL_TEXT.dead : FALL_TEXT.injured) : fallLines(fx.key ?? 'none', fx.outcome === 'dead' ? 'dead' : 'injured', lv);
     return (
       <div class={`fx-over fx-fall ${fx.outcome}${s.settings.battleProse === 'brutal' ? ' splat' : ''}`} onClick={tap}>
         <div class="fx-fallface"><BigFace s={s} b={b} uid={fx.d} size={150} leader={leader} leaderColor={leaderColor} gray={fx.outcome === 'dead'} /></div>

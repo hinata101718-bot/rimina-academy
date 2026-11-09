@@ -127,3 +127,19 @@ describe('戦技と魔法（合わせて5つ）・スキル', () => {
     expect(s.gameOver).toBe(false);
   });
 });
+
+describe('最期の文と、とどめの攻撃', () => {
+  it('すべての武器・魔法×当たり方×描写の段×重傷・戦死で、違う武器・属性の文が0件', async () => {
+    const { proseMismatches } = await import('../src/core/prosecheck');
+    const r = proseMismatches();
+    expect(r.checked).toBeGreaterThan(800);
+    expect(r.issues).toEqual([]);
+  });
+  it('風の魔法でとどめを刺したとき、燃える文は出ない', async () => {
+    const { proseKey, fallLines, PROSE_DENSE, PROSE_BRUTAL } = await import('../src/data/warprose');
+    const { WEAPONS } = await import('../src/data/weapons');
+    const k = proseKey(WEAPONS.wind);
+    expect(k).toBe('wind');
+    for (const t of [...(PROSE_DENSE[k].kill ?? []), ...(PROSE_BRUTAL[k].kill ?? []), ...fallLines(k, 'dead', 'brutal')]) expect(t).not.toMatch(/燃|焼|焦|炎/);
+  });
+});

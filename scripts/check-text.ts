@@ -10,6 +10,7 @@ import { setArchiveHook } from '../src/core/support';
 import { WEAPONS } from '../src/data/weapons';
 import { usableSpells } from '../src/core/spells';
 import type { GameState, TalkLog } from '../src/core/state';
+import { proseMismatches } from '../src/core/prosecheck';
 
 const MONTHS = Number(process.argv[2] ?? 24);
 const issues: Record<string, string[]> = {};
@@ -28,6 +29,13 @@ for (const f of files) {
       if (/彼女|彼は|彼が/.test(q) && /\{(a|b|you|my)/.test(q)) add('性別を決めうちの代名詞（差し込みと合わないことがある）', `${f}:${i + 1} ${q.slice(0, 60)}`);
     }
   });
+}
+
+// ---------- 1b. 15夜目：最期の文・重傷の文・必殺の文・戦技の名前が、とどめの攻撃（武器・魔法の属性）と合っているか ----------
+{
+  const r = proseMismatches();
+  console.log(`戦いの文と、とどめの攻撃の点検：${r.checked}通りを調べて、合わないもの ${r.issues.length}件`);
+  for (const x of r.issues) add('とどめの攻撃と合わない文（武器・属性）', `${x.where}：${x.text}（${x.found}の言葉）`);
 }
 
 // ---------- 2. 遊んで出た文の点検（実行） ----------

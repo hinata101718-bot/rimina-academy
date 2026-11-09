@@ -39,7 +39,7 @@ describe('書き方の決まりと戦の描写', () => {
     for (const w of ['口調表', '言葉の一覧', '戦の描写', '凄惨', '書かない線']) expect(t).toContain(w);
   });
   it('戦の描写：武器ごとに濃い文があり、重傷・戦死の文が3つの段にある。差し込み忘れなし', () => {
-    for (const w of ['sword', 'lance', 'axe', 'bow', 'gun', 'magic', 'holy', 'none']) for (const h of ['hit', 'heavy', 'crit', 'kill'] as const) expect((PROSE_DENSE[w]?.[h] ?? []).length).toBeGreaterThan(0);
+    for (const w of ['sword', 'lance', 'axe', 'bow', 'gun', 'fire', 'wind', 'thunder', 'ice', 'dark', 'light', 'arcane', 'none'] /* 15夜目：魔法は属性ごと */) for (const h of ['hit', 'heavy', 'crit', 'kill'] as const) expect((PROSE_DENSE[w]?.[h] ?? []).length).toBeGreaterThan(0);
     for (const k of ['injured', 'dead'] as const) for (const lv of ['normal', 'dense', 'brutal'] as const) expect(PROSE_FALL[k][lv].length).toBeGreaterThan(0);
     const all = [...Object.values(PROSE_DENSE), ...Object.values(PROSE_BRUTAL)].flatMap((x) => Object.values(x).flat()) as string[];
     for (const t of all) expect(t.replace(/\{a\}|\{d\}/g, '')).not.toMatch(/\{\w+\}/);

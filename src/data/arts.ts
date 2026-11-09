@@ -52,7 +52,7 @@ export const ART_LIST: ArtDef[] = [
   mind('ma_mind2', '魔道の心得', 'magic', 'C', '魔道書を持つと与えるダメージ+1', { dmg: 1, wtype: ['magic'] }),
   art('ma_art2', '魔障破り', 'magic', 'B', '魔防を6低く見て撃つ', { pierce: 6 }),
   mind('ma_mind3', '詠唱短縮', 'magic', 'A', '魔道書を持つと回避+8', { avo: 8, wtype: ['magic'] }),
-  art('ma_art3', '天雷', 'magic', 'S', '威力×1.8の大魔法', { mul: 1.8, hit: -5, chance: 30 }),
+  art('ma_art3', '大詠唱', 'magic', 'S', '威力×1.8の大魔法', { mul: 1.8, hit: -5, chance: 30 }),
   // ---- 信仰 ----
   mind('fa_mind1', '祈りの基本', 'faith', 'E+', '受けるダメージ−1', { prot: 1 }),
   art('fa_art1', '裁きの光', 'faith', 'D', '光で打つ。威力+3、命中+10', { dmg: 3, hit: 10 }),
@@ -66,7 +66,7 @@ export const ART_LIST: ArtDef[] = [
   mind('ri_mind2', '人馬の呼吸', 'riding', 'C', '回避+6', { avo: 6 }),
   art('ri_art2', '突撃', 'riding', 'B', '勢いのまま突っこむ。威力×1.4', { mul: 1.4, weapons: undefined }),
   mind('ri_mind3', '騎士の誇り', 'riding', 'A', '命中+8', { hit: 8 }),
-  art('ri_art3', '疾風怒濤', 'riding', 'S', '威力+4、必殺+15', { dmg: 4, crit: 15, weapons: undefined, chance: 30 }),
+  art('ri_art3', '怒濤の騎行', 'riding', 'S', '威力+4、必殺+15', { dmg: 4, crit: 15, weapons: undefined, chance: 30 }),
   // ---- 重装 ----
   mind('he_mind1', '鎧の重み', 'heavy', 'E+', '受けるダメージ−1', { prot: 1 }),
   art('he_art1', '体当たり', 'heavy', 'D', '鎧ごとぶつかる。威力+3', { dmg: 3, weapons: undefined }),

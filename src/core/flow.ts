@@ -282,6 +282,8 @@ export function finishBattle(s: GameState): void {
   const rivalsBefore: Record<string, number> = {};
   const battlesBefore: Record<string, number> = {};
   const evalIds: string[] = [];
+  // 15夜目：持たせて使わなかった道具は、学校に戻す（道具は毎月自動で補充するので、使ったぶんだけ減る）
+  for (const u of b.units) if (u.side === 'player' && u.studentId && u.item) s.items[u.item] = (s.items[u.item] ?? 0) + 1;
   for (const u of b.units) if (u.side === 'player' && u.studentId && s.students[u.studentId]?.status === 'enrolled') {
     evalIds.push(u.studentId);
     battlesBefore[u.studentId] = s.students[u.studentId].battles;
