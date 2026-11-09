@@ -29,7 +29,7 @@ export function skipTutorial(s: GameState): void {
   if (!s.tutorial) return;
   s.tutorial.off = true;
   s.tutorial.tour = DESK_TOUR.length;
-  s.cardGuide = 'done'; // 17夜目：札の戦いの案内も出さない（設定の「案内を見なおす」で、もう一度）
+  // 18夜目：札の戦いの案内は、ここでは止めない（最初の札の戦いで「戦い方が新しくなりました」が出て、飛ばすこともできる）
   // 最初の依頼は、ふつうの依頼に並べなおす（まだ出撃していなければ）
   if (s.quests.some((q) => q.tutorial) && !s.battle) for (const q of s.quests) delete q.tutorial;
 }

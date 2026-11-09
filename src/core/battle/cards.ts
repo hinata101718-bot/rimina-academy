@@ -37,6 +37,8 @@ export interface Card {
   fresh?: boolean;
   /** 技能（札の色分け） */
   skill?: SkillId | 'staff';
+  /** 18夜目：連携技の相手（uid）と、相手の札のもとの id */
+  partner?: string; src2?: string;
 }
 /** 敵の次の行動（予告） */
 export interface Intent {

@@ -11,7 +11,7 @@ import type { GameState, Student } from '../core/state';
 import type { BattleState, Unit } from '../core/battle/types';
 import { battleCtx, finishBattle, moreEscorted, squadWatched } from '../core/flow';
 import { chooseAuto, playCardTurn, skipCards, type LeaderInfo } from '../core/battle/auto';
-import { cardPreview, intentText, autoPick, incoming, previewDeck, type Card, type CLine } from '../core/battle/cards';
+import { cardPreview, intentText, autoPick, incoming, previewDeck, cardCosts, type Card, type CLine } from '../core/battle/cards';
 import { officerById } from '../core/officers';
 import { FACTION_COLOR } from '../data/officers';
 import { COUNTRY_SHORT, SKILL_NAMES } from '../data/people';
@@ -58,6 +58,8 @@ export function CardBattleView() {
   const [lineN, setLineN] = useState(999);
   const [fxq, setFxq] = useState<FxShow[]>([]);
   const [help, setHelp] = useState(false);
+  /** 18夜目：最後に押した札（手札の上に全文を出す） */
+  const [peek, setPeek] = useState<string | null>(null);
   const fxLevel: FxLevel = s?.settings.battleFx ?? 'big';
   const fxNow = fxq[0] ?? null;
   const turnRec = cs?.turns[cs.turns.length - 1];
@@ -104,7 +106,7 @@ export function CardBattleView() {
   const gStage = b && cs?.guide ? guideStage(b, sel) : null;
   useEffect(() => {
     if (!gStage || showingResult) return;
-    const v = document.querySelector('.cb-view') as HTMLElement | null;
+    const v = (document.querySelector('.cb-top') ?? document.querySelector('.cb-view')) as HTMLElement | null;
     if (!v?.scrollTo) return;
     const tm = setTimeout(() => v.scrollTo({ top: gStage === 'intent' ? 0 : v.scrollHeight, behavior: 'smooth' }), 60);
     return () => clearTimeout(tm);
@@ -219,8 +221,9 @@ export function CardBattleView() {
 
   // ---- 札を出す ----
   const hand = cs.hand;
-  const cost = (id: string) => cs.cards[id]?.fx.cost ?? 1;
-  const used = sel.reduce((x, id) => x + cost(id), 0);
+  // 18夜目：行動力は、出す順に数える（先駆けの詠唱の子の魔法は1ターンに1枚だけ1少ない）
+  const used = cardCosts(s, b, sel).reduce((x, v) => x + v, 0);
+  const cost = (id: string) => cardCosts(s, b, [...sel, id]).pop() ?? 1;
   const left = cs.ap - used;
   const g = cs.guide;
   const stage = guideStage(b, sel);
@@ -248,7 +251,8 @@ export function CardBattleView() {
       onSkip={() => { if (!confirm(CARD_GUIDE.skipConfirm)) return; sfx('cancel'); setSel([]); act((x) => { if (x.battle) skipCardGuide(x.battle); }); }} />
   );
   return (
-    <div class={`cb-view${guiding ? ` guiding g-${stage}` : ''}`}>
+    <div class={`cb-view cb-play${guiding ? ` guiding g-${stage}` : ''}`}>
+      <div class="cb-top">
       {head(`ターン${cs.turn} ― 札を出す`)}
       <div class="cb-turnline small"><span>残り {cs.maxTurns - cs.turn + 1}ターン</span><button class="btn ghost small cb-help" onClick={() => { sfx('ok'); setHelp(true); }}>？ 遊び方</button></div>
       <FoeRow s={s} b={b} nameOf={nameOf} leader={leader} leaderColor={leaderColor} glow={stage === 'intent' ? g!.foe : undefined} onTarget={guiding ? undefined : (uid) => act((g) => { const c = g.battle?.auto?.cards; if (c) c.target = c.target === uid ? undefined : uid; })} />
@@ -268,13 +272,16 @@ export function CardBattleView() {
           );
         })}
       </div>
+      </div>
+      <div class="cb-bottom">
       {bubble}
       <div class="cb-apline row between nowrap small">
         <span>山札 {cs.deck.length} ・ 捨て札 {cs.discard.length}</span>
         <span class="row nowrap gap6">行動力 {Array.from({ length: cs.ap }).map((_, i) => <i class={`cb-ap${i < left ? ' on' : ''}`} />)} {left}/{cs.ap} 残り</span>
       </div>
-      <div class={`cb-hand n${Math.min(hand.length, 8)}`}>
-        {hand.map((id, i) => <HandCard s={s} b={b} id={id} order={sel.indexOf(id)} disabled={guiding ? !allowed(id) && !sel.includes(id) : !sel.includes(id) && cost(id) > left} glow={guiding && allowed(id) && !sel.includes(id)} onTap={() => toggle(id)} idx={i} n={hand.length} ctx={ctx} />)}
+      <div class="cb-peek small">{peekText(s, b, ctx, peek && hand.includes(peek) ? peek : sel[sel.length - 1])}</div>
+      <div class={`cb-hand n${Math.min(hand.length, 9)}`}>
+        {hand.map((id, i) => <HandCard s={s} b={b} id={id} order={sel.indexOf(id)} disabled={guiding ? !allowed(id) && !sel.includes(id) : !sel.includes(id) && cost(id) > left} glow={guiding && allowed(id) && !sel.includes(id)} onTap={() => { setPeek(id); toggle(id); }} idx={i} n={hand.length} ctx={ctx} />)}
       </div>
       <div class="cb-btns">
         <button class={`btn primary block cb-go${stage === 'play' ? ' gglow' : ''}`} disabled={!sel.length || (guiding && stage !== 'play')} onClick={() => play(sel, cs.target)}>{sel.length ? `この${sel.length}枚を出す` : '札を選んでください'}</button>
@@ -283,14 +290,15 @@ export function CardBattleView() {
           <button class="btn ghost" disabled={guiding} onClick={() => { if (!confirm('残りのターンを、おまかせで最後まで進めます。よろしいですか？')) return; sfx('ok'); act((g) => { const b0 = g.battle; skipCards(g, battleCtx(g), undefined, undefined, false); if (g.battle === b0 && g.battle?.auto) g.battle.auto.shown = Math.max(0, g.battle.auto.scenes.length - 1); }); setDoneAck(true); }}>最後まで</button>
         </div>
       </div>
+      </div>
       {help && <CardManualSheet onClose={() => setHelp(false)} />}
       {cs.guideOffer && !g && (
-        <Sheet>
+        <Sheet top>
           <div class="guide-tip">
             <div class="row nowrap gap8"><GuideSeal /><div class="grow"><div class="small muted">{GUIDE_NAME}</div><b class="serif" style={{ fontSize: 17 }}>{GUIDE_OFFER.title}</b></div></div>
             <div class="guide-say serif">{GUIDE_OFFER.lines.map((l) => <p>{l}</p>)}</div>
           </div>
-          <button class="btn primary block" style={{ marginTop: 10 }} onClick={() => { sfx('ok'); setSel([]); act((x) => answerGuideOffer(x, true)); }}>{GUIDE_OFFER.see}</button>
+          <button class="btn primary block" style={{ marginTop: 10 }} onClick={() => { sfx('ok'); setSel([]); let ok = true; act((x) => { ok = answerGuideOffer(x, true); }); if (!ok) setHelp(true); }}>{GUIDE_OFFER.see}</button>
           <button class="btn ghost block" style={{ marginTop: 6 }} onClick={() => { sfx('cancel'); act((x) => answerGuideOffer(x, false)); }}>{GUIDE_OFFER.skip}</button>
         </Sheet>
       )}
@@ -356,11 +364,11 @@ function HandCard({ s, b, id, order, disabled, onTap, idx, n, ctx, glow }: { s: 
   const u = b.units.find((x) => x.uid === c.owner);
   const st = u?.studentId ? s.students[u.studentId] : null;
   const pv = cardPreview(s, b, ctx, id);
-  const mid = (n - 1) / 2;
-  const rot = n <= 5 ? (idx - mid) * 3 : 0;
+  // 18夜目：手札は必ず1行。札の幅は画面の幅から決める（傾けない）
+  void idx; void n;
   return (
-    <button class={`cb-card ${cardTone(c)}${order >= 0 ? ' on' : ''}${disabled ? ' off' : ''}${glow ? ' gglow' : ''}`} style={{ ['--rot' as string]: `${rot}deg` }} onClick={onTap}>
-      <span class="cb-cost">{c.fx.cost ?? 1}</span>
+    <button class={`cb-card ${cardTone(c)}${order >= 0 ? ' on' : ''}${disabled ? ' off' : ''}${glow ? ' gglow' : ''}`} onClick={onTap} aria-label={`${c.name}（${c.kind === 'strat' ? '先生' : st?.given ?? ''}）`}>
+      <span class="cb-cost">{costShown(s, b, id)}</span>
       {order >= 0 && <span class="cb-order">{order + 1}</span>}
       <span class="cb-cface">{c.kind === 'strat' ? <span class="cb-strat serif">策</span> : st ? <Portrait st={st} size={26} /> : null}</span>
       <b class="cb-cname serif">{c.name}</b>
@@ -371,6 +379,20 @@ function HandCard({ s, b, id, order, disabled, onTap, idx, n, ctx, glow }: { s: 
   );
 }
 
+/** 18夜目：その札1枚の行動力（先駆けの詠唱で1少ないことがある） */
+function costShown(s: GameState, b: BattleState, id: string): number { return cardCosts(s, b, [id])[0] ?? 1; }
+/** 18夜目：押した札の全文（手札の上の帯） */
+function peekText(s: GameState, b: BattleState, ctx: ReturnType<typeof battleCtx>, id: string | null | undefined): string {
+  const cs = b.auto!.cards!;
+  const c = id ? cs.cards[id] : null;
+  if (!c) return '札を押すと選べます（もう一度押すと外す）';
+  const u = b.units.find((x) => x.uid === c.owner);
+  const st = u?.studentId ? s.students[u.studentId] : null;
+  const pv = cardPreview(s, b, ctx, c.id);
+  const who = c.kind === 'strat' ? '先生' : st?.given ?? '';
+  const fxs = c.kind === 'strat' ? `見込み${pv.odds ?? 0}%。${pv.text}` : `${fxText(c.fx)}（今の見込み：${pv.text}${pv.hit !== undefined && pv.hit < 90 ? `・命中${pv.hit}%` : ''}）`;
+  return `${c.name}（${who}・行動力${costShown(s, b, c.id)}）：${fxs}`;
+}
 /** 結果の文の1行（顔つき） */
 function ResultLine({ s, b, l, nameOf, leader, leaderColor }: { s: GameState; b: BattleState; l: CLine; nameOf: (uid: string) => string; leader: LeaderInfo | null; leaderColor: string }) {
   const u = l.a ? b.units.find((x) => x.uid === l.a) : null;

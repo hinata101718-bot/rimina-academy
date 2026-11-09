@@ -69,6 +69,10 @@ export interface Student {
   recentLearn?: { id: string; week: number }[];
   /** 16夜目：覚える表（「技能:節目」→ 技のid。入学のときに決まる） */
   artPlan?: Record<string, string>;
+  /** 18夜目：技の熟練（使った回数など。技の id → 数）と、選んだ進化の道（技の id → 道の順）。evoLog は年鑑・評価のための記録 */
+  mastery?: Record<string, number>;
+  evo?: Record<string, import('../data/evolve').EvoBranch[]>;
+  evoLog?: { id: string; branch: import('../data/evolve').EvoBranch; year: number; month: number }[];
   /** 10夜目：この子と見た面談・相談の題（同じ会話を二度出さない） */
   seenTalks?: string[];
   /** 信頼40・70・90の特別な面談のうち、済んだもの */
@@ -444,6 +448,8 @@ export type Pending =
   | { type: 'discovery'; studentId: string; stage: 1 | 2 | 3 | 4; title: string; text: string; name?: string }
   /** 戦技・心得を覚えた（12夜目：タップで進む演出） */
   | { type: 'art'; studentId: string; ids: string[] }
+  /** 18夜目：技の熟練が満ちた（2つの進化先から選ぶ） */
+  | { type: 'evolve'; studentId: string; id: string }
   /** 才能開花（10夜目：大きな演出） */
   | { type: 'bloom'; studentId: string; skill?: SkillId; gold?: boolean };
 
@@ -661,6 +667,8 @@ export interface GameState {
   tutorial?: TutorialState;
   /** 17夜目：札の戦いの案内。pending＝次の札の戦いで出す（最初の依頼なら案内つき、ほかは「戦い方が新しくなりました」）、done＝もう出した */
   cardGuide?: 'pending' | 'done';
+  /** 18夜目：札の戦いの案内（お知らせ）に一度でも答えた・案内を見た */
+  cardGuideSeen?: boolean;
   /** 勢力図を前に見たときのようす（13夜目） */
   mapSeen?: { at: number; o: Record<string, string> };
   /** 組織図を前に見たときのようす（9夜目：陣営→敵将id→階級・状態・二つ名・上の人） */

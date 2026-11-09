@@ -107,10 +107,11 @@ describe('最初の札の戦いは案内つき', () => {
     expect(s.battle!.auto!.cards!.guide).toBeFalsy();
     expect(s.battle!.auto!.cards!.guideOffer).toBeFalsy();
   });
-  it('案内を飛ばして始めたゲームには出ない。設定の「案内を見なおす」で次の戦いに出る', () => {
+  it('案内を飛ばして始めたゲームでも、札の戦いのお知らせは出る（18夜目）。設定の「案内を見なおす」で次の戦いに出る', () => {
     const s = newGame({ name: 'テスト', background: 'knight', seed: 4, tutorial: true });
     skipTutorial(s);
-    expect(s.cardGuide).toBe('done');
+    expect(s.cardGuide).toBe('pending');
+    s.cardGuide = 'done';
     replayGuide(s);
     expect(s.cardGuide).toBe('pending');
   });

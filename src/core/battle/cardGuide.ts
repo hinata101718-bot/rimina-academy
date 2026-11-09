@@ -119,7 +119,7 @@ export function startCardGuide(s: GameState, b: BattleState): boolean {
   if (foe.hp < need) { saved.foeHp = [foe.hp, foe.maxHp]; foe.maxHp = Math.max(foe.maxHp, need); foe.hp = need; }
   cs.target = foe.uid;
   cs.guide = { step: 'intent', foe: foe.uid, ward: ward.uid, coverBy: coverBy.uid, attacker: attacker.uid, cover, atk: atkCard.id, temp, saved };
-  s.cardGuide = 'done';
+  s.cardGuide = 'done'; s.cardGuideSeen = true;
   return true;
 }
 
@@ -182,15 +182,18 @@ export function onCardsOpen(s: GameState): void {
   const cs = b?.auto?.cards;
   if (!b || !cs || cs.turn !== 1 || cs.phase !== 'play' || cs.guide || s.cardGuide !== 'pending') return;
   const q = s.quests.find((x) => x.id === b.questId);
-  if (q?.tutorial) { if (!startCardGuide(s, b)) cs.guideOffer = undefined; return; }
-  if (canStartGuide(b)) cs.guideOffer = true;
+  if (q?.tutorial && startCardGuide(s, b)) return;
+  // 18夜目：案内つきの1戦にできないとき（顔ぶれが少ないなど）も、お知らせは必ず出す（「案内を見る」で手引きを開く）
+  cs.guideOffer = true;
 }
 /** 「戦い方が新しくなりました」への答え */
-export function answerGuideOffer(s: GameState, see: boolean): void {
+export function answerGuideOffer(s: GameState, see: boolean): boolean {
   const b = s.battle;
   const cs = b?.auto?.cards;
-  if (!b || !cs) return;
+  if (!b || !cs) return false;
   cs.guideOffer = undefined;
   s.cardGuide = 'done';
-  if (see) startCardGuide(s, b);
+  s.cardGuideSeen = true;
+  // 案内つきにできないときは false（画面は遊び方の手引きを開く）
+  return see ? startCardGuide(s, b) : true;
 }

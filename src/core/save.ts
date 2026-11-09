@@ -488,6 +488,8 @@ function migrateTo17(s: GameState): void {
 function migrateTo18(s: GameState): void {
   let swapped = 0;
   for (const st of [...Object.values(s.students ?? {}), ...(s.applicants ?? [])]) swapped += migrateArts18(st);
+  // ⓪ 札の戦いの案内：まだ一度も答えていなければ、次の戦いで出す（17夜目の版では出ないことがあった）
+  if (!s.cardGuideSeen) s.cardGuide = 'pending';
   s.pending ??= [];
   s.pending.push({ type: 'event', title: '18夜目の新しいこと', lines: night18Lines(swapped) });
 }

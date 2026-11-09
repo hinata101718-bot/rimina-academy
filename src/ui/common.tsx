@@ -8,9 +8,9 @@ import { COUNTRY_SHORT, PERSONALITIES } from '../data/people';
 import { B } from '../data/balance';
 import { sfx } from './sound';
 
-export function Sheet({ children, onClose, title }: { children: ComponentChildren; onClose?: () => void; title?: string }) {
+export function Sheet({ children, onClose, title, top }: { children: ComponentChildren; onClose?: () => void; title?: string; top?: boolean }) {
   return (
-    <div class="overlay" onClick={(e) => { if (e.target === e.currentTarget && onClose) onClose(); }}>
+    <div class={`overlay${top ? ' top' : ''}`} onClick={(e) => { if (e.target === e.currentTarget && onClose) onClose(); }}>
       <div class="sheet">
         {title && <div class="row between"><h2 class="grow">{title}</h2>{onClose && <button class="btn ghost small" onClick={() => { sfx('cancel'); onClose(); }}>閉じる</button>}</div>}
         {children}

@@ -281,6 +281,8 @@ export const B = {
     npcHpPerLevel: 2, npcDefPerLevel: 0.4, defendSpawnDist: 5, // 7夜目：守る相手（村人・依頼人）は依頼のレベルに合わせて丈夫に
   },
   // ---- 札の戦い（16夜目） ----
+  /** 18夜目：技の進化。熟練が need[段] に満ちると進化を選べる。1枚出すと perUse、倒すと perKill、覚えてから技能の節目を1つ越えるごとに perRank。1戦でたまるのは perBattleMax まで */
+  evo: { need: [8, 22] as number[], perUse: 1, perKill: 1, perRank: 3, perBattleMax: 4 },
   cards: {
     /** 手札の数・行動力（出撃した人数で少し増える：4人まで3、そこから3人ごとに+1、5まで） */
     hand: 5, ap: 3, apPerMembers: 3, apMax: 5,

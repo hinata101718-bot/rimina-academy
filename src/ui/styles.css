@@ -1929,3 +1929,34 @@ details.fold > summary::-webkit-details-marker { display: none; }
 /* 戦いの画面の上に出す紙の窓は、ふつうの文字の色に（戦いの画面の明るい文字を受け継がない） */
 .cb-view .sheet { color: var(--ink); }
 .cb-view .sheet .mn-fig { color: #f3e7cf; }
+
+/* ---- 18夜目：札を出す画面。手札は必ず1行、札の幅は画面の幅から。手札とボタンは下に固定（上の敵と味方だけが動く） ---- */
+.cb-view.cb-play { overflow: hidden; gap: 6px; }
+.cb-play > .cb-top { flex: 1 1 auto; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; display: flex; flex-direction: column; gap: 8px; }
+.cb-play > .cb-top > * { flex-shrink: 0; }
+.cb-play > .cb-bottom { flex: none; display: flex; flex-direction: column; gap: 4px; position: relative; z-index: 4; background: #1c130c; box-shadow: 0 -8px 14px rgba(28, 19, 12, .95); padding-top: 4px; }
+.cb-play .cb-btns { position: static; margin-top: 0; padding-top: 2px; background: none; }
+.cb-peek { min-height: 34px; max-height: 34px; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; color: #e8d8b0; line-height: 1.4; font-size: 12px; padding: 0 2px; }
+.cb-play .cb-hand { display: flex; flex-wrap: nowrap; justify-content: flex-start; gap: 3px; height: 150px; padding: 14px 0 4px; margin: 0 -6px; overflow-x: auto; overflow-y: hidden; scrollbar-width: none; }
+.cb-play .cb-hand::-webkit-scrollbar { display: none; }
+.cb-play .cb-hand .cb-card { flex: 1 1 0; min-width: 44px; max-width: 108px; width: auto; height: 132px; margin: 0; padding: 26px 5px 5px; transform: none; border-width: 2px; border-radius: 10px; }
+.cb-play .cb-hand .cb-card:first-child { margin-left: auto; } .cb-play .cb-hand .cb-card:last-child { margin-right: auto; }
+.cb-play .cb-hand .cb-card.on { transform: translateY(-10px); }
+.cb-play .cb-hand .cb-card.gglow { transform: translateY(-6px); }
+.cb-play .cb-hand .cb-cost { left: 3px; top: 3px; width: 22px; height: 22px; font-size: 12px; }
+.cb-play .cb-hand .cb-order { right: 3px; top: 3px; min-width: 20px; height: 20px; font-size: 12px; }
+.cb-play .cb-hand .cb-cface { right: 3px; top: 2px; }
+.cb-play .cb-hand .cb-card.on .cb-cface { display: none; }
+.cb-play .cb-hand .cb-cname { font-size: 13px; margin-top: 0; line-height: 1.2; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; word-break: break-all; }
+.cb-play .cb-hand .cb-ckind { font-size: 12px; line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+.cb-play .cb-hand .cb-cfx { font-size: 12px; line-height: 1.25; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; word-break: break-all; font-weight: bold; }
+.cb-play .cb-hand .cb-cown { font-size: 12px; max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* 6枚から：種類の行をはずし、顔は名前の下に（狭いので） */
+.cb-play .cb-hand.n6 .cb-ckind, .cb-play .cb-hand.n7 .cb-ckind, .cb-play .cb-hand.n8 .cb-ckind, .cb-play .cb-hand.n9 .cb-ckind { display: none; }
+.cb-play .cb-hand.n7 .cb-cface, .cb-play .cb-hand.n8 .cb-cface, .cb-play .cb-hand.n9 .cb-cface { display: none; }
+.cb-play .cb-hand.n7 .cb-cname, .cb-play .cb-hand.n8 .cb-cname, .cb-play .cb-hand.n9 .cb-cname { font-size: 12px; -webkit-line-clamp: 3; }
+.cb-play .cb-hand.n7 .cb-card, .cb-play .cb-hand.n8 .cb-card, .cb-play .cb-hand.n9 .cb-card { padding: 25px 3px 4px; }
+.cb-play .cb-guide { padding: 6px 8px; }
+.cb-play .cb-guide .cb-gsay { font-size: 14px; line-height: 1.5; }
+/* 18夜目：お知らせの窓（戦い方が新しくなりました）は、いちばん上に */
+.overlay.top { z-index: 200; align-items: center; }
