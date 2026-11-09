@@ -1,13 +1,11 @@
 // 生徒の自動生成
-import { makeSpellPlan, learnSpells } from './spells';
-import { makeArtPlan } from './arts';
 import { B, SKILLS, STATS } from '../data/balance';
 import { NAMES } from '../data/names';
 import {
   DREAMS, TRAITS, TALENTS, PERSONALITY_IDS, ORIGIN_WEIGHTS, HOUSE_WEIGHTS,
   HAIR_TENDENCY, SKIN_TENDENCY, CLOTH_COLORS, COUNTRY_FAVOR_SKILLS, HAIR_COLORS,
 } from '../data/people';
-import type { Origin, House, Gender, SkillId, Stats, CountryId } from './types';
+import type { Origin, House, Gender, SkillId, Stats, CountryId, Mind, PersonalityId } from './types';
 import type { Student, FaceParts, GameState } from './state';
 import { Rng } from './rng';
 import { emptySkills, emptyStats, clamp } from './util';
@@ -47,6 +45,16 @@ export function generateFace(rng: Rng, origin: Origin, gender: Gender): FacePart
 
 export function newId(s: GameState, prefix = 's'): string {
   return `${prefix}${s.nextId++}`;
+}
+
+/** 19夜目：心の3つ（性格で少し違う） */
+const MIND_BY_P: Record<PersonalityId, Partial<Mind>> = {
+  hot: { fight: 20, calm: -15 }, calm: { calm: 20 }, timid: { fight: -15, calm: -10 }, cynic: { grudge: 10, calm: 5 }, gentle: { fight: -10, calm: 10 },
+  serious: { calm: 5, grudge: 5 }, cheerful: { fight: 10 }, shy: { calm: -5 }, competitive: { fight: 15, grudge: 10 }, whimsical: { calm: -5 },
+};
+export function rollMind(rng: Rng, p: PersonalityId): Mind {
+  const m = MIND_BY_P[p] ?? {};
+  return { fight: clamp(rng.int(40, 60) + (m.fight ?? 0), 5, 95), calm: clamp(rng.int(40, 60) + (m.calm ?? 0), 5, 95), grudge: clamp(rng.int(10, 30) + (m.grudge ?? 0), 0, 95) };
 }
 
 export function generateStudent(s: GameState, rng: Rng, opt: GenOptions = {}): Student {
@@ -105,8 +113,8 @@ export function generateStudent(s: GameState, rng: Rng, opt: GenOptions = {}): S
   const growth = rollGrowth(rng, dreamDef.skills, q);
   if (parents) for (const k of STATS) growth[k] = Math.round((growth[k] + (parents[0].growth[k] + parents[1].growth[k]) / 2) / 2);
   // 出身・家柄の補正
-  if (house === 'noble') { growth.cha += 5; stats.cha += 1; }
-  if (house === 'orphan') { growth.spd += 5; growth.lck -= 5; }
+  if (house === 'noble') { growth.skl += 5; }
+  if (house === 'orphan') { growth.spd += 5; }
   if (origin === 'kingdom') growth.def += 5;
   if (origin === 'empire') growth.str += 5;
   if (origin === 'alliance') growth.mag += 5;
@@ -147,17 +155,15 @@ export function generateStudent(s: GameState, rng: Rng, opt: GenOptions = {}): S
   const inherit = parents ? [...new Set([...(parents[0].apt?.good ?? []), ...(parents[1].apt?.good ?? [])])].filter(() => rng.chance(0.35)).slice(0, 1) : [];
   assignApt(st, rng, inherit);
   assignBud(st, rng);
-  st.spellPlan = makeSpellPlan(st);
-  st.artPlan = makeArtPlan(st);
-  learnSpells(null, st);
+  st.mind = rollMind(rng, personality);
   st.birthday = birthdayFor(st.id + st.given);
   return st;
 }
 
 /** 本人の成長率を作る：得意な能力2〜3つ（50〜65）・苦手2つ（20〜30）・ほか（30〜45）、HP（40〜65） */
 const STAT_FOR_SKILL: Partial<Record<SkillId, (keyof Stats)[]>> = {
-  sword: ['str', 'spd'], lance: ['str', 'def'], axe: ['str', 'hp'], bow: ['skl', 'spd'], magic: ['mag', 'res'], faith: ['mag', 'res'],
-  riding: ['spd', 'def'], heavy: ['def', 'hp'], flying: ['spd', 'res'], gun: ['skl'], tactics: ['skl', 'cha'], command: ['cha', 'def'],
+  sword: ['str', 'spd'], lance: ['str', 'def'], axe: ['str', 'hp'], bow: ['skl', 'spd'], magic: ['mag', 'skl'], faith: ['mag', 'def'],
+  riding: ['spd', 'def'], heavy: ['def', 'hp'], flying: ['spd', 'skl'], gun: ['skl'], tactics: ['skl', 'mag'], command: ['def', 'hp'],
 };
 export function rollGrowth(rng: Rng, favor: SkillId[], q = 0): Stats {
   const g: Stats = emptyStats();

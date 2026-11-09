@@ -1,7 +1,7 @@
 // ゲームの状態（セーブされるもの）の型
-import type { CountryId, Origin, House, Gender, PersonalityId, SkillId, Stats, StatId, Path, SpellSlot } from './types';
+import type { CountryId, Origin, House, Gender, PersonalityId, SkillId, Stats, StatId, Path, SpellSlot, Mind, Lesson } from './types';
 import type { Difficulty, DifficultyMods } from '../data/balance';
-import type { BattleState } from './battle/types';
+import type { TBattle, Deploy } from './tactics/types';
 
 export interface FaceParts {
   hair: number;      // 髪色 index
@@ -61,6 +61,13 @@ export interface Student {
   spells: string[];
   /** 会話の記録（GameState.archive の id、新しいものが後ろ） */
   archive?: string[];
+  /** 19夜目：心の3つ（闘志・平静・執念）・教訓・二つ名・傷跡 */
+  mind?: Mind;
+  lessons?: Lesson[];
+  epithet?: string;
+  scars?: { year: number; text: string }[];
+  /** 19夜目：使える技（技能のランクで覚える。技のid） */
+  techs?: string[];
   /** 12夜目：覚えた戦技・心得、付けているもの（おまかせ。手で選んだら artsManual） */
   arts?: string[]; artsOn?: string[]; artsManual?: boolean;
   /** 14夜目：卒業生の講師に手ほどきを受けた技（1つ前のランクで覚える） */
@@ -71,8 +78,8 @@ export interface Student {
   artPlan?: Record<string, string>;
   /** 18夜目：技の熟練（使った回数など。技の id → 数）と、選んだ進化の道（技の id → 道の順）。evoLog は年鑑・評価のための記録 */
   mastery?: Record<string, number>;
-  evo?: Record<string, import('../data/evolve').EvoBranch[]>;
-  evoLog?: { id: string; branch: import('../data/evolve').EvoBranch; year: number; month: number }[];
+  evo?: unknown;
+  evoLog?: unknown;
   /** 10夜目：この子と見た面談・相談の題（同じ会話を二度出さない） */
   seenTalks?: string[];
   /** 信頼40・70・90の特別な面談のうち、済んだもの */
@@ -284,6 +291,8 @@ export interface Quest {
   hot?: boolean;
   /** 14夜目：最初の1時間の案内の、負けない小さな依頼（戦死なし・策は1枚・判断は1回） */
   tutorial?: boolean;
+  /** 19夜目：この依頼の先にいる宿敵（宿敵戦）。challenge＝宿敵から挑んできた（断れない）、rush＝教え子が勝手に向かった */
+  nemesisId?: string; nemesisKind?: 'quest' | 'challenge' | 'rush'; mustGo?: boolean; rushBy?: string;
   /** 2つ目・3つ目の部隊向けの小さな依頼（9夜目）：報酬・評判は少なめ、戦況は動かない */
   small?: boolean;
   /** 偵察を出した（6夜目）。scoutFree は斥候がいて出撃の人数が減らないとき */
@@ -392,7 +401,40 @@ export interface EnemyOfficer {
   raiseWeapon?: string;
   /** 権力争い中（9夜目：組織図の⚔） */
   contest?: number;
+  /** 19夜目：戦い方（弱点・効かない種類＝前に割られて覚えた種類・こちらに分かっている弱点）・自分の戦場 */
+  weak?: import('../data/tactics').AtkType[]; resist?: import('../data/tactics').AtkType[]; knownWeak?: import('../data/tactics').AtkType[]; field?: string;
+  /** 19夜目：覚えていること（負けた・傷つけられた相手、恩、屈辱、奪われた大切な人） */
+  memory?: OfficerMemory;
+  /** 19夜目：体に残った傷 */
+  wounds?: { text: string; year: number; by?: string }[];
+  /** 19夜目：心の変わり方（慎重になる・狂う・丸くなる・落ちぶれる） */
+  heart?: 'steady' | 'careful' | 'mad' | 'mellow' | 'fallen';
+  /** 19夜目：蘇った回数と理由（一度蘇った者は、次に討てば本当に死ぬ） */
+  revived?: number; reviveNote?: string;
+  /** 19夜目：分かっていること（0＝顔と名前だけ … 4＝恨みの中身まで） */
+  intel?: number;
+  /** 19夜目：前に会ったときの札（再会で今の札と並べる） */
+  lastCard?: OfficerCard;
+  /** 19夜目：死んだと思われている（とどめを刺したが、蘇るかもしれない） */
+  presumed?: 'dead' | 'fled' | null;
+  /** 19夜目：二つ名のもとになった出来事 */
+  epithetWhy?: string;
+  /** 19夜目：最後に会った年・月 */
+  lastMet?: { year: number; month: number };
+  /** 19夜目：治める領地（勢力図の地域 id） */
+  holds?: string[];
+  /** 19夜目：二代目（親の id） */
+  heirOf?: string;
 }
+export interface OfficerMemory {
+  beatenBy: string[];
+  woundedBy: { id: string; text: string; year: number }[];
+  debts: { id: string; text: string; year: number }[];
+  shame: { text: string; year: number }[];
+  lost: { name: string; by: string; year: number }[];
+}
+/** 敵将の札（ある時点の見た目） */
+export interface OfficerCard { year: number; month: number; name: string; rank: string; level: number; wounds: number; heart?: string; ep?: string }
 /** 組織図の印（前に見たときのようす） */
 export interface OrgMark { rank: number; status: string; ep?: string; parent?: string; prospect?: boolean }
 /** 生徒と敵将の因縁（宿敵）。段階：1=因縁 2=宿敵 3=生涯の宿敵 */
@@ -446,10 +488,14 @@ export type Pending =
   | { type: 'rankup'; items: RankUpItem[] }
   /** 発見の演出（隠れた才能のヒント1→ヒント2→判明、意外な一面） */
   | { type: 'discovery'; studentId: string; stage: 1 | 2 | 3 | 4; title: string; text: string; name?: string }
-  /** 戦技・心得を覚えた（12夜目：タップで進む演出） */
+  /** 19夜目：新しい技を覚えた */
   | { type: 'art'; studentId: string; ids: string[] }
-  /** 18夜目：技の熟練が満ちた（2つの進化先から選ぶ） */
-  | { type: 'evolve'; studentId: string; id: string; /** おまかせで選んだ道（結果だけ見せる） */ done?: import('../data/evolve').EvoBranch }
+  /** 19夜目：月末の戦いを、自分で遊ぶか、おまかせにするか */
+  | { type: 'sortieChoice' }
+  /** 19夜目：宿敵との再会（昔の札と今の札） */
+  | { type: 'nemesis'; officerId: string; studentIds: string[]; kind: 'reunion' | 'rumor' | 'first' | 'revived' | 'letter'; text: string[] }
+  /** 19夜目：新入生を選ぶ（10人ほどの希望者から6〜8人） */
+  | { type: 'admission' }
   /** 才能開花（10夜目：大きな演出） */
   | { type: 'bloom'; studentId: string; skill?: SkillId; gold?: boolean };
 
@@ -459,7 +505,9 @@ export interface BattleReport {
   /** 9夜目 */
   squad?: number; captain?: string; evals?: StudentEval[]; stratReview?: string[]; fallen?: { id: string; outcome: 'dead' | 'injured' }[];
   /** 10夜目：教官が同行しなかった部隊。部隊長の判断と、大事な出来事の短い場面 */
-  away?: boolean; calls?: import('./battle/auto').AwayCall[]; moments?: { by: string; text: string }[];
+  away?: boolean; moments?: { by: string; text: string }[];
+  /** 19夜目：名場面（おまかせでも残す）・宿敵戦だったか */
+  scenes?: { turn: number; text: string; big?: boolean }[]; nemesisId?: string; auto?: boolean;
   /** 10夜目：この戦いで手に入れた武器（戦利品） */
   loot?: LootItem[];
 }
@@ -485,9 +533,8 @@ export interface StudentEval {
 /** 月末の出撃（9夜目：最大3部隊）。部隊の順番に1つずつ戦う */
 export interface SquadPlan {
   questId: string;
-  deploy: import('./battle/setup').Deploy[];
-  plan: import('./battle/auto').AutoPlan;
-  /** 自分で指揮する（マスを動かす戦闘） */
+  deploy: Deploy[];
+  /** 自分で遊ぶ（false＝おまかせ） */
   manual?: boolean;
   /** 教官が同行しない（10夜目：2つ目・3つ目の部隊ははじめ同行しない。false で同行する） */
   away?: boolean;
@@ -524,8 +571,6 @@ export interface TalkLog {
   year?: number; month?: number;
   /** 10夜目：もとの会話の id と、くり返してよい会話か（出来事のあと・引き止め） */
   def?: string; again?: boolean;
-  /** 18夜目：この支援会話で、2人の連携技ができた（会話のあとに発見の演出） */
-  combo?: { name: string; kind: import('../data/combos').ComboKind; text: string };
 }
 
 export interface WeekPlan {
@@ -568,6 +613,12 @@ export interface Settings {
   guide: boolean;
   sound: boolean;
   volume: number;
+  /** 19夜目：生徒が死なない（大けがと傷跡は残る） */
+  noDeath?: boolean;
+  /** 19夜目：攻撃のたびの1対1の場面（full＝ふつう・short＝短く・off＝切る） */
+  duel?: 'full' | 'short' | 'off';
+  /** 19夜目：効果音 */
+  sfx?: boolean;
 }
 
 export interface Applicant { student: Student }
@@ -628,7 +679,7 @@ export interface GameState {
   notices: { id: string; text: string; studentId?: string }[];
   pending: Pending[];
   quests: Quest[];
-  battle: BattleState | null;
+  battle: TBattle | null;
   applicants: Student[];
   world: WorldState;
   mail: Mail[];
@@ -674,13 +725,16 @@ export interface GameState {
   /** 18夜目：札の戦いの案内（お知らせ）に一度でも答えた・案内を見た */
   cardGuideSeen?: boolean;
   /** 18夜目：連携技（支援B以上の2人。組の鍵 → 記録。戦死で失われたものも残す） */
-  combos?: Record<string, import('./combo').ComboRec>;
+  combos?: unknown;
   /** 勢力図を前に見たときのようす（13夜目） */
   mapSeen?: { at: number; o: Record<string, string> };
   /** 組織図を前に見たときのようす（9夜目：陣営→敵将id→階級・状態・二つ名・上の人） */
   orgSeen?: Record<string, { at: number; o: Record<string, OrgMark> }>;
   /** 自動の戦闘で直近に使った文・出来事（同じ並びを避ける） */
   autoMemory?: { lines: string[]; events: string[]; n?: number };
+  /** 19夜目：古い版（この版の番号）から変換したセーブ（タイトルで「新しく始めるのがおすすめ」） */
+  oldSave?: number;
+  /** 19夜目：記録枠（自動セーブ＝0、手動＝1〜3）。slot と同じ */
   nextId: number;
   settings: Settings;
   guideStep: number;

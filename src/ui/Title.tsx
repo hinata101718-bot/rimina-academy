@@ -40,7 +40,7 @@ export function Title() {
         {slots.map((sl) => (
           <div class="card">
             <div class="row between">
-              <div class="grow"><b>セーブ枠 {sl.slot + 1}</b><div class="muted">{sl.label}</div></div>
+              <div class="grow"><b>セーブ枠 {sl.slot + 1}</b><div class="muted">{sl.label}</div>{sl.exists && sl.old && <div class="small" style={{ color: 'var(--accent)' }}>前の版のセーブです。ゲームが大きく作り直されたので、空いた枠で新しく始めるのがおすすめです（続きからも遊べます）。</div>}</div>
               {sl.exists ? (
                 <div class="row">
                   <button class="btn primary" onClick={async () => { unlockAudio(); sfx('ok'); const g = await loadSlot(sl.slot); if (g) setGame(g); else alert('読み込めませんでした'); }}>続きから</button>

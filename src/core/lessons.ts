@@ -1,7 +1,5 @@
 // 日ごとの授業カード（7夜目）：全学年いっしょ・1日1回。毎日5種類＋休講から1つ選ぶ。DOMに依存しない
 import { firstLessonDay } from './tutorial';
-import { alumniTeach } from './arts';
-import { STRAT } from '../data/stratagems';
 import { isGood, budKnown, checkBloom } from './aptitude';
 import { B, SKILLS, STATS } from '../data/balance';
 import { LESSONS, REST, LESSON_BY_ID, PRACTICE_EVENTS, type LessonDef } from '../data/lessons';
@@ -13,7 +11,7 @@ import { clamp, rankOf, pairKey } from './util';
 import { enrolled, available, notify } from './game';
 import { addSupport, addTrust, getSupport, supportRank, supportValue, buildTalk, addRecent } from './support';
 import { gainExp, startGrowthLog, stopGrowthLog, snapGrowth, diffGrowth, growthRates } from './growth';
-import { learnSpells, learnedText } from './spells';
+import { learnTechs, learnedText } from './techs';
 import { teacherMul, facilityMulOf, talentMulOf, traitLessonMulOf, addSkill, revealTalent, changeMotivation, skillUnlocked, interviewStudent, endOfWeek, expBonusOf, startWeekStudents } from './week';
 import { growTeacherSkill } from './instructor';
 import { viceOf } from './instructor';
@@ -247,7 +245,7 @@ export function resolveLesson(s: GameState, r: Rng, idx: number, talkWith?: stri
   for (const st of list) {
     const b = boostOf(card, st.id);
     // 11夜目：先輩後輩のタッグ：後輩はよく伸び、先輩は教えることで人を動かす力（魅力）が少し育つ
-    if (b.tag && seniorInTag(s, card, st.id)) { b.tag = false; trainUp(st, 'cha', B.support.senpaiChaTrain); }
+    if (b.tag && seniorInTag(s, card, st.id)) { b.tag = false; trainUp(st, 'skl', B.support.senpaiChaTrain); }
     const faceM = faceMulOf(s, b);
     const tagM = tagMulOf(s, b);
     // 技能
@@ -331,7 +329,6 @@ export function resolveLesson(s: GameState, r: Rng, idx: number, talkWith?: stri
   // 雇った講師・卒業生講師は、自分の科目の授業の日に自動で少しずつ上がる（教官は8夜目から経験ポイントで上げる）
   for (const k of Object.keys(l.skills ?? {}) as SkillId[]) growTeacherSkill(s, k, D.teacherGrow, lines);
   // 14夜目：卒業生の講師が、自分の技を教える
-  if (l.skills && !sickRest) alumniTeach(s, Object.keys(l.skills) as SkillId[], list, lines);
 
   // 一日の終わり：先生の体力（授業で減り、休講で回復。0になると数日寝込む）
   const T = B.teacher;
@@ -353,7 +350,7 @@ export function resolveLesson(s: GameState, r: Rng, idx: number, talkWith?: stri
   const growth: GrowthEntry[] = [];
   for (const st of list) {
     const snap = snaps.get(st.id)!;
-    const learned = learnSpells(s, st);
+    const learned = learnTechs(s, st);
     for (const id of learned) lines.push(learnedText(st, id));
     checkBloom(s, st);
     const rankUp = SKILLS.some((k) => rankOf(snap.skills[k]) !== rankOf(st.skills[k]));

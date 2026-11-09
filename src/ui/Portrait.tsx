@@ -178,7 +178,7 @@ export function ScarOverlay({ n }: { n: number }) {
 }
 
 let enemyBase = '';
-function enemyUrl(f: string): string { if (!enemyBase) enemyBase = `${import.meta.env.BASE_URL}enemies/`; return enemyBase + f; }
+export function enemyUrl(f: string): string { if (!enemyBase) enemyBase = `${import.meta.env.BASE_URL}enemies/`; return enemyBase + f; }
 
 /** 敵将の顔：卒業生なら生徒のときの顔のまま、名簿の敵将は顔画像（なければ似顔絵）、魔物は似顔絵 */
 export function OfficerFace({ o, size = 48, frame, dim, s: game }: { o: { faceImage?: string | null; face: FaceParts; scars?: number; alumniId?: string; status?: string } | null | undefined; size?: number; frame?: string; dim?: boolean; s?: GameState | null }) {
@@ -193,14 +193,13 @@ export function OfficerFace({ o, size = 48, frame, dim, s: game }: { o: { faceIm
       <span class="ofc-face" style={{ width: size, height: size, border, borderRadius: size <= 120 ? '22%' : '12px', filter: gone ? 'grayscale(1)' : undefined }}>
         <span class="ofc-zoom" style={{ width: `${zoom * 100}%`, left: `${-(zoom - 1) * 50}%`, top: zoom > 1 ? '-3%' : '0' }}>
           <img src={enemyUrl(o.faceImage)} alt="" loading="lazy" />
-          <ScarOverlay n={o.scars ?? 0} />
         </span>
       </span>
     );
   }
   return (
     <span class="ofc-face" style={{ width: size, height: size, border, borderRadius: '22%', filter: gone ? 'grayscale(1)' : undefined }}>
-      <span class="ofc-zoom" style={{ width: '100%', left: 0, top: 0 }}><FaceSvg face={o.face} size={size - 4} /><ScarOverlay n={o.scars ?? 0} /></span>
+      <span class="ofc-zoom" style={{ width: '100%', left: 0, top: 0 }}><FaceSvg face={o.face} size={size - 4} /></span>
     </span>
   );
 }

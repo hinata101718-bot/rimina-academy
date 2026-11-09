@@ -19,11 +19,9 @@ import { titleOf } from '../core/alumni';
 import { ArtSlot } from './HomeDeco';
 import { TalkPlayer } from './Talk';
 import { chooseReply } from '../core/interview';
-import { usableSpells } from '../core/spells';
 import type { GameState, TalkLog, Student, GrowthEntry } from '../core/state';
 import { enrolled, available, deployLimit, capacity } from '../core/game';
 import { startBattle, admit, autoAdmitIds, finishCareers, acceptVassal } from '../core/flow';
-import { autoDeploy, canEquip } from '../core/autoplay';
 import { OBJECTIVE_NAMES, WEATHER_NAMES } from '../core/quests';
 import { hopes, availableChoices, CHOICE_NAMES, acceptRate, suitablePath, autoRecommend, type CareerChoice } from '../core/career';
 import { WEAPONS } from '../data/weapons';
@@ -31,11 +29,9 @@ import { CLASSES } from '../data/classes';
 import { COUNTRY_SHORT, PERSONALITIES, DREAMS, COUNTRY_NAMES, HOUSE_NAMES, TRAITS, PATH_NAMES, PATH_SAY, STAT_NAMES } from '../data/people';
 import { STATS, B } from '../data/balance';
 import type { Path } from '../core/types';
-import type { Deploy } from '../core/battle/setup';
 import { sfx } from './sound';
-import { AutoResultHead } from './AutoBattle';
 import { SortiePrep } from './Sortie';
-import { BattleResult, SortieResult, NewStratView } from './Results';
+import { BattleResult } from './Results';
 import { RankUpPlayer, DiscoveryView } from './RankUp';
 import { LessonResultView } from './Lessons';
 import { Icon } from './icons';
@@ -43,8 +39,7 @@ import { countryColor, CountryChip, Chip, Stars, Num, LvBadge, MiniCard, NameLin
 import { rankOf } from '../core/util';
 import { SKILL_NAMES } from '../data/people';
 import { SKILLS } from '../data/balance';
-import { BloomView } from './Bloom';
-import { ArtLearnView, EvolveView } from './Arts';
+import { TechLearnView, NemesisPendingView } from './Nemesis';
 import { GuideTipView } from './Guide';
 import { ReviewPlayer } from './Review';
 import { LegendView } from './Legend';
@@ -63,8 +58,6 @@ export function PendingView() {
     case 'guide': return <GuideTipView key={p.key} title={p.title} lines={p.lines} onDone={done} />;
     case 'event': return <Sheet title={p.title}><div class="paper">{p.lines.map((l) => <p>{l}</p>)}</div><button class="btn primary block" style={{ marginTop: 10 }} onClick={done}>閉じる</button></Sheet>;
     case 'battleResult': return <BattleResult key={`${p.title}${s.pending.length}`} s={s} p={p} onDone={done} />;
-    case 'sortieResult': return <SortieResult key={`sr${s.pending.length}`} s={s} reports={p.reports} onDone={done} />;
-    case 'newStrat': return <Sheet><NewStratView key={p.id} s={s} p={p} onDone={done} /></Sheet>;
     case 'questBoard': return <QuestBoard s={s} />;
     case 'entrance': return <Entrance s={s} />;
     case 'career': return <Career s={s} />;
@@ -74,9 +67,11 @@ export function PendingView() {
     case 'successor': return <Successor s={s} />;
     case 'scene': return <Sheet title={p.title}><ScenePlayer key={p.title} s={s} lines={p.lines} onDone={done} /></Sheet>;
     case 'rankup': return <Sheet><RankUpPlayer key={s.pending.length} s={s} items={p.items} onDone={done} /></Sheet>;
-    case 'art': return <Sheet><ArtLearnView key={`art${p.studentId}${p.ids[0]}`} s={s} p={p} onDone={done} /></Sheet>;
-    case 'evolve': return <Sheet><EvolveView key={`ev${p.studentId}${p.id}`} s={s} studentId={p.studentId} id={p.id} onDone={done} later={p.done ? undefined : done} done={p.done} inPending /></Sheet>;
-    case 'bloom': return <BloomView key={`bl${p.studentId}`} s={s} p={p} onDone={done} />;
+    case 'art': return <Sheet><TechLearnView key={`art${p.studentId}${p.ids[0]}`} s={s} p={p} onDone={done} /></Sheet>;
+    case 'bloom': { const st = s.students[p.studentId]; return <Sheet title="才能が花ひらいた"><div class="row nowrap gap8">{st && <Portrait st={st} size={64} />}<p class="serif">{st?.given}の{p.skill ? SKILL_NAMES[p.skill] : ''}の才能が花ひらいた。{p.gold ? '英雄への道が見えてきた。' : 'これから大きく伸びるだろう。'}</p></div><button class="btn primary block" onClick={done}>閉じる</button></Sheet>; }
+    case 'nemesis': return <NemesisPendingView key={`nm${p.officerId}${s.pending.length}`} s={s} p={p} onDone={done} />;
+    case 'sortieChoice': return <QuestBoard s={s} />;
+    case 'admission': return <Entrance s={s} />;
     case 'discovery': return <Sheet><DiscoveryView key={`${p.studentId}${p.stage}${s.pending.length}`} s={s} p={p} onDone={done} /></Sheet>;
     case 'vassalOffer': return (
       <Sheet title="傘下への誘い">

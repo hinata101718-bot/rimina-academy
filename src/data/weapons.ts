@@ -1,7 +1,6 @@
 // 武器データ（耐久なし）。設計書 §8.6・§8.7 を参照。魔法（魔道・信仰）は spells.ts（技能ランクで覚える）。
 // 威力/命中/必殺/射程/必要ランク/価格。price 0 は購入不可（依頼報酬・村でのみ入手）。
 import type { WeaponDef } from '../core/types';
-import { SPELL_LIST } from './spells';
 
 const list: WeaponDef[] = [
   // ---------- 剣 ----------
@@ -43,7 +42,7 @@ const list: WeaponDef[] = [
   { id: 'long_gun', name: '長銃', type: 'gun', might: 15, hit: 80, crit: 0, minRange: 2, maxRange: 4, rank: 'C', price: 2200, desc: '銃身を伸ばした精密な銃。' },
 ];
 
-export const WEAPONS: Record<string, WeaponDef> = Object.fromEntries([...list, ...SPELL_LIST].map((w) => [w.id, w]));
+export const WEAPONS: Record<string, WeaponDef> = Object.fromEntries(list.map((w) => [w.id, w]));
 /** 武器庫に入る武器（魔法以外） */
 export const ARMS = list;
 /** 魔法かどうか（魔道書・杖を含む古い武器庫の品も） */

@@ -30,3 +30,10 @@ export function relKey(a: CountryId, b: CountryId): 'ke' | 'ea' | 'ak' {
 export function pairKey(a: string, b: string): string { return a < b ? `${a}|${b}` : `${b}|${a}`; }
 export const MONTH_NAMES = ['4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月', '1月', '2月', '3月'];
 export function absMonth(year: number, month: number): number { return (year - 1) * 12 + month; }
+
+/** 19夜目：魅力をなくしたので、人を動かす力は「技・守り・魔力」の平均で見る（進路・卒業生の出世） */
+export function presence(e: { skl: number; def: number; mag: number }): number { return Math.round((e.skl + e.def + e.mag) / 3); }
+/** いちばん育った技能 */
+export function bestSkillOf(st: { skills: Record<string, number> }): import('./types').SkillId {
+  return (['sword', 'lance', 'axe', 'bow', 'magic', 'faith', 'riding', 'heavy', 'flying', 'gun', 'tactics', 'command'] as import('./types').SkillId[]).filter((k) => k !== 'gun' || (st.skills.gun ?? 0) > 0).sort((a, b) => (st.skills[b] ?? 0) - (st.skills[a] ?? 0))[0];
+}

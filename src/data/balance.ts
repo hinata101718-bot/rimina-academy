@@ -1,7 +1,7 @@
 // バランス値。ゲームの数値はすべてここに集める（設計書の「ふつう」が初期値）。
 import type { Rank, SkillId, StatId } from '../core/types';
 
-export const SAVE_VERSION = 18;
+export const SAVE_VERSION = 19;
 
 export const RANKS: Rank[] = ['E', 'E+', 'D', 'D+', 'C', 'C+', 'B', 'B+', 'A', 'A+', 'S'];
 export const RANK_POINTS: Record<Rank, number> = {
@@ -14,7 +14,7 @@ export const SKILLS: SkillId[] = ['sword', 'lance', 'axe', 'bow', 'magic', 'fait
 export const ARM_SKILLS: SkillId[] = ['sword', 'lance', 'axe', 'bow', 'magic', 'faith', 'riding', 'heavy', 'flying', 'gun'];
 /** 采配の技能（10夜目） */
 export const LEAD_SKILLS: SkillId[] = ['tactics', 'command'];
-export const STATS: StatId[] = ['hp', 'str', 'mag', 'skl', 'spd', 'lck', 'def', 'res', 'cha'];
+export const STATS: StatId[] = ['hp', 'str', 'mag', 'skl', 'spd', 'def'];
 
 export const B = {
   // ---- 最初の1時間の案内（14夜目） ----
@@ -254,6 +254,10 @@ export const B = {
   // ---- 試験 ----
   exam: { baseRate: 60, perPoints: 5, max: 100, levelReq: [0, 5, 15, 25, 45] as number[], heroLevel: 25 }, // 段階ごとの受験レベル（7夜目：初級5・中級15・上級25・最上級（卒業後）45、英雄25）
   // ---- 戦闘 ----
+  /** 19夜目：全盛期と衰え（年齢）：伸び盛り〜27歳、28〜34歳は伸びが0.6倍、35〜44歳は0.3倍、45歳から伸びなくなり、毎年少しずつ衰える */
+  prime: { peakEnd: 27, slowEnd: 34, slowMul: 0.6, stopAt: 44, lateMul: 0.3, declineAt: 45, declineChance: 0.15, declinePerYear: 0.02 },
+  /** 19夜目：月末の出撃（教え子の人数）・出撃しない子の罠の傷 */
+  sortie: { members: 4, trapDmg: 6 },
   battle: {
     width: 8, height: 12,
     deployBase: 6, deployAt12: 8, deployAt20: 10,

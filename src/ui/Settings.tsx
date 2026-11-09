@@ -1,7 +1,6 @@
 import { useState } from 'preact/hooks';
 import { encodeTransfer } from '../core/transfer';
 import { PROSE_NAMES } from '../data/warprose';
-import { FX_NAMES } from '../data/battlefx';
 import type { GameState } from '../core/state';
 import { useStore, act, setGame, emit } from './store';
 import { exportFile, saveSlot } from './storage';
@@ -9,7 +8,6 @@ import { DIFFICULTY, type Difficulty } from '../data/balance';
 import { sfx } from './sound';
 import { autoWeek } from '../core/autoplay';
 import { replayGuide } from '../core/tutorial';
-import { CardManualSheet } from './CardManual';
 
 export function SettingsTab() {
   const { s } = useStore();
@@ -46,7 +44,7 @@ function SettingsBody({ s, set, days }: { s: GameState; set: (fn: (x: GameState[
       <div class="card">
         <h3>難易度</h3>
         <div class="seg">
-          {(['easy', 'normal', 'hard'] as Difficulty[]).map((d) => <button class={s.settings.difficulty === d ? 'on' : ''} onClick={() => set((x) => { x.difficulty = d; x.mods = { ...DIFFICULTY[d] }; })}>{{ easy: 'やさしい', normal: 'ふつう', hard: 'むずかしい' }[d]}</button>)}
+          {(['easy', 'normal', 'hard'] as Difficulty[]).map((d) => <button class={s.settings.difficulty === d ? 'on' : ''} onClick={() => set((x) => { x.difficulty = d; x.mods = { ...DIFFICULTY[d] }; })}>{{ easy: 'やさしい', normal: 'ふつう', hard: 'きびしい' }[d]}</button>)}
         </div>
         <details style={{ marginTop: 6 }}><summary class="muted">細かな調整（倍率）</summary>
           {([['enemy', '敵の強さ'], ['exp', '経験値の入り方'], ['skill', '技能の伸び方'], ['money', 'お金の入り方'], ['death', '戦死の確率'], ['reveal', '芽が見える速さ'], ['war', '戦争の進む速さ']] as const).map(([k, label]) => (
@@ -58,15 +56,12 @@ function SettingsBody({ s, set, days }: { s: GameState; set: (fn: (x: GameState[
       </div>
       <div class="card">
         <h3>戦闘</h3>
-        <div class="muted small">戦いは「札の戦い」です。授業で覚えた戦技・魔法・スキルと先生の策が札になり、毎ターン手札から行動力の分だけ出します（16夜目）。</div>
-        <div class="small" style={{ marginTop: 8 }}><b>戦闘の演出</b></div>
-        <div class="seg" style={{ marginTop: 4 }}>{(['big', 'normal', 'low'] as const).map((v) => <button class={(s.settings.battleFx ?? 'big') === v ? 'on' : ''} onClick={() => set((x) => { x.battleFx = v; })}>{FX_NAMES[v]}</button>)}</div>
-        <div class="small" style={{ marginTop: 8 }}>戦の描写：戦いの文で、傷や死をどこまで書くかを選べます</div>
-        <div class="seg" style={{ marginTop: 4 }}>{(['normal', 'dense', 'brutal'] as const).map((v) => <button class={(s.settings.battleProse ?? 'dense') === v ? 'on' : ''} onClick={() => { if (v === 'brutal' && !s.settings.proseAsked && !confirm('むごい描写が増えます（斬り落とされる手足や血しぶきなど）。よろしいですか？')) return; set((x) => { x.battleProse = v; if (v === 'brutal') x.proseAsked = true; }); }}>{PROSE_NAMES[v]}</button>)}</div>
-        <div class="muted small">派手：必殺・開花の技・伝説の武器のカットイン、撃破の判、宿命の対決の画面。ふつう：見せ場を短く。控えめ：顔の札と文だけ。どれもタップで早送りできます。</div>
-        <div class="small" style={{ marginTop: 8 }}><b>技の進化</b>：戦技と魔法の熟練が満ちたとき</div>
-        <div class="seg" style={{ marginTop: 4 }}>{(['pick', 'auto'] as const).map((v) => <button class={(s.settings.evoMode ?? 'pick') === v ? 'on' : ''} onClick={() => set((x) => { x.evoMode = v; })}>{v === 'pick' ? '自分で選ぶ' : 'おまかせ'}</button>)}</div>
-        <div class="muted small">自分で選ぶ：2つの進化先から選びます。おまかせ：その子の性格に合う方を選んで、結果だけ見せます（選んだ道は、どちらでも変えられません）。</div>
+        <div class="muted small">小さなマス目の戦いです。運はなく、攻撃は必ず当たります。</div>
+        <div class="row between nowrap" style={{ marginTop: 8 }}><span class="grow"><b>生徒が死なない</b><small class="muted" style={{ display: 'block' }}>命の危険のある攻撃で倒れても、大けがで済みます（傷跡は残ります）</small></span><input type="checkbox" checked={!!s.settings.noDeath} onChange={(e) => set((x) => { x.noDeath = (e.target as HTMLInputElement).checked; })} /></div>
+        <div class="small" style={{ marginTop: 8 }}><b>攻撃のたびの1対1の場面</b></div>
+        <div class="seg" style={{ marginTop: 4 }}>{(['full', 'short', 'off'] as const).map((v) => <button class={(s.settings.duel ?? 'short') === v ? 'on' : ''} onClick={() => set((x) => { x.duel = v; })}>{{ full: 'ふつう', short: '短く', off: '切る' }[v]}</button>)}</div>
+        <div class="small" style={{ marginTop: 8 }}>戦の描写：倒れたときの文で、傷や死をどこまで書くか</div>
+        <div class="seg" style={{ marginTop: 4 }}>{(['normal', 'dense', 'brutal'] as const).map((v) => <button class={(s.settings.battleProse ?? 'dense') === v ? 'on' : ''} onClick={() => { if (v === 'brutal' && !s.settings.proseAsked && !confirm('むごい描写が増えます。よろしいですか？')) return; set((x) => { x.battleProse = v; if (v === 'brutal') x.proseAsked = true; }); }}>{PROSE_NAMES[v]}</button>)}</div>
       </div>
       <div class="card">
         <h3>表示・演出</h3>
@@ -75,8 +70,7 @@ function SettingsBody({ s, set, days }: { s: GameState; set: (fn: (x: GameState[
         <div class="muted small">HPゲージ・経験値・レベルアップ・会話の文字送りの速さです。演出中は画面をタップすると早送りできます。</div>
         <div class="row between" style={{ marginTop: 6 }}><span>週が進むときの日めくり</span><input type="checkbox" checked={s.settings.flip} onChange={(e) => set((x) => { x.flip = (e.target as HTMLInputElement).checked; })} /></div>
         <div class="row between nowrap" style={{ marginTop: 8 }}><span class="grow">管理人の案内{s.tutorial && !s.tutorial.off ? '（いま出ます）' : '（いまは出ません）'}</span><button class="btn small" onClick={() => { sfx('ok'); act((g) => replayGuide(g)); alert('はじめて出たものの説明を、もう一度出すようにしました。ホームの机の案内も、もう一度見られます。次の札の戦いのはじめには、札の出し方の案内も出ます。'); }}>案内を見なおす</button></div>
-        <div class="muted small">はじめて見るもの（兵種試験・支援C・伝説の武器など）が出たとき、管理人が短く説明します。次の札の戦いの最初のターンには、札の出し方を案内します{s.cardGuide === 'pending' ? '（次の戦いで出ます）' : ''}。</div>
-        <ManualButton />
+        <div class="muted small">はじめて見るもの（兵種試験・支援C・伝説の武器など）が出たとき、管理人が短く説明します。次の戦いのはじめには、戦い方の説明がもう一度出ます。</div>
       </div>
       <div class="card">
         <h3>音</h3>
@@ -91,18 +85,8 @@ function SettingsBody({ s, set, days }: { s: GameState; set: (fn: (x: GameState[
           <button class="btn small" onClick={() => act((g) => { const y = g.year; let k = 0; while (g.year === y && k++ < 60) autoWeek(g); })}>1年進める</button>
         </div>
       </details>
-      <div class="muted small" style={{ textAlign: 'center' }}>辺境士官学校 ―戦争が終わる日まで― 15夜目の版</div>
+      <div class="muted small" style={{ textAlign: 'center' }}>辺境士官学校 ―戦争が終わる日まで― 19夜目の版</div>
     </div>
   );
 }
 
-/** 札の戦いの遊び方の手引き（17夜目） */
-function ManualButton() {
-  const [open, setOpen] = useState(false);
-  return (
-    <>
-      <div class="row between nowrap" style={{ marginTop: 8 }}><span class="grow">札の戦いの遊び方</span><button class="btn small" onClick={() => { sfx('ok'); setOpen(true); }}>手引きを読む</button></div>
-      {open && <CardManualSheet onClose={() => setOpen(false)} />}
-    </>
-  );
-}

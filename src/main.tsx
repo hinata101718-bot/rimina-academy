@@ -3,10 +3,13 @@ import { render } from 'preact';
 import { App } from './ui/App';
 import './ui/styles.css';
 import { loadFaceManifest } from './ui/Portrait';
-import { setCardMode } from './core/battle/auto';
 
-// 16夜目：札の戦いを試すとき（?cards）。切り替えのあとは、いつも札の戦い
-if (/cards/.test(location.search)) setCardMode(true);
+// 19夜目：画面の確かめ用（?debug のときだけ。遊ぶ人には関係ない）
+if (/debug/.test(location.search)) {
+  void Promise.all([import('./ui/store'), import('./core/game'), import('./core/flow'), import('./core/autoplay'), import('./core/sortie'), import('./core/rng')]).then(([store, game, flow, auto, sortie, rng]) => {
+    (window as unknown as Record<string, unknown>).__rimina = { store, game, flow, auto, sortie, rng };
+  });
+}
 
 Promise.all([loadFaceManifest(), loadArtManifest()]).finally(() => render(<App />, document.getElementById('app')!));
 

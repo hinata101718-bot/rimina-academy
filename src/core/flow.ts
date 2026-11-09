@@ -1,51 +1,41 @@
 // ゲームの流れ：週→月末の戦闘→月の終わり→年度末→入学試験
-import { gainMastery } from './evolve';
-import { loseCombos } from './combo';
 import { B } from '../data/balance';
-import { BACKGROUNDS, COUNTRIES, COUNTRY_SHORT, COUNTRY_NAMES, SKILL_NAMES } from '../data/people';
+import { COUNTRIES, COUNTRY_SHORT, COUNTRY_NAMES, SKILL_NAMES } from '../data/people';
 import { WEAPONS } from '../data/weapons';
+import { ATK_NAME } from '../data/tactics';
 import type { CountryId, SkillId } from './types';
-import type { GameState, Quest, Student, GrowthEntry, BattleFinding, TalkLog, SquadPlan, BattleReport } from './state';
-import { SQUADS, STRAT } from '../data/stratagems';
-import { checkStratUnlocks, addStrat, addCommand, awayJudgeRate } from './stratagems';
-import { checkBloom } from './aptitude';
-import { evaluateBattle } from './evaluate';
-import { rollLoot, takeLoot, repGift } from './loot';
-import { yearlyRegions, questRegionResult } from './regions';
-import { rivalryOf } from './officers';
+import type { GameState, Quest, Student, GrowthEntry, TalkLog, SquadPlan, BattleReport, EnemyOfficer } from './state';
+import type { TBattle, Deploy } from './tactics/types';
 import { LESSON_BY_ID } from '../data/lessons';
 import { specialInterview } from './interview';
 const LESSON_NAME: Record<string, string> = Object.fromEntries(Object.values(LESSON_BY_ID).map((l) => [l.id, l.name]));
 import { Rng } from './rng';
-import { enrolled, addMoney, addRep, chronicle, notify, enrollCohort, capacity, mail, available, deployLimit } from './game';
-import { startMonthStudents, changeMotivation, revealTalent, addSkill, autoMonthTargets } from './week';
+import { enrolled, addRep, chronicle, notify, enrollCohort, capacity, mail, available, addMoney } from './game';
+import { startMonthStudents, changeMotivation, autoMonthTargets } from './week';
 import { resolveLesson, advanceDay, recommendCard, todayCards, type DayOutcome } from './lessons';
 import { rollQuests } from './quests';
-import { addSupport, addRecent, getSupport, pruneArchive } from './support';
-import { gainExp, startGrowthLog, stopGrowthLog, snapGrowth, diffGrowth } from './growth';
-import { learnSpells } from './spells';
-import { createBattle, unitFromStudent, defaultWeaponFor, type Deploy } from './battle/setup';
-import { startPlayerPhase, setReinforcementFactory, weaponSkillId } from './battle/engine';
-import { startAutoBattle, setCardReinforce, isCardMode, defaultPlan, applyAutoResults, setupLeader, officerAfterBattle, officerForQuest, questSeed, skipAuto, type AutoPlan, type AwayCall } from './battle/auto';
-import type { BattleState } from './battle/types';
-import { ensureRosters, yearlyOfficers, revealOne } from './officers';
+import { addRecent, getSupport, pruneArchive } from './support';
+import { createTactics, questSeed } from './tactics/setup';
+import { autoFinish } from './tactics/ai';
+import { applyTactics } from './tactics/after';
+import { ensureRosters, yearlyOfficers, pickOfficerForQuest, officerById } from './officers';
+import { bondOf, battleLines, scoutWeak, afterNemesisBattle } from './nemesis';
 import { fx } from './mentor';
 import { publishIssue } from './newspaper';
 import { rollSides, deferShows } from './discovery';
-import { monthlyWorld, yearlyWorld, questWorldEffect, tensionStage, activeAlumni } from './world';
+import { monthlyWorld, yearlyWorld, tensionStage, activeAlumni } from './world';
 import { simulateAlumni, aidMoney, titleOf } from './alumni';
 import { prepareCareers, graduate, type CareerPlan } from './career';
 import { generateStudent } from './student';
-import { rollTeacherCandidates, monthlySalaries, yearlyRaises } from './teachers';
-import { absMonth, MONTH_NAMES, rankOf } from './util';
-import { retireCheck, viceOf, cleanVice } from './instructor';
-import { checkEndings, peaceEraYear, seedHelp } from './ending';
-import { TRAITS } from '../data/people';
-import type { BattleCtx } from './battle/engine';
+import { absMonth, MONTH_NAMES } from './util';
+import { retireCheck } from './instructor';
+import { checkEndings, peaceEraYear } from './ending';
 import { supportValue, bestFriend } from './support';
 import { closeYear, markYear } from './review';
 import { senpaiLetters } from './senpai';
+import { yearlyRegions } from './regions';
 import { yearlyLegends, unclaimedLegend, legendLoot } from './rarity';
+import { takeLoot } from './loot';
 import { tip, checkTips, firstTalk as tutorialTalk, tutorialMonth } from './tutorial';
 import { NIGHT_AFTER_DEATH, FRIEND_GRIEF, TEACHER_GRIEF, KEEPSAKE, RECOVERY } from '../data/aftermath_war';
 
@@ -60,19 +50,8 @@ export function freshQuests(s: GameState): void {
     if (!q.real) continue;
     const o = officerForQuest(s, q);
     if (!o) continue;
-    for (let i = 0; i < n; i++) revealOne(o, new Rng({ rng: questSeed(s, q) ^ (0x51 + i) }));
+    for (let i = 0; i < n; i++) scoutWeak(o, new Rng({ rng: questSeed(s, q) ^ (0x51 + i) }));
   }
-}
-
-export function battleCtx(s: GameState): BattleCtx {
-  return {
-    support: (a, b) => supportValue(s, a, b),
-    trust: (id) => s.students[id]?.trust ?? 0,
-    luckInjury: (id) => (s.students[id]?.traits ?? []).reduce((a, t) => a + (TRAITS[t].injuryBonus ?? 0), 0) + fx(s, 'injury'),
-    commandBonus: fx(s, 'command'),
-    // 14夜目：最初の1時間の案内の依頼では、倒れても重傷まで（戦死しない）
-    deathMul: s.quests.some((q) => q.tutorial) ? 0 : s.settings.mods.death,
-  };
 }
 
 /**
@@ -87,7 +66,6 @@ export function chooseLesson(s: GameState, idx: number, talkWith?: string): void
   const res = resolveLesson(s, r, idx, talkWith);
   const ended = afterDay(s, r, res);
   s.pending.splice(from, 0, { type: 'lessonResult', lesson: res.lesson, day, faces: res.faces, tags: res.tags, rows: res.rows, events: res.events, growth: res.growth, lines: res.lines, talks: res.talks, others: res.others, xp: res.xp });
-  checkStratUnlocks(s);
   deferShows(s, from);
   guideAfterDay(s, day, ended.weekEnded && s.week === 2);
   if (ended.monthEnd) { freshQuests(s); if (s.quests.some((q) => q.tutorial)) tip(s, 'quest'); s.pending.push({ type: 'questBoard' }); }
@@ -146,7 +124,6 @@ export function weekAuto(s: GameState): void {
   }
   const names = picked.map((id) => LESSON_NAME[id] ?? id);
   s.pending.splice(from, 0, { type: 'weekSummary', lines: [`今週の授業：${names.join('・')}`, ...lines], talks, growth });
-  checkStratUnlocks(s);
   deferShows(s, from);
   if (tutorialMonth(s) && s.week === 2) { tip(s, 'lesson1'); const t = tutorialTalk(s); if (t) { s.pending.push({ type: 'talk', talk: t }); tip(s, 'interview'); } }
   checkTips(s);
@@ -157,142 +134,78 @@ export function weekAuto(s: GameState): void {
 /** 「次の週へ」（6夜目までの呼び名。今は「今週はおまかせ」と同じ） */
 export function nextWeek(s: GameState): void { weekAuto(s); }
 
-// ---------- 月末の出撃：最大3部隊（9夜目） ----------
-/** 今月出せる部隊の数（在籍20人を超えると2、30人で3。依頼の数まで） */
-export function squadCount(s: GameState): number {
-  const n = enrolled(s).length;
-  const k = n >= SQUADS.three ? 3 : n > SQUADS.two ? 2 : 1;
-  return Math.max(1, Math.min(k, s.quests.length));
-}
-/** 部隊ごとの人数の上限（2つ目からは少なめ） */
-export function squadLimit(s: GameState, i: number): number { return i === 0 ? deployLimit(s) : Math.min(deployLimit(s), SQUADS.extraLimit); }
-
-/** 部隊の順番に1つずつ戦う。教官はすべての部隊に同行する */
+// ---------- 月末の出撃（19夜目：教え子4人と先生。1つの依頼。自分で遊ぶか、おまかせ） ----------
+/** 出撃できる人数（教え子） */
+export function squadLimit(_s: GameState, _i = 0): number { return B.sortie.members; }
+export function squadCount(_s: GameState): number { return 1; }
+/** 依頼を受けて出撃する。manual＝自分で遊ぶ（false はおまかせ：同じ計算で自動に進め、名場面を残す） */
 export function startSortie(s: GameState, squads: SquadPlan[]): void {
-  const list = squads.filter((x) => x.deploy.length && s.quests.some((q) => q.id === x.questId));
-  if (!list.length || s.battle) return;
+  const sq = squads.find((x) => x.deploy.length && s.quests.some((q) => q.id === x.questId));
+  if (!sq || s.battle) return;
   s.pending = s.pending.filter((p) => p.type !== 'questBoard');
-  for (const sq of list) for (const x of sq.deploy) if (x.item) s.items[x.item] = Math.max(0, s.items[x.item] - 1);
-  s.sortie = { squads: list, idx: 0, reports: [], pendFrom: s.pending.length };
-  startSquad(s);
+  for (const x of sq.deploy) if (x.item) s.items[x.item] = Math.max(0, s.items[x.item] - 1);
+  s.sortie = { squads: [sq], idx: 0, reports: [], pendFrom: s.pending.length };
+  startBattle(s, sq.questId, sq.deploy, !sq.manual);
 }
-/** 教官が同行しない部隊か（10夜目：2つ目・3つ目の部隊は、はじめ同行しない） */
-export function squadAway(sq: SquadPlan, idx: number): boolean { return idx > 0 && !sq.manual && sq.away !== false; }
-/** これから戦う部隊のうち、教官が同行するものが残っているか */
-export function moreEscorted(s: GameState): boolean {
-  const so = s.sortie;
-  if (!so) return false;
-  return so.squads.some((sq, i) => i > so.idx && squadWatched(s, sq, i));
-}
-/** 16夜目：教官が同行して札を出す部隊か（同行しない部隊と、小さな依頼は結果だけ） */
-export function squadWatched(s: GameState, sq: SquadPlan, idx: number): boolean {
-  return !squadAway(sq, idx) && !(isCardMode() && !!s.quests.find((q) => q.id === sq.questId)?.small);
-}
-function startSquad(s: GameState): void {
-  const so = s.sortie;
-  if (!so) return;
-  const sq = so.squads[so.idx];
-  // 16夜目：いつも札の戦い（手で動かすマス目の戦いはなくした）
-  if (sq.manual && !isCardMode()) startBattle(s, sq.questId, sq.deploy);
-  else startAutoQuest(s, sq.questId, sq.deploy, sq.plan);
-  // 16夜目：小さな依頼は、札の戦いでも結果だけ（部隊長がおまかせで札を出す）
-  const small = isCardMode() && !!s.quests.find((q) => q.id === sq.questId)?.small;
-  if ((squadAway(sq, so.idx) || small) && s.battle?.auto) {
-    // 教官が同行しない部隊：部隊長がここぞの判断を下し、最後まで自動で進む
-    const b = s.battle;
-    const cap = sq.plan.captain ? s.students[sq.plan.captain] : null;
-    const pl = sq.plan.planner ? s.students[sq.plan.planner] : null;
-    const rate = awayJudgeRate(cap, pl);
-    const r = new Rng({ rng: questSeed(s, s.quests.find((q) => q.id === sq.questId) ?? ({ id: sq.questId } as Quest)) ^ 0x2f17 });
-    const calls: AwayCall[] = [];
-    b.auto!.away = { calls };
-    skipAuto(s, battleCtx(s), (c) => {
-      const good = r.chance(rate);
-      let i = c.recommended;
-      if (!good && c.options.length > 1) { i = r.int(0, c.options.length - 2); if (i >= c.recommended) i += 1; }
-      calls.push({ kind: c.kind, prompt: c.prompt.split('\n')[0], label: c.options[i].label, good: i === c.recommended, by: cap?.id });
-      return i;
-    });
-    if (s.battle && s.battle.phase !== 'done') { s.battle.phase = 'done'; s.battle.result = 'lose'; }
-    finishBattle(s);
-  }
-}
+export function squadAway(_sq: SquadPlan, _idx: number): boolean { return false; }
+export function moreEscorted(_s: GameState): boolean { return false; }
+export function squadWatched(_s: GameState, sq: SquadPlan, _idx: number): boolean { return !!sq.manual; }
 
-/** 援軍に来た卒業生（10夜目）：統率が高いと部隊の命中、軍略が高いと回避が少し上がる */
-function alumniAid(b: { units: { side: string; mod?: { hit?: number; avo?: number } }[] }, st: Student): void {
-  const cmd = st.skills.command ?? 0, tac = st.skills.tactics ?? 0;
-  const hit = cmd >= 270 ? 5 : cmd >= 140 ? 3 : 0, avo = tac >= 270 ? 5 : tac >= 140 ? 3 : 0;
-  if (!hit && !avo) return;
-  for (const u of b.units) if (u.side === 'player') { u.mod ??= {}; u.mod.hit = (u.mod.hit ?? 0) + hit; u.mod.avo = (u.mod.avo ?? 0) + avo; }
-}
-
-/** 戦闘を始める */
-export function startBattle(s: GameState, questId: string, deploys: Deploy[]): void {
+/** 戦いを始める。auto のときは最後まで自動で進めて結果へ */
+export function startBattle(s: GameState, questId: string, deploys: Deploy[], auto = false): void {
   const q = s.quests.find((x) => x.id === questId);
   if (!q) return;
-  const r = rng(s);
-  s.battle = createBattle(s, q, deploys, r.int(1, 2 ** 30));
-  setupLeader(s, q, s.battle);
-  setReinforcementFactory((b) => {
-    const st = b.reinforcement ? s.students[b.reinforcement] : null;
-    if (!st) return null;
-    const u = unitFromStudent(st, 'ally', `ally_${st.id}`, 0, 0, [defaultWeaponFor(st)]);
-    u.name = `${st.given}（卒業生）`;
-    alumniAid(b, st);
-    return u;
-  });
-  startPlayerPhase(s.battle);
   s.pending = s.pending.filter((p) => p.type !== 'questBoard');
+  s.battle = buildBattle(s, q, deploys);
+  if (auto) { autoFinish(s.battle, { noDeath: noDeath(s, q) }); finishBattle(s); }
+}
+/** 死なない戦い（最初の戦い・「生徒が死なない」設定） */
+export function noDeath(s: GameState, q?: Quest | null): boolean { return !!q?.tutorial || !!s.settings.noDeath; }
+
+/** 戦いを組み立てる（依頼の敵将・宿敵の台詞・出撃しない子の支えまで） */
+export function buildBattle(s: GameState, q: Quest, deploys: Deploy[]): TBattle {
+  const o = officerForQuest(s, q);
+  const ids = deploys.map((d) => d.studentId);
+  const nemesis = o && (q.nemesisId === o.id || bondOf(s, o) > 0 && o.meets.length > 0) ? o : null;
+  const r = new Rng({ rng: questSeed(s, q) ^ 0x1e5 });
+  const lines = o ? battleLines(s, o, ids, r) : undefined;
+  const b = createTactics(s, q, deploys, { officer: o, nemesisId: nemesis?.id ?? null, tutorial: q.tutorial, lines, extraShields: nemesis ? Math.min(2, Math.floor(bondOf(s, nemesis) / 4)) : 0 });
+  applySupportCrew(s, b, ids);
+  if (lines?.['boss:intro']) { const bu = b.units.find((u) => u.boss); if (bu) { b.fx = [{ k: 'say', by: bu.uid, text: lines['boss:intro'], tone: 'nemesis' }]; b.said.push('boss:intro'); b.log.push({ turn: 1, text: `${bu.name}「${lines['boss:intro']}」` }); if (nemesis) b.scenes.push({ turn: 1, text: `${bu.name}「${lines['boss:intro']}」`, big: true }); } }
+  return b;
 }
 
-/**
- * 16夜目：古い形の戦い（マス目の戦い・場面の戦い）の途中のセーブは、同じ依頼・同じ顔ぶれ・同じ計画で、
- * 札の戦いとしてはじめからやり直す（敵も同じ種から作る。持たせた道具は出撃のときに引いてあるので、そのまま）
- */
-export function restartBattleAsCards(s: GameState): boolean {
+/** この依頼の敵将（名簿から。編成によらず同じ） */
+export function officerForQuest(s: GameState, q: Quest): EnemyOfficer | null {
+  if (q.nemesisId) { const o = officerById(s, q.nemesisId); if (o && o.status === 'active') return o; }
+  if (q.small && ((questSeed(s, q) >>> 3) % 100) >= B.quests.smallOfficer * 100) return null;
+  const ids = Object.values(s.students).filter((x) => x.status === 'enrolled').map((x) => x.id);
+  return pickOfficerForQuest(s, q, new Rng({ rng: questSeed(s, q) ^ 0x2f6b5a }), ids);
+}
+
+/** 出撃しない子が後ろで支える（薬を作る・罠を仕掛ける・弱点を調べる）。成果が戦いに出る */
+export function applySupportCrew(s: GameState, b: TBattle, ids: string[]): void {
+  const crew = enrolled(s).filter((st) => available(st) && !ids.includes(st.id));
+  if (!crew.length) return;
+  b.support = [];
+  const by = (pred: (st: Student) => boolean) => crew.filter(pred).sort((a, c) => c.level - a.level)[0];
+  const healer = by((st) => (st.skills.faith ?? 0) >= 50) ?? crew[0];
+  const trapper = by((st) => st.id !== healer?.id && ((st.skills.bow ?? 0) >= 50 || st.classId === 'thief'));
+  const scholar = by((st) => st.id !== healer?.id && st.id !== trapper?.id && ((st.skills.magic ?? 0) + (st.skills.tactics ?? 0)) >= 60);
+  if (healer) { for (const u of b.units) if (u.side === 'me' && !u.teacher && !u.potion) { u.potion = 1; break; } b.support.push({ kind: 'potion', by: healer.id, text: `${healer.given}が作った傷薬を持たせた` }); }
+  if (trapper) { const f = b.units.filter((u) => u.side === 'foe' && !u.boss).sort((a, c) => c.hp - a.hp)[0]; if (f) { const d = Math.min(f.hp - 1, B.sortie.trapDmg); f.hp -= d; b.support.push({ kind: 'trap', by: trapper.id, text: `${trapper.given}の仕掛けた罠で、${f.name}が傷を負った（−${d}）` }); } }
+  if (scholar) { const bu = b.units.find((u) => u.boss) ?? b.units.find((u) => u.side === 'foe'); const hidden = bu?.weak.find((w) => !bu.known.includes(w)); if (bu && hidden) { bu.known.push(hidden); b.support.push({ kind: 'study', by: scholar.id, text: `${scholar.given}が調べておいた：${bu.name}の弱点は「${ATK_NAME[hidden]}」` }); } }
+  for (const x of b.support) b.log.push({ turn: 1, text: x.text });
+}
+
+/** 自分で遊んでいる戦いを、おまかせで最後まで */
+export function finishAuto(s: GameState): void {
   const b = s.battle;
-  if (!b || b.auto?.cards) return false;
+  if (!b || b.phase === 'done') { finishBattle(s); return; }
   const q = s.quests.find((x) => x.id === b.questId);
-  const members = b.units.filter((u) => u.side === 'player' && u.studentId && s.students[u.studentId]?.status === 'enrolled');
-  s.battle = null;
-  if (!q || !members.length) {
-    // 依頼が見つからない：戦いはなかったことにして、出撃の続きへ
-    if (s.sortie) { s.sortie.idx += 1; if (s.sortie.idx < s.sortie.squads.length) { startSquad(s); return true; } s.sortie = null; endMonth(s); }
-    return false;
-  }
-  const sq = s.sortie?.squads[s.sortie.idx];
-  const deploys: Deploy[] = sq && sq.questId === q.id ? sq.deploy : members.map((u) => ({ studentId: u.studentId!, armoryUid: u.armoryUid ?? null, item: u.item, staffUid: null }));
-  const a = b.auto;
-  const plan: AutoPlan = sq && sq.questId === q.id ? sq.plan : a ? { tactic: a.tactic, roles: a.roles, planner: a.plan?.planner, captain: a.plan?.captain, rows: a.plan?.rows, strats: [...(a.strats ?? []).map((x) => x.id), ...(a.held ?? [])] } : defaultPlan(s, q, deploys);
-  if (sq) { sq.manual = undefined; startSquad(s); return true; }
-  ensureReinforcementFactory(s);
-  startAutoBattle(s, q, deploys, plan, battleCtx(s));
-  return true;
+  autoFinish(b, { noDeath: noDeath(s, q) });
+  finishBattle(s);
 }
-
-/** 自動の戦闘を始める（5夜目） */
-export function startAutoQuest(s: GameState, questId: string, deploys: Deploy[], plan: AutoPlan): void {
-  const q = s.quests.find((x) => x.id === questId);
-  if (!q) return;
-  ensureReinforcementFactory(s);
-  s.pending = s.pending.filter((p) => p.type !== 'questBoard');
-  startAutoBattle(s, q, deploys, plan, battleCtx(s));
-}
-
-export function ensureReinforcementFactory(s: GameState): void {
-  const f = (b: BattleState) => {
-    const st = b.reinforcement ? s.students[b.reinforcement] : null;
-    if (!st) return null;
-    const u = unitFromStudent(st, 'ally', `ally_${st.id}`, 0, 0, [defaultWeaponFor(st)]);
-    u.name = `${st.given}（卒業生）`;
-    alumniAid(b, st);
-    return u;
-  };
-  setReinforcementFactory(f);
-  setCardReinforce(f);
-}
-
-function gradeFor(score: number): string { return score >= 9 ? 'S' : score >= 5 ? 'A' : score >= 2 ? 'B' : 'C'; }
 
 /** 戦闘の結果を学校に反映する */
 export function finishBattle(s: GameState): void {
@@ -301,185 +214,32 @@ export function finishBattle(s: GameState): void {
   const r = rng(s);
   const pendFrom = s.pending.length;
   const q = s.quests.find((x) => x.id === b.questId);
-  const win = b.result === 'win';
-  const lines: string[] = [];
-  const grades: { id: string; grade: string; note: string }[] = [];
-  const expMul = b.real ? 1 : B.battle.drillExpMul;
-  lines.push(win ? `勝利！「${b.title}」` : `敗北……「${b.title}」`);
-  if (win) s.stats.battlesWon++; else s.stats.battlesLost++;
-  const growth: GrowthEntry[] = [];
-  startGrowthLog();
-  // 自動の戦闘：初陣などの出来事で増える経験値
-  for (const e of b.auto?.effects ?? []) if (e.kind === 'exp') { const u = b.units.find((x) => x.studentId === e.id && x.side === 'player'); if (u) u.expGain += e.v; }
-  // 14夜目：最初の依頼では、いちばん活躍した子のレベルが一度は上がるように（レベルアップの演出を見せる）
-  if (q?.tutorial) { const top = b.units.filter((u) => u.side === 'player' && u.studentId).sort((a, c) => c.kills - a.kills || c.dmgDealt - a.dmgDealt)[0]; const st = top ? s.students[top.studentId!] : null; if (top && st) top.expGain = Math.max(top.expGain, (B.tutorial.mvpExp - st.exp) / expMul / Math.max(B.battle.expDamp.min, Math.min(1, B.battle.expDamp.base - st.level * B.battle.expDamp.perLevel)) / (s.settings.mods.exp || 1) + 1); }
-
-  // 評価のための控え（9夜目）：戦う前の宿敵の段階・出撃の回数
-  const L0 = (b.auto?.leader ?? b.leader);
-  const rivalsBefore: Record<string, number> = {};
-  const battlesBefore: Record<string, number> = {};
-  const evalIds: string[] = [];
-  // 15夜目：持たせて使わなかった道具は、学校に戻す（道具は毎月自動で補充するので、使ったぶんだけ減る）
-  for (const u of b.units) if (u.side === 'player' && u.studentId && u.item) s.items[u.item] = (s.items[u.item] ?? 0) + 1;
-  for (const u of b.units) if (u.side === 'player' && u.studentId && s.students[u.studentId]?.status === 'enrolled') {
-    evalIds.push(u.studentId);
-    battlesBefore[u.studentId] = s.students[u.studentId].battles;
-    if (L0?.officerId) rivalsBefore[u.studentId] = rivalryOf(s, u.studentId, L0.officerId)?.stage ?? 0;
+  const out = applyTactics(s, b, r);
+  for (const { st, u } of out.dead) { killStudent(s, st, `「${b.title}」で戦死`); warAfterScene(s, r, st, 'dead', null); void u; }
+  for (const { st } of out.injured) {
+    st.injuredWeeks = r.int(...B.battle.injuryWeeks);
+    addRecent(s, st, 'ev_injury', b.title);
+    out.report.lines.push(`${st.given}は重傷（${st.injuredWeeks}週間休み）`);
+    const scar = r.pick(['左の肩', '右の脇腹', '額', '左の腿', '背中', '右の腕']);
+    st.history.push({ year: s.year, text: `「${b.title}」で${scar}に深い傷を負った` });
+    (st.scars ??= []).push({ year: s.year, text: `${scar}の傷（「${b.title}」）` });
+    st.wounds = (st.wounds ?? 0) + 1;
+    warAfterScene(s, r, st, 'injured', null);
   }
-  for (const u of b.units) {
-    if (!u.studentId || u.side === 'enemy' && !u.persuadable) continue;
-    const st = s.students[u.studentId];
-    if (!st) continue;
-    if (st.status === 'graduated') {
-      const f = b.fallen.find((x) => x.studentId === st.id);
-      if (f && st.career) {
-        if (f.outcome === 'dead') { st.career.alive = false; st.diedYear = s.year; loseCombos(s, st.id); st.deathNote = '戦場で戦死'; chronicle(s, `卒業生の${st.given}が戦場で倒れた`, 'student'); lines.push(`卒業生の${st.given}が戦死した……`); }
-        else { st.career.injuredYears = 1; lines.push(`卒業生の${st.given}は重傷を負った`); }
-        if (u.persuadable && st.career.country) { s.world.friendship[st.career.country] = Math.max(-50, s.world.friendship[st.career.country] - 10); }
-      }
-      if (u.side === 'ally' && !u.persuadable) st.history.push({ year: s.year, text: `「${b.title}」で後輩たちと共に戦った` });
-      continue;
-    }
-    if (st.status !== 'enrolled') continue;
-    const snap = snapGrowth(st);
-    st.battles += 1;
-    // 14夜目：武器庫の武器を使った回数（卒業のとき、愛用の武器を持っていく）
-    if (u.armoryUid) { const a = s.armory.find((x) => x.uid === u.armoryUid); if (a) (a.uses ??= {})[st.id] = (a.uses[st.id] ?? 0) + 1; }
-    st.kills += u.kills;
-    for (const [w, n] of Object.entries(u.usedWeapon)) {
-      st.weaponUse[w] = (st.weaponUse[w] ?? 0) + n;
-      const def = WEAPONS[w];
-      if (def) addSkill(st, weaponSkillId(def.type) as SkillId, n * B.battle.skillPerUse * B.motivationMul[st.motivation] * (s.settings.mods.skill ?? 1));
-      if (def) revealTalent(s, st, B.talent.battleReveal / 4); // 10夜目：戦いでも芽の判明度が少し上がる
-    }
-    const damp = Math.max(B.battle.expDamp.min, Math.min(1, B.battle.expDamp.base - st.level * B.battle.expDamp.perLevel));
-    const ups = gainExp(s, r, st, u.expGain * expMul * damp);
-    growth.push(diffGrowth(st, snap, learnSpells(s, st)));
-    for (const up of ups) lines.push(`${st.given}がLv${up.level}に上がった（${Object.entries(up.gains).map(([k, v]) => `${k}+${v}`).join(' ') || '変化なし'}）`.replace(/hp/g, 'HP').replace(/str/g, '力').replace(/mag/g, '魔力').replace(/skl/g, '技').replace(/spd/g, '速さ').replace(/lck/g, '幸運').replace(/def/g, '守備').replace(/res/g, '魔防').replace(/cha/g, '魅力'));
-    const f = b.fallen.find((x) => x.studentId === st.id);
-    const score = u.kills * 3 + u.hits + u.dmgDealt / 12 - (f ? 3 : 0) + (u.expGain >= 40 ? 1 : 0);
-    const g = gradeFor(score);
-    st.bestGrade = !st.bestGrade || 'SABC'.indexOf(g) < 'SABC'.indexOf(st.bestGrade) ? g : st.bestGrade;
-    const note = f?.outcome === 'dead' ? '帰らぬ人となった' : f?.outcome === 'injured' ? '重傷を負ったが、命はとりとめた' : u.kills >= 2 ? '見事な戦いぶりだった' : u.hits ? '堅実に役目を果たした' : '次はもっと活躍できるはず';
-    grades.push({ id: st.id, grade: g, note });
-    if (g === 'S' || g === 'A') changeMotivation(st, 1);
-    if (q?.kind === 'exhibition') { st.exhibitionScore += score; }
-    if (f?.outcome === 'dead') { killStudent(s, st, `「${b.title}」で戦死`); warAfterScene(s, r, st, 'dead', u.weaponId); }
-    else if (f?.outcome === 'injured') {
-      st.injuredWeeks = r.int(...B.battle.injuryWeeks);
-      addRecent(s, st, 'ev_injury', b.title);
-      lines.push(`${st.given}は重傷（${st.injuredWeeks}週間休み）`);
-      // 11夜目：傷跡が残る（年表に）。療養の場面
-      st.history.push({ year: s.year, text: `「${b.title}」で${r.pick(['左の肩', '右の脇腹', '額', '左の腿', '背中', '右の腕'])}に深い傷を負った` });
-      warAfterScene(s, r, st, 'injured', u.weaponId);
-    }
-    if (u.hp < u.maxHp / 2 && !f) {
-      const helper = b.units.find((o) => o !== u && o.studentId && !o.dead && o.side === 'player' && Math.abs(o.x - u.x) + Math.abs(o.y - u.y) <= 1);
-      if (helper?.studentId) addRecent(s, st, 'ev_cover', helper.name, helper.studentId);
-    }
-  }
-  stopGrowthLog();
-  // 支援：隣接して戦った組
-  for (const [k, n] of Object.entries(b.adjacencyPairs)) {
-    const [a, c] = k.split('|');
-    if (s.students[a]?.status === 'enrolled' && s.students[c]?.status === 'enrolled') {
-      const t = addSupport(s, r, a, c, B.support.adjacentBattle * Math.min(3, n));
-      if (t) s.pending.push({ type: 'talk', talk: t });
-    }
-  }
-  // 同じ敵を倒した
-  for (const [eid, hitters] of Object.entries(b.hitBy)) {
-    const e = b.units.find((x) => x.uid === eid);
-    if (!e?.dead || hitters.length < 2) continue;
-    const ids = hitters.map((h) => b.units.find((x) => x.uid === h)?.studentId).filter((x): x is string => !!x && s.students[x]?.status === 'enrolled');
-    if (ids.length >= 2) { addRecent(s, s.students[ids[0]], 'ev_samekill', e.name, ids[1]); addRecent(s, s.students[ids[1]], 'ev_samekill', e.name, ids[0]); }
-  }
-  // 手に入れた武器
-  for (const w of b.visitedChestLog ?? []) { s.armory.push({ uid: `w${s.nextId++}`, weaponId: w, got: { kind: 'drop', year: s.year, text: '宝箱から' } }); lines.push(`武器庫に「${WEAPONS[w].name}」が加わった`); }
-  // 10夜目：戦利品（自動の戦闘は決着の場面で決まっている）
-  const loot = takeLoot(s, rollLoot(s, b, q, (uid) => b.units.find((u) => u.uid === uid)?.name ?? '敵兵'));
-  for (const x of loot) lines.push(`戦利品：${x.named?.name ?? WEAPONS[x.weaponId]?.name}（${x.from}）`);
-  // 報酬・評判・戦況
-  if (q) {
-    if (q.kind === 'exhibition') {
-      addRep(s, win ? r.int(...B.reputation.exhibition) : 1);
-      const ranked = [...grades].sort((a, c) => 'SABC'.indexOf(a.grade) - 'SABC'.indexOf(c.grade));
-      for (const gr of ranked.slice(0, 3)) {
-        const st = s.students[gr.id];
-        const c: CountryId = r.weighted(COUNTRIES, (x) => 10 + Math.max(0, s.world.friendship[x]) + (s.world.vassal === x ? 30 : 0));
-        if (!st.offers.includes(c)) st.offers.push(c);
-        lines.push(`観覧席の${COUNTRY_SHORT[c]}の関係者が、${st.given}に声をかけた`);
-      }
-    } else if (q.kind === 'schoolDefense') {
-      s.world.schoolDefensePending = false;
-      if (win) { addRep(s, B.reputation.schoolDefenseWin); s.world.defenseWonYear = s.year; chronicle(s, '学校防衛戦に勝利', 'school'); lines.push(`学校を守り抜いた！ 評判+${B.reputation.schoolDefenseWin}`); }
-      else { addRep(s, -5); s.money = Math.round(s.money * 0.7); chronicle(s, '学校防衛戦に敗れ、校舎が荒らされた', 'school'); lines.push('校舎が荒らされた……（お金−30%、評判−5）'); }
-    } else if (q.real) {
-      if (win) {
-        const bg = BACKGROUNDS.find((x) => x.id === s.instructor.background);
-        const reward = Math.round(q.reward * (bg?.realRewardMul ?? 1));
-        const before = s.money; addMoney(s, reward);
-        const rep = q.small ? 1 : B.reputation.questWinByDanger[q.danger] ?? 1;
-        addRep(s, rep);
-        lines.push(`報酬 ${s.money - before}G、評判+${rep}`);
-        // 小さな依頼（9夜目）は戦況を動かさない
-        if (!q.small) { seedHelp(s, q.clientCountry); lines.push(...questWorldEffect(s, q.clientCountry, q.enemyCountry, true)); }
-        const rg = questRegionResult(s, q, true, r); if (rg) lines.push(rg);
-      } else { const lose = q.small ? Math.round(B.reputation.questLose / 2) : B.reputation.questLose; addRep(s, lose); lines.push(`依頼は失敗。評判${lose}`); const rg = questRegionResult(s, q, false, r); if (rg) lines.push(rg); }
-    }
-  }
-  const auto = applyAutoResults(s, b, r, lines, {
-    addSupport: (a, c, v) => { const t = addSupport(s, r, a, c, v); if (t) s.pending.push({ type: 'talk', talk: t }); },
-    reveal: (st, v) => revealTalent(s, st, v),
-    motivation: (st, d) => changeMotivation(st, d),
-  });
-  const officerFind = officerAfterBattle(s, b, r, lines);
-  // 策を立てた子は軍略が少し身につく（9夜目）
-  const planner = b.auto?.plan?.planner;
-  if (planner && s.students[planner]?.status === 'enrolled' && (b.auto?.strats ?? []).length) addStrat(s.students[planner], STRAT.plannerGain);
-  // 10夜目：部隊長を務めた子は統率が身につく
-  const captain = b.auto?.plan?.captain;
-  if (captain && s.students[captain]?.status === 'enrolled') addCommand(s.students[captain], STRAT.captainGain);
-  for (const id of evalIds) if (s.students[id]) checkBloom(s, s.students[id]);
-  // 18夜目：出した札の熟練。満ちた技は、進化の知らせ
-  gainMastery(s, b, evalIds);
-  const evals = evaluateBattle(s, b, q, evalIds, auto.mvp ?? null, rivalsBefore, battlesBefore);
-  // 個人ページの記録：称号の数・最近の評価・重傷の回数
-  for (const e of evals) {
+  for (const e of out.report.evals ?? []) {
     const st = s.students[e.id];
     if (!st) continue;
-    for (const bd of e.badges) (st.honors ??= {})[bd] = (st.honors[bd] ?? 0) + 1;
     (st.evalLog ??= []).push({ year: s.year, month: s.month, title: b.title, grade: e.grade, badges: e.badges, scene: e.scene });
     if (st.evalLog.length > 12) st.evalLog.splice(0, st.evalLog.length - 12);
-    if (e.outcome === 'injured') st.wounds = (st.wounds ?? 0) + 1;
   }
-  const sortie = s.sortie;
-  const talkFrom = sortie ? Math.min(sortie.pendFrom, s.pending.length) : 0;
-  const firstTalk = s.pending.findIndex((p, i) => i >= talkFrom && p.type === 'talk');
-  const findings = [...battleFindings(s, growth, lines, s.pending.slice(firstTalk >= 0 ? firstTalk : s.pending.length)), ...officerFind];
-  const report: BattleReport = { lines, grades, win, growth, mvp: auto.mvp ?? undefined, review: auto.review, title: b.title, findings, officerId: (b.auto?.leader ?? b.leader)?.officerId,
-    loot: loot.length ? loot : undefined,
-    away: b.auto?.away ? true : undefined, calls: b.auto?.away?.calls, moments: b.auto?.away ? awayMoments(b) : undefined,
-    evals, stratReview: auto.stratReview.length ? auto.stratReview : undefined, captain: b.auto?.plan?.captain, fallen: b.fallen.filter((f) => f.outcome !== 'out' && s.students[f.studentId] && evalIds.includes(f.studentId)).map((f) => ({ id: f.studentId, outcome: f.outcome as 'dead' | 'injured' })) };
   s.battle = null;
-  if (q?.kind === 'schoolDefense' && win) checkEndings(s, r, 'month');
-  checkStratUnlocks(s);
-  if (sortie) {
-    // 部隊の順番に次の戦いへ。最後の部隊のあと、結果をまとめて1枚に（9夜目）
-    report.squad = sortie.idx;
-    sortie.reports.push(report);
-    sortie.idx += 1;
-    if (sortie.idx < sortie.squads.length && !s.gameOver) { startSquad(s); return; }
-    const from = Math.min(sortie.pendFrom, s.pending.length);
-    s.pending.splice(from, 0, sortie.reports.length > 1 ? { type: 'sortieResult', reports: sortie.reports } : { type: 'battleResult', ...sortie.reports[0] });
-    s.sortie = null;
-    deferShows(s, from);
-    afterBattleGuide(s, q);
-    endMonth(s);
-    return;
-  }
-  s.pending.splice(firstTalk >= 0 ? firstTalk : s.pending.length, 0, { type: 'battleResult', ...report });
-  deferShows(s, pendFrom);
+  if (q?.kind === 'schoolDefense' && b.result === 'win') checkEndings(s, r, 'month');
+  afterNemesisBattle(s, b, out.report);
+  const so = s.sortie;
+  const from = so ? Math.min(so.pendFrom, s.pending.length) : pendFrom;
+  s.pending.splice(from, 0, { type: 'battleResult', ...out.report });
+  s.sortie = null;
+  deferShows(s, from);
   afterBattleGuide(s, q);
   endMonth(s);
 }
@@ -488,33 +248,6 @@ export function finishBattle(s: GameState): void {
 function afterBattleGuide(s: GameState, q: Quest | undefined): void {
   if (q?.tutorial) tip(s, 'afterBattle');
   checkTips(s);
-}
-
-/** 同行しない部隊の大事な出来事（宿敵・一騎打ち・抜擢・敵将の口上）。結果の画面で短い場面に（10夜目） */
-function awayMoments(b: NonNullable<GameState['battle']>): { by: string; text: string }[] {
-  const out: { by: string; text: string }[] = [];
-  for (const sc of b.auto?.scenes ?? []) {
-    const big = !!sc.duo || sc.title === '宿命の対決';
-    for (const l of sc.lines) {
-      if (big || l.by.startsWith('raise:') || (l.by === 'leader' && out.filter((x) => x.by === 'leader').length < 1)) out.push({ by: l.by.startsWith('raise:') ? 'narr' : l.by, text: l.text });
-    }
-  }
-  return out.slice(0, 6);
-}
-
-/** 戦闘のあとの「この戦いで伸びた・分かったこと」（レベル・技能ランク・魔法・才能・特徴・支援） */
-export function battleFindings(s: GameState, growth: GrowthEntry[], lines: string[], talks: GameState['pending']): BattleFinding[] {
-  const out: BattleFinding[] = [];
-  for (const g of growth) {
-    const st = s.students[g.id];
-    if (!st) continue;
-    if (g.lv1 > g.lv0) out.push({ id: st.id, icon: 'star', text: `${st.given}　Lv${g.lv0} → Lv${g.lv1}` });
-    for (const k of g.skills) { const r0 = rankOf(k.p0), r1 = rankOf(k.p1); if (r0 !== r1) out.push({ id: st.id, icon: 'lesson', text: `${st.given}　${SKILL_NAMES[k.k]} ${r0} → ${r1}` }); }
-    for (const sp of g.spells) out.push({ id: st.id, icon: 'tome', text: `${st.given}　${WEAPONS[sp]?.name ?? sp}を覚えた` });
-  }
-  for (const l of lines) if (l.includes('才能') || l.includes('特徴')) { const st = Object.values(s.students).find((x) => x.status === 'enrolled' && l.startsWith(`戦場で${x.given}`) || l.startsWith(`${x.given}の特徴`)); out.push({ id: st?.id, icon: 'lantern', text: l }); }
-  for (const p of talks) if (p.type === 'talk') { const a = s.students[p.talk.a], c = s.students[p.talk.b]; if (a && c) out.push({ id: a.id, icon: 'heart', text: `${a.given}と${c.given}の支援が${p.talk.rank}に` }); }
-  return out;
 }
 
 /** 戦いのあとの場面（11夜目）：戦死はその夜の学校・仲間の言葉・遺品、重傷は療養。戦の描写が「ふつう」のときは出さない */
@@ -539,7 +272,6 @@ function warAfterScene(s: GameState, r: Rng, st: Student, kind: 'dead' | 'injure
 
 export function killStudent(s: GameState, st: Student, note: string): void {
   st.status = 'dead'; st.diedYear = s.year; st.deathNote = note;
-  loseCombos(s, st.id); // 18夜目：連携技は年鑑に残る（もう使えない）
   s.stats.deaths += 1;
   addRep(s, B.reputation.deathInSchool);
   chronicle(s, `${st.given}が${note}`, 'student');
@@ -569,7 +301,6 @@ export function endMonth(s: GameState): void {
 export function startMonth(s: GameState): void {
   const r = rng(s);
   const lines: string[] = [];
-  lines.push(...monthlySalaries(s));
   lines.push(...monthlyWorld(s, r));
   checkEndings(s, r, 'month');
   lines.push(...startMonthStudents(s, r));
@@ -580,18 +311,6 @@ export function startMonth(s: GameState): void {
   if (enrolled(s).length) notify(s, `${MONTH_NAMES[s.month]}の目標技能を決めよう（今は自動。学校の画面の「今月の目標技能」から変えられます）`);
   // 6夜目までの重点科目（今は使わない。古いセーブのために残す）
   for (const g of [1, 2, 3]) if (!s.focus[g]) s.focus[g] = ['sword', 'lance'];
-  // 副教官（担任）が担当学年の重点科目を決める（教官はその月の間いつでも変えられる）
-  cleanVice(s);
-  for (const g of [1, 2, 3]) {
-    const v = viceOf(s, g);
-    if (!v) continue;
-    const list = enrolled(s).filter((x) => x.grade === g);
-    const count: Record<string, number> = {};
-    for (const st of list) for (const k of st.targets) count[k] = (count[k] ?? 0) + 1;
-    const top = Object.entries(count).sort((a, b) => b[1] - a[1]).map((x) => x[0] as SkillId);
-    if (top.length >= 2) s.focus[g] = [top[0], top[1]];
-    else if (top.length === 1) s.focus[g] = [top[0], v.t.skill === top[0] ? (s.focus[g]?.[1] ?? 'sword') : v.t.skill];
-  }
   todayCards(s);
   if (s.month === 6) senpaiLetters(s, r); // 14夜目：卒業した先輩から後輩への手紙
   if (s.month === 3) notify(s, '7月は夏の合宿：授業の伸びと体力の減りが1.5倍');
@@ -643,7 +362,6 @@ export function yearEnd(s: GameState, graduated: string[]): void {
   if (s.instructor.studentId && s.students[s.instructor.studentId]) s.students[s.instructor.studentId].age = s.instructor.age;
   const rc = retireCheck(s);
   pruneArchive(s);
-  yearlyRaises(s);
   // 8. 廃校の期限は8夜目でなくした（ヒナタさん了承）。傘下入りは国からの誘いを自分で受けたときだけ。傘下の学校は評判70で独立を取り戻せる
   const deadline: string[] = [];
   if (s.world.vassal && s.reputation >= B.school.independenceRep) {
@@ -699,7 +417,6 @@ export function yearEnd(s: GameState, graduated: string[]): void {
   for (const st of Object.values(s.students)) if (st.status === 'enrolled') st.offers = st.grade === 3 ? st.offers : st.offers;
   if (rc.can) s.pending.push({ type: 'retire', forced: rc.forced });
   prepareEntrance(s);
-  rollTeacherCandidates(s, r);
   markYear(s);
   startMonth(s);
   void graduated; void MONTH_NAMES; void absMonth; void tensionStage; void titleOf; void mail; void SKILL_NAMES; void getSupport; void available;

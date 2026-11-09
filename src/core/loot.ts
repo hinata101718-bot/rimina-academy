@@ -3,7 +3,7 @@ import { B } from '../data/balance';
 import { WEAPONS, ARMS } from '../data/weapons';
 import type { WeaponType } from './types';
 import type { GameState, ArmoryItem, LootItem, Quest, Student } from './state';
-import type { BattleState, Unit } from './battle/types';
+import type { TBattle, TUnit } from './tactics/types';
 import { Rng } from './rng';
 import { itemName, rollAffix, legendOfOfficer, legendLoot, unclaimedLegend, legendTaken, seeWeapon, itemMod, modScore, legendFits } from './rarity';
 import { tip } from './tutorial';
@@ -41,72 +41,60 @@ function tierOf(type: WeaponType, tier: 'steel' | 'silver' | 'master'): string |
   };
   return map[type]?.[tier] ?? null;
 }
-function wtype(u: Unit | undefined): WeaponType | null {
-  const w = u?.weaponId ? WEAPONS[u.weaponId] : u?.weapons?.[0] ? WEAPONS[u.weapons[0]] : null;
-  return w && TYPE_NAME[w.type] ? w.type : null;
-}
+const CLASS_WT: Record<string, WeaponType> = { swordsman: 'sword', thief: 'sword', swordmaster: 'sword', warrior: 'axe', lancer: 'lance', cavalier: 'lance', pegasus_rider: 'lance', fighter: 'axe', armor_knight: 'axe', archer: 'bow' };
+function wtype(u: TUnit | undefined): WeaponType | null { return u ? CLASS_WT[u.classId] ?? null : null; }
+function hashN(x: string): number { let h = 7; for (const c of x) h = (h * 31 + c.charCodeAt(0)) | 0; return h; }
+function lvOf(u: TUnit): number { return Math.max(1, Math.round((u.str + u.def) * 1.4)); }
 
-/** この戦いの戦利品を決める（戦いの終わりに1回）。雑兵の落とし物・敵将の銘入りの武器（必ず）・依頼の報酬 */
-export function rollLoot(s: GameState, b: BattleState, q: Quest | undefined, names: (uid: string) => string): LootItem[] {
-  if (b.loot) return b.loot;
+/** この戦いの戦利品を決める（19夜目：新しい戦い）。雑兵の落とし物・敵将の銘入りの武器・依頼の報酬 */
+export function rollLoot(s: GameState, b: TBattle, q: Quest | undefined): LootItem[] {
   const L = B.loot;
-  const r = new Rng({ rng: (b.rng ^ 0x6c6f6f74) | 0 });
+  const r = new Rng({ rng: hashN(`${b.questId}|${s.year}|${s.month}|loot`) });
   const out: LootItem[] = [];
-  const leader = b.auto?.leader ?? b.leader ?? null;
-  // 雑兵の落とし物（演習では落とさない）
-  if (b.real) {
+  const lu = b.units.find((u) => u.boss);
+  if (b.real && b.result === 'win') {
     let n = 0;
     for (const u of b.units) {
       if (n >= L.maxDrops) break;
-      if (u.side !== 'enemy' || !u.dead || b.retreated.includes(u.uid) || u.studentId || (leader && u.uid === leader.uid)) continue;
+      if (u.side !== 'foe' || u.alive || u.boss || u.down === 'fled') continue;
       const t = wtype(u);
       if (!t || !r.chance(L.dropChance)) continue;
-      const tier = u.level >= L.masterLv && r.chance(L.masterChance) ? 'master' : u.level >= L.silverLv && r.chance(L.silverChance) ? 'silver' : 'steel';
-      // 14夜目：ときどき「変わった武器」（キルソード・手槍など）。レアには添え名がつくことがある
+      const lv = lvOf(u);
+      const tier = lv >= L.masterLv && r.chance(L.masterChance) ? 'master' : lv >= L.silverLv && r.chance(L.silverChance) ? 'silver' : 'steel';
       const sp = SPECIALS[t];
       const id = sp?.length && r.chance(L.specialChance) ? r.pick(sp) : tierOf(t, tier);
-      if (!id || (t === 'gun' && !s.world.gunUnlocked)) continue;
-      out.push({ weaponId: id, kind: 'drop', from: `${names(u.uid)}が落とした`, ...(r.chance(L.rareAffixChance) ? { affix: rollAffix(r, 1) } : {}) });
+      if (!id) continue;
+      out.push({ weaponId: id, kind: 'drop', from: `${u.name}が落とした`, ...(r.chance(L.rareAffixChance) ? { affix: rollAffix(r, 1) } : {}) });
       n++;
     }
-    // 14夜目：最初の依頼では、戦利品を一度は見せる
-    if (q?.tutorial && !n) { const u = b.units.find((x) => x.side === 'enemy' && x.dead && wtype(x)); const id = u ? tierOf(wtype(u)!, 'steel') : null; if (u && id) out.push({ weaponId: id, kind: 'drop', from: `${names(u.uid)}が落とした` }); }
+    if (q?.tutorial && !n) { const u = b.units.find((x) => x.side === 'foe' && !x.alive && wtype(x)); const id = u ? tierOf(wtype(u)!, 'steel') : null; if (u && id) out.push({ weaponId: id, kind: 'drop', from: `${u.name}が落とした` }); }
   }
-  // 敵将を討ち取ったら、その武器を必ず（銘入り）
-  if (leader) {
-    const lu = b.units.find((u) => u.uid === leader.uid);
-    const o = leader.officerId ? (s.officers ?? []).find((x) => x.id === leader.officerId) : null;
-    const fell = !!lu?.dead && !leader.fled && !b.retreated.includes(leader.uid) && leader.settled !== 'spare' && leader.settled !== 'persuade';
-    const t = wtype(lu);
-    // 12夜目：ふつうの隊長は3割ほど。宿敵・因縁のある敵将・幹部以上・将軍（頭目）は必ず
-    const bond = o ? Object.values(s.rivalries ?? {}).some((rv) => rv.oid === o.id && (rv.stage >= 1 || !!rv.vow)) : false;
-    const sure = !!o && ((o.rank ?? 2) <= 1 || bond);
-    if (fell && t && o && o.kind !== 'monster' && (sure || r.chance(L.namedChance))) {
-      const lv = lu!.level;
-      // 銘入りの武器の段階：敵将の階級とレベル（隊長は鋼まで、幹部は銀まで、将軍は名匠まで）
+  // 敵将を討ち取ったら、その武器（銘入り）
+  const o = lu?.officerId ? (s.officers ?? []).find((x) => x.id === lu.officerId) : null;
+  if (lu && o) {
+    const fell = !lu.alive && lu.down === 'dead';
+    const t = wtype(lu) ?? 'sword';
+    const bond = Object.values(s.rivalries ?? {}).some((rv) => rv.oid === o.id && (rv.stage >= 1 || !!rv.vow));
+    const sure = (o.rank ?? 2) <= 1 || bond || !!lu.nemesis;
+    if (fell && o.kind !== 'monster' && (sure || r.chance(L.namedChance))) {
       const cap = (o.rank ?? 2) >= 2 ? 0 : o.rank === 1 ? 1 : 2;
-      const lvTier = lv < L.namedSteelLv ? 0 : lv < L.namedSilverLv ? 1 : 2;
+      const lvTier = o.level < L.namedSteelLv ? 0 : o.level < L.namedSilverLv ? 1 : 2;
       const id = tierOf(t, (['steel', 'silver', 'master'] as const)[Math.min(cap, lvTier)]);
       if (id) {
-        const given = o?.given ?? leader.name;
-        const ep = o?.epithet ? `「${o.epithet}」` : '';
-        const killer = b.hitBy?.[leader.uid]?.length ? b.units.find((x) => x.uid === b.hitBy[leader.uid][b.hitBy[leader.uid].length - 1])?.studentId : undefined;
+        const killer = b.units.find((x) => x.uid === lu.lastHitBy)?.studentId;
         const kst = killer ? s.students[killer] : null;
-        const name = `${given}の${TYPE_NAME[t]}`;
-        const story = `${ep}${o ? `${given}` : leader.name}が戦場で振るっていた${TYPE_NAME[t]}。${s.year}年目、${kst ? `${kst.given}が` : ''}討ち取って手に入れた。`;
-        out.push({ weaponId: id, kind: 'named', from: `${leader.name}を討ち取った`, affix: rollAffix(r, 2), named: { name, story, officerId: o?.id, by: kst?.id, year: s.year, ...L.named } });
+        const ep = o.epithet ? `「${o.epithet}」` : '';
+        const name = `${o.given}の${TYPE_NAME[t]}`;
+        const story = `${ep}${o.given}が戦場で振るっていた${TYPE_NAME[t]}。${s.year}年目、${kst ? `${kst.given}が` : ''}討ち取って手に入れた。`;
+        out.push({ weaponId: id, kind: 'named', from: `${lu.name}を討ち取った`, affix: rollAffix(r, 2), named: { name, story, officerId: o.id, by: kst?.id, year: s.year, ...L.named } });
       }
     }
-    // 14夜目：敵将が伝説の武器を持っていたら、討てば取りもどせる
-    const lg = legendOfOfficer(s, o?.id);
-    if (fell && lg) out.push(legendLoot(lg, `${leader.name}を討ち取り、取りもどした`));
-    // 生涯の宿敵との決着のあと、ときどき伝説の武器が見つかる
-    const rv3 = o ? Object.values(s.rivalries ?? {}).some((rv) => rv.oid === o.id && rv.stage >= 3) : false;
-    if (rv3 && (fell || leader.settled) && b.result === 'win' && !lg && r.chance(L.legendRival)) { const id = unclaimedLegend(s, r); if (id) out.push(legendLoot(id, `宿敵${leader.name}との決着の地で見つかった`)); }
+    const lg = legendOfOfficer(s, o.id);
+    if (fell && lg) out.push(legendLoot(lg, `${lu.name}を討ち取り、取りもどした`));
+    const rv3 = Object.values(s.rivalries ?? {}).some((rv) => rv.oid === o.id && rv.stage >= 3);
+    if (rv3 && fell && b.result === 'win' && !lg && r.chance(L.legendRival)) { const id = unclaimedLegend(s, r); if (id) out.push(legendLoot(id, `宿敵${lu.name}との決着の地で見つかった`)); }
   }
-  // 依頼の報酬
   if (q?.rewardWeapon && b.result === 'win' && WEAPONS[q.rewardWeapon]) out.push({ weaponId: q.rewardWeapon, kind: 'reward', from: `${q.client}からの報酬`, ...(r.chance(L.rareAffixChance) ? { affix: rollAffix(r, 1) } : {}) });
-  b.loot = out;
   return out;
 }
 

@@ -16,10 +16,26 @@ export function growthRates(st: Student): Stats {
     if (g && st.status === 'enrolled') for (const k of STATS) out[k] += g[yi];
   }
   if (st.career) for (const k of STATS) out[k] = out[k] * (1 + st.career.growthMul);
+  // 19夜目：全盛期と衰え（若いうちは伸び、年をとると伸びにくくなる）
+  const pm = primeMul(st.age);
+  if (pm !== 1) for (const k of STATS) out[k] = out[k] * pm;
   // 8夜目：合計も5%きざみ
   for (const k of STATS) out[k] = Math.max(0, Math.min(100, round5(out[k])));
   return out;
 }
+
+/** 19夜目：全盛期と衰え。年齢ごとの伸びやすさの倍率（衰えは decline で） */
+export function primeMul(age: number): number { const P = B.prime; return age <= P.peakEnd ? 1 : age <= P.slowEnd ? P.slowMul : age <= P.stopAt ? P.lateMul : 0; }
+/** 年をとると能力が落ちる（年度末に呼ぶ。宿敵も教え子も） */
+export function decline(st: { age: number; stats: Stats }, rng: Rng): string[] {
+  const P = B.prime;
+  if (st.age < P.declineAt) return [];
+  const out: string[] = [];
+  for (const k of STATS) if (rng.chance(P.declineChance + (st.age - P.declineAt) * P.declinePerYear) && st.stats[k] > 3) { st.stats[k] -= 1; out.push(k); }
+  return out;
+}
+/** 全盛期の言葉 */
+export function primeLabel(age: number): string { const P = B.prime; return age <= P.peakEnd ? '伸び盛り' : age <= P.slowEnd ? '全盛期' : age < P.declineAt ? '円熟' : '衰え'; }
 
 /** 5の倍数に丸める（四捨五入）。8夜目：成長率は5%きざみ */
 export function round5(v: number): number { return Math.round(v / 5) * 5; }

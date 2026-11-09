@@ -12,7 +12,7 @@ import { enrolled } from './game';
 import { relKey, clamp } from './util';
 import { tensionStage } from './world';
 import { headEffect, factionOfQuest } from './officers';
-import { SQUADS } from '../data/stratagems';
+const SQUADS = { two: 20, three: 30, extraLimit: 6 };
 import { tutorialMonth, tutorialQuest } from './tutorial';
 
 /** 部隊の数（在籍の人数から）。flow.squadCount は依頼の数でも抑える */

@@ -8,7 +8,6 @@ import { CLASSES } from '../data/classes';
 import { WEAPONS } from '../data/weapons';
 import { B } from '../data/balance';
 import type { GameState, EnemyOfficer, Rivalry, Nemesis, Quest, Student, BattleFinding, OfficerMeet, OrgMark } from './state';
-import type { BattleState, Unit } from './battle/types';
 import type { CountryId, Gender } from './types';
 import { Rng } from './rng';
 import { generateFace } from './student';
@@ -320,31 +319,6 @@ export function officerLevel(o: EnemyOfficer, base: number): number {
   return Math.max(1, Math.round(base + OFFICER.rankLevel[Math.max(0, Math.min(2, o.rank))] - 1 + grow));
 }
 
-export interface TraitHit { id: string; active: boolean; exploited: boolean }
-/**
- * 敵将の隠れた特徴・傷を、戦場の敵将のユニットに付ける。突いた弱点（知っていて条件を満たした）を返す
- */
-export function applyOfficerTraits(b: BattleState, o: EnemyOfficer, u: Unit, tactic: string | null): TraitHit[] {
-  const out: TraitHit[] = [];
-  const sc = Math.min(3, o.scars);
-  if (sc) { u.stats.spd = Math.max(1, u.stats.spd + OFFICER.scarStats.spd * sc); u.stats.def += OFFICER.scarStats.def * sc; }
-  const mods = (u.mod ??= {});
-  const add = (k: 'hit' | 'avo' | 'def', v?: number) => { if (v) mods[k] = (mods[k] ?? 0) + v; };
-  for (const id of o.traits) {
-    const t = OFFICER_TRAITS[id];
-    if (!t) continue;
-    const known = o.knownTraits.includes(id);
-    let active = false;
-    if (t.foe) { (u.foeMods ??= []).push({ ...t.foe }); if (known && t.weak) u.foeMods.push({ types: t.foe.types, moveTypes: t.foe.moveTypes, hit: OFFICER.exploitMod.hit, dmg: OFFICER.exploitMod.dmg }); active = true; }
-    if (t.self) { add('hit', t.self.hit); add('avo', t.self.avo); add('def', t.self.def); if (t.self.spd) u.stats.spd = Math.max(1, u.stats.spd + t.self.spd); active = true; }
-    if (t.weather && b.weather === t.weather.w) { add('hit', t.weather.hit); add('avo', t.weather.avo); active = true; }
-    if (t.tactic && tactic === t.tactic.t) { add('hit', t.tactic.hit); add('avo', t.tactic.avo); add('def', t.tactic.def); active = true; }
-    if (t.men) for (const e of b.units) if (e.side === 'enemy' && e !== u) { e.mod ??= {}; e.mod.hit = (e.mod.hit ?? 0) + (t.men.hit ?? 0); }
-    out.push({ id, active, exploited: known && t.weak && active && !t.foe ? true : false });
-  }
-  return out;
-}
-
 export function isScout(classId: string): boolean { return SCOUT_CLASSES.includes(classId); }
 
 // ---------- 宿敵（生徒側の因縁） ----------
@@ -358,7 +332,7 @@ export function rivalriesOf(s: GameState, sid: string): Rivalry[] {
   return Object.values(s.rivalries ?? {}).filter((r) => r.sid === sid && (r.stage >= 1 || r.vow || r.settled)).sort((a, c) => c.stage - a.stage || c.battles - a.battles);
 }
 export function stageName(n: number): string { return RIVAL_STAGE_NAMES[Math.max(0, Math.min(3, n))]; }
-function stageFor(rv: Rivalry): number {
+export function stageFor(rv: Rivalry): number {
   let st = 0;
   OFFICER.stageAt.forEach((n, i) => { if (rv.battles >= n) st = i + 1; });
   if (rv.vow) st = Math.max(st, 1);
@@ -386,156 +360,6 @@ export function memoryLine(s: GameState, o: EnemyOfficer, ids: string[], r: Rng)
   }
   if (last.result === 'lose') return { text: voice(fill(r.pick(MEMORY_TEXT.won), { when, title: last.title }), o) };
   return { text: voice(fill(r.pick(MEMORY_TEXT.lost), { when, title: last.title }), o) };
-}
-
-// ---------- 戦いのあと ----------
-export interface OfficerBattleInfo {
-  officerId?: string; uid: string; fled?: boolean;
-  settled?: 'persuade' | 'duel' | 'kill' | 'spare' | null; settleBy?: string; duelWon?: boolean;
-  traitHits?: TraitHit[]; scouted?: boolean;
-}
-
-/** 戦いのあと：敵将の記憶（昇進・二つ名・傷・執着）、宿敵・仇討ちの誓い、特徴が分かる。結果の画面に出す「分かったこと」を返す */
-export function afterOfficerBattle(s: GameState, b: BattleState, o: EnemyOfficer, L: OfficerBattleInfo, r: Rng, lines: string[]): BattleFinding[] {
-  const out: BattleFinding[] = [];
-  const lu = b.units.find((u) => u.uid === L.uid);
-  if (!lu) return out;
-  const fn = officerName(o);
-  const fname = FACTION_NAMES[o.faction];
-  const fell = !!lu.dead && !L.fled && !b.retreated.includes(lu.uid);
-  const sidOf = (uid: string) => b.units.find((u) => u.uid === uid)?.studentId;
-  const enrolledId = (id?: string) => !!id && s.students[id]?.status === 'enrolled';
-  // 直接ぶつかった生徒
-  const foes = [...new Set([...(b.hitBy[lu.uid] ?? []).map(sidOf), ...(b.struck?.[lu.uid] ?? [])].filter((x): x is string => !!x && !!s.students[x]))];
-  if (L.settleBy && !foes.includes(L.settleBy)) foes.push(L.settleBy);
-  // 敵将が倒した生徒（自分の手で、または率いた戦いで戦死）
-  const victims = b.fallen.filter((f) => (f.by === lu.uid || (f.outcome === 'dead' && !fell)) && f.outcome !== 'out' && s.students[f.studentId] && b.units.some((u) => u.studentId === f.studentId && u.side === 'player'));
-  const settled = L.settled === 'kill' && !fell ? null : (L.settled ?? null);
-  const result: EnemyOfficer['meets'][number]['result'] = settled === 'persuade' ? 'persuaded' : settled === 'spare' ? 'spared' : settled === 'duel' && L.duelWon ? 'yielded' : fell ? 'fell' : b.result === 'win' ? 'fled' : 'lose';
-  const meet: OfficerMeet = { year: s.year, month: s.month, title: b.title, result, foes: foes.slice(0, 6) };
-  o.meets.push(meet);
-  if (o.meets.length > 16) o.meets.splice(0, o.meets.length - 16);
-  if (!o.alumniId) { o.level = Math.max(o.level, lu.level); o.classId = lu.classId; }
-  // 宿敵の段階（直接ぶつかった子）
-  for (const id of foes) {
-    if (!enrolledId(id) && !s.students[id]?.career) continue;
-    const rv = ensureRivalry(s, id, o.id);
-    if (rv.settled) continue;
-    rv.battles += 1;
-    const st0 = rv.stage, st1 = stageFor(rv);
-    rv.stage = Math.max(st0, st1);
-    if (rv.stage > st0 && rv.stage >= 1) {
-      const t = fill(OFFICER_NEWS.rival, { a: s.students[id].given, name: fn, stage: stageName(rv.stage) });
-      rv.log.push({ year: s.year, month: s.month, text: `${stageName(rv.stage)}になった` });
-      out.push({ id, icon: 'flame', text: t });
-      if (rv.stage >= 2) chronicle(s, t, 'student');
-    }
-  }
-  // 決着
-  if (settled && L.settleBy) {
-    const rv = ensureRivalry(s, L.settleBy, o.id);
-    const won = settled !== 'duel' || L.duelWon;
-    if (won) {
-      rv.settled = settled; rv.settledYear = s.year;
-      const t = fill(OFFICER_NEWS.settle[settled], { a: s.students[L.settleBy].given, name: fn });
-      rv.log.push({ year: s.year, month: s.month, text: t });
-      chronicle(s, t, 'school'); out.push({ id: L.settleBy, icon: 'star', text: t });
-      // ほかの子の因縁も終わる
-      for (const x of Object.values(s.rivalries ?? {})) if (x.oid === o.id && !x.settled) { x.settled = settled; x.settledYear = s.year; }
-    }
-  }
-  if (fell) {
-    o.status = 'dead'; o.endYear = s.year; o.endNote = `「${b.title}」で討ち取られた`;
-    const t = fill(OFFICER_NEWS.fell, { faction: fname, name: fn });
-    chronicle(s, t, 'school');
-    for (const x of Object.values(s.rivalries ?? {})) if (x.oid === o.id && !x.settled) { x.settled = 'kill'; x.settledYear = s.year; }
-    if (o.alumniId) { /* 卒業生の戦死は finishBattle で */ }
-  } else if (settled === 'persuade' || settled === 'spare' || (settled === 'duel' && L.duelWon)) {
-    o.status = settled === 'duel' ? 'defeated' : 'retired'; o.endYear = s.year;
-    o.endNote = settled === 'persuade' ? '教え子に説かれ、剣を置いた' : settled === 'spare' ? '見逃され、戦場を去った' : '一騎打ちに敗れ、退いた';
-    const alum = o.alumniId ? s.students[o.alumniId] : null;
-    if (alum?.career && settled !== 'duel') { alum.career.retired = true; alum.history.push({ year: s.year, text: settled === 'persuade' ? '先生の教え子たちに説かれ、剣を置いた' : '戦場で教え子たちに見逃され、軍を退いた' }); }
-  } else {
-    // 生きのびた：傷・執着・昇進・二つ名
-    if (b.result === 'win' || L.fled || lu.hp < lu.maxHp * 0.5) {
-      o.scars = Math.min(4, o.scars + 1);
-      if (o.scars >= 2 && !o.traits.includes('old_wound')) o.traits.push('old_wound');
-      const top = (b.hitBy[lu.uid] ?? []).map((uid) => b.units.find((u) => u.uid === uid)).filter((u): u is Unit => !!u?.studentId && enrolledId(u.studentId)).sort((a, c) => c.dmgDealt - a.dmgDealt)[0];
-      if (top?.studentId) { o.grudge = top.studentId; meet.note = `scar:${top.studentId}`; }
-    }
-    if (victims.length) {
-      for (const f of victims) o.victims.push({ id: f.studentId, name: s.students[f.studentId].given, year: s.year, dead: f.outcome === 'dead' });
-      const score = o.victims.reduce((a, v) => a + (v.dead ? 1 : 0.5), 0);
-      const old = officerName(o);
-      if (score >= OFFICER.epithetAt) {
-        const ep = makeEpithet(o, victims[victims.length - 1].outcome === 'dead', s.students[victims[victims.length - 1].studentId].given, lu, r, score);
-        if (ep && ep !== o.epithet) {
-          o.epithet = ep;
-          const t = fill(OFFICER_NEWS.epithet, { faction: fname, old, name: officerName(o) });
-          chronicle(s, t, 'world'); lines.push(t); out.push({ icon: 'skull', text: t });
-        }
-      }
-      if (o.rank > 0 && activeOf(s, o.faction).filter((x) => x.rank === o.rank - 1).length <= OFFICER.roster[o.rank - 1] && (o.rank > 1 || !headOf(s, o.faction))) {
-        o.rank -= 1;
-        const t = fill(OFFICER_NEWS.promote, { faction: fname, name: officerName(o), rank: rankName(o) });
-        chronicle(s, t, 'world'); lines.push(t); out.push({ icon: 'skull', text: t });
-      } else o.level += 1;
-    }
-  }
-  // 仇討ちの誓い：倒された子の恋人と、支援のいちばん深い子（2人まで）
-  for (const f of victims) {
-    const close = Object.values(s.students).filter((y) => y.status === 'enrolled' && y.id !== f.studentId && (getSupport(s, y.id, f.studentId).kind === 'love' || supportValue(s, y.id, f.studentId) >= B.support.B))
-      .sort((a, c) => Number(getSupport(s, c.id, f.studentId).kind === 'love') - Number(getSupport(s, a.id, f.studentId).kind === 'love') || supportValue(s, c.id, f.studentId) - supportValue(s, a.id, f.studentId)).slice(0, OFFICER.vowMax);
-    for (const y of close) {
-      if (o.status !== 'active') continue;
-      const rv = ensureRivalry(s, y.id, o.id);
-      if (rv.vow) continue;
-      rv.vow = f.studentId; rv.stage = Math.max(1, rv.stage);
-      const t = fill(OFFICER_NEWS.vow, { a: y.given, v: s.students[f.studentId].given, name: officerName(o) });
-      rv.log.push({ year: s.year, month: s.month, text: t });
-      chronicle(s, t, 'student'); out.push({ id: y.id, icon: 'flame', text: t });
-    }
-  }
-  // 特徴が分かる（1戦闘に1つまで）
-  if (o.status === 'active' || fell) {
-    const unknown = o.traits.filter((t) => !o.knownTraits.includes(t));
-    const hits = new Map((L.traitHits ?? []).map((h) => [h.id, h]));
-    const scout = b.units.some((u) => u.side === 'player' && isScout(u.classId));
-    for (const id of r.shuffle(unknown)) {
-      const active = hits.get(id)?.active ?? false;
-      const p = (active ? OFFICER.revealActive : OFFICER.revealBase) + (scout ? OFFICER.revealScout : 0);
-      if (r.chance(p)) {
-        o.knownTraits.push(id);
-        const who = foes.map((x) => s.students[x]).find(Boolean);
-        const t = fill(TRAIT_REVEAL[id] ?? '{leader}の特徴「{trait}」が分かった', { leader: fn, a: who?.given ?? '仲間', trait: OFFICER_TRAITS[id].name });
-        lines.push(t); out.push({ icon: 'lantern', text: `${fn}の特徴「${OFFICER_TRAITS[id].name}」が分かった` });
-        break;
-      }
-    }
-  }
-  for (const h of L.traitHits ?? []) if (h.exploited || (h.active && o.knownTraits.includes(h.id) && OFFICER_TRAITS[h.id]?.weak && wasHitWith(b, lu, h.id))) out.push({ icon: 'target', text: fill(EXPLOIT_TEXT, { leader: fn, trait: OFFICER_TRAITS[h.id].name }) });
-  return out;
-}
-/** 武器・移動の弱点を、実際に突いたか（その武器・兵種の子が敵将に攻撃した） */
-function wasHitWith(b: BattleState, lu: Unit, id: string): boolean {
-  const t = OFFICER_TRAITS[id];
-  if (!t.foe) return false;
-  return (b.hitBy[lu.uid] ?? []).some((uid) => {
-    const u = b.units.find((x) => x.uid === uid);
-    if (!u) return false;
-    const w = u.weaponId ? WEAPONS[u.weaponId] : null;
-    const mt = (CLASSES[u.classId] ?? CLASSES.novice).moveType;
-    return (!t.foe!.types || (!!w && t.foe!.types.includes(w.type)) || Object.keys(u.usedWeapon).some((k) => t.foe!.types!.includes(WEAPONS[k]?.type ?? ''))) && (!t.foe!.moveTypes || t.foe!.moveTypes.includes(mt));
-  });
-}
-
-function makeEpithet(o: EnemyOfficer, dead: boolean, victim: string, lu: Unit, r: Rng, score: number): string {
-  if (score >= 3) return r.pick(EPITHET_MANY);
-  const w = lu.weaponId ? WEAPONS[lu.weaponId]?.type : null;
-  const roll = r.next();
-  if (roll < 0.55) return fill(r.pick(dead ? EPITHET_VICTIM.dead : EPITHET_VICTIM.injured), { v: victim });
-  if (roll < 0.8 && w && EPITHET_WEAPON[w]) return r.pick(EPITHET_WEAPON[w]);
-  return r.pick(EPITHET_PERSONALITY[o.personality as LeaderPersonality] ?? EPITHET_PERSONALITY.cold);
 }
 
 // ---------- 特徴が分かる（偵察・手紙） ----------

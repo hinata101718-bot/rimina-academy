@@ -1,5 +1,5 @@
+import { presence } from './util';
 // 卒業生の毎年のシミュレーション
-import { loseCombos } from './combo';
 import type { SkillId } from './types';
 import { ARM_SKILLS } from '../data/balance';
 import { regionMul } from './regions';
@@ -73,7 +73,7 @@ export function simulateAlumni(s: GameState, rng: Rng): AlumniNews[] {
       const max = RANK_TITLES[c.path].length - 1;
       const e = effectiveStats(st);
       let p = B.alumni.promoteBase + (st.level - B.alumni.promoteLevel - c.rank * 7) * 0.02 + c.rankYears * 0.03;
-      if (c.path === 'civil') p += (e.cha - 10) * 0.015 + (st.house === 'noble' ? 0.05 : 0);
+      if (c.path === 'civil') p += (presence(e) - 10) * 0.015 + (st.house === 'noble' ? 0.05 : 0);
       // 10夜目：将は統率、参謀は軍略のランクが出世に大きく効く。勇士は隊長どまりになりやすい
       const A = B.alumni;
       if (c.path === 'warrior') p += ((st.skills.command ?? 0) - A.rankSkillBase) * A.rankSkill;
@@ -81,7 +81,7 @@ export function simulateAlumni(s: GameState, rng: Rng): AlumniNews[] {
       if (c.path === 'champion' && c.rank >= 1) p *= A.championRankMul;
       if (c.country === 'kingdom') p += st.house === 'noble' ? 0.08 : -0.06;
       if (c.country === 'empire') p += 0.05;
-      if (c.country === 'alliance') p += (e.cha - 10) * 0.01;
+      if (c.country === 'alliance') p += (presence(e) - 10) * 0.01;
       p += c.growthMul;
       if (c.rank < max && rng.chance(Math.max(0.02, Math.min(0.7, p)))) {
         c.rank += 1; c.rankYears = 0;
@@ -111,7 +111,7 @@ export function simulateAlumni(s: GameState, rng: Rng): AlumniNews[] {
       death *= s.settings.mods.death;
     }
     if (rng.chance(death)) {
-      c.alive = false; st.diedYear = s.year; loseCombos(s, st.id);
+      c.alive = false; st.diedYear = s.year;
       st.deathNote = c.country ? `${COUNTRY_SHORT[c.country]}の戦場で戦死` : '戦場で戦死';
       big(st, `が戦死した`);
       chronicle(s, `卒業生の${st.given}が戦死`, 'student');

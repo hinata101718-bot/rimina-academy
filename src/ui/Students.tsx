@@ -1,5 +1,3 @@
-import { evoName, EVO_BRANCH } from '../core/evolve';
-import { ARTS } from '../data/arts';
 import { Badge } from './Results';
 import { BADGES } from '../data/evaluation';
 import { useState } from 'preact/hooks';
@@ -19,11 +17,14 @@ import { examCandidates, missingReqs, levelReq } from '../core/exam';
 import { OfficerFace, Portrait } from './Portrait';
 import { SKILL_NAMES, STAT_NAMES, PERSONALITIES, TRAITS, TALENTS, DREAMS, COUNTRY_NAMES, HOUSE_NAMES, PATH_NAMES, PATH_LINES, PATH_SAY } from '../data/people';
 import { CLASSES } from '../data/classes';
-import { ABILITIES } from '../data/abilities';
 import { B, SKILLS, STATS, RANK_POINTS, LEAD_SKILLS } from '../data/balance';
 import { goodOf, badOf, budKnown, budHinted, budName } from '../core/aptitude';
 import { suitablePath } from '../core/career';
-import { ArtsCard } from './Arts';
+import { StudentNemeses } from './Nemesis';
+import { TECH_BY_ID, ATK_NAME } from '../data/tactics';
+import { battleTechs } from '../core/techs';
+import { primeLabel } from '../core/growth';
+import { MIND_NAMES, MIND_DESC } from '../data/people';
 import { rankOf, nextRankPoints, MONTH_NAMES } from '../core/util';
 import type { SkillId, Rank } from '../core/types';
 import type { GameState, Student, RankUpItem } from '../core/state';
@@ -31,7 +32,6 @@ import { supportRank, archiveOf } from '../core/support';
 import { TalkView } from './Talk';
 import { titleOf } from '../core/alumni';
 import { sfx } from './sound';
-import { ensureSpellPlan, usableSpells } from '../core/spells';
 import { WEAPONS } from '../data/weapons';
 import { rivalriesOf, officerById, officerName, stageName, factionName, rankName } from '../core/officers';
 import { FACTION_COLOR } from '../data/officers';
@@ -86,7 +86,7 @@ function AptCard({ st }: { st: Student }) {
     <div class="apt-card small">
       <div><i class="apt good">得</i> 得意：<b>{good.map((k) => SKILL_NAMES[k]).join('・') || 'なし'}</b>（よく伸びます）</div>
       <div><i class="apt bad">苦</i> 苦手：<b>{bad.map((k) => SKILL_NAMES[k]).join('・') || 'なし'}</b>（伸びにくいです）</div>
-      {b?.done && <div class="apt-bloom"><i class="apt bloom">花</i> {b.gold ? '金の芽が開花しました。英雄への道が開けています' : `苦手だった${SKILL_NAMES[b.skill!]}の芽が、${b.year}年目に開花しました`}{b.ability && ABILITIES[b.ability] ? `。技「${ABILITIES[b.ability].name}」：${ABILITIES[b.ability].desc}` : ''}</div>}
+      {b?.done && <div class="apt-bloom"><i class="apt bloom">花</i> {b.gold ? '金の芽が開花しました。英雄への道が開けています' : `苦手だった${SKILL_NAMES[b.skill!]}の芽が、${b.year}年目に開花しました`}</div>}
       {b && !b.done && budKnown(st) && <div class="apt-bud"><i class="apt bud">芽</i> {b.gold ? '金の芽が見えています。得意な技能をC+まで上げてレベル20になると、開花するかもしれません' : `${SKILL_NAMES[b.skill!]}の芽が見えています。今月の目標にして${B.apt.bloomRank}まで上げると、開花するかもしれません`}</div>}
       {b && !b.done && !budKnown(st) && budHinted(st) && <div class="muted">……なにか眠っているものがありそうです。授業や面談をするうちに、見えてきます</div>}
     </div>
@@ -175,6 +175,7 @@ function Detail({ s, st, exam, sub }: { s: GameState; st: Student; exam?: boolea
               </div>
             )}
           </div>
+          <MindCard s={s} st={st} />
           <details class="card dt-fold">
             <summary><b>成長率の内わけを見る</b><span class="small muted">（本人と兵種と特徴）</span></summary>
             <GrowthTable s={s} st={st} />
@@ -199,7 +200,7 @@ function Detail({ s, st, exam, sub }: { s: GameState; st: Student; exam?: boolea
               </div>
             )}
           </div>
-          <ArtsCard s={s} st={st} />
+          <TechsCard st={st} />
       </>}
       {tab === 'person' && <>
           {!grad && (
@@ -233,6 +234,7 @@ function Detail({ s, st, exam, sub }: { s: GameState; st: Student; exam?: boolea
             {supList.length === 0 && <div class="muted">まだ、とくに親しい仲間はいません</div>}
             <FaceRow list={supList.map(({ sp, o }) => ({ st: o, label: `${supportRank(sp.value) ? `支援${supportRank(sp.value)}` : ''}${sp.kind !== 'none' ? { friend: '・友情', rival: '・好敵手', love: '・想い', senpai: '・先輩と後輩' }[sp.kind] : ''}` }))} />
           </div>
+          <div class="card"><h3>因縁のある敵の将</h3><StudentNemeses s={s} id={st.id} /></div>
           <RivalCard s={s} st={st} />
           <TalkArchive s={s} st={st} />
       </>}
@@ -256,6 +258,35 @@ function Detail({ s, st, exam, sub }: { s: GameState; st: Student; exam?: boolea
 type DetailTab = 'stats' | 'skills' | 'person' | 'bonds' | 'record';
 const DETAIL_TABS: [DetailTab, string][] = [['stats', '能力'], ['skills', '技能'], ['person', '人柄'], ['bonds', '関係'], ['record', '記録']];
 
+/** 19夜目：心の3つ・教訓・全盛期と衰え・二つ名・傷跡 */
+function MindCard({ s, st }: { s: GameState; st: Student }) {
+  const m = st.mind ?? { fight: 50, calm: 50, grudge: 20 };
+  void s;
+  return (
+    <div class="card">
+      <div class="row between nowrap"><h3 style={{ margin: 0 }}>心と教訓</h3><span class="small muted">{st.age}歳・{primeLabel(st.age)}</span></div>
+      {st.epithet && <div class="small">二つ名：<b>「{st.epithet}{st.given}」</b></div>}
+      {(['fight', 'calm', 'grudge'] as const).map((k) => <div class="row nowrap gap6" style={{ marginTop: 4 }}><span class="small" style={{ width: 40 }}>{MIND_NAMES[k]}</span><Gauge v={m[k]} max={100} thin tone={k === 'fight' && m[k] > 90 ? 'warn' : k === 'grudge' && m[k] >= 60 ? 'red' : 'main'} /><Num v={Math.round(m[k])} /></div>)}
+      <div class="small muted">{MIND_DESC.fight}。{MIND_DESC.calm}。{MIND_DESC.grudge}。</div>
+      <div class="small" style={{ marginTop: 6 }}><b>教訓</b>（戦いの経験から身についた力）</div>
+      {(st.lessons ?? []).length ? <ul class="list">{(st.lessons ?? []).map((l) => <li class="small"><b>{l.text}</b>（{l.why}・{l.year}年目）</li>)}</ul> : <div class="small muted">まだありません。戦いの中の大きな出来事で身につきます。</div>}
+      {(st.scars ?? []).length > 0 && <div class="small" style={{ marginTop: 4 }}>傷跡：{(st.scars ?? []).map((x) => x.text).join('・')}</div>}
+    </div>
+  );
+}
+/** 19夜目：技（技能のランクで増える。1回の戦いで使える回数が決まっている） */
+function TechsCard({ st }: { st: Student }) {
+  const all = (st.techs ?? []).map((id) => TECH_BY_ID[id]).filter(Boolean);
+  const carry = new Set(battleTechs(st).map((t) => t.id));
+  return (
+    <div class="card">
+      <h3>技</h3>
+      {all.length ? all.map((t) => <div class="row nowrap gap6 small" style={{ marginTop: 3 }}><span class="chip-o">{ATK_NAME[t.type]}</span><b>{t.name}</b><span class="muted grow">{t.desc}・{t.uses}回まで</span>{carry.has(t.id) && <span class="flag">戦いで使う</span>}</div>) : <div class="small muted">まだありません。技能のランクが上がると覚えます。</div>}
+      <div class="small muted" style={{ marginTop: 4 }}>今の兵種の武器に合う技を、4つまで戦いに持っていきます。技ごとに攻撃の種類（斬・突・打・射・炎・雷・光）が違い、いろいろな弱点を突けます。</div>
+    </div>
+  );
+}
+
 /** これまでの評価と称号（9夜目） */
 function HonorCard({ st }: { st: Student }) {
   const honors = Object.entries(st.honors ?? {}).filter(([k]) => k !== 'quiet').sort((a, b) => b[1] - a[1]);
@@ -263,8 +294,6 @@ function HonorCard({ st }: { st: Student }) {
     <div class="card">
       <h3>これまでの評価と称号</h3>
       {honors.length ? <div class="ev-badges">{honors.map(([k, n]) => <span class="row nowrap gap4"><Badge id={k} />{n > 1 && <small class="muted">×{n}</small>}</span>)}</div> : <div class="muted small">まだありません。出撃すると、戦いのあとに称号がつきます</div>}
-      {(st.evoLog ?? []).length > 0 && <><h4 class="serif" style={{ margin: '10px 0 2px' }}>育てた技 <span class="small muted">（この子だけの技）</span></h4>
-        <ul class="list">{[...(st.evoLog ?? [])].reverse().slice(0, 8).map((e) => { const path = (st.evo?.[e.id] ?? []); const k = path.indexOf(e.branch); const base = ARTS[e.id]?.name ?? WEAPONS[e.id]?.name ?? ''; return <li class="small">{e.year}年目 {MONTH_NAMES[e.month]}　「{evoName(e.id, base, path.slice(0, Math.max(0, k)))}」→「{evoName(e.id, base, path.slice(0, k + 1))}」（{EVO_BRANCH[e.branch].label}）</li>; })}</ul></>}
       {(st.evalLog ?? []).length > 0 && <ul class="list" style={{ marginTop: 6 }}>{[...(st.evalLog ?? [])].reverse().slice(0, 8).map((e) => <li class="small">{e.year}年目 {MONTH_NAMES[e.month]}「{e.title}」<span class={`ev-grade g${e.grade}`}>{e.grade}</span> {e.badges.filter((x) => x !== 'quiet').map((x) => BADGES[x]?.name).join('・')}{e.scene ? <div class="muted">{e.scene}</div> : null}</li>)}</ul>}
     </div>
   );

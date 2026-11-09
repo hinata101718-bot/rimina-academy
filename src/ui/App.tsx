@@ -3,8 +3,7 @@ import { Icon } from './icons';
 import { SeasonFx, PageFlip } from './HomeDeco';
 import { seasonOf } from '../core/calendar';
 import { laneMul } from './anim';
-import { useStore, navigate, act } from './store';
-import { restartBattleAsCards } from '../core/flow';
+import { useStore, navigate } from './store';
 import { MONTH_NAMES } from '../core/util';
 import { DAY_NAMES } from '../core/lessons';
 import { Title } from './Title';
@@ -14,7 +13,7 @@ import { WarTab } from './War';
 import { YearbookTab } from './Yearbook';
 import { SettingsTab } from './Settings';
 import { PendingView } from './Pending';
-import { CardBattleView } from './CardBattle';
+import { TacticsView } from './Tactics';
 import { money, stageOf } from './common';
 import { STAGE_NAMES } from '../core/world';
 import { sfx, unlockAudio, playBgm } from './sound';
@@ -54,9 +53,7 @@ export function App() {
   const season = s ? seasonOf(s.month) : 'spring';
   useEffect(() => { document.body.dataset.season = season; }, [season]);
   if (!s) return <Title />;
-  if (s.battle?.auto?.cards) return <CardBattleView key={`${s.battle.questId}${s.sortie?.idx ?? ''}`} />;
-  // 16夜目：古い形の戦い（マス目・場面の戦い）は、読みこみのときに札の戦いにやり直している。万一残っていたら、ここでやり直す
-  if (s.battle) { const b = s.battle; setTimeout(() => act((g) => { if (g.battle === b || g.battle?.questId === b.questId) restartBattleAsCards(g); }), 0); return null; }
+  if (s.battle) return <TacticsView key={`${s.battle.questId}${s.year}${s.month}`} />;
   const unread = importantUnread(s).length;
   const stamina = Math.round(teacherStamina(s));
   // 8夜目：机の世界。ホームと机の上の頁は木の上に、ほかの画面は紙の頁（名簿＝綴じた名簿、個人ページ＝機密の書類、戦況＝作戦書）

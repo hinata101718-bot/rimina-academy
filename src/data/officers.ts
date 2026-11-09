@@ -22,9 +22,9 @@ export function ageBand(age: number): AgeBand { return age < 30 ? 'young' : age 
 
 export const OFFICER = {
   /** 陣営ごとの名簿の人数（階級ごと）。足りなくなれば年度末と月の初めに補う */
-  roster: [1, 3, 4] as [number, number, number],
+  roster: [1, 4, 6] as [number, number, number], // 19夜目：名前のある将を40〜60人に（3,4 → 4,6）
   /** 名簿の最大人数（卒業生の敵将を含む） */
-  rosterMax: 9,
+  rosterMax: 13,
   /** 階級ごとの、出てきたときのレベル+（依頼の敵より強い） */
   rankLevel: [3, 2, 1] as [number, number, number],
   /** 戦うたびの成長：倒した生徒1人ごと・傷1つごとのレベル+（上限） */

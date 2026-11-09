@@ -135,7 +135,7 @@ export function Desk({ s }: { s: GameState }) {
         </div>
       )}
       <div class={`drawers${tourFocus(s, 'drawers')}`}>
-        {([['targets', '目標技能', 'target'], ['facilities', '施設・講師', 'house'], ['armory', '武器庫', 'sword']] as const).map(([page, label, ic]) => (
+        {([['targets', '目標技能', 'target'], ['ledger', '因縁の帳', 'flame'], ['armory', '武器庫', 'sword']] as const).map(([page, label, ic]) => (
           <button class="drawer" onClick={() => { sfx('move'); navigate({ tab: 'school', page }); }}><Icon name={ic} size={16} />{label}</button>
         ))}
       </div>

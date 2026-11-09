@@ -54,8 +54,8 @@ describe('技能ランク', () => {
 });
 
 describe('兵種データ', () => {
-  it('68種あり、前提兵種がすべて存在する', () => {
-    expect(CLASS_LIST.length).toBe(68);
+  it('14種あり、前提兵種がすべて存在する', () => {
+    expect(CLASS_LIST.length).toBe(14);
     for (const c of CLASS_LIST) for (const p of c.prereq) expect(CLASSES[p]).toBeTruthy();
   });
 });

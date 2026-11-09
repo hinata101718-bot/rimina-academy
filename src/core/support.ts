@@ -12,7 +12,6 @@ import type { TalkCond, TalkDef, TalkSay, TalkSideCond, PersonalityId, SkillId }
 import type { GameState, Student, Support, TalkLog } from './state';
 import { Rng } from './rng';
 import { pairKey, clamp } from './util';
-import { ensureCombo, comboFindText } from './combo';
 
 export function getSupport(s: GameState, a: string, b: string): Support {
   const k = pairKey(a, b);
@@ -55,13 +54,9 @@ export function addSupport(s: GameState, rng: Rng, a: string, b: string, amount:
   if (after !== before && after !== '') {
     if (after === 'C' && sp.kind === 'none') sp.kind = decideKind(rng, A, Bs);
     if (after === 'B' && sp.kind !== 'love' && canLove(s, A, Bs) && rng.chance(B.support.loveChance * loveAffinity(A, Bs))) sp.kind = 'love';
-    // 18夜目：支援がBに届いた2人に、連携技ができる（会話のあとに発見の演出）
-    const cb = after === 'B' || after === 'A' ? ensureCombo(s, sp) : null;
     if (sp.lastRank !== after) {
       sp.lastRank = after;
       const t = buildTalk(s, rng, sp, after);
-      if (t && cb) t.combo = { name: cb.name, kind: cb.kind, text: comboFindText(s, cb) };
-      else if (cb) (s.pending ??= []).push({ type: 'event', title: '連携技ができた', lines: [comboFindText(s, cb)] });
       return t;
     }
   }

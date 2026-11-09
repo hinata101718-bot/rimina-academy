@@ -77,10 +77,10 @@ export function TalkPlayer({ s, t, onDone, onChoice }: { s: GameState; t: TalkLo
     if (typing) { if (timer.current) clearInterval(timer.current); timer.current = null; setShown(full.length); return; }
     if (atChoice) return;
     if (i + 1 < lines.length) { setI(i + 1); return; }
-    if (t.combo && !found) { sfx('pass'); setFound(true); return; }
+    if ((t as { combo?: { name: string; text: string } }).combo && !found) { sfx('pass'); setFound(true); return; }
     sfx('ok'); onDone();
   };
-  const comboBox = t.combo && <div class="tk-combo" role="status"><span class="small">発見</span><b class="serif">連携技「{t.combo.name}」</b><span class="small">{t.combo.text}</span></div>;
+  const comboBox = (t as { combo?: { name: string; text: string } }).combo && <div class="tk-combo" role="status"><span class="small">発見</span><b class="serif">連携技「{(t as { combo?: { name: string; text: string } }).combo!.name}」</b><span class="small">{(t as { combo?: { name: string; text: string } }).combo!.text}</span></div>;
   if (found) {
     return (
       <div class="tplayer" onClick={() => { sfx('ok'); onDone(); }}>
@@ -100,7 +100,7 @@ export function TalkPlayer({ s, t, onDone, onChoice }: { s: GameState; t: TalkLo
       <div>
         <TalkView s={s} t={{ ...t, chosen }} />
         {comboBox}
-        <button class="btn primary block" style={t.combo ? { marginTop: 10 } : undefined} onClick={() => { sfx('ok'); onDone(); }}>閉じる</button>
+        <button class="btn primary block" style={(t as { combo?: { name: string; text: string } }).combo ? { marginTop: 10 } : undefined} onClick={() => { sfx('ok'); onDone(); }}>閉じる</button>
       </div>
     );
   }
@@ -126,7 +126,7 @@ export function TalkPlayer({ s, t, onDone, onChoice }: { s: GameState; t: TalkLo
       <div class="row" style={{ marginTop: 8 }} onClick={(e) => e.stopPropagation()}>
         <span class="muted small grow">{i + 1}／{lines.length + (t.choice && chosen === undefined ? t.choice.options[0].lines.length : 0)}　タップすると進みます</span>
         <button class="btn ghost small" onClick={() => setAll(true)}>すべて表示</button>
-        <button class="btn ghost small" onClick={() => { sfx('cancel'); if (t.choice && chosen === undefined) { setChosen(0); onChoice?.(0); } if (t.combo && !found) { setFound(true); return; } onDone(); }}>スキップ</button>
+        <button class="btn ghost small" onClick={() => { sfx('cancel'); if (t.choice && chosen === undefined) { setChosen(0); onChoice?.(0); } if ((t as { combo?: { name: string; text: string } }).combo && !found) { setFound(true); return; } onDone(); }}>スキップ</button>
       </div>
     </div>
   );

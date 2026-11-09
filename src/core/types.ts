@@ -12,7 +12,12 @@ export type PersonalityId =
 export type SkillId = 'sword' | 'lance' | 'axe' | 'bow' | 'magic' | 'faith' | 'riding' | 'heavy' | 'flying' | 'gun' | 'tactics' | 'command';
 export type Rank = 'E' | 'E+' | 'D' | 'D+' | 'C' | 'C+' | 'B' | 'B+' | 'A' | 'A+' | 'S';
 
-export type StatId = 'hp' | 'str' | 'mag' | 'skl' | 'spd' | 'lck' | 'def' | 'res' | 'cha';
+/** 19夜目：体の6つ（体力・力・魔力・技・速さ・守り）。幸運・魔防・魅力はなくした */
+export type StatId = 'hp' | 'str' | 'mag' | 'skl' | 'spd' | 'def';
+/** 19夜目：心の3つ（0〜100）。闘志＝燃えると強い・高すぎると無茶、平静＝恐れや怒りに飲まれない、執念＝仇の前で力が出る */
+export interface Mind { fight: number; calm: number; grudge: number }
+/** 19夜目：教訓（戦いの経験から身につく力。出来事つき） */
+export interface Lesson { id: string; text: string; why: string; year: number; /** 効く相手（兵種のid・攻撃の種類・宿敵のid） */ vs?: string }
 export type Stats = Record<StatId, number>;
 
 /** 武器の種類。magic=魔道書（魔道技能）、staff=杖（信仰技能・回復）、holy=白魔法の攻撃書（信仰技能） */
@@ -52,7 +57,7 @@ export interface AbilityDef {
 export interface ClassDef {
   id: string;
   name: string;
-  /** 0=見習い 1=初級 2=中級 3=上級 4=最上級（卒業後） */
+  /** 0=見習い 1=初級 2=中級 3=上級 */
   tier: 0 | 1 | 2 | 3 | 4;
   prereq: string[];                       // 前提兵種のid（どれか1つ）
   req: Partial<Record<SkillId, Rank>>;    // 必要技能ランク

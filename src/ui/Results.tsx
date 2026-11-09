@@ -9,12 +9,10 @@ import { Icon } from './icons';
 import { sfx } from './sound';
 import { countryColor, ClassName } from './cards';
 import { GrowthPlayer } from './Growth';
-import { AutoResultHead } from './AutoBattle';
 import { navigate } from './store';
 import type { GameState, BattleReport, StudentEval, Pending, LootItem } from '../core/state';
 import { WEAPONS } from '../data/weapons';
 import { BADGES } from '../data/evaluation';
-import { STRATS } from '../data/stratagems';
 import { FACTION_COLOR } from '../data/officers';
 import { officerById, officerName } from '../core/officers';
 
@@ -78,32 +76,12 @@ export function EvalCard({ s, e }: { s: GameState; e: StudentEval }) {
   );
 }
 
-/** 教官が同行しなかった部隊：部隊長の判断と、大事な出来事の短い場面（10夜目） */
-export function AwayBlock({ s, p, short }: { s: GameState; p: BattleReport; short?: boolean }) {
-  if (!p.away) return null;
-  const cap = p.captain ? s.students[p.captain] : null;
-  const calls = p.calls ?? [];
-  return (
-    <div class="paper small aw-block">
-      <div class="row nowrap gap6 aw-head">{cap && <Portrait st={cap} size={30} frame={countryColor(cap.origin)} />}<b>先生は同行しませんでした。{cap ? `部隊長の${cap.given}がまかされました` : ''}</b></div>
-      {calls.length === 0 && <div class="muted">ここぞの判断が要る場面はありませんでした。</div>}
-      {calls.map((c) => <div class={`aw-call ${c.good ? 'good' : 'bad'}`}>{cap ? `${cap.given}の判断` : '部隊長の判断'}：{c.label} → <b>{c.good ? 'うまくいった' : '迷いが出た'}</b></div>)}
-      {!short && (p.moments ?? []).length > 0 && (
-        <div class="aw-moments">
-          {(p.moments ?? []).map((m) => { const st = s.students[m.by]; return <div class={`aw-m ${m.by === 'leader' ? 'leader' : ''}`}>{st && <Portrait st={st} size={26} />}<span>{st ? `${st.given}「${m.text}」` : m.text}</span></div>; })}
-        </div>
-      )}
-    </div>
-  );
-}
-
 /** 1つの戦いの結果の中身 */
 export function ReportBody({ s, p, compact }: { s: GameState; p: BattleReport; compact?: boolean }) {
   return (
     <>
-      {!compact && <AutoResultHead s={s} mvp={p.mvp} review={p.review} />}
-      <AwayBlock s={s} p={p} />
-      {p.stratReview && p.stratReview.length > 0 && <div class="paper small st-review"><b>策の講評</b>{p.stratReview.map((r) => <div>・{r}</div>)}</div>}
+      {!compact && p.mvp && s.students[p.mvp] && <div class="row nowrap gap8 pcard"><Portrait st={s.students[p.mvp]} size={44} /><span>いちばんの働き：<b>{s.students[p.mvp].given}</b>{p.auto ? '（おまかせ）' : ''}</span></div>}
+      {(p.scenes ?? []).length > 0 && <div class="paper small"><b>名場面</b>{(p.scenes ?? []).map((sc) => <div>・{sc.text}</div>)}</div>}
       {p.officerId && <ResultOfficer s={s} id={p.officerId} />}
       {p.findings && p.findings.length > 0 && (
         <div class="pcard" style={{ ['--band' as string]: 'var(--gold)' }}>
@@ -159,67 +137,3 @@ export function BattleResult({ s, p, onDone }: { s: GameState; p: BattleReport; 
   );
 }
 
-/** 2部隊以上の結果：まとめて1枚（勝敗・称号・名場面・けが人）→ 成長（タップで1人ずつ）→ 部隊ごとのくわしい評価 */
-export function SortieResult({ s, reports, onDone }: { s: GameState; reports: BattleReport[]; onDone: () => void }) {
-  const growth = reports.flatMap((r) => r.growth ?? []);
-  const [step, setStep] = useState<'sum' | 'grow' | 'loot' | number>('sum');
-  const loot = reports.flatMap((r) => r.loot ?? []);
-  const close = () => { sfx('ok'); if (loot.length) setStep('loot'); else onDone(); };
-  if (step === 'loot') return <Sheet><LootView s={s} items={loot} onDone={onDone} /></Sheet>;
-  if (step === 'grow') return <Sheet title="成長の記録"><GrowthPlayer s={s} entries={growth} title="出撃した生徒" onDone={() => setStep(0)} /></Sheet>;
-  if (typeof step === 'number') {
-    const p = reports[step];
-    return (
-      <Sheet title={`${SQUAD_NAMES[p.squad ?? step]}：${p.win ? '勝利' : '敗北'}`}>
-        <div class="seg sq-tabs">{reports.map((r, i) => <button class={i === step ? 'on' : ''} onClick={() => { sfx('move'); setStep(i); }}>{SQUAD_NAMES[r.squad ?? i]}</button>)}</div>
-        <ReportBody s={s} p={p} />
-        <button class="btn primary block" onClick={close}>{loot.length ? '戦利品を見る' : '閉じる'}</button>
-      </Sheet>
-    );
-  }
-  const won = reports.filter((r) => r.win).length;
-  return (
-    <Sheet title="月末の出撃の結果">
-      <div class="sr-head serif"><b>{reports.length}部隊</b>　勝利 {won}・敗北 {reports.length - won}</div>
-      {reports.map((r, i) => {
-        const mvp = r.mvp ? s.students[r.mvp] : null;
-        const top = (r.evals ?? []).filter((e) => !e.outcome && e.badges.some((b) => b !== 'quiet')).slice(0, 3);
-        const scene = (r.evals ?? []).find((e) => e.id === r.mvp)?.scene ?? (r.evals ?? []).find((e) => e.scene)?.scene;
-        return (
-          <div class={`pcard sr-card ${r.win ? 'win' : 'lose'}`} onClick={() => { sfx('ok'); setStep(i); }}>
-            <div class="row between nowrap"><span class="sq-no">{SQUAD_NAMES[r.squad ?? i]}</span><span class={`sr-res ${r.win ? 'win' : 'lose'}`}>{r.win ? '勝利' : '敗北'}</span></div>
-            <b class="serif">{r.title}</b>
-            {mvp && <div class="row nowrap gap6 small"><Portrait st={mvp} size={30} frame={countryColor(mvp.origin)} /><span>MVP <b>{mvp.given}</b></span></div>}
-            {scene && <div class="small ev-scene">名場面：{scene}</div>}
-            {r.away && <AwayBlock s={s} p={r} short />}
-            {top.length > 0 && <div class="ev-badges">{top.map((e) => <span class="sr-who">{s.students[e.id]?.given}<Badge id={e.badges[0]} /></span>)}</div>}
-            {(r.fallen ?? []).length > 0 && <div class="small sr-fall">{(r.fallen ?? []).map((f) => `${s.students[f.id]?.given ?? ''}${f.outcome === 'dead' ? '（戦死）' : '（重傷）'}`).join('・')}</div>}
-            {(r.stratReview ?? []).length > 0 && <div class="small muted">{r.stratReview!.join('　')}</div>}
-            {r.lines.filter((l) => l.includes('報酬') || l.includes('評判')).slice(0, 1).map((l) => <div class="small">{l}</div>)}
-            <div class="small muted" style={{ textAlign: 'right' }}>くわしく ›</div>
-          </div>
-        );
-      })}
-      <button class="btn primary block" onClick={() => { sfx('ok'); setStep(growth.length ? 'grow' : 0); }}>{growth.length ? '成長を見る' : '部隊ごとの評価へ'}</button>
-    </Sheet>
-  );
-}
-
-/** 新しい策を覚えた（発見の演出） */
-export function NewStratView({ s, p, onDone }: { s: GameState; p: Extract<Pending, { type: 'newStrat' }>; onDone: () => void }) {
-  const d = STRATS[p.id as keyof typeof STRATS];
-  const st = p.by ? s.students[p.by] : null;
-  const [show, setShow] = useState(false);
-  useEffect(() => { const t = setTimeout(() => { setShow(true); sfx('pass'); }, 450); return () => clearTimeout(t); }, []);
-  if (!d) { onDone(); return null; }
-  return (
-    <div class="dc-wrap stage3 ns-wrap" onClick={() => setShow(true)}>
-      <div class="dc-title">新しい策を覚えた</div>
-      <div class={`ns-card${show ? ' lit' : ''}`}><span class="ns-mark">{d.mark}</span><b class="serif">{d.name}</b></div>
-      <div class={`dc-text${show ? ' show' : ''}`}><p>{d.desc}</p><p class="small muted">{d.tip}</p></div>
-      {st && <div class="row nowrap gap6 ns-by"><Portrait st={st} size={40} frame={countryColor(st.origin)} /><span class="small">{p.why}</span></div>}
-      <div class="small muted" style={{ marginTop: 6 }}>出撃前の画面で、策として選べるようになりました</div>
-      <button class="btn primary block" style={{ marginTop: 10 }} onClick={(e) => { e.stopPropagation(); sfx('ok'); onDone(); }}>閉じる</button>
-    </div>
-  );
-}

@@ -5,9 +5,8 @@ import { Rng } from './rng';
 import { mail } from './game';
 import { COUNTRY_SHORT } from '../data/people';
 import { SENPAI_LETTER, SENPAI_GRAD, SENPAI_ALLY, SENPAI_FOE } from '../data/senpai';
-import { ARTS } from '../data/arts';
+import { TECH_BY_ID } from '../data/tactics';
 import { RANKS } from '../data/balance';
-import { learnArts } from './arts';
 
 /** その子と「先輩と後輩」の相手（相手の状態でしぼる） */
 export function senpaiPartners(s: GameState, st: Student, filter: (o: Student) => boolean): Student[] {
@@ -32,12 +31,11 @@ export function gradWord(s: GameState, r: Rng, st: Student): string | null {
 export function entrustArt(s: GameState, st: Student): string | null {
   const k = senpaiPartners(s, st, (o) => o.status === 'enrolled' && o.cohort > st.cohort)[0];
   if (!k) return null;
-  const mine = (st.arts ?? []).map((id) => ARTS[id]).filter((a) => a && !a.bloom && !(k.arts ?? []).includes(a.id) && !(k.taught ?? []).includes(a.id));
+  const mine = (st.techs ?? []).map((id) => TECH_BY_ID[id]).filter((a) => a && !(k.techs ?? []).includes(a.id));
   if (!mine.length) return null;
-  const a = mine.sort((x, y) => RANKS.indexOf(y.rank) - RANKS.indexOf(x.rank))[0];
-  (k.taught ??= []).push(a.id);
-  const got = learnArts(s, k);
-  const t = `${st.given}は、後輩の${k.given}に「${a.name}」を託した${got.includes(a.id) ? '。その場で覚えた' : ''}`;
+  const a = mine.sort((x, y) => y.at - x.at)[0];
+  (k.techs ??= []).push(a.id);
+  const t = `${st.given}は、後輩の${k.given}に「${a.name}」を託した。その場で覚えた`;
   st.history.push({ year: s.year, text: `${k.given}に「${a.name}」を託した` });
   return t;
 }

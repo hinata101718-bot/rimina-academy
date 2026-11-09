@@ -10,7 +10,6 @@ import { WEAPONS } from '../data/weapons';
 import { generateStudent } from './student';
 import { emptySkills, clamp } from './util';
 import { ensureRosters } from './officers';
-import { START_STRATS } from './stratagems';
 import { reputationRankUp } from './discovery';
 import { repTier } from '../data/discovery';
 import { repGift, takeLoot, STOCK_IDS } from './loot';
@@ -79,7 +78,6 @@ export function newGame(opts: { name: string; background: string; seed: number; 
   for (let g = 1; g <= 3; g++) s.focus[g] = ['sword', 'lance'];
   // 敵将の名簿（6夜目）
   s.officers = []; s.rivalries = {};
-  s.strats = [...START_STRATS];
   ensureRosters(s, r);
   ensureLegends(s, r); // 14夜目：伝説の武器の行方
   startNewsDesk(s);
@@ -174,3 +172,12 @@ export function mailImportant(m: Mail): boolean { return m.important ?? IMPORTAN
 export function importantUnread(s: GameState): Mail[] { return s.mail.filter((m) => !m.read && mailImportant(m)); }
 export function readAllMail(s: GameState): void { for (const m of s.mail) m.read = true; }
 export { COUNTRIES };
+
+/** 傷薬・特効薬の補充（月のはじめ。お金から少し引く） */
+export function restockItems(s: GameState): number {
+  let spent = 0;
+  for (const kind of ['vulnerary', 'elixir'] as const) {
+    while (s.items[kind] < B.restock[kind] && s.money - B.itemPrice[kind] >= B.restock.keep) { s.money -= B.itemPrice[kind]; s.items[kind] += 1; spent += B.itemPrice[kind]; }
+  }
+  return spent;
+}

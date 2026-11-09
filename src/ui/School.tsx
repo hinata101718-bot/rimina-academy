@@ -15,7 +15,7 @@ import { rarityOf, itemName, itemMod } from '../core/rarity';
 import { RARITY_COLOR, RARITY_NAME, RARITY_ORDER, AFFIXES, LEGENDS, LEGEND_BY_ID, type Rarity } from '../data/rarity';
 import type { ArmoryItem } from '../core/state';
 import { WEAPONS, ARMS } from '../data/weapons';
-import { facilityCost, upgradeFacility, hireTeacher, fireTeacher, upkeepCost, type FacilityId } from '../core/teachers';
+import { Ledger } from './Nemesis';
 import { rankOf } from '../core/util';
 import { instructorCaps, goodSkillsOf, viceEligible, viceOf, setVice, removeVice, VICE_POLICY_NAMES } from '../core/instructor';
 import { TeacherFace } from './Talk';
@@ -39,7 +39,7 @@ export function SchoolTab() {
   const { s, route } = useStore();
   if (!s) return null;
   if (route.page === 'lessons' || route.page === 'targets') return <TargetsPage s={s} />;
-  if (route.page === 'facilities') return <Facilities s={s} />;
+  if (route.page === 'facilities' || route.page === 'ledger') return <div><Back to={() => navigate({ tab: 'school' })} /><Ledger key={route.id ?? 'top'} s={s} focus={route.id} /></div>;
   if (route.page === 'armory') return <Armory s={s} />;
   if (route.page === 'mail') return <Mailbox s={s} />;
   if (route.page === 'instructor') return <InstructorPage s={s} />;
@@ -120,7 +120,7 @@ function Notebook({ s }: { s: GameState }) {
             {s.notices.length > 0 && <button class="btn ghost small" onClick={() => act((g) => { g.notices = []; })}>お知らせを消す</button>}
           </div>
           <RepLedger s={s} />
-          <div class="muted small" style={{ margin: '6px 4px' }}>在籍 {list.length}人・講師 {s.teachers.length}人・評判 {Math.round(s.reputation)}／100</div>
+          <div class="muted small" style={{ margin: '6px 4px' }}>在籍 {list.length}人・評判 {Math.round(s.reputation)}／100</div>
         </div>
       </div>
       <div style={{ height: 50 }} />
@@ -130,35 +130,6 @@ function Notebook({ s }: { s: GameState }) {
 
 const FAC_ICON: Record<string, string> = { training: 'sword', library: 'tome', stable: 'run', chapel: 'staff', dining: 'heart', range: 'target' };
 const WICON: Record<string, string> = { sword: 'sword', lance: 'lance', axe: 'axe', bow: 'bow', magic: 'tome', holy: 'staff', staff: 'staff', gun: 'gun' };
-
-function Facilities({ s }: { s: GameState }) {
-  const ids = (Object.keys(B.facilities) as FacilityId[]).filter((f) => f !== 'range' || s.world.gunUnlocked);
-  return (
-    <div>
-      <Back to={() => navigate({ tab: 'school' })} />
-      <h2>施設・講師</h2>
-      <div class="muted">所持金 {money(s.money)}。施設の維持費は毎月{money(upkeepCost(s))}です。<HelpTip text={`施設の段階1つにつき、毎月${B.upkeepPerLevel}Gかかります。`} /></div>
-      {ids.map((f) => {
-        const lv = s.facilities[f] ?? 0; const cost = facilityCost(s, f); const def = B.facilities[f];
-        const eff = f === 'library' ? '魔道がよく伸びます。眠った芽も早く見えます' : f === 'chapel' ? '信仰がよく伸びます。先生の体力も戻りやすくなります' : f === 'dining' ? 'やる気が下がりにくく、交流の会話が増えます' : f === 'stable' ? '騎乗と飛行がよく伸びます。騎兵と天馬の兵種試験も受けられます' : f === 'range' ? '銃と弓がよく伸びます' : '剣と槍と斧がよく伸びます';
-        return (
-          <div class="pcard" style={{ ['--band' as string]: lv >= 3 ? 'var(--gold)' : lv > 0 ? 'var(--main)' : '#cfc6b2' }}>
-            <div class="row between nowrap">
-              <div class="row nowrap gap8 grow"><span class="todoicon"><Icon name={FAC_ICON[f]} size={18} /></span><div class="grow"><span class="ptitle">{def.name}</span> <span class="pips">{[1, 2, 3].map((i) => <i class={i <= lv ? 'on' : ''} />)}</span>{lv === 0 && <span class="small muted">（ボロボロ）</span>}<div class="muted small">{eff}</div></div></div>
-              {cost !== null ? <button class="btn small" disabled={s.money < cost} onClick={() => { sfx('ok'); act((g) => upgradeFacility(g, f)); }}>直す<br />{money(cost)}</button> : <span class="flag">最大</span>}
-            </div>
-          </div>
-        );
-      })}
-      <h3>講師</h3>
-      <div class="muted small">講師がいると、その科目の授業でよく伸びます。給料は毎月払います。<HelpTip text={`給料は毎年4月に少しずつ上がります。講師は${B.teachers.max}人まで雇えます。`} /></div>
-      {s.teachers.map((t) => <div class="pcard row between nowrap" style={{ ['--band' as string]: t.alumniId && s.students[t.alumniId] ? countryColor(s.students[t.alumniId].origin) : 'var(--main)' }}>{t.alumniId && s.students[t.alumniId] && <Portrait st={s.students[t.alumniId]} size={44} />}<div class="grow"><span class="ptitle">{t.name}</span>{t.alumniId ? <Chip tone="gold">卒業生</Chip> : ''}<div class="row nowrap gap6"><Icon name={skillIcon(t.skill)} size={16} />{SKILL_NAMES[t.skill]} <b class="rankbig">{rankOf(t.points)}</b></div><div class="muted small">月給 {money(t.salary)}</div></div><button class="btn ghost small" onClick={() => { if (confirm(`${t.name}に辞めてもらいますか？`)) act((g) => fireTeacher(g, t.id)); }}>辞めてもらう</button></div>)}
-      {s.teacherCandidates.length > 0 && <h3>雇える講師（毎年4月に入れかわります）</h3>}
-      {s.teacherCandidates.map((t) => <div class="pcard row between nowrap" style={{ ['--band' as string]: '#cfc6b2' }}><div class="grow"><span class="ptitle">{t.name}</span><div class="row nowrap gap6"><Icon name={skillIcon(t.skill)} size={16} />{SKILL_NAMES[t.skill]} <b class="rankbig">{rankOf(t.points)}</b></div><div class="muted small">月給 {money(t.salary)}</div></div><button class="btn small" disabled={s.teachers.length >= B.teachers.max} onClick={() => { sfx('ok'); act((g) => hireTeacher(g, t.id)); }}>雇う</button></div>)}
-      {s.teacherCandidates.length === 0 && <div class="muted">今は雇える講師がいません。4月になると、新しい候補が来ます</div>}
-    </div>
-  );
-}
 
 function Armory({ s }: { s: GameState }) {
   // 15夜目：棚ごとにたたむ（伝説の棚だけ開いておく）。レアの棚は武器の名前ごとにまとめる

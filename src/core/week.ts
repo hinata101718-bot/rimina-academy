@@ -12,13 +12,13 @@ import { Rng } from './rng';
 import { rankLetter, clamp, rankOf } from './util';
 import { enrolled, available, notify, addRep, chronicle } from './game';
 import { addSupport, addTrust, addRecent } from './support';
-import { learnSpells, learnedText } from './spells';
+import { learnTechs, learnedText } from './techs';
 import { buildInterview, consultFlag, specialInterview } from './interview';
 import type { InterviewTopic } from '../data/talks/interviews';
 import { examCandidates } from './exam';
 import { viceOf, viceTargets } from './instructor';
 import { fx } from './mentor';
-import { restockItems } from './teachers';
+import { restockItems } from './game';
 
 export type Policy = 'balance' | 'talent' | 'dream' | 'combat';
 
@@ -327,7 +327,7 @@ export function doSpotlight(s: GameState, rng: Rng, id: string): string {
   addTrust(st, 5);
   const k = st.targets[0];
   addSkill(st, k, 10);
-  const learned = learnSpells(s, st);
+  const learned = learnTechs(s, st);
   revealTalent(s, st, 8);
   const res = rng.pick([
     `${st.given}は少し照れくさそうに笑った。`,

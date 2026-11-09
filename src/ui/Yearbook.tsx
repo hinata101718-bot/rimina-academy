@@ -17,7 +17,8 @@ import { Icon } from './icons';
 import { ReviewList } from './Review';
 import { LegendWhereabouts } from './Legend';
 import { ClassBook } from './ClassInfo';
-import { ArtBookBody } from './Arts';
+import { TECHS, ATK_NAME } from '../data/tactics';
+import { SKILL_NAMES as SKN } from '../data/people';
 import { WeaponBook } from './School';
 import { sfx } from './sound';
 
@@ -152,7 +153,7 @@ function Books({ s, sub }: { s: GameState; sub?: string }) {
     <div>
       <div class="seg" style={{ marginBottom: 8 }}>{([['class', '兵種'], ['art', '技'], ['weapon', '武器'], ['officer', '敵将']] as const).map(([id, l]) => <button class={k === id ? 'on' : ''} onClick={() => go(id)}>{l}</button>)}</div>
       {k === 'class' && <ClassBook s={s} embedded />}
-      {k === 'art' && <ArtBookBody s={s} />}
+      {k === 'art' && <div class="card"><h3>技の図鑑</h3>{TECHS.map((t) => { const who = Object.values(s.students).filter((x) => (x.techs ?? []).includes(t.id)).length; return <div class="row nowrap gap6 small" style={{ marginTop: 3 }}><span class="chip-o">{ATK_NAME[t.type]}</span><b>{who ? t.name : '？？？'}</b><span class="muted grow">{SKN[t.skill]}{['E+', 'D', 'C', 'B', 'A'][[0, 50, 140, 270, 440].indexOf(t.at)] ?? ''}で覚える{who ? `・${t.desc}` : ''}</span>{who > 0 && <span class="flag">{who}人</span>}</div>; })}</div>}
       {k === 'weapon' && <WeaponBook s={s} />}
       {k === 'officer' && <div>
         <div class="small muted">戦場で会ったことのある敵将です（{met.length}人）。くわしくは「戦況」の敵将の名簿で。</div>

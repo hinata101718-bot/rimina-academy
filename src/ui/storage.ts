@@ -42,12 +42,12 @@ async function del(key: string): Promise<void> {
   await new Promise<void>((res) => { const tx = db.transaction(STORE, 'readwrite'); tx.objectStore(STORE).delete(key); tx.oncomplete = () => res(); tx.onerror = () => res(); });
 }
 
-export interface SlotInfo { slot: number; exists: boolean; label: string; savedAt: number }
+export interface SlotInfo { slot: number; exists: boolean; label: string; savedAt: number; /** 19夜目：古い版のセーブ（新しく始めるのがおすすめ） */ old?: boolean }
 
 export async function saveSlot(s: GameState): Promise<void> {
   const text = serialize(s);
   await put(`slot${s.slot}`, text);
-  await put(`meta${s.slot}`, JSON.stringify({ label: `${s.instructor.name}教官 ${s.year}年目 ${['4', '5', '6', '7', '8', '9', '10', '11', '12', '1', '2', '3'][s.month]}月 第${s.week}週`, savedAt: Date.now() }));
+  await put(`meta${s.slot}`, JSON.stringify({ label: `${s.instructor.name}教官 ${s.year}年目 ${['4', '5', '6', '7', '8', '9', '10', '11', '12', '1', '2', '3'][s.month]}月 第${s.week}週`, savedAt: Date.now(), v: 19, old: s.oldSave ?? null }));
   await put('last', String(s.slot));
 }
 export async function loadSlot(slot: number): Promise<GameState | null> {
@@ -60,7 +60,7 @@ export async function slotInfos(): Promise<SlotInfo[]> {
   const out: SlotInfo[] = [];
   for (let i = 0; i < 3; i++) {
     const m = await get(`meta${i}`);
-    if (m) { try { const j = JSON.parse(m); out.push({ slot: i, exists: true, label: j.label, savedAt: j.savedAt }); continue; } catch { /* */ } }
+    if (m) { try { const j = JSON.parse(m); out.push({ slot: i, exists: true, label: j.label, savedAt: j.savedAt, old: !j.v || j.old != null }); continue; } catch { /* */ } }
     out.push({ slot: i, exists: false, label: '空き', savedAt: 0 });
   }
   return out;

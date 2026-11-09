@@ -13,7 +13,7 @@ import type { GameState, Student, CareerInfo } from './state';
 import { Rng } from './rng';
 import { effectiveStats, chronicle, addFriendship, enrolled } from './game';
 import { addTrust } from './support';
-import { bestSkillOf } from './teachers';
+import { bestSkillOf, presence } from './util';
 import { fx } from './mentor';
 
 export type CareerChoice = CountryId | 'stay' | 'home' | 'merc';
@@ -27,7 +27,7 @@ export function computeOffers(s: GameState, rng: Rng, st: Student): CountryId[] 
   const tier = CLASSES[st.classId]?.tier ?? 0;
   const es = effectiveStats(st);
   for (const c of COUNTRIES) {
-    let p = B.career.offerBase + st.exhibitionScore * 0.03 + tier * 0.08 + es.cha * 0.01 + s.world.friendship[c] * 0.004 + st.battles * 0.01;
+    let p = B.career.offerBase + st.exhibitionScore * 0.03 + tier * 0.08 + presence(es) * 0.01 + s.world.friendship[c] * 0.004 + st.battles * 0.01;
     if (COUNTRY_FAVOR_SKILLS[c].some((k) => (st.skills[k] ?? 0) >= 140)) p += 0.1;
     if (COUNTRY_FAVOR_HOUSE[c] && COUNTRY_FAVOR_HOUSE[c] === st.house) p += 0.1;
     if (st.origin === c) p += 0.15;
@@ -64,8 +64,8 @@ export function pathScores(st: Student): Record<Path, number> {
   const arms = Math.max(...ARM_SKILLS.map((k) => st.skills[k] ?? 0));
   // 自分のいちばん高い武器の技能と比べる（采配の技能が武器に近いほど、将・参謀に向く）
   return {
-    civil: e.cha * 10 + (st.house === 'noble' ? 30 : 0),
-    warrior: cmd * 3.5 + e.cha * 6,
+    civil: presence(e) * 10 + (st.house === 'noble' ? 30 : 0),
+    warrior: cmd * 3.5 + presence(e) * 6,
     strategist: tac * 3.5 + (e.skl + e.mag) * 1.5,
     champion: arms,
   };

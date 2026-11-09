@@ -1,3 +1,4 @@
+import { presence } from './util';
 // 教官：教えるほど上がる技能（③）、加齢・引退・後継（④）、副教官（⑤）。DOMに依存しない
 import { goodOf } from './aptitude';
 import { RANK_TITLES } from '../data/people';
@@ -178,7 +179,7 @@ export function becomeInstructor(s: GameState, rng: Rng, st: Student): void {
   const prev = s.instructor;
   const ins: Instructor = {
     name: st.given, background: bg, age: st.age, experience: 0, skills,
-    cha: effectiveStats(st).cha, generation: s.instructor.generation + 1, studentId: st.id, since: s.year,
+    cha: presence(effectiveStats(st)), generation: s.instructor.generation + 1, studentId: st.id, since: s.year,
   };
   s.instructor = ins;
   ins.caps = undefined; instructorCaps(s);
