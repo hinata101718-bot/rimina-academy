@@ -20,6 +20,7 @@ import { fx } from './mentor';
 import { startNewsDesk } from './newspaper';
 import { markYear } from './review';
 import { startOpening } from './opening';
+import { yearlyRulers } from './regions';
 import { learnTechs } from './techs';
 import { ensureLegends } from './rarity';
 
@@ -103,6 +104,7 @@ export function newGame(opts: { name: string; background: string; seed: number; 
   if (opts.tutorial) s.tutorial = { tour: 0, seen: [] }; // 14夜目：最初の1時間の案内
   s.quests = rollQuests(s);
   ensureRegions(s); // 13夜目：勢力図
+  yearlyRulers(s, r, []); // 19夜目：治める人の顔
   markYear(s); // 14夜目：1年の振り返りの控え
   if (opts.opening !== false) startOpening(s, r);
   return s;

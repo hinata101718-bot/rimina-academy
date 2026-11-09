@@ -1,12 +1,13 @@
 // 大陸の勢力図（13夜目）：地形の絵の上に、地域ごとに治める国の色。⚔・教え子の数・地域をタップで吹き出し・三国の帯・この前から変わったこと
 import { useEffect, useRef, useState } from 'preact/hooks';
-import { act, useStore } from './store';
+import { act, useStore, navigate } from './store';
 import { sfx } from './sound';
 import { Sheet } from './common';
-import { Portrait } from './Portrait';
+import { Portrait, OfficerFace } from './Portrait';
 import type { GameState } from '../core/state';
 import { REGIONS, REGION_BY_ID, MAP_SIZE } from '../data/regions';
-import { ownerOf, warRegions, alumniIn, regionShare, mapChanges, markMapSeen, OWNER_NAMES, type Owner } from '../core/regions';
+import { ownerOf, warRegions, alumniIn, regionShare, mapChanges, markMapSeen, OWNER_NAMES, rulerOf, type Owner } from '../core/regions';
+import { officerById, officerName, rankName } from '../core/officers';
 import { titleOf } from '../core/alumni';
 
 const BASE = import.meta.env.BASE_URL;
@@ -118,6 +119,7 @@ export function WorldMap({ s }: { s: GameState }) {
                 {x.kind === 'school' ? <span class="wm-star">★</span> : null}{x.kind === 'capital' ? '◆' : ''}{zoom ? x.name : (x.short ?? x.name)}
                 {wars.has(x.id) && <i class="wm-war">⚔</i>}
                 {n > 0 && x.kind !== 'school' && <i class="wm-alum">{n}</i>}
+                {zoom && <RulerDot s={s} id={x.id} />}
               </button>
             );
           })}
@@ -135,6 +137,7 @@ export function WorldMap({ s }: { s: GameState }) {
         <Sheet title={r.name} onClose={() => setSel(null)}>
           <div class="row nowrap gap6"><i class="wm-dot" style={{ background: css(owners[r.id]) }} /><b>{OWNER_NAMES[owners[r.id]]}</b>{owners[r.id] !== r.home && <span class="small muted">（もとは{OWNER_NAMES[r.home]}）</span>}{wars.has(r.id) && <span class="flag red">戦いの最中</span>}</div>
           <div class="small" style={{ marginTop: 4 }}>名産：<b>{r.product}</b></div>
+          <RulerRow s={s} id={r.id} />
           <h3>この地域にいる教え子</h3>
           {alum.length === 0 && <div class="muted small">今はいません</div>}
           {alum.map((st) => <div class="row nowrap gap6" style={{ margin: '4px 0' }}><Portrait st={st} size={36} /><span><b>{st.given}</b>（{st.cohort}期生）<span class="small muted">{titleOf(st)}</span></span></div>)}
@@ -181,4 +184,22 @@ export function MapChangePlayer({ s, onDone }: { s: GameState; onDone: () => voi
       </div>
     </div>
   );
+}
+
+/** 19夜目：治める人・守る人の顔（宿敵なら因縁の帳へ、教え子なら個人ページへ） */
+function RulerRow({ s, id }: { s: GameState; id: string }) {
+  const rl = rulerOf(s, id);
+  if (!rl) return <div class="small muted" style={{ marginTop: 6 }}>治める人：まだいない</div>;
+  if (rl.kind === 'alumni') { const st = s.students[rl.id]; if (!st) return null; return <button class="nem-bond" onClick={() => navigate({ tab: 'students', page: 'detail', id: st.id })}><Portrait st={st} size={40} /><span><b>{st.given}</b>（卒業生）<small>{rl.role === 'guard' ? '守る人' : '領主'}・{rl.since}年目から</small></span></button>; }
+  const o = officerById(s, rl.id); if (!o) return null;
+  const bonded = Object.values(s.rivalries ?? {}).some((rv) => rv.oid === o.id && (rv.stage >= 1 || rv.vow));
+  return <button class="nem-bond" onClick={() => navigate({ tab: 'school', page: 'ledger', id: o.id })}><OfficerFace o={o} size={40} frame={bonded ? '#b0392b' : undefined} /><span><b>{officerName(o)}</b>{bonded ? '（宿敵）' : ''}<small>{rl.role === 'guard' ? '守る人' : '治める人'}・{rankName(o)}・{rl.since}年目から</small></span></button>;
+}
+function RulerDot({ s, id }: { s: GameState; id: string }) {
+  const rl = rulerOf(s, id);
+  if (!rl) return null;
+  if (rl.kind === 'alumni') { const st = s.students[rl.id]; return st ? <i class="wm-ruler alum"><Portrait st={st} size={20} /></i> : null; }
+  const o = officerById(s, rl.id);
+  const bonded = !!o && Object.values(s.rivalries ?? {}).some((rv) => rv.oid === o.id && (rv.stage >= 1 || rv.vow));
+  return o ? <i class={`wm-ruler${bonded ? ' nem' : ''}`}><OfficerFace o={o} size={20} /></i> : null;
 }

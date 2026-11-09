@@ -53,7 +53,8 @@ export function yearlyRegions(s: GameState, r: Rng): string[] {
   for (let i = 0; i < 3; i++) for (let j = i + 1; j < 3; j++) {
     const a = COUNTRIES[i], b = COUNTRIES[j];
     if (!atWarPair(s, a, b)) continue;
-    const pa = s.world.power[a], pb = s.world.power[b];
+    // 19夜目：大きな戦の勝ち負けは、将（宿敵・教え子）の力で決まる
+    const pa = warStrength(s, a), pb = warStrength(s, b);
     const [win, lose] = pa >= pb ? [a, b] : [b, a];
     const diff = Math.abs(pa - pb);
     const cand = borderOf(s, lose, win).filter((id) => REGION_BY_ID[id].kind !== 'capital');
@@ -62,6 +63,7 @@ export function yearlyRegions(s: GameState, r: Rng): string[] {
       const id = r.pick(cand);
       setOwner(s, id, win);
       out.push(`${REGION_BY_ID[id].name}が${COUNTRY_SHORT[win]}の手に落ちた`);
+      const t = seizeBy(s, id, win, r); if (t) out.push(t);
     }
   }
   // 平和が続くと、奪われた地域がもとの国に戻ることがある（和平の約束）
@@ -134,3 +136,62 @@ export function mapChanges(s: GameState): { id: string; from: Owner; to: Owner; 
   return REGIONS.filter((r) => seen.o[r.id] && seen.o[r.id] !== now[r.id]).map((r) => ({ id: r.id, from: seen.o[r.id] as Owner, to: now[r.id], year: [...(s.world.regionLog ?? [])].reverse().find((x) => x.id === r.id)?.year ?? s.year }));
 }
 export function markMapSeen(s: GameState): void { s.mapSeen = { at: s.year * 12 + s.month, o: Object.fromEntries(REGIONS.map((r) => [r.id, ownerOf(s, r.id)])) }; }
+
+// ---------- 19夜目：人の地図（領地を治める人・守る人の顔） ----------
+import { officers as allOfficers, officerName as ofName } from './officers';
+import { chronicle as addChronicle } from './game';
+
+export interface Ruler { kind: 'officer' | 'alumni'; id: string; since: number; role: 'lord' | 'guard' }
+/** 地域の治める人（なければ決める）。国の地域は、その国の将か、出世した教え子。荒野は盗賊の頭 */
+export function rulerOf(s: GameState, id: string): Ruler | null {
+  const m = (s.world.rulers ??= {});
+  const cur = m[id];
+  if (cur && rulerAlive(s, cur, ownerOf(s, id))) return cur;
+  return null;
+}
+function rulerAlive(s: GameState, r: Ruler, owner: Owner): boolean {
+  if (r.kind === 'officer') { const o = allOfficers(s).find((x) => x.id === r.id); return !!o && o.status === 'active' && (o.faction === owner || (owner === 'wild' && o.faction === 'bandit')); }
+  const st = s.students[r.id];
+  return !!st?.career?.alive && !st.career.retired && st.career.country === owner;
+}
+/** 年度末：治める人を決めなおす。宿敵が奪った領地は、その宿敵が治める。教え子も領主になる */
+export function yearlyRulers(s: GameState, r: Rng, report: string[]): void {
+  const m = (s.world.rulers ??= {});
+  for (const x of REGIONS) {
+    if (x.home === 'school') continue;
+    const owner = ownerOf(s, x.id);
+    const cur = m[x.id];
+    if (cur && rulerAlive(s, cur, owner)) continue;
+    delete m[x.id];
+    // 出世した教え子（役職の段階が高い）が、母国の地域の領主に
+    const alum = Object.values(s.students).filter((st) => st.status === 'graduated' && st.career?.alive && !st.career.retired && st.career.kind === 'army' && st.career.country === owner && st.career.rank >= B.rulers.alumniRank && !Object.values(m).some((v) => v.kind === 'alumni' && v.id === st.id));
+    const offs = allOfficers(s).filter((o) => o.status === 'active' && (o.faction === owner || (owner === 'wild' && o.faction === 'bandit')) && !o.prospect && !Object.values(m).some((v) => v.kind === 'officer' && v.id === o.id));
+    if (alum.length && r.chance(B.rulers.alumniChance)) {
+      const st = alum.sort((a, c) => c.career!.rank - a.career!.rank)[0];
+      m[x.id] = { kind: 'alumni', id: st.id, since: s.year, role: x.kind === 'capital' ? 'guard' : 'lord' };
+      const t = `卒業生の${st.given}が、${x.name}の${x.kind === 'capital' ? '守り' : '領主'}になった`;
+      st.history.push({ year: s.year, text: t }); report.push(t); addChronicle(s, t, 'student');
+    } else if (offs.length) {
+      const o = offs.sort((a, c) => a.rank - c.rank || c.level - a.level)[x.kind === 'capital' ? 0 : Math.min(offs.length - 1, r.int(0, 2))];
+      m[x.id] = { kind: 'officer', id: o.id, since: s.year, role: x.kind === 'capital' ? 'guard' : 'lord' };
+      (o.holds ??= []).includes(x.id) || o.holds!.push(x.id);
+    }
+  }
+}
+/** 地域が奪われたとき：奪った国の将（宿敵がいれば宿敵）がそこを治める */
+export function seizeBy(s: GameState, id: string, win: CountryId, r: Rng): string | null {
+  const m = (s.world.rulers ??= {});
+  const bonded = allOfficers(s).filter((o) => o.status === 'active' && o.faction === win && Object.values(s.rivalries ?? {}).some((rv) => rv.oid === o.id && (rv.stage >= 1 || rv.vow)));
+  const pool = bonded.length ? bonded : allOfficers(s).filter((o) => o.status === 'active' && o.faction === win && !o.prospect);
+  if (!pool.length) return null;
+  const o = r.pick(pool);
+  m[id] = { kind: 'officer', id: o.id, since: s.year, role: 'lord' };
+  (o.holds ??= []).push(id);
+  return `${ofName(o)}が${REGION_BY_ID[id].name}を奪い、治めはじめた`;
+}
+/** 大きな戦の強さ：国力に、その国の将と教え子の力を足す */
+export function warStrength(s: GameState, c: CountryId): number {
+  const offs = allOfficers(s).filter((o) => o.status === 'active' && o.faction === c && !o.prospect).reduce((a, o) => a + o.level * (o.rank === 0 ? 1.5 : 1), 0);
+  const alum = Object.values(s.students).filter((st) => st.status === 'graduated' && st.career?.alive && !st.career.retired && st.career.kind === 'army' && st.career.country === c).reduce((a, st) => a + st.level * (1 + st.career!.rank * 0.25), 0);
+  return s.world.power[c] + (offs + alum) * B.rulers.generalWeight;
+}

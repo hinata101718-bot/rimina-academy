@@ -19,13 +19,13 @@ import { createTactics, questSeed } from './tactics/setup';
 import { autoFinish } from './tactics/ai';
 import { applyTactics } from './tactics/after';
 import { ensureRosters, yearlyOfficers, pickOfficerForQuest, officerById, ensureRivalry } from './officers';
-import { bondOf, battleLines, scoutWeak, afterNemesisBattle, nemesisMonth, pushReunion, reunionLines, bondedOfficers } from './nemesis';
+import { bondOf, battleLines, scoutWeak, afterNemesisBattle, nemesisMonth, pushReunion, reunionLines, bondedOfficers, addIntel } from './nemesis';
 import { arrivalLines } from './opening';
 import { officerName } from './officers';
 import { fx } from './mentor';
 import { publishIssue } from './newspaper';
 import { rollSides, deferShows } from './discovery';
-import { monthlyWorld, yearlyWorld, tensionStage, activeAlumni } from './world';
+import { monthlyWorld, yearlyWorld, tensionStage, activeAlumni, PAIRS, atWar } from './world';
 import { simulateAlumni, aidMoney, titleOf } from './alumni';
 import { prepareCareers, graduate, type CareerPlan } from './career';
 import { generateStudent } from './student';
@@ -35,7 +35,7 @@ import { checkEndings, peaceEraYear } from './ending';
 import { supportValue, bestFriend } from './support';
 import { closeYear, markYear } from './review';
 import { senpaiLetters } from './senpai';
-import { yearlyRegions } from './regions';
+import { yearlyRegions, yearlyRulers } from './regions';
 import { yearlyLegends, unclaimedLegend, legendLoot } from './rarity';
 import { takeLoot } from './loot';
 import { tip, checkTips, firstTalk as tutorialTalk, tutorialMonth } from './tutorial';
@@ -375,6 +375,20 @@ export function yearEnd(s: GameState, graduated: string[]): void {
   const news = simulateAlumni(s, r);
   // 4. 戦況
   const world = yearlyWorld(s, r);
+  // 19夜目：評判が高いと、仲立ち・和平の席に招かれる（戦場の外で宿敵と会うことも）
+  if (s.reputation >= B.rulers.mediateRep && r.chance(B.rulers.mediateChance)) {
+    const pair = PAIRS.find((p) => atWar(s, p.a, p.b));
+    if (pair) {
+      s.world.relations[pair.key] = Math.min(100, s.world.relations[pair.key] + B.rulers.mediateRel);
+      s.world.tension = Math.max(0, s.world.tension - B.rulers.mediateTension);
+      s.world.peaceTalksHeld += 1;
+      const t = `学校の評判を聞いた${COUNTRY_SHORT[pair.a]}と${COUNTRY_SHORT[pair.b]}が、${s.instructor.name}先生を仲立ちに招いた。和平の席が設けられた`;
+      chronicle(s, t, 'school');
+      mail(s, '和平の席', '仲立ちの招き', t, undefined, true);
+      const nem = bondedOfficers(s).find((o) => o.faction === pair.a || o.faction === pair.b);
+      if (nem) { addIntel(nem); pushReunion(s, nem, [], 'reunion', [`和平の席で、${officerName(nem)}と顔を合わせた。剣を抜かずに向かい合うのは、はじめてのことだ。`, ...reunionLines(s, nem)]); }
+    }
+  }
   // 敵将の名簿（6夜目）：年をとる・引退・権力争い・卒業生が敵将に・手紙
   const officerNews = yearlyOfficers(s, r);
   // お金：援助金と寄付
@@ -444,6 +458,7 @@ export function yearEnd(s: GameState, graduated: string[]): void {
   }
   // 13夜目：勢力図（戦争中の国境の地域が動く。統一なら大陸が一色に）
   yearlyRegions(s, r);
+  yearlyRulers(s, r, []);
   // 14夜目：1年の振り返り（卒業式と新聞のあと。エンディングの年は、エンディングのあとに）
   const rv = closeYear(s);
   let at = s.pending.length;

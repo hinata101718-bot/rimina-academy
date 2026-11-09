@@ -258,6 +258,8 @@ export const B = {
   // ---- 試験 ----
   exam: { baseRate: 60, perPoints: 5, max: 100, levelReq: [0, 0, 6, 14, 30] as number[], heroLevel: 25, /** 19夜目：中級は2年生（1年目の終わり）から、上級は3年生から。出撃の回数（宿敵戦は2回に数える） */ tier2Grade: 2, tier3Grade: 3, sorties: [0, 0, 3, 8, 15] as number[] }, // 段階ごとの受験レベル（7夜目：初級5・中級15・上級25・最上級（卒業後）45、英雄25）
   // ---- 戦闘 ----
+  /** 19夜目：人の地図。教え子が領主になる役職の段階・見込み、大きな戦で将の力をどれだけ足すか */
+  rulers: { alumniRank: 3, alumniChance: 0.5, generalWeight: 0.05, /** 評判で仲立ち・和平の席 */ mediateRep: 65, mediateChance: 0.3, mediateRel: 12, mediateTension: 6 },
   /** 19夜目：入学の希望者（10人ほど＋評判25ごとに1人）・仇討ちの子が来る見込み */
   admission: { base: 10, perRep: 25, avenger: 0.3 },
   /** 19夜目：全盛期と衰え（年齢）：伸び盛り〜27歳、28〜34歳は伸びが0.6倍、35〜44歳は0.3倍、45歳から伸びなくなり、毎年少しずつ衰える */

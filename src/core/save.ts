@@ -10,7 +10,7 @@ import { learnTechs } from './techs';
 import { ensureRosters, linkOrg, markOrgSeen } from './officers';
 import { ensureOfficerCombat } from './tactics/setup';
 import { memoryOf } from './nemesis';
-import { ensureRegions } from './regions';
+import { ensureRegions, yearlyRulers } from './regions';
 import { startNewsDesk } from './newspaper';
 import { ensureLegends } from './rarity';
 import { rebuildReviews } from './review';
@@ -117,7 +117,7 @@ function convertTo19(s: GameState, from: number): void {
   s.rivalries ??= {};
   s.officers ??= [];
   try { ensureRosters(s, r); linkOrg(s); if (!s.orgSeen) markOrgSeen(s); } catch { /* 名簿が作れなくても先へ */ }
-  try { ensureRegions(s); } catch { /* */ }
+  try { ensureRegions(s); yearlyRulers(s, r, []); } catch { /* */ }
   try { if (!s.newsDesk) startNewsDesk(s); } catch { /* */ }
   try { ensureLegends(s); } catch { /* */ }
   try { if (!s.reviews) rebuildReviews(s); } catch { /* */ }

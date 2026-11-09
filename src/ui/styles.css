@@ -2189,3 +2189,6 @@ details.fold > summary::-webkit-details-marker { display: none; }
 .tb-df .tb-mark, .tb-cf .tb-mark, .tb-sf .tb-mark { background: #3a1410; font-size: 44px; }
 .tb-u.teacher .tb-mark { color: #6b4a14; font-size: 18px; }
 .lb-h { font-family: var(--serif, serif); font-size: 15px; margin: 8px 4px 2px; }
+.wm-ruler { position: absolute; left: 50%; top: -22px; transform: translateX(-50%); width: 20px; height: 20px; border-radius: 50%; overflow: hidden; display: block; box-shadow: 0 0 0 1px #fff; }
+.wm-ruler.nem { box-shadow: 0 0 0 2px #b0392b; }
+.wm-ruler > * { width: 20px !important; height: 20px !important; }

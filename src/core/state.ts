@@ -266,6 +266,8 @@ export interface WorldState {
   /** 13夜目：勢力図（地域 id → 持ち主）と、持ち主が変わった記録 */
   regions?: Record<string, import('../data/regions').RegionHome>;
   regionLog?: { year: number; month: number; id: string; from: string; to: string }[];
+  /** 19夜目：地域を治める人・守る人（宿敵・教え子） */
+  rulers?: Record<string, import('./regions').Ruler>;
   eventCooldown: Record<string, number>; // 大事件ごとの再発までの月数
   history: { year: number; tension: number; power: Record<CountryId, number> }[];
 }
