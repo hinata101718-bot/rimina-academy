@@ -56,3 +56,36 @@ describe('今月の主役（声をかけるのおまかせ）', () => {
     expect(enrolled(s).length).toBeGreaterThan(0);
   });
 });
+
+describe('道具の自動補充', () => {
+  it('毎月のはじめに傷薬と特効薬が決まった数まで戻る（お金が少ないときは補充しない）', async () => {
+    const { restockItems } = await import('../src/core/teachers');
+    const { B } = await import('../src/data/balance');
+    const s = newGame({ name: 'テスト', background: 'knight', seed: 3, start: 'normal' });
+    s.items = { vulnerary: 0, elixir: 0 }; s.money = 5000;
+    const spent = restockItems(s);
+    expect(s.items).toEqual({ vulnerary: B.restock.vulnerary, elixir: B.restock.elixir });
+    expect(spent).toBe(B.restock.vulnerary * B.itemPrice.vulnerary + B.restock.elixir * B.itemPrice.elixir);
+    s.items = { vulnerary: 0, elixir: 0 }; s.money = B.restock.keep;
+    expect(restockItems(s)).toBe(0);
+    autoYears(s, 1);
+    expect(s.gameOver).toBe(false);
+  });
+});
+
+describe('兵種試験（2タップ）', () => {
+  it('条件がそろえば、選んだ兵種に必ずなる（受験の画面をはさまない）', async () => {
+    const { nextClasses, classUnlocked, meetsReq, takeExam, canTakeExam } = await import('../src/core/exam');
+    const { rng } = await import('../src/core/flow');
+    const { SKILLS, RANK_POINTS } = await import('../src/data/balance');
+    const s = deserialize(fixture('v14-day.json'));
+    s.pending = [];
+    const st = enrolled(s).find((x) => nextClasses(s, x).length > 0)!;
+    st.level = 30; for (const k of SKILLS) st.skills[k] = RANK_POINTS.A; st.examMonth = -1; st.injuredWeeks = 0;
+    expect(canTakeExam(s, st)).toBe(true);
+    const c = nextClasses(s, st).find((x) => classUnlocked(s, x) && meetsReq(st, x))!;
+    const r = takeExam(s, rng(s), st, c.id);
+    expect(r.ok).toBe(true);
+    expect(s.students[st.id].classId).toBe(c.id);
+  });
+});

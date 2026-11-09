@@ -15,7 +15,7 @@ import { rarityOf, itemName, itemMod } from '../core/rarity';
 import { RARITY_COLOR, RARITY_NAME, RARITY_ORDER, AFFIXES, LEGENDS, LEGEND_BY_ID, type Rarity } from '../data/rarity';
 import type { ArmoryItem } from '../core/state';
 import { WEAPONS, ARMS } from '../data/weapons';
-import { facilityCost, upgradeFacility, hireTeacher, fireTeacher, buyItem, upkeepCost, type FacilityId } from '../core/teachers';
+import { facilityCost, upgradeFacility, hireTeacher, fireTeacher, upkeepCost, type FacilityId } from '../core/teachers';
 import { rankOf } from '../core/util';
 import { instructorCaps, goodSkillsOf, viceEligible, viceOf, setVice, removeVice, VICE_POLICY_NAMES } from '../core/instructor';
 import { TeacherFace } from './Talk';
@@ -161,8 +161,11 @@ function Facilities({ s }: { s: GameState }) {
 }
 
 function Armory({ s }: { s: GameState }) {
-  const [view, setView] = useState<'shelf' | 'book'>('shelf');
-  const [allRare, setAllRare] = useState(false);
+  // 15夜目：棚ごとにたたむ（伝説の棚だけ開いておく）。レアの棚は武器の名前ごとにまとめる
+  const [opened, setOpened] = useState<Set<string>>(() => new Set(['legend']));
+  const toggleShelf = (r: string) => { sfx('move'); const n = new Set(opened); if (n.has(r)) n.delete(r); else n.add(r); setOpened(n); };
+  const [group, setGroup] = useState<string | null>(null);
+  const groups = (list: ArmoryItem[]) => { const m = new Map<string, ArmoryItem[]>(); for (const a of list) { if (!WEAPONS[a.weaponId]) continue; m.set(a.weaponId, [...(m.get(a.weaponId) ?? []), a]); } return [...m.entries()].sort((x, y) => y[1].length - x[1].length); };
   const [open, setOpen] = useState<string | null>(null);
   const typeName: Record<string, string> = { sword: '剣', lance: '槍', axe: '斧', bow: '弓', magic: '魔道', holy: '信仰', staff: '杖', gun: '銃' };
   const stock = stockList(s);
@@ -193,40 +196,37 @@ function Armory({ s }: { s: GameState }) {
       <Back to={() => navigate({ tab: 'school' })} />
       <h2>武器庫</h2>
       <div class="muted">戦いで手に入れた武器が、棚に並んでいます。出撃のときは、その子にいちばん合う武器を自動で持たせます。札を押すと、くわしく見られます。</div>
-      <div class="seg" style={{ margin: '8px 0' }}><button class={view === 'shelf' ? 'on' : ''} onClick={() => setView('shelf')}>武器の棚</button><button class={view === 'book' ? 'on' : ''} onClick={() => setView('book')}>武器の図鑑</button></div>
-      {view === 'book' ? <WeaponBook s={s} /> : <>
-        {RARITY_ORDER.filter((r) => r !== 'normal').map((r) => { const list = shelf(r); return (
-          <div class={`shelf rar-${r}`} style={{ ['--rar' as string]: RARITY_COLOR[r] }}>
-            <h3><span class="rar-tag">{RARITY_NAME[r]}</span> <span class="muted small">{list.length}振り</span></h3>
-            {!list.length && <div class="empty-note">{r === 'legend' ? '大陸に12振りしかない伝説の武器です。敵の将軍が持っていることもあります' : r === 'unique' ? '敵将を討ち取ると、その敵将の名を刻んだ武器が手に入ることがあります' : '敵兵の落とし物や依頼の報酬で、鋼・銀・名匠の武器が手に入ります'}</div>}
-            <div class="weapongrid">{(r === 'rare' && !allRare ? list.slice(0, 12) : list).map(card)}</div>
-            {r === 'rare' && !allRare && list.length > 12 && <button class="btn ghost small block" onClick={() => setAllRare(true)}>ほかのレアの武器 {list.length - 12}振りを見る ▼</button>}
-          </div>
-        ); })}
-        {shelf('normal').length > 0 && <><h3>卒業生の遺品</h3><div class="weapongrid">{shelf('normal').map(card)}</div></>}
-        <div class="shelf rar-normal" style={{ ['--rar' as string]: RARITY_COLOR.normal }}>
-          <h3><span class="rar-tag">{RARITY_NAME.normal}</span> <span class="muted small">学校の備え</span></h3>
-          <div class="small muted">鉄の武器は、学校にいつでもいくつでもそろっています。{stock.map((a) => WEAPONS[a.weaponId].name).join('、')}</div>
+      {RARITY_ORDER.filter((r) => r !== 'normal').map((r) => { const list = shelf(r); const isOpen = opened.has(r); return (
+        <div class={`shelf rar-${r}`} style={{ ['--rar' as string]: RARITY_COLOR[r] }}>
+          <button class="shelf-head" disabled={!list.length} onClick={() => toggleShelf(r)}><span class="rar-tag">{RARITY_NAME[r]}</span><span class="grow muted small">{list.length ? `${list.length}振り` : r === 'legend' ? 'まだありません（大陸に12振り）' : r === 'unique' ? 'まだありません（敵将を討ち取ると手に入ることがあります）' : 'まだありません'}</span>{list.length > 0 && <span class="muted">{isOpen ? '▲' : '▼'}</span>}</button>
+          {isOpen && (r === 'rare' ? groups(list).map(([wid, xs]) => (
+            <div>
+              <div class="row between nowrap ruled tap" style={{ minHeight: 44 }} onClick={() => setGroup(group === wid ? null : wid)}><span><Icon name={WICON[WEAPONS[wid].type]} size={16} /> {WEAPONS[wid].name} <span class="muted small">{xs.length}振り{xs.some((x) => (x.affix ?? []).length) ? `（添え名つき${xs.filter((x) => (x.affix ?? []).length).length}）` : ''}</span></span><span class="muted">{group === wid ? '▲' : '▼'}</span></div>
+              {group === wid && <div class="weapongrid">{xs.map(card)}</div>}
+            </div>
+          )) : <div class="weapongrid">{list.map(card)}</div>)}
         </div>
-      </>}
-      <h3>道具（所持金 {money(s.money)}）</h3>
-      <div class="card">
-        <div class="muted small">傷薬 {s.items.vulnerary}個　特効薬 {s.items.elixir}個</div>
-        <div class="row between"><span>傷薬（HPが10戻る）</span><button class="btn small" disabled={s.money < B.itemPrice.vulnerary} onClick={() => act((g) => buyItem(g, 'vulnerary'))}>{money(B.itemPrice.vulnerary)}で買う</button></div>
-        <div class="row between"><span>特効薬（HPがすべて戻る）</span><button class="btn small" disabled={s.money < B.itemPrice.elixir} onClick={() => act((g) => buyItem(g, 'elixir'))}>{money(B.itemPrice.elixir)}で買う</button></div>
-      </div>
+      ); })}
+      {shelf('normal').length > 0 && <><h3>卒業生の遺品</h3><div class="weapongrid">{shelf('normal').map(card)}</div></>}
+      <div class="small muted" style={{ marginTop: 10 }}>ノーマル（鉄の武器）は、学校にいつでもいくつでもそろっています：{stock.map((a) => WEAPONS[a.weaponId].name).join('、')}</div>
+      <button class="btn ghost small" style={{ marginTop: 6 }} onClick={() => navigate({ tab: 'yearbook', page: 'book', sub: 'weapon' })}>武器の図鑑を見る（年鑑）</button>
+      <div class="small muted" style={{ marginTop: 10 }}>道具：傷薬 {s.items.vulnerary}個・特効薬 {s.items.elixir}個（毎月のはじめに、傷薬{B.restock.vulnerary}個・特効薬{B.restock.elixir}個まで自動で補充します。所持金が{B.restock.keep}Gより少ないときは補充しません）</div>
     </div>
   );
 }
 
 /** 武器の図鑑（14夜目）：手に入れたことのある武器は名前が見える。伝説の武器は「？」の影から埋まる */
-function WeaponBook({ s }: { s: GameState }) {
+export function WeaponBook({ s }: { s: GameState }) {
   const seen = new Set(s.weaponSeen ?? []);
   for (const a of s.armory) seen.add(a.weaponId);
   const arms = ARMS.filter((w) => !STOCK_IDS.has(w.id) && (w.type !== 'gun' || s.world.gunUnlocked || seen.has(w.id)));
   const nLeg = LEGENDS.filter((l) => seen.has(`legend:${l.id}`)).length;
+  // 15夜目：レアリティで切り替える（長い画面を短く）
+  const [view, setView] = useState<'legend' | 'rare'>('legend');
   return (
     <div>
+      <div class="seg" style={{ marginBottom: 6 }}><button class={view === 'legend' ? 'on' : ''} onClick={() => setView('legend')}>{RARITY_NAME.legend} {nLeg}／{LEGENDS.length}</button><button class={view === 'rare' ? 'on' : ''} onClick={() => setView('rare')}>{RARITY_NAME.rare} {arms.filter((w) => seen.has(w.id)).length}／{arms.length}</button></div>
+      {view === 'legend' && <>
       <h3><span class="rar-tag" style={{ ['--rar' as string]: RARITY_COLOR.legend }}>{RARITY_NAME.legend}</span> <span class="muted small">{nLeg}／{LEGENDS.length}</span></h3>
       <div class="weapongrid">
         {LEGENDS.map((l) => { const k = seen.has(`legend:${l.id}`); const v = s.legends?.[l.id]; return (
@@ -236,10 +236,13 @@ function WeaponBook({ s }: { s: GameState }) {
           </div>
         ); })}
       </div>
+      </>}
+      {view === 'rare' && <>
       <h3><span class="rar-tag" style={{ ['--rar' as string]: RARITY_COLOR.rare }}>{RARITY_NAME.rare}</span> <span class="muted small">{arms.filter((w) => seen.has(w.id)).length}／{arms.length}</span></h3>
       <div class="weapongrid">
         {arms.map((w) => { const k = seen.has(w.id); return <div class={`pcard wcard${k ? '' : ' unknown'}`} style={{ ['--band' as string]: k ? RARITY_COLOR.rare : '#cfc6b2' }}><b class="small">{k ? w.name : '？？？'}</b><div class="small muted">{k ? `威力${w.might}・命中${w.hit}${w.crit ? `・必殺${w.crit}` : ''}・${w.rank}` : `${({ sword: '剣', lance: '槍', axe: '斧', bow: '弓', gun: '銃' } as Record<string, string>)[w.type] ?? ''}の武器`}</div></div>; })}
       </div>
+      </>}
       <div class="small muted" style={{ marginTop: 6 }}>ユニーク（銘入り）の武器は、討ち取った敵将ごとに1本ずつ違います。年鑑の「記録」に、伝説の武器の行方が載っています。</div>
     </div>
   );

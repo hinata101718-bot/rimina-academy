@@ -4,10 +4,7 @@ import { WorldMap } from './WorldMap';
 import { sfx } from './sound';
 import { COUNTRIES, COUNTRY_NAMES, COUNTRY_SHORT, COUNTRY_COLOR } from '../data/people';
 import { PAIRS, relStage, REL_NAMES, STAGE_NAMES, tensionStage, activeAlumni, diplomats } from '../core/world';
-import { OBJECTIVE_NAMES, WEATHER_NAMES } from '../core/quests';
-import { Bar, money, HelpTip } from './common';
-import { Icon } from './icons';
-import { countryColor, Stars, OBJECTIVE_ICON, WEATHER_ICON } from './cards';
+import { Bar, HelpTip } from './common';
 import type { GameState } from '../core/state';
 import { neutralProgress, neutralRevealed, seedFactor, smolderStage, endingTitle } from '../core/ending';
 import { SEEDS, warOrdinal } from '../data/aftermath';
@@ -50,21 +47,17 @@ export function WarTab() {
         <div>
           <WorldMap s={s} />
           <div class="card">
+            <h3>三国の関係と国力</h3>
             <MapSvg s={s} />
+            <div class="row gap6 small" style={{ justifyContent: 'center' }}>{PAIRS.map((p) => <span>{COUNTRY_SHORT[p.a]}⇔{COUNTRY_SHORT[p.b]} <b style={{ color: REL_COLOR[relStage(s.world.relations[p.key])] }}>{REL_NAMES[relStage(s.world.relations[p.key])]}</b><span class="muted">（{Math.round(s.world.relations[p.key])}）</span></span>)}</div>
             <div class="row between" style={{ marginTop: 6 }}><b>大陸の緊張度：{Math.round(s.world.tension)}（{STAGE_NAMES[st]}）</b></div>
             <Bar v={s.world.tension} max={100} red={st !== 'peace'} />
-            <div class="muted small">緊張度が上がるほど、戦いがはげしくなります。画面の色合いも、緊張度に合わせて変わります。<HelpTip text="35より下は平和期、35から65は緊張期、65より上は激戦期です。" /></div>
-          </div>
-          <div class="card">
-            <h3>三国の国力</h3>
-            {COUNTRIES.map((c) => <div><div class="row between"><span>{COUNTRY_NAMES[c]}</span><b>{Math.round(s.world.power[c])}</b></div><Bar v={s.world.power[c]} max={100} /></div>)}
+            <div class="muted small">緊張度が上がるほど、戦いがはげしくなります。<HelpTip text="35より下は平和期、35から65は緊張期、65より上は激戦期です。画面の色合いも、緊張度に合わせて変わります。" /></div>
+            <div class="small" style={{ marginTop: 6 }}><b>国力</b>（丸の大きさ）</div>
+            {COUNTRIES.map((c) => <div class="row nowrap gap6"><span class="small" style={{ width: 48 }}>{COUNTRY_SHORT[c]}</span><span class="grow"><Bar v={s.world.power[c]} max={100} /></span><b class="small">{Math.round(s.world.power[c])}</b></div>)}
           </div>
         </div>
         <div>
-          <div class="card">
-            <h3>国どうしの関係</h3>
-            {PAIRS.map((p) => <div class="row between"><span>{COUNTRY_SHORT[p.a]}⇔{COUNTRY_SHORT[p.b]}</span><span><b style={{ color: REL_COLOR[relStage(s.world.relations[p.key])] }}>{REL_NAMES[relStage(s.world.relations[p.key])]}</b> <span class="muted small">({Math.round(s.world.relations[p.key])})</span></span></div>)}
-          </div>
           <div class="card">
             <h3>学校との友好度</h3>
             {COUNTRIES.map((c) => <div class="row between"><span>{COUNTRY_NAMES[c]}{s.world.vassal === c ? '（傘下）' : ''}</span><span>{Math.round(s.world.friendship[c])}　<span class="muted small">卒業生{activeAlumni(s, c).length}人</span></span></div>)}
@@ -79,21 +72,6 @@ export function WarTab() {
           </div>
           {s.world.era === 'peace' && <SeedCard s={s} />}
           <NeutralCard s={s} />
-          <div class="card">
-            <h3>依頼掲示板（今月末）</h3>
-            {s.quests.map((q) => (
-              <div class="pcard" style={{ ['--band' as string]: q.clientCountry ? countryColor(q.clientCountry) : 'var(--main)', margin: '6px 0' }}>
-                <div class="row between nowrap"><span class="ptitle" style={{ fontSize: 15 }}>{q.title}</span><span class={`flag ${q.real ? 'red' : ''}`}>{q.real ? '実戦' : '演習'}</span></div>
-                <div class="infogrid">
-                  <div><Icon name={OBJECTIVE_ICON[q.objective]} size={16} />{OBJECTIVE_NAMES[q.objective]}</div>
-                  <div><Icon name={WEATHER_ICON[q.weather]} size={16} />{WEATHER_NAMES[q.weather]}</div>
-                  <div>危険度 <Stars n={q.danger} /></div>
-                  <div><Icon name="coin" size={16} />{q.reward ? money(q.reward) : 'なし'}　目安Lv{q.level}</div>
-                </div>
-              </div>
-            ))}
-            <div class="muted small">月の最後の週が終わったら、この中から依頼を選んで出撃します。</div>
-          </div>
         </div>
       </div>
     </div>

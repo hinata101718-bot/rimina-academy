@@ -89,7 +89,6 @@ export function studentFlags(s: GameState, st: Student, exams?: Set<string>): { 
   const out: { text: string; tone: 'main' | 'red' | 'gold' }[] = [];
   if (st.status !== 'enrolled') return out;
   if (st.dropoutSign) out.push({ text: '退学の予兆', tone: 'red' });
-  if (st.sickWeeks > 0) out.push({ text: `体調不良 あと${st.sickWeeks}週`, tone: 'red' });
   if (st.injuredWeeks > 0) out.push({ text: `けが あと${st.injuredWeeks}週`, tone: 'red' });
   if (s.consults.includes(st.id)) out.push({ text: '相談あり', tone: 'gold' });
   if ((exams ?? new Set(examCandidates(s).map((x) => x.id))).has(st.id)) out.push({ text: '試験OK', tone: 'main' });

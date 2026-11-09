@@ -16,23 +16,30 @@ import { MiniCard, CountryChip, countryColor } from './cards';
 import { Icon } from './icons';
 import { ReviewList } from './Review';
 import { LegendWhereabouts } from './Legend';
+import { ClassBook } from './ClassInfo';
+import { ArtBookBody } from './Arts';
+import { WeaponBook } from './School';
+import { sfx } from './sound';
 
+type YbTab = 'roster' | 'photos' | 'review' | 'chronicle' | 'records' | 'book' | 'hall';
 export function YearbookTab() {
-  const { s } = useStore();
-  const [tab, setTab] = useState<'roster' | 'photos' | 'review' | 'chronicle' | 'records' | 'news' | 'hall'>('roster');
+  const { s, route } = useStore();
+  // 15夜目：年鑑の「新聞」はなくした（ホームの新聞から過去の号も読める）。かわりに「図鑑」（兵種・技・武器・敵将）を1か所に
+  const tab = ((route.page as YbTab) ?? 'roster');
+  const setTab = (t: YbTab) => navigate({ tab: 'yearbook', page: t });
   if (!s) return null;
   return (
     <div>
       <h2>年鑑</h2>
       <div class="seg" style={{ marginBottom: 8 }}>
-        {(['roster', 'photos', 'review', 'chronicle', 'records', 'news', 'hall'] as const).map((t) => <button class={tab === t ? 'on' : ''} onClick={() => setTab(t)}>{{ roster: '卒業生', photos: '写真', review: '振り返り', chronicle: '年表', records: '記録', news: '新聞', hall: '殿堂' }[t]}</button>)}
+        {(['roster', 'photos', 'review', 'chronicle', 'records', 'book', 'hall'] as const).map((t) => <button class={tab === t ? 'on' : ''} onClick={() => setTab(t)}>{{ roster: '卒業生', photos: '写真', review: '振り返り', chronicle: '年表', records: '記録', book: '図鑑', hall: '殿堂' }[t]}</button>)}
       </div>
       {tab === 'roster' && <Roster s={s} />}
       {tab === 'photos' && <Photos s={s} />}
       {tab === 'review' && <ReviewList s={s} />}
       {tab === 'chronicle' && <Chronicle s={s} />}
       {tab === 'records' && <><Records s={s} /><LegendWhereabouts s={s} /></>}
-      {tab === 'news' && <News s={s} />}
+      {tab === 'book' && <Books s={s} sub={route.sub} />}
       {tab === 'hall' && <Hall s={s} />}
     </div>
   );
@@ -130,36 +137,34 @@ function Records({ s }: { s: GameState }) {
   );
 }
 
-/** 因縁の敵将（6夜目からは「戦況」の敵将の名簿にまとめた。ここには会ったことのある敵将を短く） */
+/** 15夜目：年鑑の「記録」の因縁の敵将は、戦況の敵将の名簿へ飛ぶ1行だけ */
 function Nemeses({ s }: { s: GameState }) {
-  const list = (s.officers ?? []).filter((o) => o.meets.length).sort((a, c) => c.meets.length - a.meets.length).slice(0, 8);
-  return (
-    <>
-      <h3>因縁の敵将</h3>
-      {!list.length && <div class="muted small">まだいません。戦場で会った敵将は、「戦況」の「敵将の名簿」で見られます。</div>}
-      {list.map((o) => (
-        <div class="row nowrap gap6 ruled">
-          <OfficerFace o={o} size={36} s={s} />
-          <div class="grow" style={{ minWidth: 0 }}><b class="serif">{officerName(o)}</b> <span class="small muted">{o.kind === 'monster' ? '魔物' : `${factionName(o.faction)}・${rankName(o)}`}・{o.meets.length}回</span></div>
-          <span class={`flag ${o.status === 'active' ? 'red' : ''}`}>{o.status === 'active' ? '健在' : '決着'}</span>
-        </div>
-      ))}
-      <button class="btn block" style={{ minHeight: 44, marginTop: 6 }} onClick={() => navigate({ tab: 'war', page: 'officers' })}>敵将の名簿を開く ›</button>
-    </>
-  );
+  const n = (s.officers ?? []).filter((o) => o.meets.length).length;
+  return <button class="btn ghost block" style={{ minHeight: 44, marginTop: 8 }} onClick={() => navigate({ tab: 'war', page: 'officers' })}>因縁の敵将 {n}人 ― 敵将の名簿を開く ›</button>;
 }
 
-function News({ s }: { s: GameState }) {
-  const [open, setOpen] = useState<string | null>(s.news[0]?.id ?? null);
-  if (!s.news.length) return <div class="empty-note">新聞はまだ出ていません。年度末と、大事件があった月に届きます</div>;
+/** 15夜目：図鑑を1か所に（兵種・技・武器・敵将） */
+function Books({ s, sub }: { s: GameState; sub?: string }) {
+  const k = (sub ?? 'class') as 'class' | 'art' | 'weapon' | 'officer';
+  const go = (x: string) => { sfx('move'); navigate({ tab: 'yearbook', page: 'book', sub: x }); };
+  const met = (s.officers ?? []).filter((o) => o.meets.length).sort((a, c) => c.meets.length - a.meets.length);
   return (
     <div>
-      {s.news.map((n) => (
-        <div class="card" onClick={() => setOpen(open === n.id ? null : n.id)}>
-          <b>{n.year}年目 {MONTH_NAMES[n.month]}：{n.headline}</b>
-          {open === n.id && <div style={{ marginTop: 6 }}><NewsView id={n.id} /></div>}
-        </div>
-      ))}
+      <div class="seg" style={{ marginBottom: 8 }}>{([['class', '兵種'], ['art', '技'], ['weapon', '武器'], ['officer', '敵将']] as const).map(([id, l]) => <button class={k === id ? 'on' : ''} onClick={() => go(id)}>{l}</button>)}</div>
+      {k === 'class' && <ClassBook s={s} embedded />}
+      {k === 'art' && <ArtBookBody s={s} />}
+      {k === 'weapon' && <WeaponBook s={s} />}
+      {k === 'officer' && <div>
+        <div class="small muted">戦場で会ったことのある敵将です（{met.length}人）。くわしくは「戦況」の敵将の名簿で。</div>
+        {met.slice(0, 30).map((o) => (
+          <div class="row nowrap gap6 ruled tap" style={{ minHeight: 44 }} onClick={() => navigate({ tab: 'war', page: 'officers', id: o.id })}>
+            <OfficerFace o={o} size={36} s={s} />
+            <div class="grow" style={{ minWidth: 0 }}><b class="serif">{officerName(o)}</b> <span class="small muted">{o.kind === 'monster' ? '魔物' : `${factionName(o.faction)}・${rankName(o)}`}・{o.meets.length}回</span></div>
+            <span class={`flag ${o.status === 'active' ? 'red' : ''}`}>{o.status === 'active' ? '健在' : '決着'}</span>
+          </div>
+        ))}
+        <button class="btn block" style={{ minHeight: 44, marginTop: 6 }} onClick={() => navigate({ tab: 'war', page: 'officers' })}>敵将の名簿を開く ›</button>
+      </div>}
     </div>
   );
 }

@@ -1,6 +1,6 @@
 // 戦技と心得（12夜目）：覚えた演出、技能タブの一覧と付けかえ
 import { useEffect, useState } from 'preact/hooks';
-import { act } from './store';
+import { act, navigate } from './store';
 import { Portrait } from './Portrait';
 import { sfx } from './sound';
 import { countryColor } from './cards';
@@ -90,7 +90,6 @@ export function ArtsCard({ s, st }: { s: GameState; st: Student }) {
   const on = new Set(st.artsOn ?? []);
   const [more, setMore] = useState(false);
   const [open, setOpen] = useState<string | null>(null);
-  const [book, setBook] = useState(false);
   const onArts = learned.filter((a) => on.has(a.id) && a.kind === 'art');
   const onMinds = learned.filter((a) => on.has(a.id) && a.kind === 'mind');
   const offs = learned.filter((a) => !on.has(a.id));
@@ -113,7 +112,7 @@ export function ArtsCard({ s, st }: { s: GameState; st: Student }) {
       {more && offs.map((a) => <ArtTile a={a} onOpen={() => setOpen(a.id)} />)}
       {near.length > 0 && <><div class="arts-sub"><b class="small">次に覚えそうな技</b></div>
         {near.map((x) => <div class="art-tile none small">{SKILL_NAMES[x.a.skill]}{x.need} まで あと少し ― ？？？{(st.taught ?? []).includes(x.a.id) ? '（講師に手ほどきを受けた）' : ''}</div>)}</>}
-      <button class="btn ghost small" style={{ marginTop: 6 }} onClick={() => setBook(true)}>技の図鑑を見る</button>
+      <button class="btn ghost small" style={{ marginTop: 6 }} onClick={() => navigate({ tab: 'yearbook', page: 'book', sub: 'art' })}>技の図鑑を見る（年鑑）</button>
       {sel && (
         <Sheet title={sel.name} onClose={() => setOpen(null)}>
           <div class="small muted">{sel.kind === 'art' ? '戦技' : '心得'}・{SKILL_NAMES[sel.skill]}のランク{sel.rank}で覚える{(st.taught ?? []).includes(sel.id) ? '（講師に手ほどきを受けた）' : ''}</div>
@@ -123,23 +122,22 @@ export function ArtsCard({ s, st }: { s: GameState; st: Student }) {
           <button class="btn primary block" onClick={() => { sfx('ok'); act((g) => toggleArt(g.students[st.id], sel.id)); setOpen(null); }}>{on.has(sel.id) ? '外す' : 'つける'}</button>
         </Sheet>
       )}
-      {book && <ArtBook s={s} onClose={() => setBook(false)} />}
     </div>
   );
 }
 
-/** 技の図鑑（14夜目）：覚えた子がいる技だけ名前が見える */
-function ArtBook({ s, onClose }: { s: GameState; onClose: () => void }) {
+/** 技の図鑑（14夜目）：覚えた子がいる技だけ名前が見える。15夜目：年鑑の「図鑑」にまとめた */
+export function ArtBookBody({ s }: { s: GameState }) {
   const known = new Set(Object.values(s.students).flatMap((x) => x.arts ?? []));
   const skills = SKILLS.filter((k) => k !== 'gun' || s.world.gunUnlocked);
   return (
-    <Sheet title={`技の図鑑（${ART_LIST.filter((a) => known.has(a.id)).length}／${ART_LIST.length}）`} onClose={onClose}>
-      <div class="small muted">生徒か卒業生が一度でも覚えた技は、名前と効果が見えます。</div>
+    <div>
+      <div class="small muted">生徒か卒業生が一度でも覚えた技は、名前と効果が見えます（{ART_LIST.filter((a) => known.has(a.id)).length}／{ART_LIST.length}）。</div>
       {skills.map((k) => (
         <div class="arts-row"><span class="arts-sk small">{SKILL_NAMES[k]}</span>
           <span class="arts-list">{ART_LIST.filter((a) => a.skill === k && (!a.bloom || known.has(a.id))).map((a) => known.has(a.id) ? <span class={`arts-chip ${a.kind}`} title={artPlain(a)}>{a.name}</span> : <span class="arts-chip none">{a.rank}で？？？</span>)}</span>
         </div>
       ))}
-    </Sheet>
+    </div>
   );
 }

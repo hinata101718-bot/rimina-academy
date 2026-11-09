@@ -57,7 +57,7 @@ function Roster({ s }: { s: GameState }) {
   list = [...list].sort((a, b) => sort === 'level' ? b.level - a.level : sort === 'mood' ? a.motivation - b.motivation : sort === 'fatigue' ? b.fatigue - a.fatigue : a.grade - b.grade);
   return (
     <div>
-      <SecTitle right={<span class="row nowrap gap4"><button class="btn small" onClick={() => navigate({ tab: 'students', page: 'classbook' })}><Icon name="book" size={16} /> 図鑑</button><button class="btn small" onClick={() => navigate({ tab: 'students', page: 'exam' })}><Icon name="exam" size={16} /> 兵種試験{exams.size ? `（${exams.size}）` : ''}</button></span>}>生徒名簿<span class="cnt">{enrolled(s).length}人</span></SecTitle>
+      <SecTitle right={exams.size ? <span class="row nowrap gap4"><button class="btn small" onClick={() => navigate({ tab: 'students', page: 'exam' })}><Icon name="exam" size={16} /> 兵種試験（{exams.size}）</button></span> : undefined}>生徒名簿<span class="cnt">{enrolled(s).length}人</span></SecTitle>
       <div class="pills fit">
         {[[0, '全学年'], [1, '1年'], [2, '2年'], [3, '3年'], [9, '★気にかける']].map(([g, label]) => <button class={grade === g ? 'on' : ''} onClick={() => { sfx('move'); setGrade(g as number); }}>{label}</button>)}
       </div>
@@ -172,7 +172,6 @@ function Detail({ s, st, exam, sub }: { s: GameState; st: Student; exam?: boolea
                 ))}
               </div>
             )}
-            {cls.ability && ABILITIES[cls.ability] && <div class="small ruled">兵種スキル：<b>{ABILITIES[cls.ability].name}</b>（{ABILITIES[cls.ability].desc}）</div>}
           </div>
           <details class="card dt-fold">
             <summary><b>成長率の内わけを見る</b><span class="small muted">（本人と兵種と特徴）</span></summary>
@@ -211,7 +210,6 @@ function Detail({ s, st, exam, sub }: { s: GameState; st: Student; exam?: boolea
                 <div class="row nowrap gap6"><span class="small" style={{ width: 52 }}>信頼</span><Gauge v={st.trust} max={100} thin /><Num v={Math.round(st.trust)} /></div>
                 {st.bud && !st.bud.done && <div class="row nowrap gap6"><span class="small" style={{ width: 52 }}>芽</span><Gauge v={Math.min(100, (st.bud.reveal / B.apt.known) * 100)} max={100} thin tone="skill" /><span class="small muted">{budKnown(st) ? budName(st) : budHinted(st) ? '兆しあり' : '？'}</span></div>}
               </div>
-              {st.sickWeeks > 0 && <div class="tag red">体調をくずしています（あと{st.sickWeeks}週）</div>}
               {st.injuredWeeks > 0 && <div class="tag red">重傷で休んでいます（あと{st.injuredWeeks}週）</div>}
               {st.dropoutSign && <div class="tag red">学校をやめたがっています。あと{st.dropoutSign.talksNeeded}回、面談で話を聞いてあげてください</div>}
             </div>
@@ -360,7 +358,7 @@ function ExamSheet({ s, st, onClose }: { s: GameState; st: Student; onClose: () 
             <div class="small" style={{ marginTop: 4 }}><b>{CLASSES[st.classId].name} → {c.name}</b>に変わると</div>
             <ClassCompare from={CLASSES[st.classId]} to={c} />
             <div class="small muted">兵種が変わっても、これまでに伸びた分はそのまま残ります。<HelpTip text="「いるあいだ」の補正だけが、新しい兵種のものに入れ替わります。" /></div>
-            <button class={`btn block${ok && can ? ' primary' : ''}`} style={{ marginTop: 6 }} disabled={!ok || !can} onClick={() => { act((g) => { const r = takeExam(g, rng(g), g.students[st.id], c.id); setMsg(r.text); sfx(r.ok ? 'pass' : 'cancel'); }); }}>{ok ? `${c.name}になる` : '条件が足りません'}</button>
+            <button class={`btn block${ok && can ? ' primary' : ''}`} style={{ marginTop: 6 }} disabled={!ok || !can} onClick={() => { let ok = false; act((g) => { const r = takeExam(g, rng(g), g.students[st.id], c.id); ok = r.ok; setMsg(r.text); sfx(r.ok ? 'pass' : 'cancel'); }); if (ok) onClose(); }}>{ok ? `${c.name}になる` : '条件が足りません'}</button>
           </div>
         );
       })}

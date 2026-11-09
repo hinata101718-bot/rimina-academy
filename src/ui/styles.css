@@ -1778,3 +1778,6 @@ i.apt { font-style: normal; display: inline-flex; align-items: center; justify-c
 .dn-list li { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; line-height: 44px; }
 details.fold > summary { min-height: 44px; display: flex; align-items: center; cursor: pointer; font-size: 14px; color: var(--muted, #6b5a40); list-style: none; }
 details.fold > summary::-webkit-details-marker { display: none; }
+/* 武器庫の棚（たたむ） */
+.shelf-head { display: flex; align-items: center; gap: 8px; width: 100%; min-height: 44px; background: none; border: 0; padding: 4px 2px; cursor: pointer; text-align: left; font: inherit; color: inherit; }
+.shelf-head:disabled { cursor: default; opacity: .85; }

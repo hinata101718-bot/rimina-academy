@@ -51,7 +51,7 @@ export function deskTodos(s: GameState): DeskTodo[] {
   for (const st of list) if (st.dropoutSign) add('bell', `${st.given}　やめたがっている`, `${st.given}が学校をやめたがっています。面談の札で話を聞きましょう`, () => navigate({ tab: 'students', page: 'detail', id: st.id }), true);
   for (const id of s.consults) { const st = s.students[id]; if (st) add('talk', `${st.given}　相談がある`, `${st.given}「先生、少しいいですか」。面談の札で話を聞けます`, () => navigate({ tab: 'students', page: 'detail', id }), true); }
   const ex = examCandidates(s);
-  if (ex.length) add('exam', `兵種試験　${kanjiNum(ex.length)}名`, `兵種試験を受けられる子が${ex.length}人います（${ex.map((x) => x.given).join('、')}）`, () => navigate({ tab: 'students', page: ex.length === 1 ? 'detail' : 'exam', id: ex.length === 1 ? ex[0].id : undefined }), true);
+  if (ex.length) add('exam', `兵種試験　${kanjiNum(ex.length)}名`, `兵種試験を受けられる子が${ex.length}人います（${ex.map((x) => x.given).join('、')}）`, () => navigate({ tab: 'students', page: 'exam', id: ex.length === 1 ? ex[0].id : undefined }), true);
   for (const st of list) if (st.motivation <= 0) add('bell', `${st.given}　やる気がない`, `${st.given}のやる気が、とても下がっています`, () => navigate({ tab: 'students', page: 'detail', id: st.id }));
   for (const st of list) if (budKnown(st)) { add('star', `${st.given}　芽を育てよう`, `${st.given}の${st.bud?.gold ? '金の芽' : `${SKILL_NAMES[st.bud!.skill!]}の芽`}を育てよう`, () => navigate({ tab: 'students', page: 'detail', id: st.id, sub: 'skills' })); break; }
   for (const st of list) if (st.birthday && st.birthday.month === s.month && st.birthday.week === s.week) add('cake', `${st.given}　今週が誕生日`, `今週は${st.given}の誕生日です。お茶会の札に出てきやすくなります`, () => navigate({ tab: 'students', page: 'detail', id: st.id }));
@@ -135,7 +135,7 @@ export function Desk({ s }: { s: GameState }) {
         </div>
       )}
       <div class={`drawers${tourFocus(s, 'drawers')}`}>
-        {([['instructor', '教官', 'crown'], ['targets', '目標技能', 'target'], ['facilities', '施設・講師', 'house'], ['armory', '武器庫', 'sword']] as const).map(([page, label, ic]) => (
+        {([['targets', '目標技能', 'target'], ['facilities', '施設・講師', 'house'], ['armory', '武器庫', 'sword']] as const).map(([page, label, ic]) => (
           <button class="drawer" onClick={() => { sfx('move'); navigate({ tab: 'school', page }); }}><Icon name={ic} size={16} />{label}</button>
         ))}
       </div>

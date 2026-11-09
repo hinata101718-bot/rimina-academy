@@ -20,7 +20,7 @@ import { activeAlumni } from './world';
 import { effectiveStats } from './game';
 import type { CountryId, Path } from './types';
 import { isStock, stockList, armScore } from './loot';
-import { upgradeFacility, hireTeacher, facilityCost, buyItem, type FacilityId } from './teachers';
+import { upgradeFacility, hireTeacher, facilityCost, type FacilityId } from './teachers';
 import type { Deploy } from './battle/setup';
 import { meetsRank } from './util';
 import { CLASSES } from '../data/classes';
@@ -288,8 +288,7 @@ export function autoManage(s: GameState): void {
     const t = s.teacherCandidates.sort((a, b) => b.points - a.points)[0];
     if (t.salary * 12 < s.money / 2) hireTeacher(s, t.id);
   }
-  // 10夜目：武器は買わない（戦利品）。道具は少し買い足す
-  if (s.money > 1500 && s.items.vulnerary < 6) buyItem(s, 'vulnerary');
+  // 10夜目：武器は買わない（戦利品）。15夜目：道具は毎月自動で補充される
   // 副教官：なれる講師がいれば、担任のいない学年に（方針はバランス）
   for (const t of viceEligible(s)) {
     if ((s.vice ?? []).some((v) => v.teacherId === t.id)) continue;

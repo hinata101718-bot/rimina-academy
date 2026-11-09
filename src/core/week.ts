@@ -18,6 +18,7 @@ import type { InterviewTopic } from '../data/talks/interviews';
 import { examCandidates } from './exam';
 import { viceOf, viceTargets } from './instructor';
 import { fx } from './mentor';
+import { restockItems } from './teachers';
 
 export type Policy = 'balance' | 'talent' | 'dream' | 'combat';
 
@@ -270,6 +271,8 @@ export function startMonthStudents(s: GameState, rng: Rng): string[] {
   }
   // 15夜目：「声をかける」はおまかせ（月のはじめに自動で）
   for (const sp of s.spotlight) sp.res = doSpotlight(s, rng, sp.id);
+  // 15夜目：道具（傷薬・特効薬）は毎月自動で補充
+  restockItems(s);
   // 在校生の家族の便り（たまに）
   for (const st of list) if (rng.chance(B.familyLetterChance)) familyLetter(s, rng, st);
   // 誕生日の月：家族からのお祝いの便り

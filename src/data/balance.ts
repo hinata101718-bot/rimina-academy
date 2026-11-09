@@ -480,6 +480,8 @@ export const B = {
   // ---- その他 ----
   exportReminderDays: 14,
   itemPrice: { vulnerary: 100, elixir: 500 },
+  /** 15夜目：道具は毎月のはじめに自動で補充（この数まで。所持金がこれより少ないときは補充しない） */
+  restock: { vulnerary: 3, elixir: 1, keep: 1500 },
   familyLetterChance: 0.01,
   pressureAt: -20, vassalInviteGap: 50,
 };

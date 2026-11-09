@@ -84,6 +84,14 @@ export function buyItem(s: GameState, kind: 'vulnerary' | 'elixir'): boolean {
   return true;
 }
 export const B_ITEM_PRICE = B.itemPrice;
+/** 15夜目：道具の自動補充（毎月のはじめ）。使ったお金を返す */
+export function restockItems(s: GameState): number {
+  let spent = 0;
+  for (const kind of ['vulnerary', 'elixir'] as const) {
+    while (s.items[kind] < B.restock[kind] && s.money - B_ITEM_PRICE[kind] >= B.restock.keep) { s.money -= B_ITEM_PRICE[kind]; s.items[kind] += 1; spent += B_ITEM_PRICE[kind]; }
+  }
+  return spent;
+}
 
 /** 年度末：講師の昇給 */
 export function yearlyRaises(s: GameState): void {

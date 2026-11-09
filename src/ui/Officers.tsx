@@ -102,13 +102,13 @@ function OrgChart({ s, f, changes, focus, onOpen }: { s: GameState; f: FactionId
     <div class="org-wrap" style={{ ['--band' as string]: FACTION_COLOR[f] }}>
       {changes.length > 0 && (
         <div class="org-changes">
-          <button class="org-bigplay" onClick={() => { sfx('ok'); setPlay(0); }}>✦ この前から{changes.length}つの変化があります　▶ 見る</button>
-          {changes.slice(0, 8).map((c, i) => <div class={`org-ch ${c.kind}`} onClick={() => { sfx('ok'); setPlay(i); }}><span class="org-chi">{CH_ICON[c.kind]}</span><span>{c.text}</span></div>)}
-          {changes.length > 8 && <div class="small muted">ほか{changes.length - 8}件</div>}
-          <div class="row nowrap gap6" style={{ marginTop: 6 }}>
-            <div class="seg org-seg"><button class={prev ? 'on' : ''} onClick={() => { sfx('move'); setPrev(true); }}>前回</button><button class={!prev ? 'on' : ''} onClick={() => { sfx('move'); setPrev(false); }}>今</button></div>
-            <button class="btn small org-playbtn" onClick={() => { sfx('ok'); setPlay(0); }}>▶ 変わったところを見る</button>
-          </div>
+          <button class="org-bigplay" onClick={() => { sfx('ok'); setPlay(0); }}>✦ この前から{changes.length}つの変化　▶ 見る</button>
+          {/* 15夜目：「一覧」「前回／今」は、たたんだ中へ */}
+          <details class="fold"><summary>変化の一覧と、前回の組織図 ▼</summary>
+            {changes.slice(0, 8).map((c, i) => <div class={`org-ch ${c.kind}`} onClick={() => { sfx('ok'); setPlay(i); }}><span class="org-chi">{CH_ICON[c.kind]}</span><span>{c.text}</span></div>)}
+            {changes.length > 8 && <div class="small muted">ほか{changes.length - 8}件</div>}
+            <div class="seg org-seg" style={{ marginTop: 6 }}><button class={prev ? 'on' : ''} onClick={() => { sfx('move'); setPrev(true); }}>前回</button><button class={!prev ? 'on' : ''} onClick={() => { sfx('move'); setPrev(false); }}>今</button></div>
+          </details>
         </div>
       )}
       <div class={`org-tree${finale ? ' finale' : ''}`} ref={treeRef}>

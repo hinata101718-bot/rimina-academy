@@ -113,7 +113,7 @@ export function seenClasses(s: GameState): Set<string> {
 function visible(c: ClassDef, seen: Set<string>): boolean { return c.tier <= 1 || seen.has(c.id); }
 function parentOf(c: ClassDef): string | null { return c.prereq[0] ?? null; }
 
-export function ClassBook({ s }: { s: GameState }) {
+export function ClassBook({ s, embedded }: { s: GameState; embedded?: boolean }) {
   const seen = seenClasses(s);
   const [open, setOpen] = useState<string | null>(null);
   const [sel, setSel] = useState<string | null>(null);
@@ -123,10 +123,10 @@ export function ClassBook({ s }: { s: GameState }) {
   const kids = (id: string) => CLASS_LIST.filter((c) => parentOf(c) === id && !c.hidden);
   const selC = sel ? CLASSES[sel] : null;
   return (
-    <div class="deskpage">
-      <Back to={() => navigate({ tab: 'students' })} />
+    <div class={embedded ? '' : 'deskpage'}>
+      {!embedded && <Back to={() => navigate({ tab: 'students' })} />}
       <div class="ledger">
-        <div class="row between nowrap"><h2 class="ledger-title" style={{ margin: 0 }}>兵種図鑑</h2><span class="stamp">図鑑</span></div>
+        {!embedded && <div class="row between nowrap"><h2 class="ledger-title" style={{ margin: 0 }}>兵種図鑑</h2><span class="stamp">図鑑</span></div>}
         <div class="small muted">見習いから最上級までの、兵種の木です。まだ誰もなっていない兵種は「？」のままです。生徒か卒業生が初めてなると、埋まります（{got}／{total}）。</div>
         <div class="cb-root"><Leaf c={CLASSES.novice} seen={seen} on={sel === 'novice'} onTap={() => setSel(sel === 'novice' ? null : 'novice')} /></div>
         <div class="cb-grid">
