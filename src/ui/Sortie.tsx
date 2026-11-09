@@ -46,6 +46,8 @@ export function SortiePrep({ s }: { s: GameState }) {
   // 1部隊のとき：掲示板→出撃前（今まで通り）。2部隊以上：全部隊のおすすめを並べた出撃の机
   const [drafts, setDrafts] = useState<SquadDraft[]>(() => (n > 1 ? recommendSquads(s).map((x) => draftFromSquad(s, x)) : s.quests.length === 1 ? [newDraft(s, s.quests[0], squadLimit(s, 0))] : []));
   const [edit, setEdit] = useState<number | null>(() => (n === 1 && s.quests.length === 1 ? 0 : null));
+  const [rec0, setRec0] = useState(() => JSON.stringify(drafts));
+  const edited = JSON.stringify(drafts) !== rec0;
   const setDraft = (i: number, d: SquadDraft) => setDrafts(drafts.map((x, j) => (j === i ? d : x)));
   const others = (i: number) => {
     const ex = new Set<string>(), arms = new Set<string>();
@@ -53,12 +55,16 @@ export function SortiePrep({ s }: { s: GameState }) {
     return { ex, arms };
   };
   const go = (list: SquadDraft[]) => act((g) => startSortie(g, list.filter((d) => d.deploy.length).map((d) => squadOf(g, d))));
+  // 15夜目：おすすめのままなら、画面の上の1つのボタンで出撃（スクロールしない）
+  const recGo = () => { sfx('ok'); act((g) => startSortie(g, recommendSquads(g))); };
+  const recLabel = () => { const r = recommendSquads(s); const q = s.quests.find((x) => x.id === r[0]?.questId); return r.length > 1 ? `${r.length}部隊・${r.reduce((a, x) => a + x.deploy.length, 0)}人` : `${q?.title ?? ''}・${r[0]?.deploy.length ?? 0}人`; };
   // ---- 1部隊：掲示板 ----
   if (n === 1 && edit === null) {
     return (
       <Sheet title="月末の依頼掲示板">
+        <button class="btn accent block sticky-go" onClick={recGo}>おすすめで出撃する<small>（{recLabel()}）</small></button>
+        <div class="small muted">依頼を自分で選ぶときは、下の札を押してください。</div>
         {s.month === 5 && <ArtSlot name="event_exhibition" />}
-        {!s.tutorial && s.settings.guide && s.year === 1 && s.month === 0 && <div class="guide">はじめは「演習」を選びましょう。演習では誰も死にません。実戦ではお金と評判がもらえますが、倒れた子が戦死することもあります。</div>}
         {enrolled(s).length > 12 && <div class="small muted">生徒が{SQUADS.two}人をこえると、月末に2つの部隊を別々の依頼へ出せます。{SQUADS.three}人になると3部隊です</div>}
         {s.quests.map((x) => <QuestCard x={x} onClick={() => { sfx('ok'); setDrafts([newDraft(s, x, squadLimit(s, 0))]); setEdit(0); }} />)}
       </Sheet>
@@ -79,10 +85,11 @@ export function SortiePrep({ s }: { s: GameState }) {
   const total = drafts.reduce((a, d) => a + d.deploy.length, 0);
   return (
     <Sheet title="月末の出撃">
+      <button class="btn accent block sticky-go" disabled={!total} onClick={() => { sfx('ok'); go(drafts); }}>{edited ? 'この組み方で出撃する' : 'おすすめで出撃する'}<small>（{drafts.filter((d) => d.deploy.length).length}部隊・{total}人）</small></button>
       <div class="sq-head">
         <div><b>今月は{n}部隊まで出せます</b><span class="small muted">（生徒{enrolled(s).length}人）</span></div>
         <div class="small muted">先生は第一部隊についていき、戦いを見守ります。ほかの部隊は部隊長にまかせて、結果だけを見ます。<HelpTip text="部隊の札で「同行する」を選ぶと、先生がその部隊にもついていきます。部隊の順番は ▲▼ で入れかえられます。" /></div>
-        <button class="btn small" onClick={() => { sfx('ok'); setDrafts(recommendSquads(s, drafts.map((d) => d.questId)).map((x) => draftFromSquad(s, x))); }}>おすすめで組む</button>
+        <button class="btn small" onClick={() => { sfx('ok'); const r = recommendSquads(s, drafts.map((d) => d.questId)).map((x) => draftFromSquad(s, x)); setDrafts(r); setRec0(JSON.stringify(r)); }}>おすすめで組む</button>
       </div>
       {drafts.map((d, i) => <SquadCard key={`${i}${d.questId}`} s={s} d={d} i={i} n={drafts.length} onAway={(v) => { sfx('move'); setDraft(i, { ...d, away: v }); }} onOpen={() => { sfx('ok'); setEdit(i); }} onMove={(k) => move(i, k)} onRemove={drafts.length > 1 ? () => { sfx('cancel'); setDrafts(drafts.filter((_, j) => j !== i)); } : undefined} />)}
       {drafts.length < n && freeQ.length > 0 && (
@@ -91,7 +98,6 @@ export function SortiePrep({ s }: { s: GameState }) {
           {freeQ.map((x) => <QuestCard x={x} onClick={() => { sfx('ok'); const { ex, arms } = others(-1); const nd = newDraft(s, x, squadLimit(s, drafts.length), ex, arms); setDrafts([...drafts, nd]); setEdit(drafts.length); }} />)}
         </div>
       )}
-      <button class="btn accent block" style={{ marginTop: 8 }} disabled={!total} onClick={() => { sfx('ok'); go(drafts); }}>出撃する（{drafts.filter((d) => d.deploy.length).length}部隊・{total}人）</button>
     </Sheet>
   );
 }

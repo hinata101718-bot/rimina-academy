@@ -2,7 +2,7 @@
 import { SAVE_VERSION, DIFFICULTY } from '../data/balance';
 import type { SkillId } from './types';
 import type { GameState } from './state';
-import { defaultSettings } from './game';
+import { defaultSettings, mailImportant } from './game';
 import { WEAPONS } from '../data/weapons';
 import { ensureSpellPlan, learnSpells } from './spells';
 import { ensureTeacherSince, instructorCaps } from './instructor';
@@ -56,6 +56,7 @@ export function migrate(s: GameState, from: number): GameState {
   if (from < 12) migrateTo12(s);
   if (from < 13) migrateTo13(s);
   if (from < 14) migrateTo14(s);
+  if (from < 15) migrateTo15(s);
   s.heirs ??= [];
   s.archive ??= {};
   s.notices ??= [];
@@ -418,4 +419,21 @@ const NIGHT14_LINES = [
   '大陸には12振りの伝説の武器があり、そのいくつかは敵の将軍が持っています。年鑑の「記録」の「伝説の武器の行方」で確かめられます。',
   '年度末（卒業式のあと）に「1年の振り返り」が出るようになりました。年鑑の「振り返り」で、これまでの年も読み返せます（前の年の分は、年表から作れるところまで作りました）。',
   'はじめて遊ぶ人のために、最初のひと月を管理人が案内するようになりました（新しく始めたときだけ）。設定の「案内を見なおす」で、はじめて出たものの説明をもう一度見られます。',
+];
+
+/**
+ * 14夜目の版（version 14）→ 15夜目の版（version 15）：片づけ
+ * - たまっていた書状の未読は、大事な知らせ（急報・敵将のうわさ・昇格など）を残して、読んだことにする
+ * - 今月の主役にまだ声をかけていなければ、声をかけたことにする（「声をかける」はおまかせになった。読みこんだ月の分の伸びはなし）
+ */
+function migrateTo15(s: GameState): void {
+  for (const m of s.mail ?? []) if (!m.read && !mailImportant(m)) m.read = true;
+  for (const sp of s.spotlight ?? []) if (!sp.done) { sp.done = true; sp.res = '先生が声をかけた。'; }
+  s.pending ??= [];
+  s.pending.push({ type: 'event', title: '15夜目の片づけ', lines: NIGHT15_LINES });
+}
+const NIGHT15_LINES = [
+  '書状の赤い数字は、急報や敵将のうわさ、卒業生の昇格など、大事な知らせだけになりました。たまっていた書状は読んだことにしました。誕生日の便りは「今月の誕生日 3人」のように1通にまとまります。郵便受けに「すべて読んだ」を足しました。',
+  '教官手帳のやること一覧は、机の手帳と開いた頁で同じものになりました。今月の主役には、月のはじめに先生が自動で声をかけます。',
+  '月末の出撃は、画面の上の「おすすめで出撃する」を押せば、そのまま出られます。部隊長・方針・策・陣形は、変えたいときだけ開きます。',
 ];

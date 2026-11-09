@@ -3,7 +3,7 @@ import { B, DIFFICULTY, SAVE_VERSION, RANK_POINTS, SKILLS } from '../data/balanc
 import { BACKGROUNDS, COUNTRIES } from '../data/people';
 import { STARTING_ARMORY } from '../data/weapons';
 import { CLASSES } from '../data/classes';
-import type { GameState, Student, Settings } from './state';
+import type { GameState, Student, Settings, Mail } from './state';
 import type { Rank, SkillId, Stats, CountryId } from './types';
 import { Rng } from './rng';
 import { WEAPONS } from '../data/weapons';
@@ -162,8 +162,14 @@ export function notify(s: GameState, text: string, studentId?: string): void {
   s.notices.push({ id: `n${s.nextId++}`, text, studentId });
   if (s.notices.length > 30) s.notices.shift();
 }
-export function mail(s: GameState, from: string, title: string, body: string, studentId?: string): void {
-  s.mail.unshift({ id: `m${s.nextId++}`, year: s.year, month: s.month, from, title, body, read: false, studentId });
+export function mail(s: GameState, from: string, title: string, body: string, studentId?: string, important?: boolean): void {
+  s.mail.unshift({ id: `m${s.nextId++}`, year: s.year, month: s.month, from, title, body, read: false, studentId, ...(important ? { important: true } : {}) });
   if (s.mail.length > 120) s.mail.length = 120;
 }
+/** 15夜目：大事な知らせの書状の題（古いセーブの書状も、題で見分ける） */
+export const IMPORTANT_MAIL_TITLES = new Set(['最前線より', '気になる知らせ', '警告の書簡', '傘下への誘い', '敵将のうわさ', '昇格のお知らせ']);
+export function mailImportant(m: Mail): boolean { return m.important ?? IMPORTANT_MAIL_TITLES.has(m.title); }
+/** 学校のタブ・机の書状に出す赤い数字（大事な知らせの未読だけ） */
+export function importantUnread(s: GameState): Mail[] { return s.mail.filter((m) => !m.read && mailImportant(m)); }
+export function readAllMail(s: GameState): void { for (const m of s.mail) m.read = true; }
 export { COUNTRIES };

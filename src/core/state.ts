@@ -282,7 +282,13 @@ export interface Quest {
   scouted?: boolean; scoutFree?: boolean;
 }
 
-export interface Mail { id: string; year: number; month: number; from: string; title: string; body: string; read: boolean; studentId?: string }
+export interface Mail {
+  id: string; year: number; month: number; from: string; title: string; body: string; read: boolean; studentId?: string;
+  /** 15夜目：大事な知らせ（急報・宿敵・卒業生の大事など）。学校のタブの赤い数字は、これの未読だけ */
+  important?: boolean;
+  /** 15夜目：まとめた書状（「今月の誕生日 3人」）の中身。1人ずつの差出人と文 */
+  parts?: { studentId?: string; from: string; body: string }[];
+}
 
 export interface NewsPaper {
   id: string; year: number; month: number; headline: string; body: string[]; alumni: { id: string; text: string }[]; tension: number;
@@ -603,7 +609,8 @@ export interface GameState {
   plan: WeekPlan;
   consults: string[];      // 相談に来ている生徒
   pinned: string[];
-  spotlight: { id: string; text: string; done: boolean }[];
+  /** 今月の主役。15夜目：月のはじめに先生が自動で声をかける（res はそのときの様子） */
+  spotlight: { id: string; text: string; done: boolean; res?: string }[];
   notices: { id: string; text: string; studentId?: string }[];
   pending: Pending[];
   quests: Quest[];

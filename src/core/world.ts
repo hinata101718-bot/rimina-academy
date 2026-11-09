@@ -189,7 +189,7 @@ export function majorEvents(s: GameState, rng: Rng, yearEnd: boolean): string[] 
       `王国の国力が大きく下がった（${Math.round(w.power.kingdom)}）。`,
       ...(kAlumni.length ? [`王国にいる教え子たち（${kAlumni.length}人）が最前線にいるかもしれない。`] : []),
     ]);
-    for (const st of kAlumni.slice(0, 2)) if (st.trust >= 50) s.mail.unshift({ id: `m${s.nextId++}`, year: s.year, month: s.month, from: st.given, title: '最前線より', body: `先生、帝国の軍勢が来ました。今、最前線にいます。でも大丈夫です。先生に教わったことを思い出しながら戦います。—${st.given}`, read: false, studentId: st.id });
+    for (const st of kAlumni.slice(0, 2)) if (st.trust >= 50) s.mail.unshift({ id: `m${s.nextId++}`, year: s.year, month: s.month, from: st.given, title: '最前線より', body: `先生、帝国の軍勢が来ました。今、最前線にいます。でも大丈夫です。先生に教わったことを思い出しながら戦います。—${st.given}`, read: false, studentId: st.id, important: true });
   }
   // 4. 和平会議（三国の関係がすべて0以上、または教え子の大使が二国以上にいて戦争中でないとき）
   const E = B.world.events;

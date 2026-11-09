@@ -324,7 +324,7 @@ function omenLetter(s: GameState, rng: Rng, text: string): void {
   const al = Object.values(s.students).filter((x) => x.status === 'graduated' && x.career?.alive && !x.career.retired && x.career.kind === 'army').sort((a, b) => b.trust - a.trust);
   const st = al[0];
   if (!st) return;
-  s.mail.unshift({ id: `m${s.nextId++}`, year: s.year, month: s.month, from: `${st.given}（${st.cohort}期生）`, title: '気になる知らせ', body: `${s.instructor.name}先生へ。お元気ですか。${text}このまま何事もなければいいのですが……。学校の皆にも、どうか気をつけるよう伝えてください。—${st.given}`, read: false, studentId: st.id });
+  s.mail.unshift({ id: `m${s.nextId++}`, year: s.year, month: s.month, from: `${st.given}（${st.cohort}期生）`, title: '気になる知らせ', body: `${s.instructor.name}先生へ。お元気ですか。${text}このまま何事もなければいいのですが……。学校の皆にも、どうか気をつけるよう伝えてください。—${st.given}`, read: false, studentId: st.id, important: true });
   void rng;
 }
 

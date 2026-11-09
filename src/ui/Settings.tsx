@@ -48,7 +48,7 @@ function SettingsBody({ s, set, days }: { s: GameState; set: (fn: (x: GameState[
           {(['easy', 'normal', 'hard'] as Difficulty[]).map((d) => <button class={s.settings.difficulty === d ? 'on' : ''} onClick={() => set((x) => { x.difficulty = d; x.mods = { ...DIFFICULTY[d] }; })}>{{ easy: 'やさしい', normal: 'ふつう', hard: 'むずかしい' }[d]}</button>)}
         </div>
         <details style={{ marginTop: 6 }}><summary class="muted">細かな調整（倍率）</summary>
-          {([['enemy', '敵の強さ'], ['exp', '経験値の入り方'], ['skill', '技能の伸び方'], ['money', 'お金の入り方'], ['death', '戦死の確率'], ['reveal', '才能が分かる速さ'], ['war', '戦争の進む速さ']] as const).map(([k, label]) => (
+          {([['enemy', '敵の強さ'], ['exp', '経験値の入り方'], ['skill', '技能の伸び方'], ['money', 'お金の入り方'], ['death', '戦死の確率'], ['reveal', '芽が見える速さ'], ['war', '戦争の進む速さ']] as const).map(([k, label]) => (
             <div class="row between"><span>{label}</span>
               <span class="row"><input type="range" min="0.5" max="1.5" step="0.05" value={s.settings.mods[k] ?? 1} onInput={(e) => set((x) => { x.mods[k] = Number((e.target as HTMLInputElement).value); })} /><span style={{ width: 40 }}>×{(s.settings.mods[k] ?? 1).toFixed(2)}</span></span>
             </div>
@@ -66,18 +66,19 @@ function SettingsBody({ s, set, days }: { s: GameState; set: (fn: (x: GameState[
         <div class="seg" style={{ marginTop: 4 }}>{(['big', 'normal', 'low'] as const).map((v) => <button class={(s.settings.battleFx ?? 'big') === v ? 'on' : ''} onClick={() => set((x) => { x.battleFx = v; })}>{FX_NAMES[v]}</button>)}</div>
         <div class="small" style={{ marginTop: 8 }}>戦の描写：戦いの文で、傷や死をどこまで書くかを選べます</div>
         <div class="seg" style={{ marginTop: 4 }}>{(['normal', 'dense', 'brutal'] as const).map((v) => <button class={(s.settings.battleProse ?? 'dense') === v ? 'on' : ''} onClick={() => { if (v === 'brutal' && !s.settings.proseAsked && !confirm('むごい描写が増えます（斬り落とされる手足や血しぶきなど）。よろしいですか？')) return; set((x) => { x.battleProse = v; if (v === 'brutal') x.proseAsked = true; }); }}>{PROSE_NAMES[v]}</button>)}</div>
-        <div class="muted small">派手：攻撃ごとの斬撃・必殺のカットイン・撃破の判・宿命の対決の画面。ふつう：見せ場を短く。控えめ：カードだけ。どれもタップで早送りできます。</div>
+        <div class="muted small">派手：攻撃ごとの斬撃・必殺のカットイン・撃破の判・宿命の対決の画面。ふつう：見せ場を短く。控えめ：顔の札と文だけ。どれもタップで早送りできます。</div>
+        <details class="fold" style={{ marginTop: 8 }}><summary>自分で指揮する戦闘（マスを動かす戦闘）の設定 ▼</summary>
+          <div class="row between" style={{ marginTop: 6 }}><span>敵ターンの速さ</span><div class="seg">{([1, 2, 3] as const).map((c) => <button class={s.settings.enemySpeed === c ? 'on' : ''} onClick={() => set((x) => { x.enemySpeed = c; })}>{{ 1: 'ゆっくり', 2: 'ふつう', 3: 'はやい' }[c]}</button>)}</div></div>
+          <div class="row between" style={{ marginTop: 6 }}><span>巻き戻し（1戦闘3回）</span><input type="checkbox" checked={s.settings.rewind} onChange={(e) => set((x) => { x.rewind = (e.target as HTMLInputElement).checked; })} /></div>
+          <div class="row between" style={{ marginTop: 6 }}><span>カットイン</span><div class="seg">{(['all', 'important', 'off'] as const).map((c) => <button class={s.settings.cutin === c ? 'on' : ''} onClick={() => set((x) => { x.cutin = c; })}>{{ all: '毎回', important: '大事な時', off: 'なし' }[c]}</button>)}</div></div>
+        </details>
       </div>
       <div class="card">
         <h3>表示・演出</h3>
         <div class="row between"><span>名簿の顔</span><div class="seg"><button class={s.settings.portrait === 'face' ? 'on' : ''} onClick={() => set((x) => { x.portrait = 'face'; })}>似顔絵</button><button class={s.settings.portrait === 'dot' ? 'on' : ''} onClick={() => set((x) => { x.portrait = 'dot'; })}>色の丸</button></div></div>
-        <div class="row between" style={{ marginTop: 6 }}><span>カットイン</span><div class="seg">{(['all', 'important', 'off'] as const).map((c) => <button class={s.settings.cutin === c ? 'on' : ''} onClick={() => set((x) => { x.cutin = c; })}>{{ all: '毎回', important: '大事な時', off: 'なし' }[c]}</button>)}</div></div>
         <div class="row between" style={{ marginTop: 6 }}><span>演出の速さ</span><div class="seg">{([1, 2, 3] as const).map((c) => <button class={s.settings.animSpeed === c ? 'on' : ''} onClick={() => set((x) => { x.animSpeed = c; })}>{{ 1: 'ゆっくり', 2: 'ふつう', 3: 'はやい' }[c]}</button>)}</div></div>
         <div class="muted small">HPゲージ・経験値・レベルアップ・会話の文字送りの速さです。演出中は画面をタップすると早送りできます。</div>
         <div class="row between" style={{ marginTop: 6 }}><span>週が進むときの日めくり</span><input type="checkbox" checked={s.settings.flip} onChange={(e) => set((x) => { x.flip = (e.target as HTMLInputElement).checked; })} /></div>
-        <div class="row between" style={{ marginTop: 6 }}><span>敵ターンの速さ</span><div class="seg">{([1, 2, 3] as const).map((c) => <button class={s.settings.enemySpeed === c ? 'on' : ''} onClick={() => set((x) => { x.enemySpeed = c; })}>{{ 1: 'ゆっくり', 2: 'ふつう', 3: 'はやい' }[c]}</button>)}</div></div>
-        <div class="row between" style={{ marginTop: 6 }}><span>巻き戻し（1戦闘3回）</span><input type="checkbox" checked={s.settings.rewind} onChange={(e) => set((x) => { x.rewind = (e.target as HTMLInputElement).checked; })} /></div>
-        {!s.tutorial && <div class="row between" style={{ marginTop: 6 }}><span>最初の月の案内</span><input type="checkbox" checked={s.settings.guide} onChange={(e) => set((x) => { x.guide = (e.target as HTMLInputElement).checked; })} /></div>}
         <div class="row between nowrap" style={{ marginTop: 8 }}><span class="grow">管理人の案内{s.tutorial && !s.tutorial.off ? '（いま出ます）' : '（いまは出ません）'}</span><button class="btn small" onClick={() => { sfx('ok'); act((g) => replayGuide(g)); alert('はじめて出たものの説明を、もう一度出すようにしました。ホームの机の案内も、もう一度見られます。'); }}>案内を見なおす</button></div>
         <div class="muted small">はじめて見るもの（兵種試験・支援C・伝説の武器など）が出たとき、管理人が短く説明します。</div>
       </div>
@@ -94,7 +95,7 @@ function SettingsBody({ s, set, days }: { s: GameState; set: (fn: (x: GameState[
           <button class="btn small" onClick={() => act((g) => { const y = g.year; let k = 0; while (g.year === y && k++ < 60) autoWeek(g); })}>1年進める</button>
         </div>
       </details>
-      <div class="muted small" style={{ textAlign: 'center' }}>辺境士官学校 ―戦争が終わる日まで― 14夜目の版</div>
+      <div class="muted small" style={{ textAlign: 'center' }}>辺境士官学校 ―戦争が終わる日まで― 15夜目の版</div>
     </div>
   );
 }

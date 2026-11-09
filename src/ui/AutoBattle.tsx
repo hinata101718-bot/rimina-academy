@@ -89,6 +89,8 @@ export function SquadEditor({ s, draft, setDraft, limit, exclude, usedArms, ques
   const [scoutMsg, setScoutMsg] = useState<string | null>(null);
   const [est, setEst] = useState<{ key: string; label: string } | null>(null);
   const [gearOpen, setGearOpen] = useState<string | null>(null);
+  // 15夜目：部隊長・策を立てる子・方針・策・役割と陣形は、はじめはたたむ（おすすめのままでよいとき、スクロールしない）
+  const [more, setMore] = useState(false);
   const ids = deploy.map((d) => d.studentId);
   const plan = planOf(s, draft);
   const roles = plan.roles;
@@ -177,6 +179,12 @@ export function SquadEditor({ s, draft, setDraft, limit, exclude, usedArms, ques
         })}
       </div>
 
+      <div class="pcard sq-fold">
+        <div class="small">部隊長：<b>{plan.captain ? s.students[plan.captain]?.given : '—'}</b>　策を立てる子：<b>{plan.planner ? s.students[plan.planner]?.given : '—'}</b></div>
+        <div class="small">方針：<b>{TACTICS[draft.tactic]?.name ?? ''}</b>　策：{draft.strats.length ? draft.strats.map((x) => <span class="st-chip">{STRATS[x].mark} {STRATS[x].name}</span>) : <span class="muted">なし</span>}</div>
+        <button class="btn ghost small block" onClick={() => { sfx('move'); setMore(!more); }}>{more ? '部隊長・方針・策・陣形をたたむ ▲' : '部隊長・方針・策・陣形を変える ▼'}</button>
+      </div>
+      {more && <>
       {deploy.length > 0 && (
         <div class="sq-leads">
           <label class="sq-lead"><span><Icon name="flag" size={15} /> 部隊長 <HelpTip text="部隊長の統率が高いと、部隊の命中と回避が少し上がります。先生が同行しない部隊では、ここぞの判断も部隊長がします（統率と軍略が高いほど、よい判断になりやすい）。統率は「指揮の演習」「行軍」の授業や、部隊長を務めた戦いで伸びます。" /></span>
@@ -269,12 +277,14 @@ export function SquadEditor({ s, draft, setDraft, limit, exclude, usedArms, ques
         );
       })}
 
+      </>}
+
       <div class="ab-odds">
         <span>勝ち目の目安</span>
         <b class={`ab-oddsv ${est?.key === key ? ({ 優勢: 'good', 五分: 'even', 苦しい: 'bad' } as Record<string, string>)[est.label] ?? '' : ''}`}>{est?.key === key ? est.label : '…'}</b>
       </div>
       <label class="row nowrap gap6 ab-manual"><input type="checkbox" checked={draft.manual} onChange={(e) => setDraft({ ...draft, manual: (e.target as HTMLInputElement).checked })} />この戦いは自分で指揮する（マスを動かす戦闘。策・陣形は使えません）</label>
-      <button class="btn accent block" disabled={!deploy.length} onClick={() => { sfx('ok'); onGo(); }}>{goLabel}</button>
+      <button class="btn accent block sticky-bottom" disabled={!deploy.length} onClick={() => { sfx('ok'); onGo(); }}>{goLabel}</button>
     </Sheet>
   );
 }

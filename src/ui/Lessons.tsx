@@ -60,7 +60,8 @@ export function LessonBoard({ s }: { s: GameState }) {
   const [sel, setSel] = useState<number | null>(null);
   const [who, setWho] = useState<string | null>(null);
   // 9夜目：説明は初めのうちだけ（あとは「？」で）
-  const [help, setHelp] = useState(() => s.year === 1 && s.month === 0 && s.week <= 2);
+  // 15夜目：説明はいつも「？」の中（管理人の案内と同じことを言わない）
+  const [help, setHelp] = useState(false);
   const day = s.today && s.today.key === s.absWeek * 5 + ((s.day ?? 1) - 1) ? s.today : null;
   useEffect(() => { if (!day) act((g) => { todayCards(g); }); }, [day]);
   useEffect(() => { setSel(null); setWho(null); }, [s.absWeek, s.day]);
@@ -78,9 +79,8 @@ export function LessonBoard({ s }: { s: GameState }) {
         <h2 class="serif" style={{ margin: '2px 0 0' }}>今日の授業 <small class="muted">1つ選んでください</small></h2>
         <span class="row nowrap gap4"><span class="lb-day">{DAY_NAMES[(s.day ?? 1) - 1]}曜日{day.rain ? '・雨' : ''}</span><button class={`lb-help${help ? ' on' : ''}`} aria-label="説明" onClick={() => { sfx('move'); setHelp(!help); }}>？</button></span>
       </div>
-      {help && <div class="muted small">授業を1つ選んでください。みんな伸びますが、顔が見えている子はとくによく伸びます。<span class="fmark t inline">目</span> の印の子は、今月の目標の授業なので、さらに伸びます。仲のよい子が2人そろうと、友情タッグ✦です。授業をすると先生は疲れるので、ときどき休講にしましょう。</div>}
+      {help && <div class="muted small">授業を1つ選んでください。みんな伸びますが、顔が見えている子はとくによく伸びます。顔は毎日変わり、得意な技能や夢、性格に合う授業に出てきやすいです。<span class="fmark t inline">目</span> の印の子は、今月の目標の授業なので、さらに伸びます。仲のよい子や恋人、ライバルが2人そろうと、友情タッグ✦です。授業をすると先生は疲れるので、ときどき休講にしましょう（先生の体力は、画面の上の札）。</div>}
       <div class="lb-mini">
-        <span class="lb-st"><span class="small">体力</span><span class={`ggauge grow${teacherStamina(s) < B.teacher.lowAt ? ' low' : ''}`}><span style={{ width: `${(teacherStamina(s) / teacherMax(s)) * 100}%` }} /></span><b class="small">{Math.round(teacherStamina(s))}</b></span>
         <button class="lb-target" onClick={() => { sfx('move'); navigate({ tab: 'school', page: 'targets' }); }}><span class="fmark t inline">目</span> 今月の目標を見る ›</button>
       </div>
       {teacherSick(s) && <div class="guide">{s.instructor.name}先生が寝込んでいます。今日の授業はお休みです。あと{s.instructor.sickDays}日で起きられます。</div>}
@@ -95,7 +95,6 @@ export function LessonBoard({ s }: { s: GameState }) {
           <button class="btn ghost small" onClick={(e) => { e.stopPropagation(); navigate({ tab: 'students', page: 'detail', id: whoSt.id }); }}>くわしく見る</button>
         </div>
       )}
-      <div class="muted small lb-notes" style={{ marginTop: 4 }}>・顔が見えている子は、毎日変わります。得意な技能や夢、性格に合う授業に出てきやすいです。<br />・仲のよい子や恋人、ライバルが2人そろうと、友情タッグ✦になります。</div>
       <div style={{ height: 64 }} />
       <div class="lessonbar">
         {teacherSick(s) ? (

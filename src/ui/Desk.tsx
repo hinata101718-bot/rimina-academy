@@ -3,11 +3,12 @@
 import type { GameState, Student } from '../core/state';
 import type { CountryId } from '../core/types';
 import { navigate } from './store';
-import { enrolled } from '../core/game';
+import { enrolled, importantUnread } from '../core/game';
+import { viceOf } from '../core/instructor';
 import { examCandidates } from '../core/exam';
 import { nextEvent } from '../core/calendar';
 import { teacherSick } from '../core/lessons';
-import { mentorXp, abilityCost, abilityState } from '../core/mentor';
+import { mentorXp, abilityState } from '../core/mentor';
 import { MENTOR_ABILITIES } from '../data/mentor';
 import { COUNTRY_NAMES, COUNTRY_SHORT, SKILL_NAMES } from '../data/people';
 import { mapChanges } from '../core/regions';
@@ -30,32 +31,36 @@ import { DeskTour, tourFocus } from './Guide';
 
 // 14夜目：ホームの作戦地図（8夜目）はなくした。戦況は下の「戦況」の札から、勢力図・組織図の変化は教官手帳の赤い字で
 
-interface DeskTodo { text: string; go: () => void; red?: boolean }
-/** 教官手帳のやること（軍の記録帳らしく、漢数字で） */
+/** 教官手帳のやること（15夜目：机の手帳と開いた頁で同じ一覧。机には short、頁には text） */
+export interface DeskTodo { short: string; text: string; go: () => void; red?: boolean; icon: string }
+/** 教官手帳のやること（軍の記録帳らしく、漢数字で）。机の手帳は上から5つ、開いた頁はぜんぶ */
 export function deskTodos(s: GameState): DeskTodo[] {
   const out: DeskTodo[] = [];
   const list = enrolled(s);
-  const day = DAY_NAMES[(s.day ?? 1) - 1];
-  out.push({ text: `${day}曜　今日の授業を決める`, go: () => navigate({ tab: 'school', page: 'today' }) });
+  const add = (icon: string, short: string, text: string, go: () => void, red?: boolean) => out.push({ icon, short, text, go, red });
   // 14夜目：ホームの作戦地図をなくしたので、勢力図・組織図の大きな変化は手帳の赤い字で知らせる（見たら消える）
   const mc = mapChanges(s);
-  if (mc.length) { const r0 = REGION_BY_ID[mc[0].id]; out.push({ text: `勢力図が動いた ― ${r0?.short ?? r0?.name ?? ''}が${OWNER_SHORT[mc[0].to] ?? ''}の手に${mc.length > 1 ? ` ほか${mc.length - 1}つ` : ''} ▶`, go: () => navigate({ tab: 'war', sub: 'play' }), red: true }); }
+  if (mc.length) { const r0 = REGION_BY_ID[mc[0].id]; const nm = r0?.short ?? r0?.name ?? ''; add('war', `勢力図が動いた ▶`, `勢力図が動いた ― ${nm}が${OWNER_SHORT[mc[0].to] ?? ''}の手に${mc.length > 1 ? ` ほか${mc.length - 1}つ` : ''}`, () => navigate({ tab: 'war', sub: 'play' }), true); }
   const oc = bigOrgChange(s);
-  if (oc) out.push({ text: `組織図が動いた ― ${oc.text} ▶`, go: () => navigate({ tab: 'war', page: 'officers', id: oc.id }), red: true });
-  if (s.week === 1 && (s.day ?? 1) === 1) out.push({ text: '今月の目標の技能を決める', go: () => navigate({ tab: 'school', page: 'targets' }), red: true });
-  for (const st of list) if (st.dropoutSign) out.push({ text: `${st.given}　やめたがっている`, go: () => navigate({ tab: 'students', page: 'detail', id: st.id }), red: true });
-  for (const id of s.consults) { const st = s.students[id]; if (st) out.push({ text: `${st.given}　相談したいことがある`, go: () => navigate({ tab: 'students', page: 'detail', id }), red: true }); }
+  if (oc) add('war', '組織図が動いた ▶', `組織図が動いた ― ${oc.text}`, () => navigate({ tab: 'war', page: 'officers', id: oc.id }), true);
+  const imp = importantUnread(s);
+  if (imp.length) add('mail', `急報　${kanjiNum(imp.length)}通`, `大事な書状が${imp.length}通届いています（${imp[0].title}）`, () => navigate({ tab: 'school', page: 'mail' }), true);
+  // 15夜目：目標技能の赤字は、手で決める子がいるときだけ（「自動」の子は決まっている）
+  const manual = list.filter((st) => !st.targetsAuto && !viceOf(s, st.grade));
+  if (s.week === 1 && (s.day ?? 1) === 1 && manual.length) add('lesson', `目標技能を決める　${kanjiNum(manual.length)}名`, `今月の目標の技能を決めましょう（手で決める子が${manual.length}人）`, () => navigate({ tab: 'school', page: 'targets' }), true);
+  for (const st of list) if (st.dropoutSign) add('bell', `${st.given}　やめたがっている`, `${st.given}が学校をやめたがっています。面談の札で話を聞きましょう`, () => navigate({ tab: 'students', page: 'detail', id: st.id }), true);
+  for (const id of s.consults) { const st = s.students[id]; if (st) add('talk', `${st.given}　相談がある`, `${st.given}「先生、少しいいですか」。面談の札で話を聞けます`, () => navigate({ tab: 'students', page: 'detail', id }), true); }
   const ex = examCandidates(s);
-  if (ex.length) out.push({ text: `兵種試験を受けられる子　${kanjiNum(ex.length)}名`, go: () => navigate({ tab: 'students', page: 'exam' }), red: true });
-  for (const st of list) if (budKnown(st)) { out.push({ text: `${st.given}　${st.bud?.gold ? '金の芽' : `${SKILL_NAMES[st.bud!.skill!]}の芽`}を育てよう`, go: () => navigate({ tab: 'students', page: 'detail', id: st.id, sub: 'skills' }) }); break; }
-  for (const st of list) if (st.birthday && st.birthday.month === s.month && st.birthday.week === s.week) out.push({ text: `${st.given}　今週が誕生日`, go: () => navigate({ tab: 'students', page: 'detail', id: st.id }) });
+  if (ex.length) add('exam', `兵種試験　${kanjiNum(ex.length)}名`, `兵種試験を受けられる子が${ex.length}人います（${ex.map((x) => x.given).join('、')}）`, () => navigate({ tab: 'students', page: ex.length === 1 ? 'detail' : 'exam', id: ex.length === 1 ? ex[0].id : undefined }), true);
+  for (const st of list) if (st.motivation <= 0) add('bell', `${st.given}　やる気がない`, `${st.given}のやる気が、とても下がっています`, () => navigate({ tab: 'students', page: 'detail', id: st.id }));
+  for (const st of list) if (budKnown(st)) { add('star', `${st.given}　芽を育てよう`, `${st.given}の${st.bud?.gold ? '金の芽' : `${SKILL_NAMES[st.bud!.skill!]}の芽`}を育てよう`, () => navigate({ tab: 'students', page: 'detail', id: st.id, sub: 'skills' })); break; }
+  for (const st of list) if (st.birthday && st.birthday.month === s.month && st.birthday.week === s.week) add('cake', `${st.given}　今週が誕生日`, `今週は${st.given}の誕生日です。お茶会の札に出てきやすくなります`, () => navigate({ tab: 'students', page: 'detail', id: st.id }));
   const ne = nextEvent(s);
-  if (ne) out.push({ text: ne.weeks === 0 ? `今週　${ne.label}` : `${ne.label}まで　${kanjiNum(ne.weeks)}週`, go: () => navigate({ tab: 'school', page: 'today' }) });
+  if (ne) add('calendar', ne.weeks === 0 ? `今週　${ne.label}` : `${ne.label}まで　${kanjiNum(ne.weeks)}週`, ne.weeks === 0 ? `今週は${ne.label}です` : `${ne.label}まで、あと${ne.weeks}週`, () => navigate({ tab: 'school', page: 'today' }));
   const t = repTier(s.reputation);
-  if (REP_TIERS[t + 1] && s.year <= 6) out.push({ text: `「${REP_TIERS[t + 1].name}」まで　評判あと${kanjiNum(Math.ceil(REP_TIERS[t + 1].at - s.reputation))}`, go: () => navigate({ tab: 'school', page: 'notebook' }) });
+  if (REP_TIERS[t + 1] && s.year <= 6) add('crown', `「${REP_TIERS[t + 1].name}」まで　${kanjiNum(Math.ceil(REP_TIERS[t + 1].at - s.reputation))}`, `「${REP_TIERS[t + 1].name}」まで、評判あと${Math.ceil(REP_TIERS[t + 1].at - s.reputation)}`, () => navigate({ tab: 'school', page: 'notebook' }));
   const ready = MENTOR_ABILITIES.filter((a) => abilityState(s, a) === 'ready');
-  if (ready.length) out.push({ text: `教官の心得を覚えられる（${mentorXp(s)}）`, go: () => navigate({ tab: 'school', page: 'instructor' }) });
-  else { const next = MENTOR_ABILITIES.filter((a) => abilityState(s, a) === 'poor').map((a) => abilityCost(s, a)).sort((a, b) => a - b)[0]; if (next) out.push({ text: `先生の経験値　${mentorXp(s)}／${next}`, go: () => navigate({ tab: 'school', page: 'instructor' }) }); }
+  if (ready.length) add('crown', '教官の心得を覚えられる', `教官の心得を覚えられます（経験値 ${mentorXp(s)}）`, () => navigate({ tab: 'school', page: 'instructor' }));
   return out;
 }
 
@@ -87,7 +92,7 @@ function bigOrgChange(s: GameState): { id: string; text: string } | null {
 
 export function Desk({ s }: { s: GameState }) {
   const todos = deskTodos(s);
-  const unread = s.mail.filter((m) => !m.read);
+  const unread = importantUnread(s);
   const latestMail = unread[0] ?? s.mail[0];
   const paper = s.news[0];
   const photos = photoStudents(s);
@@ -99,7 +104,8 @@ export function Desk({ s }: { s: GameState }) {
         <div class={`desknote${tourFocus(s, 'note')}`} role="button" onClick={() => { sfx('move'); navigate({ tab: 'school', page: 'notebook' }); }}>
           <div class="dn-title">教官手帳<span>{MONTH_NAMES[s.month].replace('月', '')}月の頁</span></div>
           <ul class="dn-list">
-            {todos.slice(0, 5).map((t) => <li class={t.red ? 'red' : ''} onClick={(e) => { e.stopPropagation(); sfx('move'); t.go(); }}>{t.red ? '・' : ''}{t.text}</li>)}
+            {todos.slice(0, 5).map((t) => <li class={t.red ? 'red' : ''} onClick={(e) => { e.stopPropagation(); sfx('move'); t.go(); }}>{t.red ? '・' : ''}{t.short}</li>)}
+            {!todos.length && <li class="muted">いまは、とくになし</li>}
           </ul>
           <div class="dn-foot"><span>手帳を開く ›</span><span onClick={(e) => { e.stopPropagation(); sfx('move'); navigate({ tab: 'school', page: 'instructor' }); }}>教官 ›</span></div>
         </div>

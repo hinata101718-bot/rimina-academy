@@ -1,6 +1,6 @@
 import { useState } from 'preact/hooks';
 import { useStore, navigate, act } from './store';
-import { enrolled, available } from '../core/game';
+import { enrolled, available, readAllMail, mailImportant, importantUnread } from '../core/game';
 import { doSpotlight, bestTeacher, skillUnlocked } from '../core/week';
 import { LessonBoard, TargetsPage } from './Lessons';
 import { examCandidates } from '../core/exam';
@@ -26,7 +26,7 @@ import { sfx } from './sound';
 import { Icon } from './icons';
 import { MonthCalendar, ArtSlot } from './HomeDeco';
 import { InstructorPage } from './Mentor';
-import { Desk } from './Desk';
+import { Desk, deskTodos } from './Desk';
 import { GuideSeal } from './Guide';
 import { firstLessonDay } from '../core/tutorial';
 import { NewsPage } from './Newspaper';
@@ -34,13 +34,6 @@ import { MONTH_NAMES } from '../core/util';
 const MONTH_NAMES_SHORT = (m: number) => MONTH_NAMES[m];
 import { SkillBox, skillIcon, countryColor, LvBadge, ClassName, MoodDots, FatigueBar, Gauge, NameLine, MiniCard, Num, Chip, studentFlags } from './cards';
 import { supportRank, supportValue } from '../core/support';
-
-const GUIDE = [
-  '毎日、授業のカードを1つ選びます。顔が見えている子は、とくによく伸びます。迷ったら「今週はおまかせ」を押すと、金曜まで進みます。',
-  '「目」の印がある子は、今月の目標の授業なので、よく伸びます。仲のよい子が同じカードにそろうと、友情タッグでさらに伸びます。',
-  'お茶会や面談も、授業のカードとして出てきます。先生の体力が減ってきたら、「休講」で休みましょう。',
-  '4週目の金曜が終わると、月末の出撃です。はじめは「演習」を選びましょう。演習では誰も死にません。',
-];
 
 export function SchoolTab() {
   const { s, route } = useStore();
@@ -58,67 +51,51 @@ export function SchoolTab() {
 
 /** 今日の授業（8夜目：ホームの「本日の授業を命ず」から。授業の札を机の上に並べる） */
 function TodayPage({ s }: { s: GameState }) {
-  const guideOn = !s.tutorial && s.settings.guide && s.year === 1 && s.month === 0;
   return (
     <div class="todaypage">
       <div class="today-top"><Back to={() => navigate({ tab: 'school' })} /><MonthCalendar s={s} compact /></div>
       {s.month === 3 && <ArtSlot name="event_camp" />}
       {s.month === 8 && <ArtSlot name="event_festival" />}
-      {guideOn && <div class="guide">{GUIDE[Math.min(GUIDE.length - 1, s.week - 1)]}</div>}
       {firstLessonDay(s) && !s.pending.length && <div class="guide-tip" style={{ margin: '8px 0', display: 'flex', gap: 8, alignItems: 'center' }}><GuideSeal size={36} /><span class="serif small" style={{ flex: 1, minWidth: 0, whiteSpace: 'normal' }}>今日は札が3枚だけです。どれを選んでも、みんな伸びますぞ。札に顔が出ている子は、とくによく伸びます。</span></div>}
       {!s.pending.length && !s.battle && <LessonBoard s={s} />}
     </div>
   );
 }
 
-/** 教官手帳（8夜目：机の手帳を開いた頁。今月の主役・やること・お知らせ・学校のこと） */
+/** 教官手帳（8夜目：机の手帳を開いた頁）。15夜目：やること一覧は机の手帳と同じもの。今月の主役は月のはじめに自動で声をかける */
 function Notebook({ s }: { s: GameState }) {
   const list = enrolled(s);
-  const todo: { text: string; go: () => void; red?: boolean; icon?: string }[] = [];
-  if (s.week === 1 && (s.day ?? 1) === 1) todo.push({ text: '今月の目標の技能を決めましょう（「自動」の子は決まっています）', go: () => navigate({ tab: 'school', page: 'targets' }), icon: 'lesson', red: true });
-  for (const id of s.consults) { const st = s.students[id]; if (st) todo.push({ icon: 'talk', text: `${st.given}「先生、少しいいですか」。面談のカードで話を聞けます`, go: () => navigate({ tab: 'students', page: 'detail', id }), red: true }); }
-  const ex = examCandidates(s);
-  if (ex.length) todo.push({ icon: 'exam', text: `兵種試験を受けられる子が${ex.length}人います（${ex.map((x) => x.given).join('、')}）`, go: () => navigate({ tab: 'students', page: 'exam' }), red: true });
-  for (const st of list) {
-    if (st.dropoutSign) todo.push({ icon: 'bell', text: `${st.given}が学校をやめたがっています。面談のカードで話を聞きましょう`, go: () => navigate({ tab: 'students', page: 'detail', id: st.id }), red: true });
-    if (st.motivation <= 0) todo.push({ icon: 'bell', text: `${st.given}のやる気が、とても下がっています`, go: () => navigate({ tab: 'students', page: 'detail', id: st.id }) });
-  }
-  for (const st of list) if (st.birthday && st.birthday.month === s.month && st.birthday.week === s.week) todo.push({ icon: 'cake', text: `今週は${st.given}の誕生日です。お茶会のカードに出てきやすくなります`, go: () => navigate({ tab: 'students', page: 'detail', id: st.id }) });
-  const unread = s.mail.filter((m) => !m.read).length;
-  if (unread) todo.push({ icon: 'mail', text: `郵便受けに、まだ読んでいない手紙が${unread}通あります`, go: () => navigate({ tab: 'school', page: 'mail' }) });
-  const [spotMsg, setSpotMsg] = useState('');
+  const todo = deskTodos(s);
   return (
     <div class="deskpage">
       <Back to={() => navigate({ tab: 'school' })} />
-      <div class="ledger"><div class="row between nowrap"><h2 class="ledger-title" style={{ margin: 0 }}>教官手帳</h2><span class="stamp">{MONTH_NAMES_SHORT(s.month)}</span></div><div class="small muted">{s.year}年目 {MONTH_NAMES_SHORT(s.month)} 第{s.week}週です。やることやお知らせを、ここにまとめています。</div></div>
-      <RepLedger s={s} />
+      <div class="ledger"><div class="row between nowrap"><h2 class="ledger-title" style={{ margin: 0 }}>教官手帳</h2><span class="stamp">{MONTH_NAMES_SHORT(s.month)}</span></div><div class="small muted">{s.year}年目 {MONTH_NAMES_SHORT(s.month)} 第{s.week}週</div></div>
       <div class="two">
         <div>
+          <div class="card">
+            <h3>やること一覧</h3>
+            {!todo.length && <div class="muted">いまは、とくにありません</div>}
+            <ul class="list todo">
+              {todo.map((t) => <li onClick={() => { sfx('move'); t.go(); }}><span class={`todoicon${t.red ? ' red' : ''}`}><Icon name={t.icon} size={18} /></span><span class="grow">{t.text}</span><span class="muted">›</span></li>)}
+            </ul>
+          </div>
           {s.spotlight.length > 0 && (
             <div class="card">
-              <h3>今月の主役</h3>
+              <h3>今月の主役 <span class="small muted">先生が声をかけました</span></h3>
               <div class="facecards">
                 {s.spotlight.map((sp) => { const st = s.students[sp.id]; if (!st) return null; const c = countryColor(st.origin); return (
                   <div class="facecard band" style={{ ['--band' as string]: c }} onClick={() => navigate({ tab: 'students', page: 'detail', id: st.id })}>
-                    <div class="mc-face"><Portrait st={st} size={72} frame={c} /><LvBadge lv={st.level} /></div>
+                    <div class="mc-face"><Portrait st={st} size={64} frame={c} /><LvBadge lv={st.level} /></div>
                     <div class="grow">
-                      <NameLine st={st} size={18} family={false} />
-                      <div class="row nowrap gap4"><ClassName classId={st.classId} size={13} /><span class="small muted">{st.grade}年</span></div>
+                      <NameLine st={st} size={17} family={false} />
                       <div class="small">{sp.text}</div>
-                      {!sp.done && st.status === 'enrolled' ? <button class="btn small accent" style={{ marginTop: 4 }} onClick={(e) => { e.stopPropagation(); sfx('ok'); act((g) => setSpotMsg(doSpotlight(g, rng(g), st.id))); }}>声をかける</button> : <span class="tag gray">声をかけた</span>}
+                      {sp.res && <div class="small muted">{sp.res}</div>}
                     </div>
                   </div>
                 ); })}
               </div>
-              {spotMsg && <div class="muted">{spotMsg}</div>}
             </div>
           )}
-          <div class="card">
-            <h3>やること一覧</h3>
-            <ul class="list todo">
-              {todo.map((t) => <li onClick={() => { sfx('move'); t.go(); }}><span class={`todoicon${t.red ? ' red' : ''}`}><Icon name={t.icon ?? 'bell'} size={18} /></span><span class="grow">{t.text}</span><span class="muted">›</span></li>)}
-            </ul>
-          </div>
         </div>
         <div>
           {s.pinned.length > 0 && (
@@ -142,17 +119,8 @@ function Notebook({ s }: { s: GameState }) {
             <ul class="list">{[...s.notices].reverse().slice(0, 8).map((n) => <li class="small" onClick={() => n.studentId && navigate({ tab: 'students', page: 'detail', id: n.studentId })}>{n.text}</li>)}</ul>
             {s.notices.length > 0 && <button class="btn ghost small" onClick={() => act((g) => { g.notices = []; })}>お知らせを消す</button>}
           </div>
-          <div class="card">
-            <h3>学校のこと</h3>
-            <div class="grid2">
-              <button class="btn ghost iconbtn" onClick={() => navigate({ tab: 'school', page: 'targets' })}><Icon name="lesson" /> 今月の目標</button>
-              <button class="btn ghost iconbtn" onClick={() => navigate({ tab: 'school', page: 'facilities' })}><Icon name="house" /> 施設・講師</button>
-              <button class="btn ghost iconbtn" onClick={() => navigate({ tab: 'school', page: 'armory' })}><Icon name="sword" /> 武器庫</button>
-              <button class="btn ghost iconbtn" onClick={() => navigate({ tab: 'school', page: 'mail' })}><Icon name="mail" /> 郵便受け{unread ? `（${unread}）` : ''}</button>
-              <button class="btn ghost iconbtn" onClick={() => navigate({ tab: 'school', page: 'instructor' })}><Icon name="students" /> 教官・副教官</button>
-            </div>
-            <div class="muted" style={{ marginTop: 6 }}>在籍 {list.length}人・講師 {s.teachers.length}人・評判 {Math.round(s.reputation)}／100{s.world.vassal ? `（${COUNTRY_SHORT[s.world.vassal]}の傘下です。評判が${B.school.independenceRep}になれば、独立を取り戻せます）` : ''}</div>
-          </div>
+          <RepLedger s={s} />
+          <div class="muted small" style={{ margin: '6px 4px' }}>在籍 {list.length}人・講師 {s.teachers.length}人・評判 {Math.round(s.reputation)}／100</div>
         </div>
       </div>
       <div style={{ height: 50 }} />
@@ -279,18 +247,21 @@ function WeaponBook({ s }: { s: GameState }) {
 
 function Mailbox({ s }: { s: GameState }) {
   const [open, setOpen] = useState<string | null>(null);
+  const unread = s.mail.filter((m) => !m.read).length;
+  const face = (id?: string) => (id && s.students[id] ? s.students[id] : null);
   return (
     <div>
       <Back to={() => navigate({ tab: 'school' })} />
-      <h2>郵便受け</h2>
+      <div class="row between nowrap"><h2>郵便受け</h2>{unread > 0 && <button class="btn small" onClick={() => { sfx('page'); act((g) => readAllMail(g)); }}>すべて読んだ（{unread}通）</button>}</div>
+      <div class="small muted">赤い数字は、急報・敵将のうわさ・卒業生の昇格など、大事な知らせだけです。</div>
       {s.mail.length === 0 && <div class="empty-note">まだ手紙は届いていません</div>}
-      {s.mail.map((m) => (
-        <div class="pcard tap" style={{ ['--band' as string]: m.studentId && s.students[m.studentId] ? countryColor(s.students[m.studentId].origin) : '#cfc6b2' }} onClick={() => { setOpen(open === m.id ? null : m.id); act((g) => { const x = g.mail.find((y) => y.id === m.id); if (x) x.read = true; }); }}>
-          <div class="row between nowrap"><span class="row nowrap gap6">{m.studentId && s.students[m.studentId] ? <Portrait st={s.students[m.studentId]} size={36} /> : <Icon name="mail" size={20} />}<b>{m.read ? '' : <span class="flag red">未読</span>} {m.title}</b></span><span class="muted small">{m.year}年目</span></div>
+      {s.mail.map((m) => { const st = face(m.studentId); const imp = mailImportant(m); return (
+        <div class="pcard tap" style={{ ['--band' as string]: imp ? 'var(--accent)' : st ? countryColor(st.origin) : '#cfc6b2' }} onClick={() => { setOpen(open === m.id ? null : m.id); if (!m.read) act((g) => { const x = g.mail.find((y) => y.id === m.id); if (x) x.read = true; }); }}>
+          <div class="row between nowrap"><span class="row nowrap gap6" style={{ minWidth: 0 }}>{m.parts ? <span class="row nowrap">{m.parts.slice(0, 3).map((x) => face(x.studentId) && <Portrait st={face(x.studentId)!} size={30} />)}</span> : st ? <Portrait st={st} size={36} /> : <Icon name="mail" size={20} />}<b>{m.read ? '' : <span class={`flag ${imp ? 'red' : ''}`}>{imp ? '急' : '未読'}</span>} {m.title}</b></span><span class="muted small">{m.year}年目</span></div>
           <div class="muted small">差出人：{m.from}</div>
-          {open === m.id && <div class="serif" style={{ marginTop: 6 }}>{m.body}</div>}
+          {open === m.id && (m.parts ? m.parts.map((x) => <div class="serif" style={{ marginTop: 6 }}><b class="small">{x.from}</b><br />{x.body}</div>) : <div class="serif" style={{ marginTop: 6 }}>{m.body}</div>)}
         </div>
-      ))}
+      ); })}
     </div>
   );
 }

@@ -268,10 +268,14 @@ export function startMonthStudents(s: GameState, rng: Rng): string[] {
     s.spotlight.push({ id: st.id, text, done: false });
     if (text.includes('手紙')) familyLetter(s, rng, st);
   }
+  // 15夜目：「声をかける」はおまかせ（月のはじめに自動で）
+  for (const sp of s.spotlight) sp.res = doSpotlight(s, rng, sp.id);
   // 在校生の家族の便り（たまに）
   for (const st of list) if (rng.chance(B.familyLetterChance)) familyLetter(s, rng, st);
   // 誕生日の月：家族からのお祝いの便り
-  for (const st of list) if (st.birthday?.month === s.month && rng.chance(B.letters.birthdayChance)) birthdayLetter(s, rng, st);
+  // 15夜目：誕生日の便りは「今月の誕生日 〇人」の1通にまとめる
+  const bdays = list.filter((st) => st.birthday?.month === s.month && rng.chance(B.letters.birthdayChance));
+  if (bdays.length) birthdayLetters(s, rng, bdays);
   // 試験を受けられる子
   const ex = examCandidates(s);
   if (ex.length) notify(s, `兵種試験を受けられる生徒が${ex.length}人`);
@@ -286,12 +290,17 @@ function familyLetter(s: GameState, rng: Rng, st: Student): void {
   s.mail.unshift({ id: `m${s.nextId++}`, year: s.year, month: s.month, from: `${st.given}の${st.house === 'orphan' ? '孤児院' : '家族'}`, title: '家族からの便り', body, read: false, studentId: st.id });
 }
 
-function birthdayLetter(s: GameState, rng: Rng, st: Student): void {
-  const who = st.house === 'orphan' ? '孤児院のみんな' : rng.pick(['母', '父', '兄', '姉', '祖母', '家族一同']);
-  const body = st.house === 'orphan'
-    ? `${s.instructor.name}先生へ。今月は${st.given}の誕生日ですね。院の子どもたちが、${st.given}のために小さな絵を描きました。同封いたしますので、どうか渡してあげてください。—${who}`
-    : `${s.instructor.name}先生へ。今月、${st.given}は${st.age + 1}歳になります。遠く離れていて祝ってやれないのが残念です。${COUNTRY_NAMES[st.origin]}の家から、ささやかな贈り物を送ります。—${st.given}の${who}`;
-  s.mail.unshift({ id: `m${s.nextId++}`, year: s.year, month: s.month, from: `${st.given}の${st.house === 'orphan' ? '孤児院' : '家族'}`, title: '誕生日のお祝い', body, read: false, studentId: st.id });
+function birthdayLetters(s: GameState, rng: Rng, sts: Student[]): void {
+  const parts = sts.map((st) => {
+    const who = st.house === 'orphan' ? '孤児院のみんな' : rng.pick(['母', '父', '兄', '姉', '祖母', '家族一同']);
+    const body = st.house === 'orphan'
+      ? `${s.instructor.name}先生へ。今月は${st.given}の誕生日ですね。院の子どもたちが、${st.given}のために小さな絵を描きました。同封いたしますので、どうか渡してあげてください。—${who}`
+      : `${s.instructor.name}先生へ。今月、${st.given}は${st.age + 1}歳になります。遠く離れていて祝ってやれないのが残念です。${COUNTRY_NAMES[st.origin]}の家から、ささやかな贈り物を送ります。—${st.given}の${who}`;
+    return { studentId: st.id, from: `${st.given}の${st.house === 'orphan' ? '孤児院' : '家族'}`, body };
+  });
+  const one = sts.length === 1;
+  s.mail.unshift({ id: `m${s.nextId++}`, year: s.year, month: s.month, from: one ? parts[0].from : `${sts.map((x) => x.given).join('・')}の家族`, title: one ? '誕生日のお祝い' : `今月の誕生日 ${sts.length}人`, body: one ? parts[0].body : parts.map((x) => x.body).join('\n'), read: false, studentId: sts[0].id, ...(one ? {} : { parts }) });
+  if (s.mail.length > 120) s.mail.length = 120;
 }
 
 const SPOT = [
