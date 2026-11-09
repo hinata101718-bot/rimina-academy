@@ -4,7 +4,7 @@ FE風の士官学校育成SRPG（スマホ縦画面のブラウザゲーム、Gi
 
 ## 正本
 - 何を作るか：`docs/new/kikaku.md`（19夜目から。古い `docs/design.md` と食い違うときは企画書が正しい）
-- 依頼者の意図（ヒアリング原文）：`docs/hearing.md`
+- 依頼者の意図（ヒアリング原文）：`docs/new/hearing.md`（新しい企画、問1〜問77）・`docs/hearing.md`（はじめの企画）
 - 今回の作業：いちばん新しい `docs/nightN.md`（今は `docs/night19.md`：大改修①〜⑨を一気に。企画の正本は `docs/new/kikaku.md`）
 - 遊んだ感想：`docs/feedback.md`
 - これまでの報告：`docs/reports/`
