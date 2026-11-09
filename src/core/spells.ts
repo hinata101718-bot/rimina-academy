@@ -1,5 +1,5 @@
 // 魔法の覚え方：入学時に「覚える魔法の一覧」を決め、技能ランクが E・D・C・B・A・S に届いたら1つずつ覚える
-import { learnArts, autoEquip } from './arts';
+import { learnArts, autoEquip, noteLearn } from './arts';
 import { SPELL_LIST, SPELL_PLAN } from '../data/spells';
 import { WEAPONS } from '../data/weapons';
 import { CLASSES } from '../data/classes';
@@ -62,7 +62,7 @@ export function learnSpells(s: GameState | null, st: Student): string[] {
     if (st.spells.includes(slot.id)) continue;
     if ((st.skills[slot.skill] ?? 0) >= RANK_POINTS[slot.rank]) { st.spells.push(slot.id); got.push(slot.id); }
   }
-  if (got.length && s) { for (const id of got) st.history.push({ year: s.year, text: `${WEAPONS[id].name}を覚えた` }); st.lastSpellWeek = s.absWeek; }
+  if (got.length && s) { for (const id of got) st.history.push({ year: s.year, text: `${WEAPONS[id].name}を覚えた` }); st.lastSpellWeek = s.absWeek; noteLearn(s, st, got); }
   // 12夜目：技能ランクで戦技・心得も覚える（在学中の子は覚えた演出）
   learnArts(s, st, !!s);
   if (got.length) autoEquip(st);

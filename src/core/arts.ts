@@ -117,8 +117,15 @@ export function learnArts(s: GameState | null, st: Student, show = true): string
   st.arts ??= [];
   for (const a of ART_LIST) if (!st.arts.includes(a.id) && canLearn(st, a)) { st.arts.push(a.id); got.push(a.id); }
   if (s && show && got.length && st.status === 'enrolled') s.pending.push({ type: 'art', studentId: st.id, ids: got });
+  if (s && got.length) noteLearn(s, st, got);
   if (got.length) autoEquip(st);
   return got;
+}
+/** 16夜目：最近覚えた技・魔法（出撃前の山札で ✦新） */
+export function noteLearn(s: GameState, st: Student, ids: string[]): void {
+  const l = (st.recentLearn ??= []);
+  for (const id of ids) l.push({ id, week: s.absWeek });
+  st.recentLearn = l.filter((x) => s.absWeek - x.week <= 8).slice(-8);
 }
 /** その子の今の兵種で使える武器の種類 */
 function weaponTypes(st: Student): WeaponType[] { return (CLASSES[st.classId] ?? CLASSES.novice).weapons; }

@@ -24,7 +24,8 @@ import { gainExp, startGrowthLog, stopGrowthLog, snapGrowth, diffGrowth } from '
 import { learnSpells } from './spells';
 import { createBattle, unitFromStudent, defaultWeaponFor, type Deploy } from './battle/setup';
 import { startPlayerPhase, setReinforcementFactory, weaponSkillId } from './battle/engine';
-import { startAutoBattle, applyAutoResults, setupLeader, officerAfterBattle, officerForQuest, questSeed, skipAuto, type AutoPlan, type AwayCall } from './battle/auto';
+import { startAutoBattle, setCardReinforce, applyAutoResults, setupLeader, officerAfterBattle, officerForQuest, questSeed, skipAuto, type AutoPlan, type AwayCall } from './battle/auto';
+import type { BattleState } from './battle/types';
 import { ensureRosters, yearlyOfficers, revealOne } from './officers';
 import { fx } from './mentor';
 import { publishIssue } from './newspaper';
@@ -245,14 +246,16 @@ export function startAutoQuest(s: GameState, questId: string, deploys: Deploy[],
 }
 
 export function ensureReinforcementFactory(s: GameState): void {
-  setReinforcementFactory((b) => {
+  const f = (b: BattleState) => {
     const st = b.reinforcement ? s.students[b.reinforcement] : null;
     if (!st) return null;
     const u = unitFromStudent(st, 'ally', `ally_${st.id}`, 0, 0, [defaultWeaponFor(st)]);
     u.name = `${st.given}（卒業生）`;
     alumniAid(b, st);
     return u;
-  });
+  };
+  setReinforcementFactory(f);
+  setCardReinforce(f);
 }
 
 function gradeFor(score: number): string { return score >= 9 ? 'S' : score >= 5 ? 'A' : score >= 2 ? 'B' : 'C'; }

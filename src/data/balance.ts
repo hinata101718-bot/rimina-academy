@@ -280,6 +280,41 @@ export const B = {
     escortAggro: 25, npcHp: 30, npcDef: 6, escapeNeed: 3,
     npcHpPerLevel: 2, npcDefPerLevel: 0.4, defendSpawnDist: 5, // 7夜目：守る相手（村人・依頼人）は依頼のレベルに合わせて丈夫に
   },
+  // ---- 札の戦い（16夜目） ----
+  cards: {
+    /** 手札の数・行動力（出撃した人数で少し増える：4人まで3、そこから3人ごとに+1、5まで） */
+    hand: 5, ap: 3, apPerMembers: 3, apMax: 5,
+    /** 決着までのターン（勝利条件ごと） */
+    turns: { rout: 6, boss: 6, defend: 4, escort: 5, seize: 6, rescue: 6, escape: 4 } as Record<string, number>,
+    /** 敵の前に出る数（出撃した人数で増える） */
+    front: [3, 4, 5] as [number, number, number],
+    /** 1人の札の数（いちばん少なくても・多くても） */
+    perMin: 3, perMax: 5,
+    /** 威力の倍率：味方の札・敵の行動 */
+    dmgMul: 1.0, foeMul: 1.0,
+    /** 命中のもと（札は当たりやすい：命中の式に足す） */
+    hitPlus: 25, foeHitPlus: 10,
+    /** 必殺（大当たり）の倍率 */
+    critMul: 2.0,
+    /** 敵将の体力の倍率（一撃で終わらないように） */
+    leaderHp: 1.4,
+    /** かばう：受けるダメージの倍率 */
+    coverMul: 0.5,
+    /** 信頼が低い子は、ときどき自分の判断で動く：信頼がこれより下で、差1あたりの% */
+    obeyAt: 55, disobeyPer: 0.45, disobeyMax: 25,
+    /** 敵将の大振り（威力の倍率）・怒りの構え（次の攻撃+）・戦技を使う割合 */
+    bigMul: 1.5, rage: 4, leaderArt: 0.35, leaderBig: 0.3, leaderRage: 0.15,
+    /** 時間切れのとき：残った敵のHPがこの割合以下なら、敵が退いて勝ち */
+    timeoutWin: 0.5,
+    /** 策の札が手札に来やすい：策を立てる子の軍略で（もとの見込み＋軍略/この数） */
+    stratTop: 0.3, stratPerStrat: 200,
+    /** 札を出したときの技能の伸び（1枚＝武器を使った回数） */
+    usePerCard: 1,
+    /** 経験値：札1枚あたり（攻撃が当たった・守った・癒やした）、生き残った子へ */
+    expCard: 10, expSurvive: 5,
+    /** 生徒が倒れたとき、戦死になりやすさの倍率（札の戦いは見えている分、少し軽く） */
+    deathMul: 0.2,
+  },
   terrain: {
     plain: { name: '平地', avo: 0, def: 0, cost: { infantry: 1, cavalry: 1, armor: 1, flying: 1 } },
     forest: { name: '森', avo: 20, def: 0, cost: { infantry: 2, cavalry: 3, armor: 2, flying: 1 } },

@@ -8,7 +8,7 @@ import { enrolled, available, deployLimit, capacity } from './game';
 import { autoSpend } from './mentor';
 import { instructorCaps, goodSkillsOf } from './instructor';
 import { chooseLesson, startBattle, finishBattle, finishCareers, admit, autoAdmitIds, battleCtx, rng, ensureReinforcementFactory, startAutoQuest } from './flow';
-import { defaultPlan, skipAuto, recommendDeploy, type AutoChoice } from './battle/auto';
+import { defaultPlan, skipAuto, recommendDeploy, setCardPolicy, type AutoChoice } from './battle/auto';
 import { squadCount, squadLimit, startSortie } from './flow';
 import { battleItems } from './battle/blog';
 import type { SquadPlan } from './state';
@@ -163,7 +163,7 @@ export function setManualInSim(v: boolean): void { manualInSim = v; }
 // ---------- 進路の方針（長期シミュレーション用） ----------
 export type CareerPolicy = 'auto' | 'peace' | 'unify' | 'none' | 'neutral';
 let careerPolicy: CareerPolicy = 'auto';
-export function setCareerPolicy(p: CareerPolicy): void { careerPolicy = p; }
+export function setCareerPolicy(p: CareerPolicy): void { careerPolicy = p; setCardPolicy(p === 'peace' ? 'safe' : p === 'unify' ? 'bold' : 'balanced'); }
 
 /** 方針に沿って進路を決める。peace＝文官を三国へ均等に、unify＝一番強い国へ武官・参謀を集める */
 export function autoCareerPlans(s: GameState, policy: CareerPolicy = careerPolicy): CareerPlan[] {

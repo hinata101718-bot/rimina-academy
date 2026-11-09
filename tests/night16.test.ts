@@ -92,3 +92,54 @@ describe('15夜目版のセーブ（形式15）', () => {
     });
   }
 });
+
+describe('札の戦い', async () => {
+  const { setCardMode, playCardTurn, chooseAuto } = await import('../src/core/battle/auto');
+  const { autoPick, usable, cardPreview } = await import('../src/core/battle/cards');
+  const { recommendSquads, autoDay } = await import('../src/core/autoplay');
+  const { startSortie } = await import('../src/core/flow');
+  const toBoard = (s: ReturnType<typeof newGame>) => { let g = 0; while (!s.pending.some((p) => p.type === 'questBoard') && g++ < 80) { autoPending(s); if (!s.pending.some((p) => p.type === 'questBoard')) autoDay(s); } s.pending = s.pending.filter((p) => p.type === 'questBoard'); };
+  it('山札は出撃した子の札と先生の策。手札・行動力・敵の予告があり、4〜6ターンで決着する', () => {
+    setCardMode(true);
+    try {
+      for (const seed of [3, 4, 5]) {
+        const s = newGame({ name: 'テスト', background: 'knight', seed, start: 'normal' });
+        autoYears(s, 1); toBoard(s);
+        startSortie(s, recommendSquads(s).slice(0, 1));
+        const b = s.battle!; const cs = b.auto!.cards!;
+        expect(cs).toBeTruthy();
+        const owners = new Set(Object.values(cs.cards).map((c) => c.owner));
+        for (const u of b.units.filter((x) => x.side === 'player' && x.studentId)) expect(owners.has(u.uid)).toBe(true);
+        expect(cs.hand.length).toBe(cs.handSize);
+        expect(cs.ap).toBeGreaterThanOrEqual(3);
+        expect(cs.intents.length).toBeGreaterThan(0);
+        expect(cs.maxTurns).toBeGreaterThanOrEqual(4); expect(cs.maxTurns).toBeLessThanOrEqual(6);
+        for (const id of cs.hand) expect(cardPreview(s, b, battleCtx(s), id).text.length).toBeGreaterThan(0);
+        let g = 0;
+        while (b.phase !== 'done' && g++ < 20) {
+          if (b.auto!.choice) { chooseAuto(s, b.auto!.choice.recommended, battleCtx(s)); continue; }
+          // 倒れた子の札は手札に来ない
+          for (const id of cs.hand) expect(usable(b, cs.cards[id])).toBe(true);
+          const p = autoPick(s, b, battleCtx(s));
+          const cost = p.ids.reduce((a, id) => a + (cs.cards[id].fx.cost ?? 1), 0);
+          expect(cost).toBeLessThanOrEqual(cs.ap);
+          playCardTurn(s, p.ids, p.target, battleCtx(s));
+        }
+        expect(b.phase).toBe('done');
+        expect(cs.turn).toBeLessThanOrEqual(cs.maxTurns);
+        expect(b.auto!.scenes.some((x) => x.title === '決着')).toBe(true);
+        finishBattle(s);
+        expect(s.battle).toBeNull();
+      }
+    } finally { setCardMode(false); }
+  });
+  it('札の戦いで数年遊べる（止まらない）', () => {
+    setCardMode(true);
+    try {
+      const s = newGame({ name: 'テスト', background: 'knight', seed: 8, start: 'normal' });
+      autoYears(s, 3);
+      expect(s.gameOver).toBe(false);
+      expect(s.stats.battlesWon).toBeGreaterThan(20);
+    } finally { setCardMode(false); }
+  });
+});

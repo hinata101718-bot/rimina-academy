@@ -65,6 +65,8 @@ export interface Student {
   arts?: string[]; artsOn?: string[]; artsManual?: boolean;
   /** 14夜目：卒業生の講師に手ほどきを受けた技（1つ前のランクで覚える） */
   taught?: string[];
+  /** 16夜目：最近覚えた技・魔法（出撃前の山札の ✦新） */
+  recentLearn?: { id: string; week: number }[];
   /** 16夜目：覚える表（「技能:節目」→ 技のid。入学のときに決まる） */
   artPlan?: Record<string, string>;
   /** 10夜目：この子と見た面談・相談の題（同じ会話を二度出さない） */

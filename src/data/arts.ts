@@ -392,7 +392,7 @@ export const ART_LIST: ArtDef[] = [
   kmind('ta_m1c', '備え', 'tactics', 'E+', ['guard'], { type: 'guard', wall: 2 }),
   cmind('ta_m1d', '先手必勝', 'tactics', 'E+', ['swift'], 'first', { hit: 15, dmg: 1 }),
   art('ta_art1', '虚を突く', 'tactics', 'D', [], { type: 'atk', hit: 15, mul: 1.1 }, { weapons: undefined }),
-  art('ta_a1b', '陽動', 'tactics', 'D', ['trick'], { type: 'atk', mul: 0.5, debuff: 'atk', amt: 4 }, { weapons: undefined }),
+  art('ta_a1b', '誘いの一手', 'tactics', 'D', ['trick'], { type: 'atk', mul: 0.5, debuff: 'atk', amt: 4 }, { weapons: undefined }),
   art('ta_a1c', '隙突き', 'tactics', 'D', ['swift'], { type: 'atk', crit: 25 }, { weapons: undefined }),
   art('ta_a1d', '足止め', 'tactics', 'D', ['guard'], { type: 'atk', mul: 0.6, stun: true }, { weapons: undefined }),
   mind('ta_mind2', '先読み', 'tactics', 'C', [], { avo: 6 }),

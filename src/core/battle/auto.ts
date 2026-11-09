@@ -31,7 +31,17 @@ import type { BattleFinding } from '../state';
 import { getSupport, supportValue } from '../support';
 import { enrolled, available, chronicle } from '../game';
 import { STRATS, type StratId } from '../../data/stratagems';
+import { initCards, resolveTurn, autoPick, afterChoice, checkCardsEnd, type CLine, type CardPolicy } from './cards';
 import { fireStrat, stratReview, captainMod, defaultRow, formationMod, oddsLabel, stratOdds, defaultCaptain, defaultPlanner, knownStrats, stratSlots, type StratRec } from '../stratagems';
+
+// ---------- 16夜目：札の戦い ----------
+/** 札の戦いで戦うか（16夜目。切り替えるまでは、今までのマス目の戦い） */
+let cardMode = false;
+export function setCardMode(v: boolean): void { cardMode = v; }
+/** おまかせで札を出すときの方針（シミュレーションの方針ごと：和平狙い＝守り厚め、統一狙い＝攻め厚め） */
+let cardPolicy: CardPolicy = 'balanced';
+export function setCardPolicy(p: CardPolicy): void { cardPolicy = p; }
+export function isCardMode(): boolean { return cardMode; }
 
 // ---------- 型 ----------
 export interface AutoLine { by: string; text: string }
@@ -98,6 +108,9 @@ export interface AutoState {
   collapsed?: boolean;
   /** 教官が同行しない部隊（10夜目）：部隊長が下した判断 */
   away?: { calls: AwayCall[] };
+  /** 16夜目：札の戦い、山札に入れる先生の策 */
+  cards?: import('./cards').CardState;
+  planStrats?: StratId[];
 }
 /** 同行しない部隊の判断の記録 */
 export interface AwayCall { kind: string; prompt: string; label: string; good: boolean; by?: string }
@@ -394,7 +407,9 @@ function buildBattle(s: GameState, q: Quest, deploys: Deploy[], plan: AutoPlan, 
   b.auto.plan = { planner: plan.planner, captain: plan.captain, rows: plan.rows };
   b.auto.held = [];
   const o = officerById(s, b.auto.leader?.officerId);
-  for (const id of plan.strats ?? []) {
+  // 16夜目：札の戦いでは、策は山札に入る（先生の策の札）
+  if (cardMode) b.auto.planStrats = [...(plan.strats ?? [])].filter((id) => STRATS[id]);
+  else for (const id of plan.strats ?? []) {
     if (!STRATS[id]) continue;
     if (STRATS[id].when === 'open') fireStrat(s, b, q, id, o);
     else b.auto.held.push(id);
@@ -403,8 +418,16 @@ function buildBattle(s: GameState, q: Quest, deploys: Deploy[], plan: AutoPlan, 
     ally: b.units.filter((u) => u.side === 'player').reduce((a, u) => a + u.maxHp, 0) || 1,
     enemy: b.units.filter((u) => u.side === 'enemy').reduce((a, u) => a + u.maxHp, 0) || 1,
   };
+  if (cardMode) {
+    // 援軍の卒業生は、はじめから一緒に（札は出さず、自分で動く）
+    if (b.reinforcement && reinforce) { const u = reinforce(b); if (u) { u.row = 'front'; b.units.push(u); b.reinforcement = null; } }
+    initCards(s, b, b.auto.planStrats ?? []);
+  }
   return b;
 }
+let reinforce: ((b: BattleState) => Unit | null) | null = null;
+/** 援軍の卒業生を作る（flow から渡す） */
+export function setCardReinforce(f: (b: BattleState) => Unit | null): void { reinforce = f; }
 
 /** 自動の戦闘の計算に使う ctx（作戦の「重傷で済む」補正を足す） */
 function autoCtx(base: BattleCtx, b: BattleState): BattleCtx {
@@ -448,6 +471,12 @@ export function estimateWin(s: GameState, q: Quest, deploys: Deploy[], plan: Aut
   let win = 0;
   for (let i = 0; i < AUTO.estimateRuns; i++) {
     let b = buildBattle(s, q, deploys, plan, questSeed(s, q) + i * 104729);
+    if (cardMode) {
+      let g = 0;
+      while (b.phase !== 'done' && g++ < 12) { const p = autoPick(s, b, ctx, 'balanced'); b.auto!.cards!.target = p.target; resolveTurn(s, b, ctx, p.ids, { level: 'normal', deathMul: 1 }); }
+      if (b.result === 'win') win++;
+      continue;
+    }
     b.rewindsLeft = 0;
     startPlayerPhase(b);
     b = runUntil(b, ctx, 99, false);
@@ -1117,9 +1146,11 @@ export function chooseAuto(s: GameState, idx: number, ctx: BattleCtx): void {
   const sc = sceneOf(b, c.kind === 'settle' ? SETTLE_TEXT.title : '指示', lines, faces);
   if (c.kind === 'settle') { sc.duo = c.actor; sc.lines = lines.filter((l) => l.text).slice(0, 6); }
   a.scenes.push(sc);
+  b.rng = r.h.rng;
+  // 16夜目：札の戦いは、判断のあと予告を作り直して、次のターンへ
+  if (a.cards) { afterChoice(s, b); if (b.phase === 'done') cardsFinish(s, b); return; }
   // 選択の効果が巻き戻しで消えないよう、今のターンの記録を取り直す
   if (b.snapshots.length) b.snapshots[b.snapshots.length - 1] = JSON.stringify({ ...b, snapshots: [] });
-  b.rng = r.h.rng;
   advanceAuto(s, ctx);
 }
 
@@ -1251,15 +1282,79 @@ export function startAutoBattle(s: GameState, q: Quest, deploys: Deploy[], plan:
   const mem = (s.autoMemory ??= { lines: [], events: [] });
   mem.n = ((mem.n ?? 0) + 1) % 100000;
   b.auto!.scenes.push(openingScene(s, b, q));
+  if (b.auto!.cards) return; // 16夜目：札の戦いは、ここから札を選ぶ
   // 開戦の場面が巻き戻しで消えないよう、最初のターンの記録を取り直す
   if (b.snapshots.length) b.snapshots[b.snapshots.length - 1] = JSON.stringify({ ...b, snapshots: [] });
   advanceAuto(s, ctx);
 }
 
+/**
+ * 16夜目：札を出して1ターン進める。結果の文は cards.turns に、目立った兵・戦利品・決着の場面もつなぐ。
+ * 2ターン目と4ターン目のあとに、ここぞの判断（宿命の対決・一騎打ち・説得・執着）が出ることがある
+ */
+export function playCardTurn(s: GameState, ids: string[], target: string | undefined, ctx: BattleCtx): void {
+  const b = s.battle;
+  const a = b?.auto;
+  const cs = a?.cards;
+  if (!b || !a || !cs || cs.phase === 'done' || a.choice) return;
+  const q = s.quests.find((x) => x.id === b.questId) ?? ({ kind: 'drill', objective: b.objective, template: 'training', weather: b.weather } as Quest);
+  cs.target = target;
+  const rec = resolveTurn(s, b, autoCtx(ctx, b), ids, { level: s.settings.battleProse ?? 'dense', deathMul: B.cards.deathMul });
+  const r = rngOf(b);
+  // 10夜目：勇士型の敵将が倒れると、兵が崩れる
+  {
+    const Lc = a.leader; const luc = Lc ? b.units.find((u) => u.uid === Lc.uid) : null; const oc = officerById(s, Lc?.officerId);
+    const col = OFFICER_TRAITS.valor.collapse!;
+    if (Lc && luc?.dead && !Lc.fled && oc?.traits.includes('valor') && !a.collapsed && b.phase !== 'done') {
+      a.collapsed = true;
+      for (const e of b.units) if (e.side === 'enemy' && !e.dead) addMod(e, { hit: col.hit, avo: col.avo });
+      rec.lines.push({ cls: 'strat', text: `${Lc.name}が倒れ、敵の兵が崩れ出した！` });
+    }
+  }
+  // 戦いで目立った一般兵が名を得る
+  b.rng = r.h.rng;
+  for (const l of raiseGrunts(s, b, r, q, false)) rec.lines.push({ cls: 'raise', text: l.text });
+  b.feed = (b.feed ?? []).filter((f) => f.t === 'heal');
+  b.rng = r.h.rng;
+  if (b.phase === 'done') { cardsFinish(s, b); return; }
+  // ここぞの判断（ターン2・4のあと）
+  const done = rec.turn;
+  if ((done === 2 || done === 4) && a.choicesMade.length < (q.tutorial ? 1 : 2)) {
+    const second = a.choicesMade.length > 0;
+    if (!second || fx(s, 'judgments') > 0 || r.chance(AUTO.secondChoice)) {
+      b.rng = r.h.rng;
+      const c = makeChoice(s, b, ctx, second);
+      if (c && ['settle', 'duel', 'persuade', 'grudge'].includes(c.kind)) { c.options = c.options.filter((o) => !o.id.startsWith('strat:')); a.choice = c; }
+    }
+  }
+}
+/** 札の戦いの決着：決着の場面（敵将の最期・口上・戦利品・名を得た兵） */
+function cardsFinish(s: GameState, b: BattleState): void {
+  const a = b.auto!;
+  if (a.seg >= 3) return;
+  a.seg = 3;
+  if (a.cards) a.cards.phase = 'done';
+  a.scenes.push(endScene(s, b));
+}
+/** 札の戦いを、おまかせで最後まで（小さな依頼・同行しない部隊・シミュレーション・「結果へ」） */
+export function skipCards(s: GameState, ctx: BattleCtx, pick?: (c: AutoChoice) => number, policy: CardPolicy = cardPolicy): void {
+  let guard = 0;
+  while (s.battle?.auto?.cards && s.battle.auto.seg < 3 && guard++ < 30) {
+    const b = s.battle;
+    const a = b.auto!;
+    if (a.choice) { chooseAuto(s, pick ? pick(a.choice) : a.choice.recommended, ctx); continue; }
+    if (b.phase === 'done') { cardsFinish(s, b); break; }
+    const p = autoPick(s, b, ctx, policy);
+    playCardTurn(s, p.ids, p.target, ctx);
+  }
+  if (s.battle?.auto) s.battle.auto.shown = s.battle.auto.scenes.length;
+}
+export type { CLine };
+
 /** 次の区切りまで戦闘を進め、場面と選択を作る（選択が出たら止まる） */
 export function advanceAuto(s: GameState, ctx: BattleCtx): void {
   let b = s.battle;
-  if (!b?.auto) return;
+  if (!b?.auto || b.auto.cards) return;
   const q = s.quests.find((x) => x.id === b!.questId) ?? ({ kind: 'drill', objective: b.objective, template: 'training', weather: b.weather } as Quest);
   let guard = 0;
   while (b.auto && !b.auto.choice && b.auto.seg < 3 && guard++ < 6) {
@@ -1334,6 +1429,7 @@ function fireHeld(s: GameState, b: BattleState, q: Quest, only?: StratId, early 
 
 /** 「結果だけ見る」：残りの選択はおすすめのものを選んで最後まで */
 export function skipAuto(s: GameState, ctx: BattleCtx, pick?: (c: AutoChoice) => number): void {
+  if (s.battle?.auto?.cards) { skipCards(s, ctx, pick); return; }
   let guard = 0;
   while (s.battle?.auto && s.battle.auto.seg < 3 && guard++ < 10) {
     const c = s.battle.auto.choice;
