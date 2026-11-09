@@ -205,8 +205,7 @@ describe('21夜目②：宿敵との友情と恋', () => {
 });
 
 // ---------- 21夜目③④：数字の直し・小さな直し ----------
-import { newGame, enrolled } from '../src/core/game';
-import { B } from '../src/data/balance';
+import { enrolled } from '../src/core/game';
 import { BACKGROUNDS } from '../src/data/people';
 import { cohortName } from '../src/core/util';
 import { recommendDeploy, fragileFor } from '../src/core/sortie';
