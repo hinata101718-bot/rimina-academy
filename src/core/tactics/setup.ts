@@ -199,7 +199,9 @@ export function createTactics(s: GameState, q: Quest, deploys: Deploy[], opt: Se
   };
   if (objective === 'defend') b.holdTurns = q.defendTurns ?? 5;
   if (objective === 'escape') b.exitRow = 0;
-  const free = (x: number, y: number) => !b.rock.includes(key(x, y)) && !b.units.some((u) => u.x === x && u.y === y) && !(b.captive && b.captive.x === x && b.captive.y === y);
+  // 21夜目：砦には木の門（火矢で焼ける。焼けるまで通れない）
+  if (F.id === 'fort' && !opt.tutorial) b.gate = key(2, 2);
+  const free = (x: number, y: number) => !b.rock.includes(key(x, y)) && b.gate !== key(x, y) && !b.units.some((u) => u.x === x && u.y === y) && !(b.captive && b.captive.x === x && b.captive.y === y);
   const place = (cands: [number, number][]): [number, number] => { for (const [x, y] of cands) if (free(x, y)) return [x, y]; for (let y = 0; y < b.h; y++) for (let x = 0; x < b.w; x++) if (free(x, y)) return [x, y]; return [0, 0]; };
   if (objective === 'rescue') { const cx = r.int(1, 4); b.rock = b.rock.filter((k) => k !== key(cx, 0)); b.captive = { x: cx, y: 0, name: q.spyRescue && s.students[q.spyRescue] ? s.students[q.spyRescue].given : q.kind === 'rescue' ? '捕らわれた村人' : '捕らわれた仲間', freed: false }; }
   // 味方：先生は後ろ、教え子は前の列
@@ -252,10 +254,30 @@ export function createTactics(s: GameState, q: Quest, deploys: Deploy[], opt: Se
   }
   for (const u of b.units) if (u.side === 'foe') { u.hp = u.max = Math.max(u.max, 6); const keepType = u.type; const r0 = [u.rmin, u.rmax]; applyClass(u, u.classId, undefined, true); if (!u.boss) { u.type = keepType; u.atks = [keepType]; u.dual = undefined; u.rmin = r0[0]; u.rmax = r0[1]; u.mov = Math.min(u.mov, 4); } }
   { const bu = b.units.find((u) => u.boss); if (bu && o?.cursed) (bu.traits ??= []).push('cursed'); }
+  placeChests(s, b, q, opt);
   startTraits(b);
   b.foes0 = b.units.filter((u) => u.side === 'foe').length;
   intents(b);
   return b;
+}
+
+/** 21夜目：盤にときどき宝箱と扉（盗賊の系統だけ開けられる）。戦いの乱数とは別の乱数で決める */
+function placeChests(s: GameState, b: TBattle, q: Quest, opt: SetupOpts): void {
+  if (opt.tutorial || q.opening || !q.real) return;
+  const r = new Rng({ rng: questSeed(s, q) ^ 0x51c4e });
+  if (!r.chance(TB.chest.chance)) return;
+  const free = (x: number, y: number) => !b.rock.includes(key(x, y)) && !b.forest.includes(key(x, y)) && b.gate !== key(x, y) && !b.units.some((u) => u.x === x && u.y === y) && !(b.captive && b.captive.x === x && b.captive.y === y) && !(b.chests ?? []).some((c) => c.x === x && c.y === y) && !(b.doors ?? []).includes(key(x, y));
+  const cells = (y0: number, y1: number) => { const out: [number, number][] = []; for (let y = y0; y <= y1; y++) for (let x = 0; x < b.w; x++) if (free(x, y)) out.push([x, y]); return out; };
+  const c1 = cells(2, 4);
+  if (!c1.length) return;
+  const [cx, cy] = r.pick(c1);
+  const potion = r.chance(TB.chest.potionChance);
+  const pool = Object.values(WEAPONS).filter((w) => w.price > 0 && (w.rank === 'D' || w.rank === 'C'));
+  b.chests = [{ x: cx, y: cy, kind: potion || !pool.length ? 'potion' : 'weapon', weaponId: potion || !pool.length ? undefined : r.pick(pool).id }];
+  if (r.chance(TB.chest.doorChance)) {
+    const c2 = cells(3, 5).filter(([x, y]) => Math.abs(x - cx) + Math.abs(y - cy) >= 2);
+    if (c2.length) { const [dx, dy] = r.pick(c2); b.doors = [key(dx, dy)]; }
+  }
 }
 
 function bossUnit(s: GameState, o: EnemyOfficer | null, kind: 'army' | 'bandit' | 'monster', lv0: number, mul: number, x: number, y: number, nemesis: boolean, extraShields: number, r: Rng): TUnit {

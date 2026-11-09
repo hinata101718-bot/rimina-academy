@@ -54,6 +54,12 @@ export const TB = {
   exp: { kill: 14, weak: 3, brk: 8, win: 20, join: 10, boss: 20 },
   /** おまかせ：これより長い試合は打ち切る */
   autoGuard: 400,
+  /** 21夜目：入れ替えの届く距離（トリックスター・道化王） */
+  swapRange: { trick: 3, jester: 4 },
+  /** 21夜目：宝箱と扉（盗賊の系統だけ開けられる）。出る見込み・扉もある見込み・扉の奥のお金 */
+  chest: { chance: 0.3, doorChance: 0.5, potionChance: 0.5, doorMoney: 120 },
+  /** 21夜目：火矢で燃えた森（のこりの番の数・通る者が負う傷）。燃え尽きた森は、ただの野原に */
+  wildfire: { turns: 3, dmg: 3 },
 } as const;
 
 /** 技 */

@@ -51,7 +51,7 @@ export const TRAITS_C: Record<string, TraitDef> = {
   forest: { id: 'forest', name: '森歩き', desc: '森の中では守り+2、敵に狙われにくい' },
   snare: { id: 'snare', name: '罠', desc: '宿敵の逃げ道をふさぐ（追いつめた宿敵が、すぐには逃げられない）' },
   huntking: { id: 'huntking', name: '狩りの王', desc: 'この子がいる戦では、宿敵は逃げられない' },
-  firearrow: { id: 'firearrow', name: '火矢', desc: '射と炎を同時に当てる', part: '森や砦に火をつけるのは、まだ説明だけ' },
+  firearrow: { id: 'firearrow', name: '火矢', desc: '射と炎を同時に当てる。「火矢」で森（数ターン燃え、通る者が傷を負う）や砦の木の門に火をつける' },
   burn: { id: 'burn', name: '燃える地面', desc: '射ったマスが2ターン燃え、そこにいる敵は敵の番のはじめに傷を負う' },
   inferno: { id: 'inferno', name: '劫火', desc: '戦いで一度、射った敵のいる横一列をまとめて燃やす' },
   // ---- 魔法 ----
@@ -79,12 +79,12 @@ export const TRAITS_C: Record<string, TraitDef> = {
   backstab: { id: 'backstab', name: '背討ち', desc: '敵の背中側（狙っている相手と反対側）からなら、傷が2倍' },
   shadowstep: { id: 'shadowstep', name: '影渡り', desc: '近くの敵の背後へ跳んで攻撃できる' },
   ambush: { id: 'ambush', name: '闇討ち', desc: '戦いのはじめに、敵将1人をブレイク状態に' },
-  trap: { id: 'trap', name: '罠と見張り', desc: '戦いのはじめに、罠で敵1人に傷を負わせる', part: '敵の狙いは、いまもだれでも1手先まで見える' },
-  farsight: { id: 'farsight', name: '読み切り', desc: '敵将の隠れた弱点をすべて明かし、宿敵の逃げ道をふさぐ', part: '2手先の狙いを見せるのは、まだ説明だけ' },
-  allseeing: { id: 'allseeing', name: '天眼', desc: '戦いのはじめに、宿敵の隠れた弱点がすべて見える', part: '宿敵の狙いを2手先まで見せるのは、まだ説明だけ' },
-  steal: { id: 'steal', name: '盗む', desc: '勝った戦いで、お金が少し多く手に入る', part: '宝箱や扉を開けるのは、まだ説明だけ' },
-  swap: { id: 'swap', name: '入れ替え', desc: '仲間や敵と場所を入れ替える', todo: true },
-  swap2: { id: 'swap2', name: '道化の手', desc: '敵どうしの場所も入れ替えられる', todo: true },
+  trap: { id: 'trap', name: '罠と見張り', desc: '戦いのはじめに、罠で敵1人に傷を負わせる', part: '敵の狙いは、いまもだれでも1手先まで見える（2手先は千里眼から）' },
+  farsight: { id: 'farsight', name: '読み切り', desc: '敵将の隠れた弱点をすべて明かし、宿敵の逃げ道をふさぐ。敵の狙いが2手先まで（薄い矢印で）見える' },
+  allseeing: { id: 'allseeing', name: '天眼', desc: '戦いのはじめに、宿敵の隠れた弱点がすべて見える。敵の狙いが2手先まで見える' },
+  steal: { id: 'steal', name: '盗む', desc: '勝った戦いで、お金が少し多く手に入る。盤の宝箱（薬や武器）と扉を開けられる' },
+  swap: { id: 'swap', name: '入れ替え', desc: '3マス以内の仲間と場所を入れ替える（紫に光る相手をタップ）' },
+  swap2: { id: 'swap2', name: '道化の手', desc: '4マス以内の仲間や敵と入れ替え、敵どうしの場所も入れ替えられる' },
   // ---- 騎兵 ----
   ride: { id: 'ride', name: '駆け抜け', desc: '攻撃のあと、残りの歩数で安全なところへ下がる' },
   charge: { id: 'charge', name: '突撃', desc: '3マス以上走って当てると、傷+3' },
@@ -100,7 +100,7 @@ export const TRAITS_C: Record<string, TraitDef> = {
   volley: { id: 'volley', name: '駆け撃ち', desc: '動いてから撃つと、ふつうの攻撃が3回' },
   // ---- 隠れた兵種 ----
   oneeye: { id: 'oneeye', name: '隻眼', desc: '届くのは2マス先まで。2マス先への射は、必ず盾を割る' },
-  cursed: { id: 'cursed', name: '呪いの子', desc: '闇を使える。光に弱い（受ける傷1.5倍）', part: '蘇りの記憶を語る会話は、まだない' },
+  cursed: { id: 'cursed', name: '呪いの子', desc: '闇を使える。光に弱い（受ける傷1.5倍）。仲間との会話で、蘇ったときの記憶を語る' },
 };
 
 type Def = {
@@ -167,7 +167,7 @@ const list: Def[] = [
   { id: 'holyknight', name: '聖騎士', tier: 3, line: 'heal', prereq: ['lightmage'], req: { faith: 'B', riding: 'D' }, move: 4, moveType: 'cavalry', weapons: ['holy', 'lance'], atk: ['light', 'thrust'], traits: ['mend', 'judge', 'sanctuary'], bonus: { hp: 3, mag: 4, def: 3 }, growth: { mag: 10, def: 5 }, desc: '馬に乗る。まわりの仲間を闇から守る。' },
   { id: 'shadow', name: 'シャドウ', tier: 3, line: 'dagger', prereq: ['assassin'], req: { sword: 'B' }, move: 5, moveType: 'infantry', weapons: ['sword'], atk: ['slash', 'thrust'], traits: ['spot', 'backstab', 'shadowstep'], bonus: { str: 3, skl: 3, spd: 6 }, growth: { spd: 15 }, desc: '影を渡り、敵の背後へ跳ぶ。' },
   { id: 'farsight', name: '千里眼', tier: 3, line: 'dagger', prereq: ['scout'], req: { sword: 'C', bow: 'C' }, move: 4, moveType: 'infantry', weapons: ['sword', 'bow'], atk: ['thrust', 'shot'], traits: ['spot', 'trap', 'farsight'], bonus: { skl: 5, spd: 3 }, growth: { skl: 15 }, desc: '敵の狙いを読み切り、宿敵の逃げ道が分かる。' },
-  { id: 'trickster', name: 'トリックスター', tier: 3, line: 'dagger', prereq: ['rogue'], req: { sword: 'B' }, move: 4, moveType: 'infantry', weapons: ['sword'], atk: ['slash'], traits: ['spot', 'steal', 'swap'], bonus: { skl: 3, spd: 5, mag: 2 }, growth: { spd: 10, mag: 5 }, desc: '仲間や敵と場所を入れ替える。' },
+  { id: 'trickster', name: 'トリックスター', tier: 3, line: 'dagger', prereq: ['rogue'], req: { sword: 'B' }, move: 4, moveType: 'infantry', weapons: ['sword'], atk: ['slash'], traits: ['spot', 'steal', 'swap'], bonus: { skl: 3, spd: 5, mag: 2 }, growth: { spd: 10, mag: 5 }, desc: '仲間と場所を入れ替える。' },
   { id: 'paladin', name: 'パラディン', tier: 3, line: 'cavalry', prereq: ['knight'], req: { lance: 'B', riding: 'B' }, move: 4, moveType: 'cavalry', weapons: ['sword', 'lance'], atk: ['slash', 'thrust'], traits: ['ride', 'charge', 'paladin'], bonus: { hp: 4, str: 3, def: 3, skl: 2 }, growth: { hp: 10, def: 10 }, desc: '先生を守る騎士。' },
   { id: 'greatknight', name: 'グレートナイト', tier: 3, line: 'cavalry', prereq: ['knight'], req: { lance: 'B', heavy: 'C' }, move: 3, moveType: 'cavalry', weapons: ['axe', 'lance'], atk: ['crush', 'thrust'], traits: ['ride', 'charge', 'push'], bonus: { hp: 5, str: 4, def: 5, spd: -1 }, growth: { def: 15, str: 5 }, desc: '重い鎧の馬。突撃で敵を押し下げる。' },
   { id: 'wyvernlord', name: 'ワイバーンロード', tier: 3, line: 'cavalry', prereq: ['dragoon'], req: { riding: 'B', flying: 'C' }, move: 5, moveType: 'flying', weapons: ['axe', 'lance'], atk: ['crush', 'thrust'], traits: ['ride', 'roar', 'scales'], bonus: { hp: 4, str: 5, def: 3 }, growth: { str: 15, def: 5 }, desc: '硬い鱗で、射にも弱くない。' },

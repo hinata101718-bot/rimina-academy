@@ -104,6 +104,7 @@ function sideOk(s: GameState | null, st: Student, c: TalkSideCond | undefined, o
   if (c.hasFriend !== undefined && (!!(s && bestFriend(s, st))) !== c.hasFriend) return false;
   if (c.grade !== undefined && st.grade !== c.grade) return false;
   if (c.peaceBorn !== undefined && (!!s && peaceBorn(s, st)) !== c.peaceBorn) return false;
+  if (c.revived !== undefined && !!st.revivedBy !== c.revived) return false;
   return true;
 }
 /** 平和な時代に入学した子（戦争を知らない。7夜目）：いまが平和な時代で、最後のエンディングより後に入学した */
@@ -216,7 +217,7 @@ export const TOPIC_TITLE: Record<string, string> = {
   dream: '夢の話', origin: '故郷の話', house: '生まれの話', trait: 'お互いの癖', ev_cover: 'かばってくれた日',
   ev_samekill: '息の合った一撃', ev_exam: '試験のあと', ev_loss: '去った仲間', ev_homewar: '故郷の知らせ',
   ev_festival: '収穫祭の夜', ev_spar: '手合わせのあと', ev_injury: 'けがのあと', rel_friend: '友として',
-  rel_rival: '好敵手', rel_love: '打ち明け話', rel_senpai: '先輩と後輩', daily: 'なにげない話',
+  rel_rival: '好敵手', rel_love: '打ち明け話', rel_senpai: '先輩と後輩', memory: '蘇りの記憶', daily: 'なにげない話',
   food: '好きな食べもの', study: '授業のこと', teacher: '先生のこと', family: '家族の話', hobby: '休みの日',
   war: '戦争のこと', future: '卒業したら', fear: '怖いもの',
 };
@@ -256,6 +257,7 @@ export function buildTalk(s: GameState, rng: Rng, sp: Support, rank: 'C' | 'B' |
         if (sp.kind !== kind) continue;
         w = rank === 'A' ? 5 : 3;
       } else if (t.topic === 'trait' && x.knownTraits.length === 0) continue;
+      else if (t.topic === 'memory') w = 6; // 21夜目：呪いの子の記憶は出やすく
       // まるごと書いた会話（7夜目）は出やすく
       cands.push({ t, w: w * (whole ? B.talkWhole.weight : 1), swap, detail, whole });
     }

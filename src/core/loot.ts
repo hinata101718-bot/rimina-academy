@@ -94,6 +94,8 @@ export function rollLoot(s: GameState, b: TBattle, q: Quest | undefined): LootIt
     const rv3 = Object.values(s.rivalries ?? {}).some((rv) => rv.oid === o.id && rv.stage >= 3);
     if (rv3 && fell && b.result === 'win' && !lg && r.chance(L.legendRival)) { const id = unclaimedLegend(s, r); if (id) out.push(legendLoot(id, `宿敵${lu.name}との決着の地で見つかった`)); }
   }
+  // 21夜目：盗賊の系統が宝箱から見つけた武器
+  for (const f of b.found ?? []) if (f.weaponId && WEAPONS[f.weaponId]) out.push({ weaponId: f.weaponId, kind: 'drop', from: `${b.units.find((u) => u.uid === f.by)?.name ?? '教え子'}が宝箱から見つけた` });
   if (q?.rewardWeapon && b.result === 'win' && WEAPONS[q.rewardWeapon]) out.push({ weaponId: q.rewardWeapon, kind: 'reward', from: `${q.client}からの報酬`, ...(r.chance(L.rareAffixChance) ? { affix: rollAffix(r, 1) } : {}) });
   return out;
 }

@@ -38,7 +38,7 @@ export function addBattleDeeds(b: TBattle, u: TUnit, st: Student, win: boolean, 
   if (b.real && u.alive && u.taken === 0 && (b.nemesisId || (b.foes0 >= 5))) add('unhurt');
   if (b.nemesisId && bossU && bossU.resist.length > 0 && hitBoss) add('overcome');
   if (b.objective === 'defend' && hitBoss) add('holdGeneral');
-  if (b.field === 'fort' && u.usedFire) add('burnFort');
+  if (b.field === 'fort' && u.usedFire && !u.deeds?.burnFort) add('burnFort');
   if (b.nemesisId && (u.traits?.includes('spot') || u.traits?.includes('trap')) && kids.every((x) => x.alive)) add('seeTrap');
   if (b.objective === 'escape' && u.alive) { add('rearguard'); if (b.nemesisId) add('outwit'); }
   if (kids.length >= 3 && kids.filter((x) => !x.alive).length * 2 >= kids.length && u.alive) add('turnTide');
@@ -84,6 +84,8 @@ export function applyTactics(s: GameState, b: TBattle, r: Rng): TacticsOutcome {
     revealTalent(s, st, B.talent.battleReveal / 4);
     // 盗賊のかすめ取り
     if (win && u.traits?.includes('steal')) addMoney(s, 60 + u.kills * 20);
+    // 21夜目：扉の奥で見つけたお金（勝っても負けても持ち帰る）
+    for (const f of b.found ?? []) if (f.by === u.uid && f.money) { addMoney(s, f.money); lines.push(`${st.given}が扉の奥で見つけた金貨 ${f.money}G`); }
     addBattleDeeds(b, u, st, win, bossU);
     if (u.armoryUid) { const a = s.armory.find((x) => x.uid === u.armoryUid); if (a) (a.uses ??= {})[st.id] = (a.uses[st.id] ?? 0) + 1; }
     const learned = learnTechs(s, st);

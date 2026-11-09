@@ -1,7 +1,7 @@
 // 19夜目：おまかせ（味方を同じ計算で自動に動かす）。運はないので、同じ盤面なら同じ結果
 import { TB, TECH_BY_ID } from '../../data/tactics';
 import type { TBattle, TUnit } from './types';
-import { attack, heal, moveOnly, endTurn, insight, insightTargets, command, mine, foes, unit, reach, calc, bestSpot, attacksOf, healsOf, threatAt, isForest, boss, dist, usePotion, key, inRange } from './engine';
+import { attack, heal, moveOnly, endTurn, insight, insightTargets, command, mine, foes, unit, reach, calc, bestSpot, attacksOf, healsOf, threatAt, isForest, boss, dist, usePotion, key, inRange, swapTargets, swapUnits, openables, openAt, ignitables, ignite } from './engine';
 
 interface Plan { sc: number; run: () => void }
 
@@ -41,6 +41,24 @@ function bestFor(b: TBattle, u: TUnit, noDeath: boolean): Plan | null {
       if (safe) consider(hit >= u.hp ? (safe.d > reachN ? 95 : 70) : safe.d > reachN ? 60 : 26, () => moveOnly(b, u.uid, safe!.x, safe!.y));
     }
   }
+  // 21夜目：入れ替え：命の危険のしるしがついた仲間を、自分のいる安全な場所と入れ替えて逃がす
+  if (u.traits?.includes('swap')) {
+    for (const o of swapTargets(b, u)) {
+      if (o.side !== 'me' || o.teacher) continue;
+      const lethal = foes(b).filter((f) => f.aim && 't' in f.aim && f.aim.t === o.uid && f.aim.lethal);
+      if (!lethal.length) continue;
+      // 入れ替えたあと：仲間は自分のいた場所（命の危険の敵の届かない所か）・自分は仲間の場所（自分は倒れないか）
+      const safeFor = (who: TUnit, x: number, y: number) => lethal.every((f) => Math.abs(f.x - x) + Math.abs(f.y - y) > f.mov + f.rmax || calc(b, f, who, null, { rage: f.rage }).total < who.hp);
+      if (safeFor(o, u.x, u.y) && lethal.every((f) => calc(b, f, u, null, { rage: f.rage }).total < u.hp)) consider(93, () => swapUnits(b, u.uid, o.uid));
+    }
+  }
+  // 21夜目：宝箱・扉（盗賊の系統）。薬の宝箱 > 武器の宝箱 > 扉
+  for (const it of openables(b, u)) {
+    const c = it.kind === 'chest' ? b.chests?.find((x) => x.x === it.x && x.y === it.y) : null;
+    consider(it.kind === 'door' ? 14 : c?.kind === 'potion' ? 24 : 20, () => openAt(b, u.uid, it.x, it.y));
+  }
+  // 21夜目：火矢で砦の木の門を焼く
+  for (const it of ignitables(b, u)) if (it.gate) consider(b.nemesisId ? 34 : 22, () => ignite(b, u.uid, it.x, it.y));
   for (const h of healsOf(u)) {
     for (const o of mine(b)) {
       if (o === u || o.hp >= o.max * 0.6) continue;

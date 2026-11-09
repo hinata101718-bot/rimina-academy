@@ -95,6 +95,8 @@ export interface TUnit {
   deeds?: Record<string, number>;
   /** 20夜目：炎を当てた（砦を焼く） */
   usedFire?: boolean;
+  /** 21夜目：2手先の狙い（千里眼・天眼のいる戦いだけ。薄い色で見せる） */
+  aim2?: { t: string; dmg: number } | null;
 }
 
 export type Objective = 'boss' | 'rout' | 'defend' | 'rescue' | 'escape';
@@ -166,4 +168,16 @@ export interface TBattle {
   forbidden?: boolean;
   /** 20夜目：先生の兵種の段階（0=教官〜3=名将） */
   teacherRank?: number;
+  /** 21夜目：宝箱（盗賊の系統だけ開けられる。開けるまでは通れない） */
+  chests?: { x: number; y: number; kind: 'potion' | 'weapon'; weaponId?: string; opened?: boolean }[];
+  /** 21夜目：扉（盗賊の系統だけ開けられる。閉じているあいだは通れない） */
+  doors?: string[];
+  /** 21夜目：砦の木の門（火矢で焼ける。焼けるまでは通れない） */
+  gate?: string | null;
+  /** 21夜目：火矢で燃えている森（味方も敵も、通ると傷を負う） */
+  wild?: string[];
+  /** 21夜目：宝箱・扉の奥で見つけたもの（戦いのあと学校に） */
+  found?: { weaponId?: string; money?: number; by: string }[];
+  /** 21夜目：2手先を読むための、試しの計算中（保存しない） */
+  peek?: boolean;
 }

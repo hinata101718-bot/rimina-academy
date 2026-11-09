@@ -10,7 +10,8 @@ import { faceImageFor, FaceSvg, enemyUrl } from './Portrait';
 import { getGame } from './store';
 import type { GameState } from '../core/state';
 import type { TBattle, TUnit, TFx } from '../core/tactics/types';
-import { reach, attackable, healable, attacksOf, healsOf, bestSpot, calc, unit, foes, mine, key, attack, heal, moveOnly, wait, usePotion, command, insight, insightTargets, endTurn, undoLast, techOf, boss as bossOf, isForest } from '../core/tactics/engine';
+import { reach, attackable, healable, attacksOf, healsOf, bestSpot, calc, unit, foes, mine, key, attack, heal, moveOnly, wait, usePotion, command, insight, insightTargets, endTurn, undoLast, techOf, boss as bossOf, isForest, swapTargets, swapFoeTargets, swapUnits, openables, openAt, ignitables, ignite, T as hasTrait } from '../core/tactics/engine';
+import { Icon } from './icons';
 import { autoTurn } from '../core/tactics/ai';
 import { finishBattle, finishAuto, noDeath } from '../core/flow';
 import { ATK_NAME, TB, FIELD_BY_ID } from '../data/tactics';
@@ -42,7 +43,8 @@ export function TacticsView() {
   const b = s?.battle;
   const [sel, setSel] = useState<string | null>(null);
   const [tgt, setTgt] = useState<string | null>(null);
-  const [mode, setMode] = useState<'none' | 'command' | 'insight'>('none');
+  const [mode, setMode] = useState<'none' | 'command' | 'insight' | 'ignite' | 'swapfoe'>('none');
+  const [swapFirst, setSwapFirst] = useState<string | null>(null);
   const [msg, setMsg] = useState<ComponentChildren>(null);
   const [replay, setReplay] = useState<{ view: TBattle; queue: TFx[]; i: number } | null>(null);
   const [pops, setPops] = useState<Pop[]>([]);
@@ -103,12 +105,18 @@ export function TacticsView() {
   const busy = !!replay;
   const nd = noDeath(s, s.quests.find((q) => q.id === b.questId));
   const selU = sel ? unit(b, sel) : null;
-  const R = selU && !selU.acted && b.phase === 'player' ? reach(b, selU) : null;
-  const atkable = selU && !selU.acted ? attackable(b, selU) : [];
+  const R = selU && !selU.acted && b.phase === 'player' && mode === 'none' ? reach(b, selU) : null;
+  const atkable = selU && !selU.acted && mode === 'none' ? attackable(b, selU) : [];
   const healOk = selU && !selU.acted ? healable(b, selU) : [];
   const insT = mode === 'insight' ? insightTargets(b) : [];
   const cmdT = mode === 'command' ? mine(b).filter((m) => m.acted && !m.teacher) : [];
   const tgtU = tgt ? unit(b, tgt) : null;
+  // 21夜目：入れ替え（紫）・宝箱と扉・火矢
+  const swapT = selU && !selU.acted && mode === 'none' ? swapTargets(b, selU) : [];
+  const swapFoeT = mode === 'swapfoe' && selU && swapFirst ? swapFoeTargets(b, selU, swapFirst) : [];
+  const opens = selU && !selU.acted && mode === 'none' ? openables(b, selU) : [];
+  const igns = selU && !selU.acted ? ignitables(b, selU) : [];
+  const ignT = mode === 'ignite' ? igns : [];
 
   /** 演出つきで行動する */
   function run(fn: (g: GameState) => void) {
@@ -124,11 +132,20 @@ export function TacticsView() {
     const u = view.units.find((o) => o.alive && o.x === x && o.y === y) ?? null;
     if (mode === 'insight') { if (u && insT.some((f) => f.uid === u.uid)) run((g) => insight(g.battle!, u.uid)); else setMode('none'); return; }
     if (mode === 'command') { if (u && cmdT.some((f) => f.uid === u.uid)) run((g) => command(g.battle!, u.uid)); else setMode('none'); return; }
+    if (mode === 'ignite') { if (selU && ignT.some((o) => o.x === x && o.y === y)) run((g) => ignite(g.battle!, selU.uid, x, y)); else { setMode('none'); setMsg(null); } return; }
+    if (mode === 'swapfoe') { if (selU && swapFirst && u && swapFoeT.some((f) => f.uid === u.uid)) { const first = swapFirst; run((g) => swapUnits(g.battle!, selU.uid, first, u.uid)); } else { setMode('none'); setMsg(null); } setSwapFirst(null); return; }
+    if (selU && !u && opens.some((o) => o.x === x && o.y === y)) { run((g) => openAt(g.battle!, selU.uid, x, y)); return; }
     if (u?.side === 'foe') {
-      if (selU && atkable.some((f) => f.uid === u.uid)) { setTgt(u.uid); sfx('ok'); setMsg(null); return; }
+      if (selU && (atkable.some((f) => f.uid === u.uid) || swapT.some((f) => f.uid === u.uid))) { setTgt(u.uid); sfx('ok'); setMsg(null); return; }
       setTgt(null); setMsg(foeInfo(b!, u)); return;
     }
+    {
+      const ch = b!.chests?.find((c) => !c.opened && c.x === x && c.y === y);
+      if (ch || b!.doors?.includes(key(x, y))) { setMsg(<span>{ch ? '宝箱' : '閉じた扉'}：盗賊の系統（盗賊・トリックスター・道化王）だけが開けられる。{selU && !hasTrait(selU, 'steal') ? `${selU.name}には開けられない。` : ''}</span>); return; }
+      if (b!.gate === key(x, y)) { setMsg(<span>砦の木の門：火矢の系統（火矢兵・焔弓・劫火）の「火矢」で焼き落とせる。</span>); return; }
+    }
     if (u?.side === 'me' && selU && healOk.some((o) => o.uid === u.uid)) { const h = healsOf(selU)[0]; if (h) { run((g) => heal(g.battle!, selU.uid, u.uid, h)); return; } }
+    if (u?.side === 'me' && selU && swapT.some((o) => o.uid === u.uid)) { run((g) => swapUnits(g.battle!, selU.uid, u.uid)); return; }
     if (u?.side === 'me' && u.uid !== sel) {
       if (u.acted) { setSel(null); setTgt(null); setMsg(<span><b>{u.name}</b>はもう動いた（HP {u.hp}/{u.max}）</span>); return; }
       setSel(u.uid); setTgt(null); sfx('move'); setMsg(null); return;
@@ -140,6 +157,14 @@ export function TacticsView() {
   const bs = bossOf(view);
   const aimMap: Record<string, { dmg: number; lethal: boolean }> = {};
   for (const f of foes(view)) if (f.aim && 't' in f.aim && !f.aim.approach) { const e = aimMap[f.aim.t] ?? { dmg: 0, lethal: false }; e.dmg += f.aim.dmg; e.lethal ||= f.aim.lethal; aimMap[f.aim.t] = e; }
+  // 21夜目：2手先の狙い（千里眼・天眼）：薄い矢印と「次の次」の札
+  const aim2Map: Record<string, number> = {};
+  const aim2List: { f: TUnit; t: TUnit }[] = [];
+  const aim1List: { f: TUnit; t: TUnit }[] = [];
+  for (const f of foes(view)) {
+    if (f.aim2) { const t = unit(view, f.aim2.t); if (t?.alive) { aim2Map[t.uid] = (aim2Map[t.uid] ?? 0) + f.aim2.dmg; aim2List.push({ f, t }); } }
+    if (f.aim && 't' in f.aim && !f.aim.approach) { const t = unit(view, f.aim.t); if (t?.alive) aim1List.push({ f, t }); }
+  }
   const lethalWarn = foes(view).filter((f) => f.aim && 't' in f.aim && f.aim.lethal).map((f) => ({ f, t: unit(view, (f.aim as { t: string }).t) }));
   const left = mine(b).filter((m) => !m.acted).length;
   const field = FIELD_BY_ID[b.field];
@@ -158,7 +183,11 @@ export function TacticsView() {
           const k = key(x, y);
           const rock = b.rock.includes(k), forest = isForest(b, x, y);
           const u = view.units.find((o) => o.alive && o.x === x && o.y === y);
-          let cls = 'tb-cell' + (rock ? ' rock' : '') + (forest ? ' forest' : '') + (b.walls?.includes(k) ? ' wall' : '') + (b.burn?.[k] ? ' burn' : '');
+          const chest = b.chests?.find((c) => c.x === x && c.y === y);
+          const door = b.doors?.includes(k), gate = b.gate === k;
+          let cls = 'tb-cell' + (rock ? ' rock' : '') + (forest ? ' forest' : '') + (b.walls?.includes(k) ? ' wall' : '') + (b.burn?.[k] ? (b.wild?.includes(k) ? ' burn wild' : ' burn') : '') + (chest ? (chest.opened ? ' chest open' : ' chest') : '') + (door ? ' door' : '') + (gate ? ' gate' : '');
+          if (!busy && (swapT.some((f) => f.uid === u?.uid) || swapFoeT.some((f) => f.uid === u?.uid))) cls += ' swap';
+          if (!busy && (opens.some((o) => o.x === x && o.y === y) || ignT.some((o) => o.x === x && o.y === y))) cls += ' openable';
           if (!busy && R && k in R && (!u || u.uid === sel)) cls += ' move';
           if (!busy && u && atkable.some((f) => f.uid === u.uid)) cls += ' tgt';
           if (!busy && u && healOk.some((f) => f.uid === u.uid)) cls += ' ally';
@@ -166,7 +195,7 @@ export function TacticsView() {
           if (!busy && tgtU && cards[0]?.spot && cards[0].spot.x === x && cards[0].spot.y === y) cls += ' spot';
           if (b.captive && !b.captive.freed && b.captive.x === x && b.captive.y === y) cls += ' captive';
           if (b.objective === 'escape' && y === (b.exitRow ?? 0)) cls += ' exit';
-          return <button class={cls} aria-label={`${x + 1}列${y + 1}行${u ? ` ${u.name}` : ''}`} onClick={() => tapCell(x, y)}>{b.captive && !b.captive.freed && b.captive.x === x && b.captive.y === y ? <span class="tb-captive">救</span> : null}</button>;
+          return <button class={cls} aria-label={`${x + 1}列${y + 1}行${u ? ` ${u.name}` : ''}${chest && !chest.opened ? ' 宝箱' : ''}${door ? ' 扉' : ''}${gate ? ' 木の門' : ''}`} onClick={() => tapCell(x, y)}>{b.captive && !b.captive.freed && b.captive.x === x && b.captive.y === y ? <span class="tb-captive">救</span> : chest && !chest.opened ? <span class="tb-obj-ic"><Icon name="chest" size={22} /></span> : door ? <span class="tb-obj-ic"><Icon name="door" size={22} /></span> : gate ? <span class="tb-obj-ic gate">門</span> : null}</button>;
         }))}
         <div class="tb-layer">
           {view.units.filter((u) => u.alive).map((u) => {
@@ -178,10 +207,18 @@ export function TacticsView() {
                 <div class="tb-hp"><i style={{ width: `${Math.max(0, (u.hp / u.max) * 100)}%` }} /></div>
                 {u.side === 'foe' && u.shMax > 0 && <div class="tb-ss">{u.broken > 0 ? <span class="tb-brk">崩</span> : Array.from({ length: u.sh }, () => <span class="sh" />)}</div>}
                 {aim && <div class={`tb-inc${aim.lethal ? ' lethal' : ''}`}>{aim.lethal ? '命' : ''}−{aim.dmg}</div>}
+                {aim2Map[u.uid] && !busy && <div class="tb-inc2">次の次−{aim2Map[u.uid]}</div>}
                 {u.side === 'foe' && u.aim && 'flee' in u.aim && <div class="tb-aim">逃</div>}
               </div>
             );
           })}
+          {aim2List.length > 0 && !busy && (
+            <svg class="tb-arrows" viewBox={`0 0 ${b.w} ${b.h}`} preserveAspectRatio="none" aria-hidden="true">
+              <defs><marker id="tbah2" viewBox="0 0 10 10" refX="8" refY="5" markerUnits="userSpaceOnUse" markerWidth=".38" markerHeight=".38" orient="auto"><path d="M0 0L10 5L0 10z" fill="#ffd9a0" /></marker><marker id="tbah1" viewBox="0 0 10 10" refX="8" refY="5" markerUnits="userSpaceOnUse" markerWidth=".38" markerHeight=".38" orient="auto"><path d="M0 0L10 5L0 10z" fill="#ff8a7a" /></marker></defs>
+              {aim1List.map(({ f, t }) => <line x1={f.x + 0.5} y1={f.y + 0.5} x2={t.x + 0.5} y2={t.y + 0.5} class="a1" marker-end="url(#tbah1)" />)}
+              {aim2List.map(({ f, t }) => <line x1={f.x + 0.5} y1={f.y + 0.5} x2={t.x + 0.5} y2={t.y + 0.5} class="a2" marker-end="url(#tbah2)" />)}
+            </svg>
+          )}
           {pops.map((p) => <div class={`tb-pop ${p.cls}`} style={{ left: `${((p.x + 0.5) / b.w) * 100}%`, top: `${(p.y / b.h) * 100}%` }}>{p.text}</div>)}
         </div>
       </div>
@@ -193,7 +230,19 @@ export function TacticsView() {
           <>
             <div class="tb-who"><span class="tb-wf"><UnitFace u={selU} /></span><b>{selU.name}</b> → <b class="red">{tgtU.name}</b>　札を選ぶ</div>
             <div class="tb-cards">
-              {cards.map((c) => (
+              {swapT.some((o) => o.uid === tgtU.uid) && (
+                <button class="tb-card swapc" onClick={() => run((g) => swapUnits(g.battle!, selU.uid, tgtU.uid))}>
+                  <span class="tb-cn">入れ替え<span class="tb-ct">特技</span></span>
+                  <span class="tb-cd">{selU.name}と{tgtU.name}の場所を入れ替える</span>
+                </button>
+              )}
+              {hasTrait(selU, 'swap2') && swapT.some((o) => o.uid === tgtU.uid) && swapFoeTargets(b, selU, tgtU.uid).length > 0 && (
+                <button class="tb-card swapc" onClick={() => { setSwapFirst(tgtU.uid); setMode('swapfoe'); setTgt(null); setMsg(<span>道化の手：<b>{tgtU.name}</b>と入れ替える敵（紫に光る敵）をタップ</span>); }}>
+                  <span class="tb-cn">道化の手<span class="tb-ct">特技</span></span>
+                  <span class="tb-cd">{tgtU.name}と、ほかの敵の場所を入れ替える</span>
+                </button>
+              )}
+              {atkable.some((f) => f.uid === tgtU.uid) && cards.map((c) => (
                 <button class={`tb-card${c.weak ? ' weak' : ''}${c.brk ? ' brk' : ''}`} disabled={!c.spot} onClick={() => run((g) => attack(g.battle!, selU.uid, tgtU.uid, c.id, c.spot, { noDeath: nd }))}>
                   <span class="tb-cn">{c.name}<span class="tb-ct">{ATK_NAME[c.type]}</span></span>
                   <span class="tb-cd">{c.spot ? <>ダメージ <b>{c.total}</b>{c.hits > 1 ? `（${c.per}×${c.hits}）` : ''}</> : '届かない'}</span>
@@ -206,12 +255,13 @@ export function TacticsView() {
         ) : selU ? (
           <>
             <div class="tb-who"><span class="tb-wf"><UnitFace u={selU} /></span><div><b>{selU.name}</b>　HP {selU.hp}/{selU.max}　{selU.teacher ? `${selU.classId !== 'novice' && CLASSES[selU.classId] ? `${CLASSES[selU.classId].name}の` : ''}${TEACHER_RANK.names[b.teacherRank ?? 0]}` : CLASSES[selU.classId]?.name ?? ''}<div class="tb-techs">{selU.teacher ? <span>号令 のこり{b.command}・見極め のこり{b.insight}</span> : selU.techs.map((t) => <span class="tb-tch">{techOf(t.id)?.name}<small>{ATK_NAME[techOf(t.id)!.type]}・のこり{t.left}</small></span>)}</div></div></div>
-            <div class="tb-msg small">{atkable.length ? '赤く光る敵をタップすると、札が並びます。' : '届く敵がいない。'}{healOk.length ? '緑の仲間をタップで回復。' : ''}動くだけなら青いマス。</div>
+            {mode !== 'none' && msg ? <div class="tb-msg small">{msg}　<button class="btn small ghost" onClick={() => { setMode('none'); setSwapFirst(null); setMsg(null); }}>やめる</button></div> : <div class="tb-msg small">{atkable.length ? '赤く光る敵をタップすると、札が並びます。' : '届く敵がいない。'}{healOk.length ? '緑の仲間をタップで回復。' : ''}{swapT.length ? '紫に光る相手をタップで入れ替え。' : ''}{opens.length ? '光る宝箱・扉をタップで開ける。' : ''}動くだけなら青いマス。</div>}
             <div class="tb-acts">
               <button class="btn small grow" onClick={() => run((g) => wait(g.battle!, selU.uid))}>待機</button>
               {!!selU.potion && selU.hp < selU.max && <button class="btn small grow" onClick={() => run((g) => usePotion(g.battle!, selU.uid))}>傷薬</button>}
               {selU.teacher && b.command > 0 && mine(b).some((m) => m.acted && !m.teacher) && <button class="btn small accent grow" onClick={() => { setMode('command'); setSel(null); setMsg('号令：もう一度動かす子（光っている子）をタップ'); }}>号令</button>}
               {selU.teacher && insightTargets(b).length > 0 && <button class="btn small accent grow" onClick={() => { setMode('insight'); setSel(null); setMsg('見極め：弱点を見たい敵（光っている敵）をタップ'); }}>見極め</button>}
+              {igns.length > 0 && <button class="btn small accent grow" onClick={() => { setMode('ignite'); setMsg(<span>火矢：燃やすマス（光っている森{igns.some((o) => o.gate) ? '・木の門' : ''}）をタップ。燃える森は、通る者が傷を負う</span>); }}>火矢</button>}
               <button class="btn small ghost grow" onClick={() => setSel(null)}>選びなおす</button>
             </div>
           </>

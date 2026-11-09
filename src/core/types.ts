@@ -107,7 +107,9 @@ export type TalkTopic =
   | 'dream' | 'origin' | 'house' | 'trait'
   | 'ev_cover' | 'ev_samekill' | 'ev_exam' | 'ev_loss' | 'ev_homewar' | 'ev_festival' | 'ev_spar' | 'ev_injury'
   | 'rel_friend' | 'rel_rival' | 'rel_love' | 'rel_senpai' | 'daily'
-  | 'food' | 'study' | 'teacher' | 'family' | 'hobby' | 'war' | 'future' | 'fear';
+  | 'food' | 'study' | 'teacher' | 'family' | 'hobby' | 'war' | 'future' | 'fear'
+  /** 21夜目：呪いの子の蘇りの記憶・宿敵との手紙 */
+  | 'memory';
 
 /** 会話の片方（a または b）にかける条件 */
 export interface TalkSideCond {
@@ -138,6 +140,8 @@ export interface TalkSideCond {
   grade?: number;
   /** 平和な時代に入学した（戦争を知らない。7夜目） */
   peaceBorn?: boolean;
+  /** 21夜目：呪いで蘇った子 */
+  revived?: boolean;
 }
 /** 二人の組にかける条件 */
 export interface TalkCond {

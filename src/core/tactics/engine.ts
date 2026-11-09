@@ -15,6 +15,9 @@ export function blocked(b: TBattle, x: number, y: number): boolean {
   if (x < 0 || y < 0 || x >= b.w || y >= b.h) return true;
   if (b.rock.includes(key(x, y))) return true;
   if (b.captive && !b.captive.freed && b.captive.x === x && b.captive.y === y) return true;
+  // 21夜目：閉じた扉・開けていない宝箱・砦の木の門は通れない
+  const k = key(x, y);
+  if (b.doors?.includes(k) || b.gate === k || b.chests?.some((c) => !c.opened && c.x === x && c.y === y)) return true;
   return false;
 }
 const DIRS = [[1, 0], [-1, 0], [0, 1], [0, -1]] as const;
@@ -292,6 +295,7 @@ export function attack(b: TBattle, uid: string, targetUid: string, techId: strin
   if (pos.x !== a.x || pos.y !== a.y) {
     if (T(a, 'shadowstep') && !(key(pos.x, pos.y) in reach(b, a))) log(b, `${a.name}は影を渡り、${d.name}の背後へ跳んだ`);
     a.x = pos.x; a.y = pos.y; a.moved = true; fx.push({ k: 'move', uid: a.uid, x: a.x, y: a.y });
+    scorch(b, a, fx);
   }
   if (!inRange(b, a, a.x, a.y, d, techId)) return fx;
   strike(b, a, d, techId, fx, opt.noDeath ?? false, false, steps, from);
@@ -463,7 +467,9 @@ function afterStrike(b: TBattle, a: TUnit, d: TUnit, c: Calc, tech: TechDef | nu
   }
   if (T(a, 'roar')) for (const f of others((f) => near(f, a, 1) && f.sh > 0 && f.broken === 0)) { f.sh -= 1; log(b, `${f.name}は竜の咆哮にひるんだ（盾−1）`); }
   const fire = c.type === 'fire' || a.dual === 'fire';
-  if (T(a, 'burn') && fire) (b.burn ??= {})[key(d.x, d.y)] = 2;
+  // 21夜目：火矢を森のマスの敵に当てると、森が燃える
+  if (T(a, 'firearrow') && fire && isForest(b, d.x, d.y)) setWildfire(b, d.x, d.y, a);
+  if (T(a, 'burn') && fire) (b.burn ??= {})[key(d.x, d.y)] = Math.max(2, b.burn?.[key(d.x, d.y)] ?? 0);
   if (T(a, 'inferno') && fire && once(b, `inferno:${a.uid}`)) {
     log(b, `${a.name}の劫火！ 横一列が炎に包まれた`, true);
     fx.push({ k: 'cutin', by: a.uid, title: '劫火！', sub: `${a.name}の炎` });
@@ -546,7 +552,7 @@ export function moveOnly(b: TBattle, uid: string, x: number, y: number): TFx[] {
   const R = reach(b, u);
   if (!(key(x, y) in R)) return fx;
   remember(b);
-  if (x !== u.x || y !== u.y) { u.x = x; u.y = y; u.moved = true; fx.push({ k: 'move', uid: u.uid, x, y }); }
+  if (x !== u.x || y !== u.y) { u.x = x; u.y = y; u.moved = true; fx.push({ k: 'move', uid: u.uid, x, y }); scorch(b, u, fx); }
   u.acted = true;
   afterAction(b, fx);
   b.fx = fx;
@@ -608,6 +614,159 @@ export function insightTargets(b: TBattle): TUnit[] {
   return foes(b).filter((f) => dist(t, f) <= insightRange(b) && f.weak.some((w) => !f.known.includes(w)));
 }
 
+// ---------- 21夜目：入れ替え・宝箱と扉・火矢 ----------
+
+/** 入れ替えの届く距離（トリックスター3・道化王4）。入れ替えを持たなければ0 */
+export function swapRange(u: TUnit): number { return T(u, 'swap2') ? TB.swapRange.jester : T(u, 'swap') ? TB.swapRange.trick : 0; }
+/** 入れ替えられる相手（紫に光る）：仲間と、道化王は敵も */
+export function swapTargets(b: TBattle, u: TUnit): TUnit[] {
+  const n = swapRange(u);
+  if (!n || u.acted || u.side !== 'me' || b.phase !== 'player') return [];
+  return b.units.filter((o) => o.alive && o !== u && dist(o, u) <= n && (o.side === 'me' || (T(u, 'swap2') && o.side === 'foe')));
+}
+/** 道化王：敵どうしを入れ替えるとき、1人目の敵と入れ替えられる敵 */
+export function swapFoeTargets(b: TBattle, u: TUnit, firstUid: string): TUnit[] {
+  const f0 = unit(b, firstUid);
+  if (!f0 || !T(u, 'swap2') || u.acted) return [];
+  return foes(b).filter((f) => f !== f0 && dist(f, u) <= TB.swapRange.jester);
+}
+/** 入れ替える：otherUid2 がなければ、自分と otherUid の場所を。あれば（道化王）otherUid と otherUid2 の場所を */
+export function swapUnits(b: TBattle, uid: string, otherUid: string, otherUid2?: string | null): TFx[] {
+  const u = unit(b, uid);
+  const fx: TFx[] = [];
+  if (!u || u.acted || b.phase !== 'player') return fx;
+  const p = unit(b, otherUid);
+  const q = otherUid2 ? unit(b, otherUid2) : u;
+  if (!p || !q || !p.alive || !q.alive || p === q) return fx;
+  if (otherUid2) { if (!swapFoeTargets(b, u, p.uid).includes(q)) return fx; }
+  else if (!swapTargets(b, u).includes(p)) return fx;
+  remember(b);
+  // 命の危険のしるしがついた仲間を逃がした（宿敵戦）＝ 宿敵を出し抜いた
+  const saved = [p, q].filter((x) => x.side === 'me' && x !== u && foes(b).some((f) => f.aim && 't' in f.aim && f.aim.t === x.uid && f.aim.lethal));
+  const [px, py] = [p.x, p.y];
+  p.x = q.x; p.y = q.y; q.x = px; q.y = py;
+  fx.push({ k: 'cutin', by: u.uid, title: otherUid2 ? '道化の手！' : '入れ替え！', sub: otherUid2 ? `${p.name}と${q.name}の場所が入れ替わった` : `${u.name}と${p.name}の場所が入れ替わった` });
+  fx.push({ k: 'move', uid: p.uid, x: p.x, y: p.y }, { k: 'move', uid: q.uid, x: q.x, y: q.y });
+  log(b, otherUid2 ? `${u.name}の道化の手：${p.name}と${q.name}の場所を入れ替えた` : `${u.name}の入れ替え：${p.name}と場所を入れ替えた`, saved.length > 0);
+  if (saved.length && b.nemesisId) { addDeed(u, 'outwit'); log(b, `${saved.map((x) => x.name).join('・')}は、命の危険から逃れた`, true); }
+  if (p.side === 'me') scorch(b, p, fx);
+  if (q.side === 'me') scorch(b, q, fx);
+  u.acted = true; u.moved = true;
+  afterAction(b, fx);
+  b.fx = fx;
+  return fx;
+}
+
+/** 盗賊の系統（盗む）が開けられる宝箱・扉：動ける範囲のどこかの隣にあるもの */
+export function openables(b: TBattle, u: TUnit): { x: number; y: number; kind: 'chest' | 'door' }[] {
+  if (!T(u, 'steal') || u.acted || b.phase !== 'player') return [];
+  const R = Object.keys(reach(b, u)).map((k) => k.split('-').map(Number));
+  const nearR = (x: number, y: number) => R.some(([rx, ry]) => Math.abs(rx - x) + Math.abs(ry - y) === 1);
+  const out: { x: number; y: number; kind: 'chest' | 'door' }[] = [];
+  for (const c of b.chests ?? []) if (!c.opened && nearR(c.x, c.y)) out.push({ x: c.x, y: c.y, kind: 'chest' });
+  for (const k of b.doors ?? []) { const [x, y] = k.split('-').map(Number); if (nearR(x, y)) out.push({ x, y, kind: 'door' }); }
+  return out;
+}
+/** 宝箱・扉を開ける（隣のいちばん安全なマスへ動いてから） */
+export function openAt(b: TBattle, uid: string, x: number, y: number): TFx[] {
+  const u = unit(b, uid);
+  const fx: TFx[] = [];
+  if (!u) return fx;
+  const it = openables(b, u).find((o) => o.x === x && o.y === y);
+  if (!it) return fx;
+  let best: { x: number; y: number; sc: number } | null = null;
+  for (const [k, st] of Object.entries(reach(b, u))) { const [rx, ry] = k.split('-').map(Number); if (Math.abs(rx - x) + Math.abs(ry - y) !== 1) continue; const sc = threatAt(b, u, rx, ry) * 2 + st - (isForest(b, rx, ry) ? 20 : 0); if (!best || sc < best.sc) best = { x: rx, y: ry, sc }; }
+  if (!best) return fx;
+  remember(b);
+  if (best.x !== u.x || best.y !== u.y) { u.x = best.x; u.y = best.y; u.moved = true; fx.push({ k: 'move', uid: u.uid, x: u.x, y: u.y }); scorch(b, u, fx); }
+  if (it.kind === 'chest') {
+    const c = b.chests!.find((c) => c.x === x && c.y === y)!;
+    c.opened = true;
+    if (c.kind === 'potion') { u.potion = (u.potion ?? 0) + 1; log(b, `${u.name}が宝箱を開けた。中には傷薬（この戦いで使える）`, true); }
+    else { (b.found ??= []).push({ weaponId: c.weaponId, by: u.uid }); log(b, `${u.name}が宝箱を開けた。中には武器（戦いのあと武器庫へ）`, true); }
+    fx.push({ k: 'say', by: u.uid, text: c.kind === 'potion' ? '薬だ。これは助かる' : 'いい得物が入ってる。持って帰ろう', tone: 'me' });
+  } else {
+    b.doors = (b.doors ?? []).filter((k) => k !== key(x, y));
+    (b.found ??= []).push({ money: TB.chest.doorMoney, by: u.uid });
+    log(b, `${u.name}が扉の鍵を開けた。奥の小部屋に、金貨の袋があった（通れるようになった）`, true);
+    fx.push({ k: 'say', by: u.uid, text: 'こんな鍵、ないのと同じさ', tone: 'me' });
+  }
+  u.acted = true;
+  afterAction(b, fx);
+  b.fx = fx;
+  return fx;
+}
+
+/** 火矢（火矢兵の系統）で燃やせるマス：届く森（まだ燃えていない）と、砦の木の門 */
+export function ignitables(b: TBattle, u: TUnit): { x: number; y: number; gate: boolean }[] {
+  if (!T(u, 'firearrow') || u.acted || b.phase !== 'player') return [];
+  const R = Object.keys(reach(b, u)).map((k) => k.split('-').map(Number));
+  const [mn, mx] = [Math.max(1, u.rmin), Math.max(u.rmax, 2)];
+  const ok = (x: number, y: number) => R.some(([rx, ry]) => { const d = Math.abs(rx - x) + Math.abs(ry - y); return d >= mn && d <= mx; });
+  const out: { x: number; y: number; gate: boolean }[] = [];
+  for (const k of b.forest) { if (b.burn?.[k]) continue; const [x, y] = k.split('-').map(Number); if (ok(x, y)) out.push({ x, y, gate: false }); }
+  if (b.gate) { const [x, y] = b.gate.split('-').map(Number); if (ok(x, y)) out.push({ x, y, gate: true }); }
+  return out;
+}
+/** 火矢を放って、森か門を燃やす */
+export function ignite(b: TBattle, uid: string, x: number, y: number): TFx[] {
+  const u = unit(b, uid);
+  const fx: TFx[] = [];
+  if (!u) return fx;
+  const it = ignitables(b, u).find((o) => o.x === x && o.y === y);
+  if (!it) return fx;
+  const [mn, mx] = [Math.max(1, u.rmin), Math.max(u.rmax, 2)];
+  let best: { x: number; y: number; sc: number } | null = null;
+  for (const [k, st] of Object.entries(reach(b, u))) { const [rx, ry] = k.split('-').map(Number); const d = Math.abs(rx - x) + Math.abs(ry - y); if (d < mn || d > mx) continue; const sc = threatAt(b, u, rx, ry) * 2 + st - (isForest(b, rx, ry) ? 20 : 0); if (!best || sc < best.sc) best = { x: rx, y: ry, sc }; }
+  if (!best) return fx;
+  remember(b);
+  if (best.x !== u.x || best.y !== u.y) { u.x = best.x; u.y = best.y; u.moved = true; fx.push({ k: 'move', uid: u.uid, x: u.x, y: u.y }); scorch(b, u, fx); }
+  u.usedFire = true;
+  if (it.gate) {
+    b.gate = null;
+    (b.burn ??= {})[key(x, y)] = 2; (b.wild ??= []).includes(key(x, y)) || b.wild!.push(key(x, y));
+    fx.push({ k: 'cutin', by: u.uid, title: '火矢！', sub: '砦の木の門が燃え落ちた' });
+    log(b, `${u.name}の火矢が、砦の木の門を焼き落とした！`, true);
+    addDeed(u, 'burnFort');
+  } else {
+    setWildfire(b, x, y, u);
+    fx.push({ k: 'cutin', by: u.uid, title: '火矢！', sub: '森が燃えはじめた' });
+  }
+  u.acted = true;
+  afterAction(b, fx);
+  b.fx = fx;
+  return fx;
+}
+/** 森に火をつける（数ターン燃え、通る者が傷を負う。いる者もすぐに傷を負う） */
+function setWildfire(b: TBattle, x: number, y: number, by: TUnit): void {
+  const k = key(x, y);
+  if (!b.forest.includes(k)) return;
+  const fresh = !b.wild?.includes(k);
+  (b.burn ??= {})[k] = Math.max(TB.wildfire.turns, b.burn?.[k] ?? 0);
+  if (fresh) { (b.wild ??= []).push(k); log(b, `${by.name}の火矢で、森が燃えはじめた（${TB.wildfire.turns}ターン。通ると傷を負う）`); }
+  const o = at(b, x, y);
+  if (o && fresh) burnHurt(b, o, by, []);
+}
+/** 燃えているマスに入った者が傷を負う（味方は燃える森だけ。倒れはしない＝体力1で残る） */
+function scorch(b: TBattle, u: TUnit, fx: TFx[], noDeath = false): void {
+  const k = key(u.x, u.y);
+  if (!b.burn?.[k] || !u.alive) return;
+  if (u.side === 'me' && !b.wild?.includes(k)) return;
+  burnHurt(b, u, null, fx, noDeath);
+}
+function burnHurt(b: TBattle, u: TUnit, by: TUnit | null, fx: TFx[], noDeath = false): void {
+  if (u.side === 'me') {
+    const dmg = Math.min(TB.wildfire.dmg, u.hp - 1);
+    if (dmg <= 0) return;
+    u.hp -= dmg; u.taken += dmg;
+    fx.push({ k: 'hit', a: u.uid, d: u.uid, dmg, weak: false, resisted: false, shield: false, brk: false, kill: false, tech: '炎', broken: false });
+    log(b, `${u.name}は炎に巻かれた（−${dmg}）`);
+  } else {
+    const src = by ?? mine(b).find((m) => T(m, 'firearrow') || T(m, 'burn')) ?? mine(b)[0];
+    if (src) chip(b, src, u, TB.wildfire.dmg, fx, noDeath, '炎');
+  }
+}
+
 /** 待機 */
 export function wait(b: TBattle, uid: string): void {
   const u = unit(b, uid);
@@ -652,6 +811,23 @@ export function intents(b: TBattle): void {
     const can = canHit(b, f, best.m);
     const c = calc(b, f, best.m, null, { rage: f.rage });
     f.aim = can ? { t: best.m.uid, dmg: c.total, lethal: c.lethal, rage: f.rage } : { t: best.m.uid, dmg: 0, lethal: false, approach: true };
+  }
+  aimsTwoAhead(b);
+}
+
+/** 21夜目：2手先の狙い（千里眼・天眼）。こちらが何もしないで番を終えたとき、敵が次の次に狙う相手を、試しに計算して見せる */
+export function aimsTwoAhead(b: TBattle): void {
+  for (const u of b.units) if (u.aim2) u.aim2 = null;
+  if (b.peek || b.phase !== 'player' || !mine(b).some((m) => T(m, 'farsight'))) return;
+  const { undo: _u, fx: _f, ...rest } = b;
+  const sim = JSON.parse(JSON.stringify(rest)) as TBattle;
+  sim.undo = null; sim.fx = []; sim.peek = true;
+  endTurn(sim, { noDeath: true });
+  if (sim.phase !== 'player') return;
+  for (const f of foes(sim)) {
+    const real = unit(b, f.uid);
+    if (!real || !real.alive || !f.aim || !('t' in f.aim) || f.aim.approach) continue;
+    real.aim2 = { t: f.aim.t, dmg: f.aim.dmg };
   }
 }
 export function canHit(b: TBattle, f: TUnit, m: TUnit): boolean {
@@ -724,7 +900,7 @@ export function endTurn(b: TBattle, opt: { noDeath?: boolean } = {}): TFx[] {
     if (!spot) {
       for (const [k] of Object.entries(R)) { const [x, y] = k.split('-').map(Number); const sc = Math.abs(x - target.x) + Math.abs(y - target.y); if (!spot || sc < spot.sc) spot = { x, y, sc }; }
     }
-    if (spot && (spot.x !== f.x || spot.y !== f.y)) { f.x = spot.x; f.y = spot.y; fx.push({ k: 'move', uid: f.uid, x: f.x, y: f.y }); }
+    if (spot && (spot.x !== f.x || spot.y !== f.y)) { f.x = spot.x; f.y = spot.y; fx.push({ k: 'move', uid: f.uid, x: f.x, y: f.y }); scorch(b, f, fx, !!opt.noDeath); }
     // 槍衾：隣に来た敵を、先に突く
     for (const m of mine(b).filter((m) => T(m, 'pike') && near(m, f, 1))) { if (!f.alive) break; log(b, `${m.name}の槍衾！`); strike(b, m, f, null, fx, opt.noDeath ?? false, false, 0, undefined, true); }
     checkEnd(b);
@@ -741,7 +917,14 @@ export function endTurn(b: TBattle, opt: { noDeath?: boolean } = {}): TFx[] {
   for (const f of foes(b)) if (f.broken === 2) f.broken = 1;
   // 阿修羅の条件：囲まれて（敵3人以上が隣）生き延びる
   for (const m of mine(b)) if (!m.teacher && !m.raised && foes(b).filter((f) => near(f, m, 1)).length >= 3) addDeed(m, 'surroundedTurn');
-  if (b.burn) for (const k of Object.keys(b.burn)) { b.burn[k] -= 1; if (b.burn[k] <= 0) delete b.burn[k]; }
+  if (b.burn) for (const k of Object.keys(b.burn)) {
+    b.burn[k] -= 1;
+    if (b.burn[k] <= 0) {
+      delete b.burn[k];
+      // 燃え尽きた森は、ただの焼け跡に（森の守りはなくなる）
+      if (b.wild?.includes(k)) { b.wild = b.wild.filter((w) => w !== k); b.forest = b.forest.filter((f) => f !== k); }
+    }
+  }
   if (b.walls?.length && b.wallTurns !== undefined) { b.wallTurns -= 1; if (b.wallTurns <= 0) { b.walls = []; log(b, '結界の光の壁が消えた'); } }
   b.turn += 1;
   for (const u of b.units) { u.acted = false; u.moved = false; }
