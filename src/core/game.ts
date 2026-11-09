@@ -84,6 +84,7 @@ export function newGame(opts: { name: string; background: string; seed: number; 
   ensureLegends(s, r); // 14夜目：伝説の武器の行方
   startNewsDesk(s);
   if (opts.tutorial) s.tutorial = { tour: 0, seen: [] }; // 14夜目：最初の1時間の案内
+  s.cardGuide = 'pending'; // 17夜目：最初の札の戦いに案内（最初の依頼なら案内つきの1戦、ほかは「戦い方が新しくなりました」）
   s.quests = rollQuests(s);
   ensureRegions(s); // 13夜目：勢力図
   markYear(s); // 14夜目：1年の振り返りの控え

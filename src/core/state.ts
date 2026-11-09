@@ -659,6 +659,8 @@ export interface GameState {
   yearMark?: YearMark;
   /** 14夜目：最初の1時間の案内（新しく始めたときだけ。古いセーブにはない） */
   tutorial?: TutorialState;
+  /** 17夜目：札の戦いの案内。pending＝次の札の戦いで出す（最初の依頼なら案内つき、ほかは「戦い方が新しくなりました」）、done＝もう出した */
+  cardGuide?: 'pending' | 'done';
   /** 勢力図を前に見たときのようす（13夜目） */
   mapSeen?: { at: number; o: Record<string, string> };
   /** 組織図を前に見たときのようす（9夜目：陣営→敵将id→階級・状態・二つ名・上の人） */

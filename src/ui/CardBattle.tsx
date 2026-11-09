@@ -20,6 +20,11 @@ import { WEATHER_NAMES } from '../core/quests';
 import { WEAPONS } from '../data/weapons';
 import { CRIT_SAY, type FxLevel } from '../data/battlefx';
 import { fxText } from '../data/arts';
+import { guideStage, guideNext, skipCardGuide, endCardGuide, onCardsOpen, answerGuideOffer } from '../core/battle/cardGuide';
+import { CARD_GUIDE, GUIDE_OFFER } from '../data/cardGuide';
+import { GuideSeal } from './Guide';
+import { GUIDE_NAME } from '../data/tutorial';
+import { CardManualSheet } from './CardManual';
 
 const SQUAD_LABEL = ['第一部隊', '第二部隊', '第三部隊'];
 const KIND_LABEL: Record<Card['kind'], string> = { art: '戦技', spell: '魔法', skill: 'スキル札', basic: '攻撃', strat: '策', item: '道具', bloom: '開花の技', legend: '伝説の武器' };
@@ -89,6 +94,21 @@ export function CardBattleView() {
     const actor = c.actor ?? c.options.find((o) => o.actor)?.actor;
     if (actor && a?.leader) setFxq((q) => [...q, { k: 'duel', a: actor, title: c.duo ? '宿命の対決' : '一騎打ち', say: c.prompt.split('\n')[1] ?? '' }]);
   }, [a?.choice?.prompt, showingResult]);
+  // 17夜目：最初の札の戦いの案内（最初の依頼は案内つき、今のセーブは「戦い方が新しくなりました」）
+  const playing = !!cs && cs.phase === 'play' && !showingResult && !!a && a.shown >= a.scenes.length && !a.choice;
+  useEffect(() => {
+    if (!playing || !s || s.cardGuide !== 'pending' || !cs || cs.turn !== 1 || cs.guide || cs.guideOffer) return;
+    act((g) => onCardsOpen(g));
+  }, [playing, cs?.turn]);
+  // 案内の段が変わったら、見てほしいところまで動かす（予告＝上、札を選ぶ＝下の手札とボタン）
+  const gStage = b && cs?.guide ? guideStage(b, sel) : null;
+  useEffect(() => {
+    if (!gStage || showingResult) return;
+    const v = document.querySelector('.cb-view') as HTMLElement | null;
+    if (!v?.scrollTo) return;
+    const tm = setTimeout(() => v.scrollTo({ top: gStage === 'intent' ? 0 : v.scrollHeight, behavior: 'smooth' }), 60);
+    return () => clearTimeout(tm);
+  }, [gStage, showingResult]);
   if (!s || !b || !a || !cs) return null;
   const leader = a.leader;
   const lo = officerById(s, leader?.officerId);
@@ -137,9 +157,10 @@ export function CardBattleView() {
             <div>手札を{cs.hand.length}枚引きました。山札 {cs.deck.length}・捨て札 {cs.discard.length}</div>
           </div>
         )}
+        {all && cs.guide?.step === 'after' && <GuideBubble head={CARD_GUIDE.after.head} text={CARD_GUIDE.after.text} />}
         {all && cs.phase === 'done' && <div class={`cb-box big serif ${b.result === 'win' ? 'win' : 'lose'}`}>{b.result === 'win' ? '勝利！' : '敗北……'}</div>}
         {all && (
-          <button class="btn primary block cb-go" onClick={(e) => { stop(e); sfx('ok'); if (cs.phase === 'done') setDoneAck(true); else act((g) => { const c = g.battle?.auto?.cards; if (c) c.phase = 'play'; }); }}>
+          <button class="btn primary block cb-go" onClick={(e) => { stop(e); sfx('ok'); if (cs.guide?.step === 'after') act((g) => { if (g.battle) endCardGuide(g.battle); }); if (cs.phase === 'done') setDoneAck(true); else act((g) => { const c = g.battle?.auto?.cards; if (c) c.phase = 'play'; }); }}>
             {cs.phase === 'done' ? '決着を見る' : a.choice ? 'ここぞの判断へ' : '次のターンへ'}
           </button>
         )}
@@ -201,18 +222,36 @@ export function CardBattleView() {
   const cost = (id: string) => cs.cards[id]?.fx.cost ?? 1;
   const used = sel.reduce((x, id) => x + cost(id), 0);
   const left = cs.ap - used;
+  const g = cs.guide;
+  const stage = guideStage(b, sel);
+  const guiding = !!stage && stage !== 'after';
+  /** 案内のあいだは、言われた札だけ押せる */
+  const allowed = (id: string) => !guiding || (stage === 'cover' && id === g!.cover) || (stage === 'atk' && id === g!.atk);
   const toggle = (id: string) => {
-    if (sel.includes(id)) { sfx('move'); setSel(sel.filter((x) => x !== id)); return; }
+    if (guiding && !allowed(id)) { sfx('cancel'); return; }
+    if (sel.includes(id)) { if (guiding) return; sfx('move'); setSel(sel.filter((x) => x !== id)); return; }
     if (cost(id) > left) { sfx('cancel'); return; }
     sfx('move'); setSel([...sel, id]);
   };
   const play = (ids: string[], target?: string) => { sfx('ok'); act((g) => playCardTurn(g, ids, target, battleCtx(g))); };
   const inc = incoming(b);
+  const fill = (x: string) => {
+    if (!g) return x;
+    const cv = cs.cards[g.cover]; const ak = cs.cards[g.atk];
+    const v: Record<string, string> = { foe: nameOf(g.foe), ward: nameOf(g.ward), coverBy: nameOf(g.coverBy), attacker: nameOf(g.attacker), cover: cv?.name ?? 'かばう', atk: ak?.name ?? '攻撃', dmg: String(cs.intents.find((it) => it.uid === g.foe)?.dmg ?? ''), left: String(cs.ap - (cv?.fx.cost ?? 1)) };
+    return x.replace(/\{(\w+)\}/g, (m, k) => v[k] ?? m);
+  };
+  const gd = stage && stage !== 'after' ? CARD_GUIDE[stage] : null;
+  const bubble = gd && (
+    <GuideBubble head={gd.head} text={fill(gd.text)}
+      onNext={stage === 'intent' ? () => { sfx('ok'); act((x) => { if (x.battle) guideNext(x.battle); }); } : undefined} next={CARD_GUIDE.intent.next}
+      onSkip={() => { if (!confirm(CARD_GUIDE.skipConfirm)) return; sfx('cancel'); setSel([]); act((x) => { if (x.battle) skipCardGuide(x.battle); }); }} />
+  );
   return (
-    <div class="cb-view">
+    <div class={`cb-view${guiding ? ` guiding g-${stage}` : ''}`}>
       {head(`ターン${cs.turn} ― 札を出す`)}
-      <div class="cb-turnline small"><span>残り {cs.maxTurns - cs.turn + 1}ターン</span><button class="btn ghost small cb-help" onClick={() => setHelp(true)}>？ 遊び方</button></div>
-      <FoeRow s={s} b={b} nameOf={nameOf} leader={leader} leaderColor={leaderColor} onTarget={(uid) => act((g) => { const c = g.battle?.auto?.cards; if (c) c.target = c.target === uid ? undefined : uid; })} />
+      <div class="cb-turnline small"><span>残り {cs.maxTurns - cs.turn + 1}ターン</span><button class="btn ghost small cb-help" onClick={() => { sfx('ok'); setHelp(true); }}>？ 遊び方</button></div>
+      <FoeRow s={s} b={b} nameOf={nameOf} leader={leader} leaderColor={leaderColor} glow={stage === 'intent' ? g!.foe : undefined} onTarget={guiding ? undefined : (uid) => act((g) => { const c = g.battle?.auto?.cards; if (c) c.target = c.target === uid ? undefined : uid; })} />
       <div class="cb-party">
         {b.units.filter((u) => (u.side === 'player' || u.side === 'ally' || (u.side === 'npc' && u.escort))).slice(0, 12).map((u) => {
           const dn = u.dead || b.retreated.includes(u.uid);
@@ -220,7 +259,7 @@ export function CardBattleView() {
           const th = Math.round(inc[u.uid] ?? 0);
           const st = u.studentId ? s.students[u.studentId] : null;
           return (
-            <div class={`cb-mem${dn ? ' down' : ''}${th >= u.hp && !dn ? ' danger' : ''}`}>
+            <div class={`cb-mem${dn ? ' down' : ''}${th >= u.hp && !dn ? ' danger' : ''}${stage === 'intent' && g?.ward === u.uid ? ' gglow' : ''}`}>
               <span class="cb-face">{st ? <Portrait st={st} size={36} frame={countryColor(st.origin)} /> : <span class="bl-icon" style={{ width: 36, height: 36 }}>{u.side === 'npc' ? '守' : '援'}</span>}{th > 0 && !dn && <span class="cb-threat">−{th}</span>}</span>
               <b class="cb-mn">{nameOf(u.uid)}</b>
               <span class="rb-bar ally"><span class={p <= 33 ? 'low' : p <= 60 ? 'mid' : ''} style={{ width: `${dn ? 0 : p}%` }} /></span>
@@ -229,31 +268,49 @@ export function CardBattleView() {
           );
         })}
       </div>
+      {bubble}
       <div class="cb-apline row between nowrap small">
         <span>山札 {cs.deck.length} ・ 捨て札 {cs.discard.length}</span>
         <span class="row nowrap gap6">行動力 {Array.from({ length: cs.ap }).map((_, i) => <i class={`cb-ap${i < left ? ' on' : ''}`} />)} {left}/{cs.ap} 残り</span>
       </div>
       <div class={`cb-hand n${Math.min(hand.length, 8)}`}>
-        {hand.map((id, i) => <HandCard s={s} b={b} id={id} order={sel.indexOf(id)} disabled={!sel.includes(id) && cost(id) > left} onTap={() => toggle(id)} idx={i} n={hand.length} ctx={ctx} />)}
+        {hand.map((id, i) => <HandCard s={s} b={b} id={id} order={sel.indexOf(id)} disabled={guiding ? !allowed(id) && !sel.includes(id) : !sel.includes(id) && cost(id) > left} glow={guiding && allowed(id) && !sel.includes(id)} onTap={() => toggle(id)} idx={i} n={hand.length} ctx={ctx} />)}
       </div>
       <div class="cb-btns">
-        <button class="btn primary block cb-go" disabled={!sel.length} onClick={() => play(sel, cs.target)}>{sel.length ? `この${sel.length}枚を出す` : '札を選んでください'}</button>
+        <button class={`btn primary block cb-go${stage === 'play' ? ' gglow' : ''}`} disabled={!sel.length || (guiding && stage !== 'play')} onClick={() => play(sel, cs.target)}>{sel.length ? `この${sel.length}枚を出す` : '札を選んでください'}</button>
         <div class="row nowrap gap6">
-          <button class="btn block" onClick={() => { const p = autoPick(s, b, ctx); play(p.ids, cs.target ?? p.target); }}>おまかせで札を出す</button>
-          <button class="btn ghost" onClick={() => { if (!confirm('残りのターンを、おまかせで最後まで進めます。よろしいですか？')) return; sfx('ok'); act((g) => { const b0 = g.battle; skipCards(g, battleCtx(g), undefined, undefined, false); if (g.battle === b0 && g.battle?.auto) g.battle.auto.shown = Math.max(0, g.battle.auto.scenes.length - 1); }); setDoneAck(true); }}>最後まで</button>
+          <button class="btn block" disabled={guiding} onClick={() => { const p = autoPick(s, b, ctx); play(p.ids, cs.target ?? p.target); }}>おまかせで札を出す</button>
+          <button class="btn ghost" disabled={guiding} onClick={() => { if (!confirm('残りのターンを、おまかせで最後まで進めます。よろしいですか？')) return; sfx('ok'); act((g) => { const b0 = g.battle; skipCards(g, battleCtx(g), undefined, undefined, false); if (g.battle === b0 && g.battle?.auto) g.battle.auto.shown = Math.max(0, g.battle.auto.scenes.length - 1); }); setDoneAck(true); }}>最後まで</button>
         </div>
       </div>
-      {help && <Sheet title="札の戦い" onClose={() => setHelp(false)}>
-        <p class="small">授業で覚えた戦技・魔法・スキルと、先生の策が札になります。毎ターン手札を引き、<b>行動力</b>の分だけ札を出します（札の左上の数が、使う行動力）。</p>
-        <p class="small">敵の札の下に<b>次の行動</b>が出ています。味方の顔の赤い数は、そのまま受けると減るHPです。<b>かばう</b>・<b>守り</b>・<b>回復</b>の札で守るか、先に倒すかを選んでください。敵の札を押すと、攻撃の札で狙う相手を決められます（もう一度押すと、おまかせ）。</p>
-        <p class="small">信頼の低い子は、ときどき自分の判断で別の札を使います。倒れた子の札は、その戦いのあいだ手札に来ません。{cs.maxTurns}ターンで決着します。</p>
-      </Sheet>}
+      {help && <CardManualSheet onClose={() => setHelp(false)} />}
+      {cs.guideOffer && !g && (
+        <Sheet>
+          <div class="guide-tip">
+            <div class="row nowrap gap8"><GuideSeal /><div class="grow"><div class="small muted">{GUIDE_NAME}</div><b class="serif" style={{ fontSize: 17 }}>{GUIDE_OFFER.title}</b></div></div>
+            <div class="guide-say serif">{GUIDE_OFFER.lines.map((l) => <p>{l}</p>)}</div>
+          </div>
+          <button class="btn primary block" style={{ marginTop: 10 }} onClick={() => { sfx('ok'); setSel([]); act((x) => answerGuideOffer(x, true)); }}>{GUIDE_OFFER.see}</button>
+          <button class="btn ghost block" style={{ marginTop: 6 }} onClick={() => { sfx('cancel'); act((x) => answerGuideOffer(x, false)); }}>{GUIDE_OFFER.skip}</button>
+        </Sheet>
+      )}
+    </div>
+  );
+}
+
+/** 札の戦いの案内の吹き出し（管理人オズヴァルト） */
+function GuideBubble({ head, text, onNext, next, onSkip }: { head: string; text: string; onNext?: () => void; next?: string; onSkip?: () => void }) {
+  return (
+    <div class="cb-guide" role="note" aria-label="案内">
+      <div class="row nowrap gap6"><GuideSeal size={32} /><b class="small grow">{GUIDE_NAME}<span class="cb-ghead">{head}</span></b>{onSkip && <button class="btn ghost small cb-gskip" onClick={onSkip}>{CARD_GUIDE.skip}</button>}</div>
+      <div class="serif cb-gsay">{text}</div>
+      {onNext && <button class="btn primary block cb-gnext" onClick={onNext}>{next}</button>}
     </div>
   );
 }
 
 /** 敵の並び：前に出ている敵（顔・名前・HP・次の行動）。押すと狙う相手に */
-function FoeRow({ s, b, nameOf, leader, leaderColor, onTarget, hideIntent }: { s: GameState; b: BattleState; nameOf: (uid: string) => string; leader: LeaderInfo | null; leaderColor: string; onTarget?: (uid: string) => void; hideIntent?: boolean }) {
+function FoeRow({ s, b, nameOf, leader, leaderColor, onTarget, hideIntent, glow }: { s: GameState; b: BattleState; nameOf: (uid: string) => string; leader: LeaderInfo | null; leaderColor: string; onTarget?: (uid: string) => void; hideIntent?: boolean; glow?: string }) {
   const cs = b.auto!.cards!;
   const q = s.quests.find((x) => x.id === b.questId);
   const faction = q?.kind === 'monster' ? null : q?.enemyCountry ?? 'bandit';
@@ -272,7 +329,7 @@ function FoeRow({ s, b, nameOf, leader, leaderColor, onTarget, hideIntent }: { s
         const w = u.weaponId ? WEAPONS[u.weaponId]?.type : undefined;
         const stun = cs.stun.includes(u.uid);
         return (
-          <button class={`cb-foe${L ? ' lead' : ''}${dn ? ' down' : ''}${cs.target === u.uid ? ' aim' : ''}`} onClick={() => onTarget?.(u.uid)} disabled={!onTarget || dn}>
+          <button class={`cb-foe${L ? ' lead' : ''}${dn ? ' down' : ''}${cs.target === u.uid ? ' aim' : ''}${glow === u.uid ? ' gglow' : ''}`} onClick={() => onTarget?.(u.uid)} disabled={!onTarget || dn}>
             <span class="cb-ffeat">
               {L ? <OfficerFace o={leaderFace(leader)} size={sz} frame={leaderColor} s={s} />
                 : u.studentId && s.students[u.studentId] ? <Portrait st={s.students[u.studentId]} size={sz} frame="var(--accent)" />
@@ -293,7 +350,7 @@ function FoeRow({ s, b, nameOf, leader, leaderColor, onTarget, hideIntent }: { s
 }
 
 /** 手札の1枚：行動力・使う子の顔・名前・種類・効き目の数・使う子 */
-function HandCard({ s, b, id, order, disabled, onTap, idx, n, ctx }: { s: GameState; b: BattleState; id: string; order: number; disabled: boolean; onTap: () => void; idx: number; n: number; ctx: ReturnType<typeof battleCtx> }) {
+function HandCard({ s, b, id, order, disabled, onTap, idx, n, ctx, glow }: { s: GameState; b: BattleState; id: string; order: number; disabled: boolean; onTap: () => void; idx: number; n: number; ctx: ReturnType<typeof battleCtx>; glow?: boolean }) {
   const cs = b.auto!.cards!;
   const c = cs.cards[id];
   const u = b.units.find((x) => x.uid === c.owner);
@@ -302,7 +359,7 @@ function HandCard({ s, b, id, order, disabled, onTap, idx, n, ctx }: { s: GameSt
   const mid = (n - 1) / 2;
   const rot = n <= 5 ? (idx - mid) * 3 : 0;
   return (
-    <button class={`cb-card ${cardTone(c)}${order >= 0 ? ' on' : ''}${disabled ? ' off' : ''}`} style={{ ['--rot' as string]: `${rot}deg` }} onClick={onTap}>
+    <button class={`cb-card ${cardTone(c)}${order >= 0 ? ' on' : ''}${disabled ? ' off' : ''}${glow ? ' gglow' : ''}`} style={{ ['--rot' as string]: `${rot}deg` }} onClick={onTap}>
       <span class="cb-cost">{c.fx.cost ?? 1}</span>
       {order >= 0 && <span class="cb-order">{order + 1}</span>}
       <span class="cb-cface">{c.kind === 'strat' ? <span class="cb-strat serif">策</span> : st ? <Portrait st={st} size={26} /> : null}</span>

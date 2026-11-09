@@ -32,6 +32,7 @@ import { getSupport, supportValue } from '../support';
 import { enrolled, available, chronicle } from '../game';
 import { STRATS, type StratId } from '../../data/stratagems';
 import { initCards, resolveTurn, autoPick, afterChoice, checkCardsEnd, type CLine, type CardPolicy } from './cards';
+import { guideAfterPlay } from './cardGuide';
 import { fireStrat, stratReview, captainMod, defaultRow, formationMod, oddsLabel, stratOdds, defaultCaptain, defaultPlanner, knownStrats, stratSlots, type StratRec } from '../stratagems';
 
 // ---------- 16夜目：札の戦い ----------
@@ -1300,6 +1301,7 @@ export function playCardTurn(s: GameState, ids: string[], target: string | undef
   const q = s.quests.find((x) => x.id === b.questId) ?? ({ kind: 'drill', objective: b.objective, template: 'training', weather: b.weather } as Quest);
   cs.target = target;
   const rec = resolveTurn(s, b, autoCtx(ctx, b), ids, { level: s.settings.battleProse ?? 'dense', deathMul: B.cards.deathMul });
+  if (cs.guide) guideAfterPlay(b); // 17夜目：案内の1ターン目が終わった
   const r = rngOf(b);
   // 10夜目：勇士型の敵将が倒れると、兵が崩れる
   {

@@ -62,6 +62,7 @@ export function migrate(s: GameState, from: number): GameState {
   if (from < 14) migrateTo14(s);
   if (from < 15) migrateTo15(s);
   if (from < 16) migrateTo16(s);
+  if (from < 17) migrateTo17(s);
   s.heirs ??= [];
   s.archive ??= {};
   s.notices ??= [];
@@ -469,6 +470,14 @@ function migrateTo16(s: GameState): void {
   for (const st of [...Object.values(s.students ?? {}), ...(s.applicants ?? [])]) migrateArtPlan(st);
   s.pending ??= [];
   s.pending.push({ type: 'event', title: '16夜目の新しいこと', lines: NIGHT16_LINES });
+}
+/**
+ * 16夜目の版（version 16）→ 17夜目の版（version 17）
+ * - 札の戦いの案内：次の札の戦いのはじめに1回だけ「戦い方が新しくなりました」（飛ばせる）。
+ *   最初の1時間の案内の途中（4月の最初の依頼がまだ）なら、その依頼が案内つきの1戦になる
+ */
+function migrateTo17(s: GameState): void {
+  s.cardGuide ??= 'pending';
 }
 export const NIGHT16_LINES = [
   '生徒ごとに、覚える戦技・魔法・スキルが違うようになりました。同じ剣でも、ある子は「燕返し」、別の子は「居合い」を覚えます。性格・夢・生まれた国の流派・家柄で決まり、もう覚えた技はそのままです。',

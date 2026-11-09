@@ -19,6 +19,7 @@ import { abilitiesOf, healAmount, staffsOf, weaponOf } from './calc';
 import { stratOdds, fireStrat } from '../stratagems';
 import { officerById, survives } from '../officers';
 import { clamp } from '../util';
+import type { CardGuide } from './cardGuide';
 
 /** シミュレーション用の数え（戦い・ターン・勝ち・時間切れ） */
 export const cardStats = { battles: 0, turns: 0, wins: 0, timeouts: 0, timeoutWins: 0 };
@@ -79,6 +80,10 @@ export interface CardState {
   phase: 'play' | 'result' | 'done';
   /** 狙う敵（手で決めたとき） */
   target?: string;
+  /** 17夜目：札の戦いの案内（最初の1戦の1ターン目だけ） */
+  guide?: CardGuide;
+  /** 17夜目：「戦い方が新しくなりました」を出す（今のセーブで遊んでいる人に1回だけ） */
+  guideOffer?: boolean;
 }
 
 const rngOf = (b: BattleState) => new Rng(b as unknown as { rng: number });
@@ -527,7 +532,8 @@ function playOne(s: GameState, b: BattleState, ctx: BattleCtx, c0: Card, lines: 
   const u = b.units.find((x) => x.uid === c.owner)!;
   const st = u.studentId ? s.students[u.studentId] : null;
   // 信頼が低い子は、ときどき自分の判断で動く（たいていは悪くない動き）
-  if (st && C().obeyAt > st.trust && c.kind !== 'item') {
+  // 17夜目：案内の1ターン目は、言われたとおりに動く
+  if (st && C().obeyAt > st.trust && c.kind !== 'item' && !cs.guide) {
     const p = Math.min(C().disobeyMax, (C().obeyAt - st.trust) * C().disobeyPer);
     if (r.next() * 100 < p) {
       const own = Object.values(cs.cards).filter((x) => x.owner === u.uid && x.id !== c.id && x.fx.type === 'atk' && (x.fx.cost ?? 1) <= (c.fx.cost ?? 1));

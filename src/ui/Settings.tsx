@@ -9,6 +9,7 @@ import { DIFFICULTY, type Difficulty } from '../data/balance';
 import { sfx } from './sound';
 import { autoWeek } from '../core/autoplay';
 import { replayGuide } from '../core/tutorial';
+import { CardManualSheet } from './CardManual';
 
 export function SettingsTab() {
   const { s } = useStore();
@@ -70,8 +71,9 @@ function SettingsBody({ s, set, days }: { s: GameState; set: (fn: (x: GameState[
         <div class="row between" style={{ marginTop: 6 }}><span>演出の速さ</span><div class="seg">{([1, 2, 3] as const).map((c) => <button class={s.settings.animSpeed === c ? 'on' : ''} onClick={() => set((x) => { x.animSpeed = c; })}>{{ 1: 'ゆっくり', 2: 'ふつう', 3: 'はやい' }[c]}</button>)}</div></div>
         <div class="muted small">HPゲージ・経験値・レベルアップ・会話の文字送りの速さです。演出中は画面をタップすると早送りできます。</div>
         <div class="row between" style={{ marginTop: 6 }}><span>週が進むときの日めくり</span><input type="checkbox" checked={s.settings.flip} onChange={(e) => set((x) => { x.flip = (e.target as HTMLInputElement).checked; })} /></div>
-        <div class="row between nowrap" style={{ marginTop: 8 }}><span class="grow">管理人の案内{s.tutorial && !s.tutorial.off ? '（いま出ます）' : '（いまは出ません）'}</span><button class="btn small" onClick={() => { sfx('ok'); act((g) => replayGuide(g)); alert('はじめて出たものの説明を、もう一度出すようにしました。ホームの机の案内も、もう一度見られます。'); }}>案内を見なおす</button></div>
-        <div class="muted small">はじめて見るもの（兵種試験・支援C・伝説の武器など）が出たとき、管理人が短く説明します。</div>
+        <div class="row between nowrap" style={{ marginTop: 8 }}><span class="grow">管理人の案内{s.tutorial && !s.tutorial.off ? '（いま出ます）' : '（いまは出ません）'}</span><button class="btn small" onClick={() => { sfx('ok'); act((g) => replayGuide(g)); alert('はじめて出たものの説明を、もう一度出すようにしました。ホームの机の案内も、もう一度見られます。次の札の戦いのはじめには、札の出し方の案内も出ます。'); }}>案内を見なおす</button></div>
+        <div class="muted small">はじめて見るもの（兵種試験・支援C・伝説の武器など）が出たとき、管理人が短く説明します。次の札の戦いの最初のターンには、札の出し方を案内します{s.cardGuide === 'pending' ? '（次の戦いで出ます）' : ''}。</div>
+        <ManualButton />
       </div>
       <div class="card">
         <h3>音</h3>
@@ -88,5 +90,16 @@ function SettingsBody({ s, set, days }: { s: GameState; set: (fn: (x: GameState[
       </details>
       <div class="muted small" style={{ textAlign: 'center' }}>辺境士官学校 ―戦争が終わる日まで― 15夜目の版</div>
     </div>
+  );
+}
+
+/** 札の戦いの遊び方の手引き（17夜目） */
+function ManualButton() {
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      <div class="row between nowrap" style={{ marginTop: 8 }}><span class="grow">札の戦いの遊び方</span><button class="btn small" onClick={() => { sfx('ok'); setOpen(true); }}>手引きを読む</button></div>
+      {open && <CardManualSheet onClose={() => setOpen(false)} />}
+    </>
   );
 }
