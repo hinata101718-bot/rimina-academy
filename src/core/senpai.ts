@@ -5,6 +5,9 @@ import { Rng } from './rng';
 import { mail } from './game';
 import { COUNTRY_SHORT } from '../data/people';
 import { SENPAI_LETTER, SENPAI_GRAD, SENPAI_ALLY, SENPAI_FOE } from '../data/senpai';
+import { ARTS } from '../data/arts';
+import { RANKS } from '../data/balance';
+import { learnArts } from './arts';
 
 /** その子と「先輩と後輩」の相手（相手の状態でしぼる） */
 export function senpaiPartners(s: GameState, st: Student, filter: (o: Student) => boolean): Student[] {
@@ -20,6 +23,23 @@ export function gradWord(s: GameState, r: Rng, st: Student): string | null {
   const k = senpaiPartners(s, st, (o) => o.status === 'enrolled' && o.cohort > st.cohort)[0];
   if (!k) return null;
   return fill(pick(r, SENPAI_GRAD, st.personality), { k: k.given });
+}
+
+/**
+ * 16夜目：卒業する先輩が、いちばん親しい後輩に自分の技を1つ託す（後輩は1つ前のランクで覚えられるようになる。
+ * 講師の手ほどきと同じしくみで、後輩の覚える表になかった技でも覚えられる）
+ */
+export function entrustArt(s: GameState, st: Student): string | null {
+  const k = senpaiPartners(s, st, (o) => o.status === 'enrolled' && o.cohort > st.cohort)[0];
+  if (!k) return null;
+  const mine = (st.arts ?? []).map((id) => ARTS[id]).filter((a) => a && !a.bloom && !(k.arts ?? []).includes(a.id) && !(k.taught ?? []).includes(a.id));
+  if (!mine.length) return null;
+  const a = mine.sort((x, y) => RANKS.indexOf(y.rank) - RANKS.indexOf(x.rank))[0];
+  (k.taught ??= []).push(a.id);
+  const got = learnArts(s, k);
+  const t = `${st.given}は、後輩の${k.given}に「${a.name}」を託した${got.includes(a.id) ? '。その場で覚えた' : ''}`;
+  st.history.push({ year: s.year, text: `${k.given}に「${a.name}」を託した` });
+  return t;
 }
 
 /** 卒業した先輩から在校の後輩への手紙（10月の初め。1年に1通まで、先輩ごとに） */

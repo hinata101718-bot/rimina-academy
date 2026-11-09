@@ -1,5 +1,6 @@
 // 生徒の自動生成
 import { makeSpellPlan, learnSpells } from './spells';
+import { makeArtPlan } from './arts';
 import { B, SKILLS, STATS } from '../data/balance';
 import { NAMES } from '../data/names';
 import {
@@ -147,6 +148,7 @@ export function generateStudent(s: GameState, rng: Rng, opt: GenOptions = {}): S
   assignApt(st, rng, inherit);
   assignBud(st, rng);
   st.spellPlan = makeSpellPlan(st);
+  st.artPlan = makeArtPlan(st);
   learnSpells(null, st);
   st.birthday = birthdayFor(st.id + st.given);
   return st;

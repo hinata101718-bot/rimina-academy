@@ -4,6 +4,7 @@ import type { SkillId } from './types';
 import type { GameState } from './state';
 import { defaultSettings, mailImportant } from './game';
 import { ARTS, ART_SLOTS } from '../data/arts';
+import { migrateArtPlan } from './arts';
 import { WEAPONS } from '../data/weapons';
 import { ensureSpellPlan, learnSpells } from './spells';
 import { ensureTeacherSince, instructorCaps } from './instructor';
@@ -58,6 +59,7 @@ export function migrate(s: GameState, from: number): GameState {
   if (from < 13) migrateTo13(s);
   if (from < 14) migrateTo14(s);
   if (from < 15) migrateTo15(s);
+  if (from < 16) migrateTo16(s);
   s.heirs ??= [];
   s.archive ??= {};
   s.notices ??= [];
@@ -453,4 +455,18 @@ const NIGHT15_LINES = [
   '兵種試験は、個人ページの「兵種試験を受ける」から兵種を選ぶだけで変わります。',
   '「戦技と心得」を分け直しました。戦いの中で使う「戦技と魔法」は、合わせて5つまでつけられます（おまかせのときは、回復の魔法を必ず入れます）。いつも効く力は「心得」から「スキル」という呼び名になり、兵種のスキルも同じ欄に並びます。',
   '戦いで倒れたときの文は、とどめを刺した武器や魔法の属性（炎・風・雷・氷・闇・光）に合うものになりました。',
+];
+
+/**
+ * 15夜目の版（version 15）→ 16夜目の版（version 16）
+ * - 生徒ごとの「覚える表」を、性格・夢・国・家柄から作る。もう覚えた技は（表と違っていても）そのまま残し、その節目の技として表に入れる
+ */
+function migrateTo16(s: GameState): void {
+  for (const st of [...Object.values(s.students ?? {}), ...(s.applicants ?? [])]) migrateArtPlan(st);
+  s.pending ??= [];
+  s.pending.push({ type: 'event', title: '16夜目の新しいこと', lines: NIGHT16_LINES });
+}
+export const NIGHT16_LINES = [
+  '生徒ごとに、覚える戦技・魔法・スキルが違うようになりました。同じ剣でも、ある子は「燕返し」、別の子は「居合い」を覚えます。性格・夢・生まれた国の流派・家柄で決まり、もう覚えた技はそのままです。',
+  '「HPが半分以下のとき」「仲間が倒れたとき」など、条件で効くスキルが増えました。覚えた技は、技能のランクが上がると「燕返し＋」のように強くなります。',
 ];

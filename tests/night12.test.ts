@@ -43,8 +43,9 @@ describe('戦技と心得', () => {
     st.arts = []; st.artsOn = []; st.apt = { good: ['sword'], bad: [] };
     st.skills.sword = RANK_POINTS.C;
     learnArts(s, st, true);
-    expect(st.arts).toContain('sw_art2'); // B の技を C で
-    expect(st.arts).not.toContain('sw_mind3');
+    // 16夜目：覚える技はその子の表から（B の技を C で。A の技はまだ）
+    expect(st.arts).toContain(st.artPlan!['sword:B']);
+    expect(st.arts).not.toContain(st.artPlan!['sword:A']);
     expect(s.pending.some((p) => p.type === 'art' && p.studentId === st.id)).toBe(true);
     const eq = equippedOf(st);
     expect(eq.filter((a) => a.kind === 'art').length).toBeLessThanOrEqual(ART_SLOTS.art);

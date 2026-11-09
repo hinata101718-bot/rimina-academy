@@ -6,10 +6,10 @@ import { sfx } from './sound';
 import { countryColor } from './cards';
 import { HelpTip, Sheet } from './common';
 import type { GameState, Student, Pending } from '../core/state';
-import { ARTS, ART_LIST, ART_SLOTS, type ArtDef } from '../data/arts';
+import { ARTS, ART_LIST, ART_SLOTS, COND_LABEL, fxText, type ArtDef } from '../data/arts';
 import { SKILL_NAMES } from '../data/people';
 import { SKILLS, RANKS, RANK_POINTS } from '../data/balance';
-import { toggleArt, autoEquip, needRank, loadoutOf, isSpellId } from '../core/arts';
+import { toggleArt, autoEquip, needRank, loadoutOf, isSpellId, plannedArts, artPlus } from '../core/arts';
 import { usableSpells, nextSpell } from '../core/spells';
 import { WEAPONS } from '../data/weapons';
 import { CLASSES } from '../data/classes';
@@ -36,7 +36,7 @@ export function ArtLearnView({ s, p, onDone }: { s: GameState; p: Extract<Pendin
         <b class="serif">{a.name}</b>
         <small>{a.desc}</small>
       </div>
-      <div class="small muted">{a.kind === 'art' ? '戦いの中で、ここぞのときに自動で使います' : `${whenMark(a.ability)}効きます`}</div>
+      <div class="small muted">{a.card ? '戦いの札になります（山札に入ります）' : `${artWhen(a)}効きます`}</div>
       <button class="btn primary block" style={{ marginTop: 10 }} onClick={(e) => { e.stopPropagation(); next(); }}>{i + 1 < p.ids.length ? '次へ' : '閉じる'}</button>
     </div>
   );
@@ -47,6 +47,8 @@ const MOVE_NAME: Record<string, string> = { armor: '重装', flying: '空を飛�
 /** 効果のひとこと（やさしい言葉で） */
 export function artPlain(a: ArtDef): string {
   const out: string[] = [];
+  if (a.card) return `札：${fxText(a.card)}`;
+  if (a.cond) return a.desc;
   if (a.kind === 'art') {
     if ((a.mul ?? 1) > 1) out.push('一撃が重い');
     if (a.vsMove?.length) out.push(`${a.vsMove.map((m) => MOVE_NAME[m] ?? m).join('・')}に強い`);
@@ -74,7 +76,8 @@ export function artPlain(a: ArtDef): string {
   return out.join('。') || a.desc;
 }
 function whenUsed(a: ArtDef): string {
-  if (a.kind === 'mind') return `${whenMark(a.ability)}効きます（つけているあいだ）。`;
+  if (a.card) return `つけていると、戦いの山札に札が入ります（使うのに行動力${a.card.cost ?? 1}）。技能のランクが2つ上がると「＋」になり、強くなります。`;
+  if (a.kind === 'mind') return `${artWhen(a)}効きます（つけているあいだ）。`;
   const v = a.vsMove?.length ? `${a.vsMove.map((m) => MOVE_NAME[m] ?? m).join('・')}の敵と向き合ったときに使いやすい。` : (a.mul ?? 1) > 1 ? '敵が1人で前に出てきたときに使いやすい。' : '';
   return `戦いの中で自動で使います（攻めるときの${a.chance ?? 25}%くらい）。${v}`;
 }
@@ -88,12 +91,14 @@ export function whenMark(b?: Partial<AbilityDef>): string {
   return 'いつも';
 }
 const KIND_NAME = { art: '戦技', mind: 'スキル' } as const;
+/** 16夜目：技の効き方の印（札・条件・いつも） */
+export function artWhen(a: ArtDef): string { return a.card ? '札' : a.cond ? COND_LABEL[a.cond] : whenMark(a.ability); }
 
 /** 技の札（名前・種類・効果のひとこと）。押すとくわしい説明 */
-function ArtTile({ a, on, onOpen }: { a: ArtDef; on?: boolean; onOpen: () => void }) {
+function ArtTile({ a, on, onOpen, plus }: { a: ArtDef; on?: boolean; onOpen: () => void; plus?: boolean }) {
   return (
     <button class={`art-tile ${a.kind}${on ? ' on' : ''}${a.bloom ? ' bloom' : ''}`} onClick={() => { sfx('move'); onOpen(); }}>
-      <span class="row nowrap gap6"><b class="serif">{a.name}</b><span class="small muted">（{KIND_NAME[a.kind]}・{SKILL_NAMES[a.skill]}）</span>{a.kind === 'mind' && <span class="when-mark">{whenMark(a.ability)}</span>}</span>
+      <span class="row nowrap gap6"><b class="serif">{a.name}{plus ? '＋' : ''}</b><span class="small muted">（{KIND_NAME[a.kind]}・{SKILL_NAMES[a.skill]}）</span>{(a.kind === 'mind' || a.card) && <span class="when-mark">{artWhen(a)}</span>}</span>
       <span class="small">{artPlain(a)}</span>
     </button>
   );
@@ -128,7 +133,7 @@ export function ArtsCard({ s, st }: { s: GameState; st: Student }) {
   const close = (skill: SkillId, need: Rank) => { const gap = RANK_POINTS[need] - (st.skills[skill] ?? 0); const span = Math.max(30, RANK_POINTS[need] - (RANK_POINTS[RANKS[Math.max(0, RANKS.indexOf(need) - 1)]] ?? 0)); return gap > 0 && gap <= span * 0.6 ? gap : null; };
   const pri = (k: SkillId) => (st.targets.includes(k) ? 0 : st.apt?.good.includes(k) ? 1 : 2);
   const near = [
-    ...ART_LIST.filter((a) => !learned.includes(a) && !a.bloom).map((a) => { const need = needRank(st, a); const gap = need ? close(a.skill, need) : null; return gap ? { skill: a.skill, need: need!, gap, pri: pri(a.skill), taught: (st.taught ?? []).includes(a.id), spell: false } : null; }),
+    ...plannedArts(st).map((a) => { const need = needRank(st, a); const gap = need ? close(a.skill, need) : null; return gap ? { skill: a.skill, need: need!, gap, pri: pri(a.skill), taught: (st.taught ?? []).includes(a.id), spell: false } : null; }),
     ...(['magic', 'faith'] as const).map((k) => { const x = nextSpell(st, k); const gap = x ? close(k, x.rank) : null; return x && gap ? { skill: k as SkillId, need: x.rank, gap, pri: pri(k), taught: false, spell: true } : null; }),
   ].filter((x): x is NonNullable<typeof x> => !!x).sort((x, y) => x.pri - y.pri || x.gap - y.gap).slice(0, 3);
   const sel = open && ARTS[open] ? ARTS[open] : null;
@@ -136,15 +141,15 @@ export function ArtsCard({ s, st }: { s: GameState; st: Student }) {
   const full = (id: string) => !on.has(id) && (isSpellId(id) || ARTS[id]?.kind === 'art' ? onBattle.length >= ART_SLOTS.art : onMinds.length >= ART_SLOTS.mind);
   return (
     <div class="card arts-card">
-      <div class="row between nowrap"><h3 style={{ margin: 0 }}>戦技と魔法・スキル <HelpTip text={`技能ランクが上がると覚えます。得意な技能や、卒業生の講師に手ほどきを受けた技は、ひとつ前のランクで覚えます。つけられるのは、戦技と魔法を合わせて${ART_SLOTS.art}つ、スキル${ART_SLOTS.mind}つまでで、ふだんはおまかせです（回復の魔法を覚えた子は、回復の魔法を必ず入れます）。`} /></h3></div>
+      <div class="row between nowrap"><h3 style={{ margin: 0 }}>戦技と魔法・スキル <HelpTip text={`覚える技は一人ひとり違い、入学のときに決まっています（性格・夢・生まれた国・家柄で変わります）。技能ランクが上がると覚えます。得意な技能や、卒業生の講師に手ほどきを受けた技は、ひとつ前のランクで覚えます。つけられるのは、戦技と魔法を合わせて${ART_SLOTS.art}つ、スキル${ART_SLOTS.mind}つまでで、ふだんはおまかせです（回復の魔法を覚えた子は、回復の魔法を必ず入れます）。`} /></h3></div>
       <div class="row between nowrap arts-sub"><b class="small">つけている戦技と魔法　{onBattle.length}／{ART_SLOTS.art}</b>{st.artsManual && <button class="btn ghost small" onClick={() => act((g) => { const x = g.students[st.id]; x.artsManual = false; autoEquip(x); })}>おまかせに戻す</button>}</div>
-      {onBattle.length ? onBattle.map((id) => isSpellId(id) ? <SpellTile id={id} on usable={usable.has(id)} onOpen={() => setOpen(id)} /> : <ArtTile a={ARTS[id]} on onOpen={() => setOpen(id)} />) : <div class="small muted">まだ戦技も魔法も覚えていません</div>}
+      {onBattle.length ? onBattle.map((id) => isSpellId(id) ? <SpellTile id={id} on usable={usable.has(id)} onOpen={() => setOpen(id)} /> : <ArtTile a={ARTS[id]} plus={artPlus(st, ARTS[id])} on onOpen={() => setOpen(id)} />) : <div class="small muted">まだ戦技も魔法も覚えていません</div>}
       <div class="arts-sub"><b class="small">つけているスキル　{onMinds.length}／{ART_SLOTS.mind}</b></div>
-      {onMinds.length ? onMinds.map((a) => <ArtTile a={a} on onOpen={() => setOpen(a.id)} />) : <div class="small muted">まだスキルを覚えていません</div>}
+      {onMinds.length ? onMinds.map((a) => <ArtTile a={a} plus={artPlus(st, a)} on onOpen={() => setOpen(a.id)} />) : <div class="small muted">まだスキルを覚えていません</div>}
       {(classAb || budAb) && <><div class="arts-sub"><b class="small">兵種のスキル</b><span class="small muted">（つけ外しはできません）</span></div>
         {[classAb, budAb].filter(Boolean).map((ab) => <div class="art-tile mind on fixed"><span class="row nowrap gap6"><b class="serif">{ab!.name}</b><span class="small muted">（{ab === classAb ? cls.name : '開花'}）</span><span class="when-mark">{whenMark(ab!)}</span></span><span class="small">{ab!.desc}</span></div>)}</>}
       {offArts.length + offSpells.length > 0 && <button class="btn ghost small block" style={{ marginTop: 6 }} onClick={() => setMore(!more)}>ほかに覚えている技と魔法 {offArts.length + offSpells.length}つ {more ? '▲' : '▼'}</button>}
-      {more && <>{offArts.map((a) => <ArtTile a={a} onOpen={() => setOpen(a.id)} />)}{offSpells.map((id) => <SpellTile id={id} usable={usable.has(id)} onOpen={() => setOpen(id)} />)}</>}
+      {more && <>{offArts.map((a) => <ArtTile a={a} plus={artPlus(st, a)} onOpen={() => setOpen(a.id)} />)}{offSpells.map((id) => <SpellTile id={id} usable={usable.has(id)} onOpen={() => setOpen(id)} />)}</>}
       {near.length > 0 && <><div class="arts-sub"><b class="small">次に覚えそうな技と魔法</b></div>
         {near.map((x) => <div class="art-tile none small">{SKILL_NAMES[x.skill]}{x.need} まで あと少し ― ？？？{x.spell ? '（魔法）' : ''}{x.taught ? '（講師に手ほどきを受けた）' : ''}</div>)}</>}
       <button class="btn ghost small" style={{ marginTop: 6 }} onClick={() => navigate({ tab: 'yearbook', page: 'book', sub: 'art' })}>技の図鑑を見る（年鑑）</button>
@@ -175,12 +180,12 @@ export function ArtBookBody({ s }: { s: GameState }) {
   const skills = SKILLS.filter((k) => k !== 'gun' || s.world.gunUnlocked);
   return (
     <div>
-      <div class="small muted">生徒か卒業生が一度でも覚えた技は、名前と効果が見えます（{ART_LIST.filter((a) => known.has(a.id)).length}／{ART_LIST.length}）。</div>
-      {skills.map((k) => (
+      <div class="small muted">技は一人ひとり違います。生徒か卒業生が一度でも覚えた技だけ、名前と効果が載ります（{ART_LIST.filter((a) => known.has(a.id)).length}／{ART_LIST.length}）。</div>
+      {skills.map((k) => { const all = ART_LIST.filter((a) => a.skill === k); const got = all.filter((a) => known.has(a.id)); return (
         <div class="arts-row"><span class="arts-sk small">{SKILL_NAMES[k]}</span>
-          <span class="arts-list">{ART_LIST.filter((a) => a.skill === k && (!a.bloom || known.has(a.id))).map((a) => known.has(a.id) ? <span class={`arts-chip ${a.kind}`} title={artPlain(a)}>{a.name}</span> : <span class="arts-chip none">{a.rank}で？？？</span>)}</span>
+          <span class="arts-list">{got.map((a) => <span class={`arts-chip ${a.kind}`} title={artPlain(a)}>{a.name}</span>)}{got.length < all.length && <span class="arts-chip none">？？？ ×{all.length - got.length}</span>}</span>
         </div>
-      ))}
+      ); })}
     </div>
   );
 }
