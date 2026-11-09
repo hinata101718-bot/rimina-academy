@@ -10,7 +10,7 @@ import { setArchiveHook } from '../src/core/support';
 import { WEAPONS } from '../src/data/weapons';
 import { usableSpells } from '../src/core/spells';
 import type { GameState, TalkLog } from '../src/core/state';
-import { proseMismatches } from '../src/core/prosecheck';
+import { proseMismatches, deathWordLeaks } from '../src/core/prosecheck';
 
 const MONTHS = Number(process.argv[2] ?? 24);
 const issues: Record<string, string[]> = {};
@@ -36,6 +36,13 @@ for (const f of files) {
   const r = proseMismatches();
   console.log(`戦いの文と、とどめの攻撃の点検：${r.checked}通りを調べて、合わないもの ${r.issues.length}件`);
   for (const x of r.issues) add('とどめの攻撃と合わない文（武器・属性）', `${x.where}：${x.text}（${x.found}の言葉）`);
+}
+
+// ---------- 1c. 16夜目：結果の4段（ふつう・深手・重傷に、死ぬ段の言葉がないか。重傷に助かった理由があるか） ----------
+{
+  const r = deathWordLeaks();
+  console.log(`結果の4段の点検：${r.checked}通りを調べて、合わないもの ${r.issues.length}件`);
+  for (const x of r.issues) add('死ぬ段の言葉が、生き残る文に入っている', `${x.where}：${x.text}（${x.why}）`);
 }
 
 // ---------- 2. 遊んで出た文の点検（実行） ----------

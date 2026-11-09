@@ -143,3 +143,45 @@ describe('札の戦い', async () => {
     } finally { setCardMode(false); }
   });
 });
+
+describe('結果の4段（「串刺し」なのに生きている）', () => {
+  it('ふつうの当たり・深手・重傷の文に、死ぬ段の言葉が0件。重傷の文には助かった理由が入っている', async () => {
+    const { deathWordLeaks } = await import('../src/core/prosecheck');
+    const r = deathWordLeaks();
+    expect(r.checked).toBeGreaterThan(150);
+    expect(r.issues).toEqual([]);
+  });
+  it('札の戦いの文：生き残った相手に死ぬ段の言葉を使わない（実際に戦って調べる）', async () => {
+    const { DEATH_WORDS } = await import('../src/data/warprose');
+    const { setCardMode, playCardTurn, chooseAuto } = await import('../src/core/battle/auto');
+    const { autoPick } = await import('../src/core/battle/cards');
+    const { recommendSquads, autoDay } = await import('../src/core/autoplay');
+    const { startSortie } = await import('../src/core/flow');
+    setCardMode(true);
+    let lethal = 0;
+    try {
+      for (const seed of [21, 22, 23, 24, 25, 26]) {
+        const s = newGame({ name: 'テスト', background: 'knight', seed, start: 'normal' });
+        s.settings.battleProse = seed % 2 ? 'brutal' : 'dense';
+        autoYears(s, 1 + (seed % 3));
+        for (let m = 0; m < 3; m++) {
+          let g = 0; while (!s.pending.some((p) => p.type === 'questBoard') && g++ < 80) { autoPending(s); if (!s.pending.some((p) => p.type === 'questBoard')) autoDay(s); }
+          s.pending = s.pending.filter((p) => p.type === 'questBoard');
+          startSortie(s, recommendSquads(s).slice(0, 1));
+          const b = s.battle!; const cs = b.auto!.cards!; let k = 0;
+          while (b.phase !== 'done' && k++ < 20) { if (b.auto!.choice) { chooseAuto(s, 0, battleCtx(s)); continue; } const p = autoPick(s, b, battleCtx(s)); playCardTurn(s, p.ids, p.target, battleCtx(s)); }
+          const L = b.auto!.leader;
+          for (const t of cs.turns) for (const l of t.lines) {
+            if (!DEATH_WORDS.test(l.text)) continue;
+            lethal++;
+            const named = b.units.filter((u) => l.text.includes(u.name) || (L && u.uid === L.uid && l.text.includes(L.name)));
+            const dead = named.some((u) => u.dead && !(L && u.uid === L.uid && L.fled) && !(u.studentId && b.fallen.find((f) => f.studentId === u.studentId)?.outcome !== 'dead') && !u.persuadable);
+            expect(dead, l.text).toBe(true);
+          }
+          finishBattle(s); autoPending(s);
+        }
+      }
+    } finally { setCardMode(false); }
+    expect(lethal).toBeGreaterThan(0);
+  });
+});

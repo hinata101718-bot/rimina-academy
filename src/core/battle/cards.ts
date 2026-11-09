@@ -7,7 +7,7 @@ import { WEAPONS } from '../../data/weapons';
 import { CLASSES } from '../../data/classes';
 import { STRATS, type StratId } from '../../data/stratagems';
 import { LEGEND_BY_ID } from '../../data/rarity';
-import { PROSE_LIGHT, PROSE_DENSE, PROSE_BRUTAL, PROSE_GRUNT_KILL, fallLines, proseKey, type ProseLevel } from '../../data/warprose';
+import { PROSE_LIGHT, PROSE_DENSE, PROSE_BRUTAL, PROSE_GRUNT_KILL, PROSE_DEEP, PROSE_FLEE, PROSE_ALUMNI_RETREAT, fallLines, proseKey, type ProseLevel } from '../../data/warprose';
 import type { WeaponDef, SkillId } from '../types';
 import type { GameState, Quest, Student } from '../state';
 import type { BattleState, Unit } from './types';
@@ -657,7 +657,7 @@ function hitOnce(s: GameState, b: BattleState, ctx: BattleCtx, a: Unit, d: Unit,
       const t = list?.length ? list[salt % list.length] : '';
       if (t && !crit) lines.push({ cls: 'prose', text: t.replace(/\{a\}/g, a.name).replace(/\{d\}/g, d.name) });
     }
-    if (tier === 'heavy' && d.side !== 'enemy') lines.push({ cls: 'narr', text: `${d.name}はひざをついた……` });
+    if (tier === 'heavy' && d.side !== 'enemy') lines.push({ cls: 'narr', text: PROSE_DEEP.replace(/\{d\}/g, d.name) });
   }
   return { dmg, crit, kill };
 }
@@ -704,13 +704,13 @@ function down(s: GameState, b: BattleState, ctx: BattleCtx, d: Unit, by: Unit, w
   }
   if (d.side === 'npc') { lines.push({ cls: 'down', text: `${d.name}が倒れた……`, d: d.uid }); b.rng = r.h.rng; return; }
   // 敵の卒業生：命までは取らない（重傷で退く）
-  if (d.persuadable) { lines.push({ cls: 'narr', text: `${d.name}は深手を負い、急所は外れていた。仲間に抱えられて退いた` }); b.retreated.push(d.uid); b.rng = r.h.rng; return; }
+  if (d.persuadable) { lines.push({ cls: 'narr', text: PROSE_ALUMNI_RETREAT.replace(/\{d\}/g, d.name) }); b.retreated.push(d.uid); b.rng = r.h.rng; return; }
   // 敵将：名簿の敵将は、その場で逃げのびるかが決まる（逃げのびたら「重傷」の段の文）
   if (L && d.uid === L.uid) {
     const o = officerById(s, L.officerId);
     if (o && b.real && !L.fled && !L.settled && !L.noFlee && survives(o, b.objective, r)) {
       L.fled = true; b.retreated.push(d.uid);
-      lines.push({ cls: 'foe', text: `${L.name}は深手を負ったが、急所はわずかに外れていた。血を流しながら、兵に担がれて逃げのびた`, d: d.uid });
+      lines.push({ cls: 'foe', text: PROSE_FLEE.replace(/\{d\}/g, L.name), d: d.uid });
       b.rng = r.h.rng;
       return;
     }
