@@ -1,4 +1,5 @@
 // ゲームの流れ：週→月末の戦闘→月の終わり→年度末→入学試験
+import { heartsMonth } from './hearts';
 import { B } from '../data/balance';
 import { COUNTRIES, COUNTRY_SHORT, COUNTRY_NAMES, SKILL_NAMES } from '../data/people';
 import { WEAPONS } from '../data/weapons';
@@ -71,7 +72,7 @@ export function chooseLesson(s: GameState, idx: number, talkWith?: string): void
   s.pending.splice(from, 0, { type: 'lessonResult', lesson: res.lesson, day, faces: res.faces, tags: res.tags, rows: res.rows, events: res.events, growth: res.growth, lines: res.lines, talks: res.talks, others: res.others, xp: res.xp });
   deferShows(s, from);
   guideAfterDay(s, day, ended.weekEnded && s.week === 2);
-  if (ended.monthEnd) { freshQuests(s); nemesisMonth(s, r); if (s.quests.some((q) => q.tutorial)) tip(s, 'quest'); s.pending.push({ type: 'questBoard' }); }
+  if (ended.monthEnd) { freshQuests(s); nemesisMonth(s, r); heartsMonth(s, r); if (s.quests.some((q) => q.tutorial)) tip(s, 'quest'); s.pending.push({ type: 'questBoard' }); }
   else todayCards(s);
 }
 
@@ -104,7 +105,7 @@ export function chooseWeek(s: GameState, li: number, si: number, talkWith?: stri
   s.pending.splice(from, 0, { type: 'lessonResult', lesson: res.lesson, day: 1, faces: res.faces, tags: res.tags, rows: res.rows, events: res.events, growth: res.growth, lines: socialName ? [`今週：${LESSON_NAME[lc.id] ?? lc.id}・${socialName}`, ...res.lines] : res.lines, talks: res.talks, others: res.others, xp: res.xp });
   deferShows(s, from);
   checkTips(s);
-  if (ended.monthEnd) { freshQuests(s); nemesisMonth(s, r); if (s.quests.some((q) => q.tutorial)) tip(s, 'quest'); s.pending.push({ type: 'questBoard' }); }
+  if (ended.monthEnd) { freshQuests(s); nemesisMonth(s, r); heartsMonth(s, r); if (s.quests.some((q) => q.tutorial)) tip(s, 'quest'); s.pending.push({ type: 'questBoard' }); }
   else todayCards(s);
 }
 /** 「先週と同じ」：同じ札が今週もあれば、それを選ぶ（なければおすすめ） */

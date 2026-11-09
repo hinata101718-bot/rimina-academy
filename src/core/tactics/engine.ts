@@ -186,7 +186,8 @@ export function calc(b: TBattle, a: TUnit, d: TUnit, techId?: string | null, opt
   const brk = !broken && shields > 0 && d.sh - shields <= 0 && d.hp - total > 0;
   const kill = total >= d.hp && !(d.nemesis && !d.clung && !broken);
   // 命の危険：宿敵のとどめ（すでに深手を負った子への、宿敵その人の倒れる一撃）だけ
-  const lethal = a.side === 'foe' && total >= d.hp && d.hp <= d.max * TB.lethalHp && !!(b.nemesisId && a.nemesis) && !d.teacher && !d.raised && !d.helper;
+  // 21夜目②：友情・恋のある子には、宿敵は命を奪う一撃を放たない
+  const lethal = a.side === 'foe' && total >= d.hp && d.hp <= d.max * TB.lethalHp && !!(b.nemesisId && a.nemesis) && !d.teacher && !d.raised && !d.helper && !b.lines?.[`heart:${d.uid}`];
   return { per, hits, total, weak, resisted, broken, type, shields, brk, kill, lethal, perHit };
 }
 
@@ -359,6 +360,7 @@ function strike(b: TBattle, a: TUnit, d0: TUnit, techId: string | null, fx: TFx[
   const c = calc(b, a, d, techId, { rage, steps });
   if (c.type === 'fire' || (a.dual === 'fire' && !tech)) a.usedFire = true;
   let shieldGone = 0;
+  let hesNow = false;
   for (let i = 0; i < c.hits && d.alive; i++) {
     let dmg = c.per;
     // 戦神で踏みとどまっているあいだは、倒れない
@@ -367,6 +369,11 @@ function strike(b: TBattle, a: TUnit, d0: TUnit, techId: string | null, fx: TFx[
     if (guarding && T(d, 'unfallen') && d.hp - dmg <= 0) { dmg = d.hp - 1; if (i === 0) log(b, `${d.name}は倒れない！`, true); }
     // 戦神：戦いで一度、体力0でも倒れず、次の自分の番の終わりまで戦い続ける（命の危険も、そこで止まる）
     if (d.side === 'me' && T(d, 'wargod') && !d.lastStandUsed && d.hp - dmg <= 0) { dmg = d.hp - 1; d.lastStandUsed = true; d.lastStand = b.turn + 1; log(b, `${d.name}は倒れない……！（次の番の終わりまで戦う）`, true); fx.push({ k: 'cutin', by: d.uid, title: '戦神', sub: `${d.name}はまだ立っている` }); }
+    // 21夜目②：友情・恋のある子は、宿敵へのとどめを一度だけ迷う（剣が止まる）
+    if (d.nemesis && a.side === 'me' && b.lines?.[`heart:${a.uid}`] && d.hp - dmg <= 0 && (hesNow || !b.said.includes(`hesitate:${a.uid}`))) {
+      dmg = Math.max(0, d.hp - 1);
+      if (!hesNow) { hesNow = true; b.said.push(`hesitate:${a.uid}`); const t = b.lines[`heart:hesitate:${a.uid}`] ?? `${a.name}の剣が、止まった`; fx.push({ k: 'cutin', by: a.uid, title: '迷い', sub: t }); log(b, t, true); }
+    }
     // 執念：ブレイクしていないとき、一度だけ持ちこたえる（宿敵）
     if (d.nemesis && !d.clung && d.broken === 0 && d.hp - dmg <= 0) { dmg = d.hp - 1; d.clung = true; say(b, d, 'clung', fx); log(b, `${d.name}は執念で持ちこたえた！`, true); }
     d.hp = Math.max(0, d.hp - dmg);
@@ -805,6 +812,7 @@ export function intents(b: TBattle): void {
       if (m.raised) sc += 80;
       if (f.grudge && (m.studentId === f.grudge)) sc -= 400; // 前に自分をやった子を、真っ先に
       if (f.boss && m.teacher) sc -= 60; // 宿敵は先生も狙う
+      if (f.nemesis && b.lines?.[`heart:${m.uid}`] === 'love') sc += 500; // 21夜目②：想いを寄せる子は狙わない
       if (!best || sc < best.sc) best = { m, sc };
     }
     if (!best) continue;

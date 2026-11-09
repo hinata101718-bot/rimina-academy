@@ -137,3 +137,69 @@ describe('21夜目①：呪いの子の記憶', () => {
     for (const t of mem) for (const l of t.lines) { const keys = typeof l.say === 'string' ? [l.say] : [l.say.then, l.say.else]; for (const k of keys) expect(PHRASES[k as string], String(k)).toBeTruthy(); }
   });
 });
+
+import { ensureRivalry, officers as officerList } from '../src/core/officers';
+import { sproutHeart, heartsMonth, heartBattleLines, heartAllyChance } from '../src/core/hearts';
+import { Rng } from '../src/core/rng';
+import { B } from '../src/data/balance';
+import { calc } from '../src/core/tactics/engine';
+
+describe('21夜目②：宿敵との友情と恋', () => {
+  function setup() {
+    const s = newGame({ name: 'テスト', background: 'knight', seed: 11 });
+    const st = Object.values(s.students).find((x) => x.status === 'enrolled')!;
+    const o = officerList(s).find((x) => x.status === 'active' && x.kind !== 'monster' && !x.alumniId)!;
+    o.heart = 'steady';
+    const rv = ensureRivalry(s, st.id, o.id); rv.battles = 2;
+    return { s, st, o, rv };
+  }
+  it('芽生えると場面が出て、年表に残る。前の縁から何年かあかないと、次は芽生えない', () => {
+    const { s, st, o, rv } = setup();
+    const r = new Rng({ rng: 3 });
+    const before = s.pending.length;
+    expect(sproutHeart(s, rv, 'debt', r)).toBeTruthy();
+    expect(rv.heart?.why).toBe('debt');
+    expect(s.pending.length).toBe(before + 1);
+    expect(s.pending[s.pending.length - 1]).toMatchObject({ type: 'nemesis', kind: 'heart', officerId: o.id });
+    const st2 = Object.values(s.students).filter((x) => x.status === 'enrolled')[1];
+    const rv2 = ensureRivalry(s, st2.id, officerList(s).filter((x) => x.status === 'active' && x.id !== o.id && x.kind !== 'monster')[0].id);
+    expect(sproutHeart(s, rv2, 'oath', r)).toBeNull();
+    s.year += B.bonds.heartGap;
+    void st;
+  });
+  it('宿敵戦：口上が変わり、縁のある子への一撃は命を奪わず、その子の剣は一度だけとどめを迷う', () => {
+    const { s, st, o, rv } = setup();
+    sproutHeart(s, rv, 'oath', new Rng({ rng: 1 }));
+    const out: Record<string, string> = {};
+    heartBattleLines(s, o, [st.id], out, new Rng({ rng: 2 }));
+    expect(out['boss:intro']).toContain(st.given);
+    expect(out[`heart:s_${st.id}`]).toBe(rv.heart!.kind);
+    // 盤で確かめる
+    const kid: TUnit = { ...base(), uid: `s_${st.id}`, name: st.given, x: 2, y: 3, hp: 3, max: 30, str: 30 };
+    const nem: TUnit = { ...base(), uid: 'boss', side: 'foe', name: o.given, x: 2, y: 2, hp: 5, max: 60, str: 20, boss: true, nemesis: true, clung: true, broken: 2 };
+    const b = mini([], { nemesisId: o.id, lines: out });
+    b.units = [b.units[1], kid, nem];
+    expect(calc(b, nem, kid).lethal).toBe(false);
+    attack(b, kid.uid, 'boss', null, { x: 2, y: 3 });
+    expect(nem.alive).toBe(true);
+    expect(b.log.some((l) => l.text.includes('止まった'))).toBe(true);
+  });
+  it('手紙が届き、やがて気持ちを確かめ合う。宿敵が倒れると重い場面が一度だけ出る。味方になる見込みが上がる', () => {
+    const { s, o, rv } = setup();
+    sproutHeart(s, rv, 'meet', new Rng({ rng: 5 }));
+    expect(heartAllyChance(s, o, true)).toBeGreaterThan(B.bonds.allyDebt);
+    expect(heartAllyChance(s, o, false)).toBeGreaterThan(0);
+    const r = new Rng({ rng: 9 });
+    for (let i = 0; i < 200 && !rv.heart!.confessed; i++) heartsMonth(s, r);
+    expect(rv.heart!.letters).toBeGreaterThanOrEqual(B.bonds.confessAfter);
+    expect(rv.heart!.confessed).toBe(true);
+    o.status = 'dead';
+    const n0 = s.pending.length;
+    heartsMonth(s, r);
+    expect(rv.heart!.mourned).toBe(true);
+    const n1 = s.pending.length;
+    expect(n1).toBeGreaterThan(n0);
+    heartsMonth(s, r);
+    expect(s.pending.filter((p) => p.type === 'nemesis' && p.kind === 'heart').length).toBeGreaterThan(0);
+  });
+});

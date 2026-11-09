@@ -78,7 +78,7 @@ export function NemDetail({ s, o }: { s: GameState; o: EnemyOfficer }) {
         <div class="nem-h">教え子との因縁</div>
         {bonds.map((rv) => { const st = s.students[rv.sid]; return (
           <button class="nem-bond" onClick={() => { sfx('ok'); navigate({ tab: 'students', page: 'detail', id: st.id, sub: 'bonds' }); }}>
-            <Portrait st={st} size={36} /><span><b>{st.given}</b>{st.status !== 'enrolled' ? '（卒業生）' : ''}<small>{rv.oath ? '好敵手（決着を約束した）' : rv.settled === 'ally' ? '味方になった' : bondText(s, o, st.id) || stageName(rv.stage)}</small></span>
+            <Portrait st={st} size={36} /><span><b>{st.given}</b>{st.status !== 'enrolled' ? '（卒業生）' : ''}<small>{rv.oath ? '好敵手（決着を約束した）' : rv.settled === 'ally' ? '味方になった' : bondText(s, o, st.id) || stageName(rv.stage)}{rv.heart ? `・${rv.heart.kind === 'love' ? (rv.heart.confessed ? '想いを打ち明け合った' : '想いが芽生えた') : rv.heart.confessed ? '友と呼び合った' : '友情が芽生えた'}${rv.heart.mourned ? '（もう会えない）' : ''}` : ''}</small></span>
           </button>); })}
       </>}
     </div>
@@ -89,7 +89,7 @@ export function NemDetail({ s, o }: { s: GameState; o: EnemyOfficer }) {
 export function NemesisPendingView({ s, p, onDone }: { s: GameState; p: Extract<Pending, { type: 'nemesis' }>; onDone: () => void }) {
   const o = officerById(s, p.officerId);
   if (!o) { onDone(); return null; }
-  const title = p.kind === 'reunion' ? '宿敵との再会' : p.kind === 'revived' ? '死んだはずの敵が' : p.kind === 'rumor' ? 'うわさ' : p.kind === 'letter' ? '宿敵からの手紙' : p.kind === 'ally' ? '宿敵が味方に' : p.kind === 'rival' ? '好敵手' : p.kind === 'spy' ? '密偵の報告' : '新しい因縁';
+  const title = p.kind === 'reunion' ? '宿敵との再会' : p.kind === 'revived' ? '死んだはずの敵が' : p.kind === 'rumor' ? 'うわさ' : p.kind === 'letter' ? '宿敵からの手紙' : p.kind === 'ally' ? '宿敵が味方に' : p.kind === 'rival' ? '好敵手' : p.kind === 'spy' ? '密偵の報告' : p.kind === 'heart' ? '宿敵とのあいだに' : '新しい因縁';
   return (
     <Sheet title={title}>
       {o.lastCard && (p.kind === 'reunion' || p.kind === 'revived') ? (
@@ -131,7 +131,7 @@ export function Ledger({ s, focus }: { s: GameState; focus?: string }) {
 export function StudentNemeses({ s, id }: { s: GameState; id: string }) {
   const rvs = rivalriesOf(s, id);
   if (!rvs.length) return <p class="muted small">因縁のある敵の将はいません。</p>;
-  return <div class="nem-grid">{rvs.map((rv) => { const o = officerById(s, rv.oid); return o ? <button class="nem-btn" onClick={() => navigate({ tab: 'school', page: 'ledger', id: o.id })}><NemCard s={s} o={o} small label={stageName(rv.stage)} /></button> : null; })}</div>;
+  return <div class="nem-grid">{rvs.map((rv) => { const o = officerById(s, rv.oid); return o ? <button class="nem-btn" onClick={() => navigate({ tab: 'school', page: 'ledger', id: o.id })}><NemCard s={s} o={o} small label={rv.heart && !rv.heart.mourned ? (rv.heart.kind === 'love' ? '想い' : '友情') : stageName(rv.stage)} /></button> : null; })}</div>;
 }
 
 /** 技を覚えた */

@@ -429,7 +429,7 @@ export interface EnemyOfficer {
   /** 20夜目：禁呪で封じられた（二度と蘇らない） */
   noRevive?: boolean;
   /** 20夜目：学校の味方になった（恩返し・国に裏切られた） */
-  allied?: { year: number; why: 'debt' | 'betrayed' };
+  allied?: { year: number; why: 'debt' | 'betrayed' | 'heart' };
   /** 20夜目：密偵が調べたこと（弱点・性格・次の動き）と、捕らわれた教え子 */
   spied?: { year: number; month: number; weak?: string; trait?: string; plan?: string }[];
   /** 19夜目：呪いで蘇った（光に弱い・闇の者） */
@@ -474,6 +474,8 @@ export interface Rivalry {
   settledYear?: number;
   /** 20夜目：好敵手（たがいに名を呼び合い、決着を約束した年） */
   oath?: { year: number; month: number };
+  /** 21夜目②：宿敵との友情・恋（芽生えた年・きっかけ・届いた手紙の数・気持ちを確かめ合った・どちらかが討たれて場面を出した） */
+  heart?: { kind: 'friend' | 'love'; year: number; why: 'meet' | 'debt' | 'oath'; letters: number; confessed?: boolean; mourned?: boolean };
 }
 
 /** 手応えの演出（ゲージが伸びて「ランクアップ！」）。6夜目 */
@@ -520,7 +522,7 @@ export type Pending =
   /** 19夜目：月末の戦いを、自分で遊ぶか、おまかせにするか */
   | { type: 'sortieChoice' }
   /** 19夜目：宿敵との再会（昔の札と今の札） */
-  | { type: 'nemesis'; officerId: string; studentIds: string[]; kind: 'reunion' | 'rumor' | 'first' | 'revived' | 'letter' | 'ally' | 'rival' | 'spy'; text: string[] }
+  | { type: 'nemesis'; officerId: string; studentIds: string[]; kind: 'reunion' | 'rumor' | 'first' | 'revived' | 'letter' | 'ally' | 'rival' | 'spy' | 'heart'; text: string[] }
   /** 19夜目：新入生を選ぶ（10人ほどの希望者から6〜8人） */
   | { type: 'admission' }
   /** 才能開花（10夜目：大きな演出） */
@@ -763,6 +765,8 @@ export interface GameState {
   autoMemory?: { lines: string[]; events: string[]; n?: number };
   /** 19夜目：最初の宿敵（着任の道中の敵将）と、着任の道中の戦いをまだ始めていない印 */
   openingOfficer?: string; openingPending?: boolean;
+  /** 21夜目②：最後に宿敵との縁（友情・恋）が芽生えた年 */
+  heartYear?: number;
   /** 19夜目：次の月末に結びつける宿敵（蘇った・敵として戻った）・さらわれた先代 */
   nextNemesis?: string;
   /** 20夜目④：密偵を送った月（絶対月）・捕らわれた密偵（救い出す戦いになる） */

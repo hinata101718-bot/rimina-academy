@@ -1,4 +1,5 @@
 // 19夜目：宿敵（ネメシス）の芯。覚えていること・再会までの変化・二つ名・情報・因縁の帳。DOMに依存しない
+import { heartBattleLines } from './hearts';
 import { NEM_SAY, WOUNDS, EPITHET_WORDS, STUDENT_EPITHET, HEART_TEXT, REUNION_TEXT } from '../data/nemesis';
 import { ATK_NAME, ATK_TYPES, type AtkType } from '../data/tactics';
 import { CLASSES } from '../data/classes';
@@ -127,6 +128,8 @@ export function battleLines(s: GameState, o: EnemyOfficer, ids: string[], r: Rng
   if (o.traits.includes('loyal')) out['boss:canFlee'] = 'no';
   // 命を拾った恩のある将は、教え子の名前を呼ぶ
   if (m.debts.some((d) => ids.includes(d.id))) out['boss:intro'] = v('{a}……あの日の借りがある。だが、戦場は戦場だ。', { a: nm(m.debts.find((d) => ids.includes(d.id))!.id) });
+  // 21夜目②：友情・恋のある子がいれば、口上が変わる（とどめを迷う）
+  heartBattleLines(s, o, ids, out, r);
   return out;
 }
 
@@ -344,7 +347,7 @@ export function nemesisLetter(s: GameState, o: EnemyOfficer, kind: 'challenge' |
 }
 
 /** 再会の札（昔と今）を出す */
-export function pushReunion(s: GameState, o: EnemyOfficer, ids: string[], kind: 'reunion' | 'rumor' | 'first' | 'revived' | 'letter' | 'ally' | 'rival' | 'spy', text: string[]): void {
+export function pushReunion(s: GameState, o: EnemyOfficer, ids: string[], kind: 'reunion' | 'rumor' | 'first' | 'revived' | 'letter' | 'ally' | 'rival' | 'spy' | 'heart', text: string[]): void {
   s.pending.push({ type: 'nemesis', officerId: o.id, studentIds: ids, kind, text });
 }
 

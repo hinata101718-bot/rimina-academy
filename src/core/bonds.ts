@@ -9,6 +9,7 @@ import { officers, officerName, officerById, voice, rivalriesOf } from './office
 import { memoryOf, pushReunion, addIntel, intelOf } from './nemesis';
 import { chronicle, mail, notify, available } from './game';
 import { absMonth } from './util';
+import { sproutHeart, heartAllyChance, heartAllyLines, heartsOf } from './hearts';
 
 const A = () => B.bonds;
 
@@ -26,11 +27,14 @@ export function maybeDebt(s: GameState, o: EnemyOfficer, top: string | null, r: 
   const m = memoryOf(o);
   if (m.debts.some((d) => d.id === top)) return null;
   m.debts.push({ id: top, text: '崩れたところに、止めを刺さなかった', year: s.year });
+  // 21夜目②：恩から、友情や恋が芽生えることがある
+  const rv = s.rivalries?.[`${top}|${o.id}`];
+  if (rv && r.chance(A().heartDebt)) sproutHeart(s, rv, 'debt', r);
   return `${s.students[top].given}は、崩れた${o.given}に止めを刺さなかった。${o.given}は何も言わずに去った`;
 }
 
 /** 味方にする（恩返し／国に裏切られた） */
-export function makeAlly(s: GameState, o: EnemyOfficer, why: 'debt' | 'betrayed', report?: string[]): void {
+export function makeAlly(s: GameState, o: EnemyOfficer, why: 'debt' | 'betrayed' | 'heart', report?: string[]): void {
   const m = memoryOf(o);
   const from = FACTION_NAMES[o.faction];
   o.allied = { year: s.year, why };
@@ -38,10 +42,11 @@ export function makeAlly(s: GameState, o: EnemyOfficer, why: 'debt' | 'betrayed'
   const ids: string[] = [];
   for (const rv of Object.values(s.rivalries ?? {})) if (rv.oid === o.id) { rv.settled = 'ally'; rv.settledYear = s.year; rv.log.push({ year: s.year, month: s.month, text: '学校の味方になった' }); if (s.students[rv.sid]) ids.push(rv.sid); }
   const debtor = m.debts[0] ? s.students[m.debts[0].id] : null;
-  const lines = why === 'debt'
+  const hl = why === 'heart' || (why === 'debt' && heartsOf(s, o.id).length) ? heartAllyLines(s, o) : null;
+  const lines = hl ? hl.lines : why === 'debt'
     ? [`${officerName(o)}が、ひとりで学校の門の前に立っていた。`, voice(`${debtor ? `${debtor.given}。` : ''}あの日、お前は止めを刺さなかった。借りは返す。……今日から、この剣は学校のために振るう`, o), `${officerName(o)}が学校の味方になった。これからは、ときどき戦場に駆けつけてくれる。`]
     : [`${from}は、負け続けた責めを${officerName(o)}ひとりに負わせ、すべてを取り上げた。`, voice(`国は、わたしを捨てた。……笑うがいい。だが、お前たちだけは、最後まで正面からわたしと戦った`, o), `${officerName(o)}が学校の味方になった。これからは、ときどき戦場に駆けつけてくれる。`];
-  const t = `宿敵だった${officerName(o)}が、${why === 'debt' ? '恩を返すため' : `${from}に裏切られ`}、学校の味方になった`;
+  const t = `宿敵だった${officerName(o)}が、${hl ? `${s.students[hl.sid]?.given ?? '教え子'}との縁のため` : why === 'debt' ? '恩を返すため' : `${from}に裏切られ`}、学校の味方になった`;
   chronicle(s, t, 'school'); report?.push(t);
   notify(s, t);
   pushReunion(s, o, debtor ? [debtor.id, ...ids.filter((x) => x !== debtor.id)].slice(0, 3) : ids.slice(0, 3), 'ally', lines);
@@ -51,7 +56,9 @@ export function makeAlly(s: GameState, o: EnemyOfficer, why: 'debt' | 'betrayed'
 export function yearlyAllies(s: GameState, r: Rng, report: string[]): void {
   for (const o of bondedActive(s)) {
     const m = memoryOf(o);
-    if (m.debts.length && o.heart !== 'mad' && r.chance(A().allyDebt)) { makeAlly(s, o, 'debt', report); continue; }
+    if (m.debts.length && o.heart !== 'mad' && r.chance(heartAllyChance(s, o, true))) { makeAlly(s, o, 'debt', report); continue; }
+    // 21夜目②：友情・恋のある宿敵は、恩がなくても味方になることがある
+    if (!m.debts.length && o.heart !== 'mad' && heartsOf(s, o.id).length && r.chance(heartAllyChance(s, o, false))) { makeAlly(s, o, 'heart', report); continue; }
     if (o.faction !== 'bandit' && m.shame.length >= A().betrayShame && r.chance(A().allyBetrayed)) { makeAlly(s, o, 'betrayed', report); continue; }
   }
 }
@@ -78,6 +85,8 @@ export function maybeOath(s: GameState, o: EnemyOfficer, sid: string | null, r: 
     `二人は、たがいの名を呼び合い、決着を約束した。${o.given}は「好敵手」になった。`,
   ];
   pushReunion(s, o, [sid], 'rival', lines);
+  // 21夜目②：好敵手の約束から、友情や恋が芽生えることがある
+  if (r.chance(A().heartOath)) sproutHeart(s, rv, 'oath', r);
   const t = `${st.given}と${officerName(o)}が、好敵手として決着を約束した`;
   chronicle(s, t, 'student');
   return t;
