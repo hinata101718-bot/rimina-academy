@@ -178,6 +178,18 @@ function sceneLine(s: GameState, b: BattleState, logs: BLog[], uid: string, t: T
     const e = logs.find((x) => x.k === 'atk' && x.d === uid && !x.hit) as Extract<BLog, { k: 'atk' }> | undefined;
     if (e) put(5, fill(SCENE_TEXT.dodge, { d: unitLabel(s, b, e.a), n: t.dodged }));
   }
+  // 16夜目：札の戦いでは、出した札から（札の名前が入る）
+  for (const p of b.auto?.cards?.played ?? []) {
+    if (p.owner !== uid) continue;
+    const d = p.tgt ? unitLabel(s, b, p.tgt) : '';
+    if (p.kill && L && p.tgt === L.uid) put(110, fill(SCENE_TEXT.cardLeader, { t: p.turn, c: p.name, d }));
+    else if (p.kill && d) put(55 + (p.crit ? 30 : 0), fill(SCENE_TEXT.cardKill, { t: p.turn, c: p.name, d }));
+    else if (p.crit) put(62 + (p.dmg ?? 0), fill(SCENE_TEXT.cardCrit, { t: p.turn, c: p.name, dmg: p.dmg ?? 0 }));
+    else if (p.cover) put(48, fill(SCENE_TEXT.cardCover, { t: p.turn, c: p.name, d: unitLabel(s, b, p.cover) }));
+    else if (p.heal) put(22 + p.heal, fill(SCENE_TEXT.cardHeal, { t: p.turn, c: p.name, amt: p.heal }));
+    else if (p.disobey) put(28, fill(SCENE_TEXT.cardOwn, { t: p.turn, c: p.name }));
+    else if (p.kind !== 'basic' && !p.dmg) put(8, fill(SCENE_TEXT.cardGuard, { t: p.turn, c: p.name }));
+  }
   if (L?.duelWon && st && L.settleBy === st.id) put(150, fill(SCENE_TEXT.duel, { d: L.name }));
   return (best as { v: number; text: string } | null)?.text ?? null;
 }

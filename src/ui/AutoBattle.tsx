@@ -14,7 +14,7 @@ import type { Deploy } from '../core/battle/setup';
 import { enrolled, available } from '../core/game';
 import { deployFor, canEquip } from '../core/autoplay';
 import { battleCtx, finishBattle, moreEscorted, squadAway } from '../core/flow';
-import { previewBattle, enemyIntel, estimateWin, recommendDeploy, defaultRole, roleFit, tacticFits, chooseAuto, skipAuto, scoutQuest, defaultPlan, recommendStrats, type AutoPlan, type LeaderInfo } from '../core/battle/auto';
+import { isCardMode, previewBattle, enemyIntel, estimateWin, recommendDeploy, defaultRole, roleFit, tacticFits, chooseAuto, skipAuto, scoutQuest, defaultPlan, recommendStrats, type AutoPlan, type LeaderInfo } from '../core/battle/auto';
 import { battleItems, hpAt, isGrunt, type BItem, type AtkLog } from '../core/battle/blog';
 import { FX, MAGIC_COLOR, CRIT_SAY, LEADER_CRIT_SAY, FALL_TEXT, WEAPON_SFX, type FxLevel } from '../data/battlefx';
 import type { BLog, BattleState } from '../core/battle/types';
@@ -37,6 +37,7 @@ import { legendFits } from '../core/rarity';
 import { PROSE_DENSE, PROSE_BRUTAL, PROSE_LIGHT, PROSE_GRUNT_KILL, proseKey, fallLines } from '../data/warprose';
 import { ARTS } from '../data/arts';
 import { officerArts, artsLabel, equippedSpells } from '../core/arts';
+import { DeckPreview } from './CardBattle';
 
 const FIT_MARK = ['△', '○', '◎'];
 const SQUAD_LABEL = ['第一部隊', '第二部隊', '第三部隊'];
@@ -216,6 +217,7 @@ export function SquadEditor({ s, draft, setDraft, limit, exclude, usedArms, ques
       </div>
 
       <h3>策 <span class="muted small">{draft.strats.length}／{slots}枚まで選べます（知っている策 {known.length}種）</span></h3>
+      {isCardMode() && <div class="small muted">選んだ策は「先生の策」の札として山札に入ります。策を立てる子の軍略が高いほど、早く手札に来ます。</div>}
       <div class="st-cards">
         {known.map((id) => {
           const d = STRATS[id];
@@ -226,7 +228,7 @@ export function SquadEditor({ s, draft, setDraft, limit, exclude, usedArms, ques
             <button class={`st-card${on ? ' on' : ''}${od.dud ? ' dud' : ''}${hot ? ' hot' : ''}`} onClick={() => toggleStrat(id)}>
               <span class="st-mark">{d.mark}</span>
               <span class="st-body">
-                <b>{d.name}</b><small class="st-when">{d.when === 'open' ? '開戦で' : 'ぶつかり合いのあと'}</small>
+                <b>{d.name}</b><small class="st-when">{isCardMode() ? '札' : d.when === 'open' ? '開戦で' : 'ぶつかり合いのあと'}</small>
                 <span class="st-odds">見込み <b>{od.dud ? '不発' : `${oddsLabel(od.rate)}`}</b>{!od.dud && <small>（{od.rate}%）</small>}</span>
                 {od.good.length > 0 && <span class="st-good">○ {od.good.join('・')}</span>}
                 {od.bad.length > 0 && <span class="st-bad">× {od.bad.join('・')}</span>}
@@ -279,21 +281,22 @@ export function SquadEditor({ s, draft, setDraft, limit, exclude, usedArms, ques
 
       </>}
 
+      {preview.auto?.cards && <DeckPreview s={s} b={preview} />}
       <div class="ab-odds">
         <span>勝ち目の目安</span>
         <b class={`ab-oddsv ${est?.key === key ? ({ 優勢: 'good', 五分: 'even', 苦しい: 'bad' } as Record<string, string>)[est.label] ?? '' : ''}`}>{est?.key === key ? est.label : '…'}</b>
       </div>
-      <label class="row nowrap gap6 ab-manual"><input type="checkbox" checked={draft.manual} onChange={(e) => setDraft({ ...draft, manual: (e.target as HTMLInputElement).checked })} />この戦いは自分で指揮する（マスを動かす戦闘。策・陣形は使えません）</label>
+      {!isCardMode() && <label class="row nowrap gap6 ab-manual"><input type="checkbox" checked={draft.manual} onChange={(e) => setDraft({ ...draft, manual: (e.target as HTMLInputElement).checked })} />この戦いは自分で指揮する（マスを動かす戦闘。策・陣形は使えません）</label>}
       <button class="btn accent block sticky-bottom" disabled={!deploy.length} onClick={() => { sfx('ok'); onGo(); }}>{goLabel}</button>
     </Sheet>
   );
 }
 
-function fill(t: string, v: Record<string, string>): string { return t.replace(/\{(\w+)\}/g, (m, k) => v[k] ?? m); }
+export function fill(t: string, v: Record<string, string>): string { return t.replace(/\{(\w+)\}/g, (m, k) => v[k] ?? m); }
 /** 部隊長・策を立てる子のひとこと（10夜目：技能ランクで） */
 function captainNote(st: Student): string { const p = st.skills.command ?? 0; return p >= RANK_POINTS.B ? '部隊の命中・回避がよく上がる' : p >= RANK_POINTS.D ? '部隊の命中・回避が少し上がる' : 'まだ部隊をまとめるのは不慣れ'; }
 function plannerNote(st: Student): string { const p = st.skills.tactics ?? 0; return p >= RANK_POINTS.B ? '策がとても決まりやすい' : p >= RANK_POINTS.D ? '策が決まりやすい' : 'まだ策を立てるのは不慣れ'; }
-function leaderFace(L: LeaderInfo | null) { return L ? { faceImage: L.faceImage, face: L.face, scars: L.scars, alumniId: L.alumniId } : null; }
+export function leaderFace(L: LeaderInfo | null) { return L ? { faceImage: L.faceImage, face: L.face, scars: L.scars, alumniId: L.alumniId } : null; }
 
 /** 出撃前：敵将の情報（名簿の敵将なら、分かっている特徴・因縁・偵察） */
 function LeaderIntel({ s, q, leader, intel, ids, onScout, scoutMsg }: { s: GameState; q: Quest; leader: LeaderInfo | null; intel: NonNullable<ReturnType<typeof enemyIntel>['leader']>; ids: string[]; onScout: (free: boolean) => void; scoutMsg: string | null }) {
@@ -352,8 +355,8 @@ function Gauge2({ m }: { m: number }) {
 }
 
 // ================= 戦いの記録（7夜目） =================
-const GRUNT_ICON: Record<string, string> = { sword: 'sword', lance: 'lance', axe: 'axe', bow: 'bow', magic: 'tome', holy: 'staff', staff: 'staff', gun: 'gun' };
-const GRUNT_MARK: Record<string, string> = { sword: '剣', lance: '槍', axe: '斧', bow: '弓', magic: '魔', holy: '聖', staff: '杖', gun: '銃' };
+export const GRUNT_ICON: Record<string, string> = { sword: 'sword', lance: 'lance', axe: 'axe', bow: 'bow', magic: 'tome', holy: 'staff', staff: 'staff', gun: 'gun' };
+export const GRUNT_MARK: Record<string, string> = { sword: '剣', lance: '槍', axe: '斧', bow: '弓', magic: '魔', holy: '聖', staff: '杖', gun: '銃' };
 type Speed = 'tap' | 'normal' | 'fast';
 
 /** 戦いの画面（10夜目）：ターン制のRPGのような1枚の画面。上に敵、まんなかに今戦っている2人、下に文の窓、いちばん下に味方。ここぞの判断は途中で止まる */
@@ -780,12 +783,14 @@ function describe(s: GameState, e: BLog, nameOf: (uid: string) => string, leader
 }
 
 // ================= 見せ場の演出（9夜目） =================
-type FxShow =
+export type FxShow =
   | { k: 'strat'; text: string }
   | { k: 'crit'; a: string; d: string; dmg: number; say: string }
   | { k: 'kill'; a: string; d: string }
   | { k: 'fall'; d: string; outcome: 'dead' | 'injured' | 'out'; key?: string }
-  | { k: 'duel'; a: string; title: string; say: string };
+  | { k: 'duel'; a: string; title: string; say: string }
+  /** 16夜目：開花の技・伝説の武器の札 */
+  | { k: 'art'; a: string; title: string; name: string };
 
 /** この攻撃で出す見せ場：必殺（生徒・敵将）、敵将・名のある敵の撃破、生徒が倒れた */
 function fxFor(s: GameState, b: BattleState, e: AtkLog, level: FxLevel): FxShow[] {
@@ -807,7 +812,7 @@ function fxFor(s: GameState, b: BattleState, e: AtkLog, level: FxLevel): FxShow[
   return out;
 }
 
-function BigFace({ s, b, uid, size, leader, leaderColor, gray }: { s: GameState; b: BattleState; uid: string; size: number; leader: LeaderInfo | null; leaderColor: string; gray?: boolean }) {
+export function BigFace({ s, b, uid, size, leader, leaderColor, gray }: { s: GameState; b: BattleState; uid: string; size: number; leader: LeaderInfo | null; leaderColor: string; gray?: boolean }) {
   const u = b.units.find((x) => x.uid === uid);
   const st = u?.studentId ? s.students[u.studentId] : null;
   const style = gray ? { filter: 'grayscale(1) contrast(1.1)' } : undefined;
@@ -818,7 +823,7 @@ function BigFace({ s, b, uid, size, leader, leaderColor, gray }: { s: GameState;
   return <span class="bl-icon foe" style={{ width: size, height: size, fontSize: size * 0.4, ...(style ?? {}) }}>兵</span>;
 }
 
-function FxOverlay({ s, b, fx, level, leader, leaderColor, nameOf, onTap }: { s: GameState; b: BattleState; fx: FxShow; level: FxLevel; leader: LeaderInfo | null; leaderColor: string; nameOf: (uid: string) => string; onTap: () => void }) {
+export function FxOverlay({ s, b, fx, level, leader, leaderColor, nameOf, onTap }: { s: GameState; b: BattleState; fx: FxShow; level: FxLevel; leader: LeaderInfo | null; leaderColor: string; nameOf: (uid: string) => string; onTap: () => void }) {
   const tap = (e: Event) => { e.stopPropagation(); onTap(); };
   if (fx.k === 'strat') {
     const m = /^策「([^」]+)」：(.*)$/.exec(fx.text);
@@ -827,6 +832,17 @@ function FxOverlay({ s, b, fx, level, leader, leaderColor, nameOf, onTap }: { s:
         <div class="fx-stratband"><span class="fx-stratmark serif">策</span><b class="serif">{m ? m[1] : '策'}</b></div>
         <div class="fx-stratsay">{m ? m[2] : fx.text}</div>
         <div class="fx-skip">タップで次へ</div>
+      </div>
+    );
+  }
+  if (fx.k === 'art') {
+    return (
+      <div class={`fx-over fx-cutin art${level === 'big' ? ' big' : ''}`} onClick={tap}>
+        <div class="fx-lines" />
+        <div class="fx-band"><span class="fx-bandface"><BigFace s={s} b={b} uid={fx.a} size={210} leader={leader} leaderColor={leaderColor} /></span></div>
+        <div class="fx-crit-title">{fx.title}</div>
+        <div class="fx-crit-say">{nameOf(fx.a)}の『{fx.name}』！</div>
+        <div class="fx-skip">タップで早送り</div>
       </div>
     );
   }

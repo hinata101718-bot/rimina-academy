@@ -24,7 +24,7 @@ import { gainExp, startGrowthLog, stopGrowthLog, snapGrowth, diffGrowth } from '
 import { learnSpells } from './spells';
 import { createBattle, unitFromStudent, defaultWeaponFor, type Deploy } from './battle/setup';
 import { startPlayerPhase, setReinforcementFactory, weaponSkillId } from './battle/engine';
-import { startAutoBattle, setCardReinforce, applyAutoResults, setupLeader, officerAfterBattle, officerForQuest, questSeed, skipAuto, type AutoPlan, type AwayCall } from './battle/auto';
+import { startAutoBattle, setCardReinforce, isCardMode, applyAutoResults, setupLeader, officerAfterBattle, officerForQuest, questSeed, skipAuto, type AutoPlan, type AwayCall } from './battle/auto';
 import type { BattleState } from './battle/types';
 import { ensureRosters, yearlyOfficers, revealOne } from './officers';
 import { fx } from './mentor';
@@ -188,7 +188,9 @@ function startSquad(s: GameState): void {
   const sq = so.squads[so.idx];
   if (sq.manual) startBattle(s, sq.questId, sq.deploy);
   else startAutoQuest(s, sq.questId, sq.deploy, sq.plan);
-  if (squadAway(sq, so.idx) && s.battle?.auto) {
+  // 16夜目：小さな依頼は、札の戦いでも結果だけ（部隊長がおまかせで札を出す）
+  const small = isCardMode() && !!s.quests.find((q) => q.id === sq.questId)?.small;
+  if ((squadAway(sq, so.idx) || small) && s.battle?.auto) {
     // 教官が同行しない部隊：部隊長がここぞの判断を下し、最後まで自動で進む
     const b = s.battle;
     const cap = sq.plan.captain ? s.students[sq.plan.captain] : null;

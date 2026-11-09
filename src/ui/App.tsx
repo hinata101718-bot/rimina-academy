@@ -15,6 +15,7 @@ import { SettingsTab } from './Settings';
 import { PendingView } from './Pending';
 import { BattleView } from './Battle';
 import { AutoBattleView } from './AutoBattle';
+import { CardBattleView } from './CardBattle';
 import { money, stageOf } from './common';
 import { STAGE_NAMES } from '../core/world';
 import { sfx, unlockAudio, playBgm } from './sound';
@@ -54,6 +55,7 @@ export function App() {
   const season = s ? seasonOf(s.month) : 'spring';
   useEffect(() => { document.body.dataset.season = season; }, [season]);
   if (!s) return <Title />;
+  if (s.battle?.auto?.cards) return <CardBattleView key={`${s.battle.questId}${s.sortie?.idx ?? ''}`} />;
   if (s.battle?.auto) return <AutoBattleView key={`${s.battle.questId}${s.sortie?.idx ?? ''}`} />;
   if (s.battle) return <BattleView key={`${s.battle.questId}${s.sortie?.idx ?? ''}`} />;
   const unread = importantUnread(s).length;

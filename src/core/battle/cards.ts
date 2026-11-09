@@ -52,6 +52,8 @@ export interface CLine {
   /** 見せ場の大きな演出 */
   fx?: 'crit' | 'bloom' | 'legend' | 'kill' | 'fall' | 'strat';
   a?: string; d?: string;
+  /** 会心の一撃の数・札の名前（演出用） */
+  n?: number; card?: string;
 }
 export interface TurnRec { turn: number; lines: CLine[]; played: string[] }
 export interface CardState {
@@ -72,7 +74,7 @@ export interface CardState {
   /** 仲間が倒れた（条件で効くスキル） */
   allyDown: boolean;
   turns: TurnRec[];
-  played: { turn: number; card: string; owner: string; name: string; kind: CardKind; kill?: boolean; crit?: boolean; dmg?: number; cover?: string; heal?: number; disobey?: boolean }[];
+  played: { turn: number; card: string; owner: string; name: string; kind: CardKind; kill?: boolean; crit?: boolean; dmg?: number; cover?: string; heal?: number; disobey?: boolean; tgt?: string }[];
   /** 'play'＝札を選ぶ、'result'＝結果を見る、'done'＝決着 */
   phase: 'play' | 'result' | 'done';
   /** 狙う敵（手で決めたとき） */
@@ -445,6 +447,7 @@ export function resolveTurn(s: GameState, b: BattleState, ctx: BattleCtx, ids: s
   const lines: CLine[] = [];
   const rec: TurnRec = { turn: cs.turn, lines, played: [] };
   cs.t = freshTurn();
+  b.blog?.push({ k: 'turn', turn: cs.turn, side: 'player' });
   // 行動力の分だけ（手札にあるもの）
   let ap = cs.ap;
   const play: Card[] = [];
@@ -543,8 +546,9 @@ function playOne(s: GameState, b: BattleState, ctx: BattleCtx, c0: Card, lines: 
     cs.t.first.push(u.uid);
     const targets = f.aoe ? cs.front.map((id) => b.units.find((x) => x.uid === id)).filter(alive) : [defaultTarget(b)].filter(alive);
     if (!targets.length) return;
+    rec.tgt = targets[0].uid;
     const w = cardWeapon(u, c);
-    lines.push({ cls: `ally${c.kind === 'basic' ? '' : ' art'}`, text: c.kind === 'spell' || (c.kind === 'basic' && WEAPONS[c.src]?.spell) ? `${u.name}は${c.name}を唱えた！` : c.kind === 'basic' ? `${u.name}の攻撃！` : `${u.name}の${c.name}！`, fx: big, a: u.uid });
+    lines.push({ cls: `ally${c.kind === 'basic' ? '' : ' art'}`, text: c.kind === 'spell' || (c.kind === 'basic' && WEAPONS[c.src]?.spell) ? `${u.name}は${c.name}を唱えた！` : c.kind === 'basic' ? `${u.name}の攻撃！` : `${u.name}の${c.name}！`, fx: big, a: u.uid, card: c.name });
     for (const d of targets) {
       for (let i = 0; i < (f.hits ?? 1) && alive(d); i++) {
         const h = strikeCalc(s, b, ctx, u, d, f, w, first && i === 0);
@@ -570,11 +574,13 @@ function playOne(s: GameState, b: BattleState, ctx: BattleCtx, c0: Card, lines: 
     let tot = 0;
     for (const t of list) {
       const hp0 = t.hp; t.hp = Math.min(t.maxHp, t.hp + amt); const got = t.hp - hp0; tot += got;
+      if (!got) continue;
       lines.push({ cls: 'heal', text: `${t.name}のHPが ${got}回復した！` });
       b.feed?.push({ t: 'heal', a: u.uid, d: t.uid, turn: cs.turn });
       b.blog?.push({ k: 'heal', x: 0, a: u.uid, d: t.uid, w: c.src, amt: got, hp0, hp1: t.hp, max: t.maxHp });
     }
     rec.heal = tot;
+    if (!tot) lines.push({ cls: 'narr', text: '傷ついた仲間は、まだいなかった' });
     if (self) u.item = null;
     else { const sp = WEAPONS[c.src]; if (sp) u.usedWeapon[sp.id] = (u.usedWeapon[sp.id] ?? 0) + C().usePerCard; }
     u.expGain += B.battle.exp.heal;
@@ -638,7 +644,7 @@ function hitOnce(s: GameState, b: BattleState, ctx: BattleCtx, a: Unit, d: Unit,
   b.feed?.push({ t: crit ? 'crit' : 'hit', a: a.uid, d: d.uid, turn: cs.turn, dmg });
   const kill = d.hp <= 0;
   b.blog?.push({ k: 'atk', x: cs.turn, a: a.uid, d: d.uid, w: h.w?.id ?? null, dmg, hit: true, crit, tri: h.tri, eff: h.eff, role: ally ? 'atk' : 'counter', hp0, hp1: Math.max(0, d.hp), max: d.maxHp, kill });
-  if (crit) lines.push({ cls: 'big', text: ally ? '会心の一撃！' : `${a.name}の会心の一撃！`, fx: ally ? 'crit' : undefined, a: a.uid, d: d.uid });
+  if (crit) lines.push({ cls: 'big', text: ally ? '会心の一撃！' : `${a.name}の会心の一撃！`, fx: ally ? 'crit' : undefined, a: a.uid, d: d.uid, n: dmg });
   lines.push({ cls: 'dmg', text: `${d.name}に ${dmg}のダメージ！${h.tri > 0 ? '（有利）' : ''}${h.eff ? '（特効）' : ''}`, a: a.uid, d: d.uid });
   if (kill) down(s, b, ctx, d, a, h.w, lines, opt);
   else {
@@ -704,13 +710,13 @@ function down(s: GameState, b: BattleState, ctx: BattleCtx, d: Unit, by: Unit, w
     const o = officerById(s, L.officerId);
     if (o && b.real && !L.fled && !L.settled && !L.noFlee && survives(o, b.objective, r)) {
       L.fled = true; b.retreated.push(d.uid);
-      lines.push({ cls: 'foe', text: `${L.name}は深手を負ったが、急所はわずかに外れていた。血を流しながら、兵に担がれて逃げのびた`, fx: 'kill', d: d.uid });
+      lines.push({ cls: 'foe', text: `${L.name}は深手を負ったが、急所はわずかに外れていた。血を流しながら、兵に担がれて逃げのびた`, d: d.uid });
       b.rng = r.h.rng;
       return;
     }
     const br = opt.level === 'brutal' ? pick(PROSE_BRUTAL[key]?.kill) : '';
     const t = opt.level === 'normal' ? '' : br || pick(PROSE_DENSE[key]?.kill ?? PROSE_DENSE.none.kill);
-    lines.push({ cls: 'prose strong', text: t ? t.replace(/\{a\}/g, by.name).replace(/\{d\}/g, d.name) : `${L.name}を討ち取った！`, fx: 'kill', d: d.uid });
+    lines.push({ cls: 'prose strong', text: t ? t.replace(/\{a\}/g, by.name).replace(/\{d\}/g, d.name) : `${L.name}を討ち取った！`, fx: 'kill', a: by.uid, d: d.uid });
     if (t) lines.push({ cls: 'narr', text: `${L.name}を討ち取った！` });
     b.rng = r.h.rng;
     return;
@@ -855,42 +861,76 @@ export function autoPick(s: GameState, b: BattleState, ctx: BattleCtx | null, po
   const hand = cs.hand.filter((id) => usable(b, cs.cards[id]));
   const inc = incoming(b);
   const units = (uid: string) => b.units.find((u) => u.uid === uid);
-  const danger = b.units.filter((u) => (u.side === 'player' || u.side === 'npc') && alive(u) && (inc[u.uid] ?? 0) >= u.hp * (policy === 'safe' ? 0.7 : policy === 'bold' ? 1.05 : 0.85));
+  const margin = policy === 'safe' ? 0.75 : policy === 'bold' ? 1.0 : 0.85;
+  const danger = b.units.filter((u) => (u.side === 'player' || u.side === 'npc') && alive(u) && (inc[u.uid] ?? 0) >= u.hp * margin)
+    .sort((x, y) => (inc[y.uid] ?? 0) - y.hp - ((inc[x.uid] ?? 0) - x.hp));
   let ap = cs.ap;
   const picked: string[] = [];
+  let target: string | undefined = cs.target;
   const take = (id: string) => { const c = cs.cards[id]; const cost = c.fx.cost ?? 1; if (cost > ap || picked.includes(id)) return false; ap -= cost; picked.push(id); return true; };
   const cards = hand.map((id) => cs.cards[id]);
+  const free = (c: Card) => !picked.includes(c.id);
   // 0：行動力のいらない札は出す
   for (const c of cards) if ((c.fx.cost ?? 1) === 0) take(c.id);
-  // 1：危ない子を守る
+  // 1：危ない子を守る（かばう → 守り → 回復 → 狙ってくる敵を止める・倒す）
+  let wall = 0;
   for (const d of danger) {
     if (!ap) break;
-    const covers = cards.filter((c) => c.fx.type === 'guard' && c.fx.cover && c.owner !== d.uid && !picked.includes(c.id));
-    const heals = cards.filter((c) => c.fx.type === 'heal' && !picked.includes(c.id) && (c.kind !== 'item' || c.owner === d.uid));
-    const walls = cards.filter((c) => c.fx.type === 'guard' && (c.fx.wall || (c.fx.self && c.owner === d.uid)) && !picked.includes(c.id));
-    const g = covers.find((c) => { const o = units(c.owner); return o && o.hp > (inc[o.uid] ?? 0) + (inc[d.uid] ?? 0) * C().coverMul; }) ?? heals[0] ?? walls[0];
-    if (g) take(g.id);
+    const need = (inc[d.uid] ?? 0) - d.hp + 1;
+    const hitsOn = cs.intents.filter((it) => it.target === d.uid).reduce((x, it) => x + it.hits, 0) || 1;
+    if (need - wall * hitsOn <= 0) continue;
+    const cover = cards.find((c) => free(c) && c.fx.type === 'guard' && c.fx.cover && c.owner !== d.uid && (() => { const o = units(c.owner); return !!o && o.hp > (inc[o.uid] ?? 0) + (inc[d.uid] ?? 0) * C().coverMul; })());
+    if (cover && take(cover.id)) continue;
+    const wl = cards.filter((c) => free(c) && c.fx.type === 'guard' && ((c.fx.wall ?? 0) + (c.owner === d.uid ? c.fx.self ?? 0 : 0)) * hitsOn >= need - wall * hitsOn).sort((x, y) => (x.fx.cost ?? 1) - (y.fx.cost ?? 1))[0];
+    if (wl && take(wl.id)) { wall += wl.fx.wall ?? 0; continue; }
+    const hl = cards.find((c) => free(c) && c.fx.type === 'heal' && (c.kind !== 'item' || c.owner === d.uid) && Math.min(d.maxHp, d.hp + healOf(units(c.owner)!, c)) > (inc[d.uid] ?? 0));
+    if (hl && take(hl.id)) continue;
+    // 狙ってくるいちばん強い敵を止めるか、倒す
+    const it = cs.intents.filter((x) => x.target === d.uid && !cs.stun.includes(x.uid)).sort((x, y) => y.dmg * y.hits - x.dmg * x.hits)[0];
+    const e = it ? units(it.uid) : null;
+    if (e && alive(e)) {
+      target = e.uid;
+      const stun = cards.find((c) => free(c) && c.fx.type === 'atk' && c.fx.stun && !c.fx.aoe);
+      if (stun && take(stun.id)) continue;
+      let hp = e.hp;
+      for (const c of cards.filter((x) => free(x) && x.fx.type === 'atk').sort((x, y) => atkValue(y, e) - atkValue(x, e))) {
+        if (hp <= 0 || !ap) break;
+        if (take(c.id)) hp -= atkValue(c, e);
+      }
+    }
   }
   // 2：大きな見こみの攻撃から（倒しきれるもの・敵将）。守り重視なら、残りの守り札も
-  const t = defaultTarget(b);
-  const score = (c: Card): number => {
+  const tu = target ? units(target) : defaultTarget(b);
+  function atkValue(c: Card, t: Unit): number {
     const o = units(c.owner);
+    if (!o) return 0;
+    const h = strikeCalc(s, b, ctx, o, t, c.fx, cardWeapon(o, c));
+    return h.dmg * h.hits * (h.hit / 100);
+  }
+  const hurt = b.units.filter((u) => (u.side === 'player' || u.side === 'npc') && alive(u));
+  const missing = hurt.reduce((x, u) => x + (u.maxHp - u.hp), 0);
+  const score = (c: Card): number => {
     if (c.kind === 'strat') return 40;
+    const o = units(c.owner);
     if (!o) return -1;
-    if (c.fx.type === 'atk' && t) {
-      const h = strikeCalc(s, b, ctx, o, t, c.fx, cardWeapon(o, c));
+    if (c.fx.type === 'atk' && tu) {
       const n = c.fx.aoe ? cs.front.length : 1;
-      let v = h.dmg * (h.hits) * (h.hit / 100) * n / (c.fx.cost ?? 1);
-      if (h.dmg * h.hits >= t.hp) v += 15;
-      if (c.fx.stun && cs.intents.some((it) => it.uid === t.uid && it.dmg * it.hits > 8)) v += 10;
+      let v = atkValue(c, tu) * n / Math.max(1, c.fx.cost ?? 1);
+      const h = strikeCalc(s, b, ctx, o, tu, c.fx, cardWeapon(o, c));
+      if (h.dmg * h.hits >= tu.hp) v += 15;
+      if (c.fx.stun && cs.intents.some((it) => it.uid === tu.uid && it.dmg * it.hits > 8)) v += 10;
       return v;
     }
     if (c.fx.type === 'buff') return c.fx.team ? (c.fx.team.dmg ?? 0) * 4 + (c.fx.team.hit ?? 0) / 2 : 5;
-    if (c.fx.type === 'heal') { const lo = b.units.filter((u) => u.side === 'player' && alive(u)).sort((x, y) => x.hp / x.maxHp - y.hp / y.maxHp)[0]; return lo && lo.hp < lo.maxHp * 0.5 ? 18 : 2; }
-    if (c.fx.type === 'guard') return policy === 'safe' ? 12 : 3;
+    if (c.fx.type === 'heal') {
+      if (c.fx.all) return Math.min(missing, healOf(o, c) * hurt.length) / 3;
+      const lo = [...hurt].sort((x, y) => x.hp / x.maxHp - y.hp / y.maxHp)[0];
+      return lo && lo.hp < lo.maxHp * 0.6 ? 18 : 0;
+    }
+    if (c.fx.type === 'guard') return policy === 'safe' ? (Object.keys(inc).length ? 12 : 0) : 3;
     return 0;
   };
-  const rest = cards.filter((c) => !picked.includes(c.id)).sort((x, y) => score(y) - score(x));
+  const rest = cards.filter(free).sort((x, y) => score(y) - score(x));
   for (const c of rest) { if (!ap) break; if (score(c) <= 0) continue; take(c.id); }
-  return { ids: picked, target: t?.uid };
+  return { ids: picked, target: tu?.uid };
 }
