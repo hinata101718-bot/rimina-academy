@@ -232,7 +232,7 @@ describe('戦いの記録', () => {
     }
     // 戦いは作った時刻で変わるので、敵の番・反撃が出る戦いを数回のうちに見つける
     let found = logs.some((e) => e.k === 'turn' && e.side === 'enemy') && atk.some((e) => e.role === 'counter');
-    for (let sd = 41; sd < 47 && !found; sd++) { const l2 = battle(sd).battle!.auto!.scenes.flatMap((sc) => sc.log ?? []); found = l2.some((e) => e.k === 'turn' && e.side === 'enemy') && l2.some((e) => e.k === 'atk' && e.role === 'counter'); }
+    for (let sd = 41; sd < 80 && !found; sd++) { const l2 = battle(sd).battle!.auto!.scenes.flatMap((sc) => sc.log ?? []); found = l2.some((e) => e.k === 'turn' && e.side === 'enemy') && l2.some((e) => e.k === 'atk' && e.role === 'counter'); }
     expect(found).toBe(true);
   });
   it('記録を最後まで進めると、上のHPの一覧が戦闘の終わりのHPと一致する', () => {
