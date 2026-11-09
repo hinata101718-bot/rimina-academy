@@ -52,8 +52,10 @@ export function simulateAlumni(s: GameState, rng: Rng): AlumniNews[] {
     if (st.level >= before + 3 && rng.chance(0.2)) st.history.push({ year: s.year, text: `Lv${st.level}に成長` });
     // 最上級兵種
     const cls = CLASSES[st.classId];
-    if (cls && cls.tier < 4 && st.level >= (B.exam.levelReq[cls.tier + 1] ?? B.alumni.tier4Level)) {
-      const kids = CLASS_LIST.filter((k) => k.prereq.includes(cls.id) && (!k.needGun || s.world.gunUnlocked) && (!k.hidden || st.talent === 'hero' || (!!st.bud?.gold && !!st.bud.done)) && (!k.nation || k.nation === c.country));
+    // 19夜目：最上級は、宿敵を討った・大きな戦で名を上げた（役職が高い）子だけ
+    const famed = (st.nemKills ?? 0) >= 1 || c.rank >= 3 || !!st.epithet;
+    if (cls && cls.tier < 4 && st.level >= (B.exam.levelReq[cls.tier + 1] ?? B.alumni.tier4Level) && (cls.tier < 3 || famed)) {
+      const kids = CLASS_LIST.filter((k) => k.prereq.includes(cls.id) && !k.hidden);
       if (kids.length && rng.chance(0.5)) {
         const nation = kids.filter((k) => k.nation);
         const next = nation.length && rng.chance(0.5) ? rng.pick(nation) : rng.pick(kids);

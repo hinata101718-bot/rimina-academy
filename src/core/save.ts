@@ -67,7 +67,7 @@ function convertStudent(st: Student, r: Rng): void {
   convertStats(st.train as unknown as Record<string, number>);
   convertStats(st.trainGain as unknown as Record<string, number>);
   for (const k of STATS) { st.stats[k] = Math.max(1, Math.round(st.stats[k] ?? 3)); st.growth[k] = Math.round(st.growth[k] ?? 35); }
-  st.classId = newClassId(st.classId);
+  st.classId = newClassId(st.classId, st.skills);
   st.mind ??= rollMind(r, st.personality);
   // 信頼の厚い子は平静が高め、仇討ちの誓いのある子は執念が高め
   st.mind.calm = Math.min(95, st.mind.calm + Math.round((st.trust ?? 0) / 10));

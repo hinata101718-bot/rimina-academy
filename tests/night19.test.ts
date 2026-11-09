@@ -127,11 +127,15 @@ function toQuest(s: GameState): GameState {
 }
 
 describe('19夜目：片づけ', () => {
-  it('兵種は14種、能力は体の6つ＋心の3つ', () => {
-    expect(Object.keys(CLASSES).length).toBeGreaterThanOrEqual(10);
-    expect(Object.keys(CLASSES).length).toBeLessThanOrEqual(15);
+  it('兵種の木（初級8・中級24・上級26）、能力は体の6つ＋心の3つ', () => {
+    const L = Object.values(CLASSES);
+    expect(L.filter((c) => c.tier === 1 && !c.hidden).length).toBe(8);
+    expect(L.filter((c) => c.tier === 2 && !c.hidden).length).toBe(24);
+    expect(L.filter((c) => c.tier === 3 && !c.hidden).length).toBe(26);
+    for (const c of L) for (const p of c.prereq) expect(CLASSES[p]).toBeTruthy();
     const s = mk(3);
     for (const st of enrolled(s)) {
+      expect(CLASSES[st.classId].tier).toBe(1);
       expect(Object.keys(st.stats).sort()).toEqual([...STATS].sort());
       expect(st.mind).toBeTruthy();
       expect(st.mind!.fight).toBeGreaterThan(0);

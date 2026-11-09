@@ -31,6 +31,12 @@ export interface TUnit {
   type: AtkType; magic: boolean;
   /** ふつうの攻撃の威力（武器） */
   might: number;
+  /** 19夜目：兵種の特技・ふつうの攻撃で選べる種類・同時に当てる2つ目の種類 */
+  traits?: string[]; atks?: import('../../data/tactics').AtkType[]; dual?: import('../../data/tactics').AtkType;
+  /** 蘇った者（裁きの光）・呪縛で守りが下がった */
+  revived?: boolean; cursed?: boolean;
+  /** 仲間をかばった回数 */
+  guarded?: number;
   techs: TTech[];
   /** 盾（敵だけ） */
   sh: number; shMax: number;
@@ -60,7 +66,7 @@ export interface TUnit {
   /** 真っ先に狙う子（前に自分をやった子） */
   grudge?: string;
   /** 心と教訓から来る補正 */
-  bonus?: { dmg?: number; prot?: number; vsOfficer?: number; vsClass?: Record<string, number>; protFrom?: Record<string, number>; note?: string[] };
+  bonus?: { fight?: number; dmg?: number; prot?: number; vsOfficer?: number; vsClass?: Record<string, number>; protFrom?: Record<string, number>; note?: string[] };
   /** 傷薬 */
   potion?: number;
   /** 成績 */

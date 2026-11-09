@@ -54,8 +54,8 @@ describe('技能ランク', () => {
 });
 
 describe('兵種データ', () => {
-  it('14種あり、前提兵種がすべて存在する', () => {
-    expect(CLASS_LIST.length).toBe(14);
+  it('兵種の木（初級8・中級24・上級26・最上級・隠れた）があり、前提兵種がすべて存在する', () => {
+    expect(CLASS_LIST.length).toBeGreaterThanOrEqual(58);
     for (const c of CLASS_LIST) for (const p of c.prereq) expect(CLASSES[p]).toBeTruthy();
   });
 });
@@ -67,7 +67,7 @@ describe('1週間', () => {
     for (let i = 0; i < 4; i++) { nextWeek(s); if (i < 3) s.pending = []; }
     expect(s.pending.some((p) => p.type === 'questBoard')).toBe(true);
     const after = enrolled(s);
-    expect(after.some((x, i) => x.skills.sword + x.skills.lance > before[i].sword + before[i].lance)).toBe(true);
+    expect(after.some((x, i) => Object.values(x.skills).reduce((a, b) => a + b, 0) > Object.values(before[i]).reduce((a, b) => a + b, 0))).toBe(true);
     expect((s.instructor.stamina ?? 100)).toBeLessThan(100); // 7夜目：体力は先生だけ
   });
   it('支援値が上がると会話が組み立てられる', () => {
@@ -97,15 +97,19 @@ describe('兵種試験', () => {
   it('条件を満たしていれば必ず合格（8夜目）。足りなければ受けられない', () => {
     const s = mk(5);
     const st = enrolled(s)[0];
-    st.skills.sword = RANK_POINTS.D - 1;
-    st.level = 5;
-    expect(passRate(st, CLASSES.swordsman)).toBe(0);
-    st.skills.sword = RANK_POINTS.D;
-    expect(meetsReq(st, CLASSES.swordsman)).toBe(true);
-    expect(passRate(st, CLASSES.swordsman)).toBe(100);
-    const r = takeExam(s, rng(s), st, 'swordsman');
+    st.classId = 'swordsman';
+    st.skills.sword = RANK_POINTS.C - 1;
+    st.level = 8; st.grade = 2; st.battles = 3;
+    expect(passRate(st, CLASSES.kensei)).toBe(0);
+    st.skills.sword = RANK_POINTS.C;
+    expect(meetsReq(st, CLASSES.kensei)).toBe(true);
+    st.grade = 1;
+    expect(meetsReq(st, CLASSES.kensei)).toBe(false); // 19夜目：中級は2年生から
+    st.grade = 2;
+    expect(passRate(st, CLASSES.kensei)).toBe(100);
+    const r = takeExam(s, rng(s), st, 'kensei');
     expect(r.ok).toBe(true);
-    expect(st.classId).toBe('swordsman');
+    expect(st.classId).toBe('kensei');
     expect(effectiveStats(st).spd).toBeGreaterThanOrEqual(st.stats.spd);
   });
 });

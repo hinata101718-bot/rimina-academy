@@ -28,15 +28,16 @@ export function reach(b: TBattle, u: TUnit, mov = u.mov): Record<string, number>
     if (d >= mov) continue;
     for (const [dx, dy] of DIRS) {
       const nx = x + dx, ny = y + dy, k = key(nx, ny);
-      if (blocked(b, nx, ny) || k in seen) continue;
+      if (k in seen) continue;
+      if (blocked(b, nx, ny) && !(flyer(u) && nx >= 0 && ny >= 0 && nx < b.w && ny < b.h && b.rock.includes(k))) continue;
       const o = at(b, nx, ny);
       if (o && o.side !== u.side) continue;
       seen[k] = d + 1;
       q.push([nx, ny]);
     }
   }
-  // 仲間のいるマスには止まれない
-  for (const k of Object.keys(seen)) { const [x, y] = k.split('-').map(Number); const o = at(b, x, y); if (o && o !== u) delete seen[k]; }
+  // 仲間のいるマス・岩（飛兵が越えるだけ）には止まれない
+  for (const k of Object.keys(seen)) { const [x, y] = k.split('-').map(Number); const o = at(b, x, y); if ((o && o !== u) || b.rock.includes(k)) delete seen[k]; }
   return seen;
 }
 /** 道のり（敵が近づくときの目安） */
@@ -59,48 +60,97 @@ export function pathDist(b: TBattle, u: TUnit, tx: number, ty: number): number {
   return 99;
 }
 
-export function techOf(id: string | null | undefined): TechDef | null { return id ? TECH_BY_ID[id] ?? null : null; }
 export function rangeOf(u: TUnit, tech: TechDef | null): [number, number] { return tech?.range ?? [u.rmin, u.rmax]; }
+const flyer = (u: TUnit) => T(u, 'fly') || T(u, 'roar');
 export function defOf(b: TBattle, u: TUnit): number {
   return u.def + (isForest(b, u.x, u.y) ? TB.forestDef : 0) - (u.bonus?.note?.includes('reckless') ? TB.recklessDef : 0);
 }
 
-export interface Calc { per: number; hits: number; total: number; weak: boolean; resisted: boolean; broken: boolean; type: AtkType; shields: number; brk: boolean; kill: boolean; lethal: boolean }
+export interface Calc { per: number; hits: number; total: number; weak: boolean; resisted: boolean; broken: boolean; type: AtkType; shields: number; brk: boolean; kill: boolean; lethal: boolean; perHit: number }
 
 /** 攻撃の見込み（必ず当たる）。pos を渡すと、そのマスから攻撃したときの守り（森）を使う */
-export function calc(b: TBattle, a: TUnit, d: TUnit, techId?: string | null, opt: { rage?: boolean } = {}): Calc {
+/** 特技を持っているか */
+export const T = (u: TUnit, t: string) => !!u.traits?.includes(t);
+/** ふつうの攻撃の種類を選ぶ id（'basic:fire' など）を分ける */
+export function techOf(id: string | null | undefined): TechDef | null { return id && !id.startsWith('basic:') ? TECH_BY_ID[id] ?? null : null; }
+function basicType(u: TUnit, id: string | null | undefined): AtkType { return id?.startsWith('basic:') ? (id.slice(6) as AtkType) : u.type; }
+function adj(a: { x: number; y: number }, b: { x: number; y: number }, n = 1): boolean { const d = Math.abs(a.x - b.x) + Math.abs(a.y - b.y); return d >= 1 && d <= n; }
+
+/** 攻撃の見込み（必ず当たる）。opt.steps＝その攻撃の前に動いた歩数 */
+export function calc(b: TBattle, a: TUnit, d: TUnit, techId?: string | null, opt: { rage?: boolean; steps?: number } = {}): Calc {
   const tech = techOf(techId);
-  const type: AtkType = tech?.type ?? a.type;
+  const type: AtkType = tech?.type ?? basicType(a, techId);
+  const types: AtkType[] = !tech && a.dual && !techId?.startsWith('basic:') ? [type, a.dual] : [type];
   const magic = MAGIC_TYPES.includes(type) || (!tech && a.magic);
   const base = magic ? a.mag : a.str;
   let atk = base + a.might + (tech ? tech.pow + Math.floor(a.skl / TB.sklDiv) : 0) + (opt.rage ? TB.ragePow : 0);
   atk += a.bonus?.dmg ?? 0;
   if (d.officerId && a.bonus?.vsOfficer && d.nemesis) atk += a.bonus.vsOfficer;
   if (a.bonus?.vsClass?.[d.classId]) atk += a.bonus.vsClass[d.classId];
+  // 兵種の特技
+  if (a.traits?.length) {
+    const hpLow = a.hp <= a.max / 2;
+    if (T(a, 'veteran') && !d.boss) atk += 3;
+    if (T(a, 'spear') && type === 'thrust') atk += 2;
+    if (T(a, 'frenzy') && hpLow) atk += 4;
+    if (T(a, 'berserk') && hpLow) atk += Math.max(0, Math.floor(((a.bonus?.fight ?? 50) - 40) / 10));
+    if (T(a, 'axeplus') && type === 'crush') atk += 2;
+    if (T(a, 'warrior') && type === 'crush') atk += 3;
+    if (T(a, 'wyvern') && type === 'crush') atk += 3;
+    if (T(a, 'aim') && (opt.steps ?? 0) === 0) atk += 2;
+    if (T(a, 'hunt') && (d.classId === 'cavalier' || d.classId === 'beast' || d.classId === 'knight')) atk += 4;
+    if (T(a, 'element') && magic) atk += 2;
+    if (T(a, 'archmage') && magic) atk += 4;
+    if (T(a, 'necro') && type === 'dark') atk += 3;
+    if (T(a, 'judge') && (d.revived || d.type === 'dark')) atk += 4;
+    if (T(a, 'holyknight') && type === 'light') atk += 2;
+    if (T(a, 'master') && tech?.skill === 'sword') atk += 3;
+    if (T(a, 'flamebow') && types.includes('fire') && types.includes('shot')) atk += 3;
+    if (T(a, 'shura') && d.broken > 0) atk += 4;
+    if (T(a, 'bare') && type === 'blunt') atk += 4;
+    if (T(a, 'avenger') && d.nemesis) atk += 5;
+    if (T(a, 'ranger') && isForest(b, a.x, a.y)) atk += 2;
+    if (T(a, 'charge') && (opt.steps ?? 0) >= 3) atk += 3 + (T(a, 'greatknight') ? 3 : 0);
+    if ((T(a, 'backstab') || T(a, 'shadow')) && mine(b).concat(foes(b)).some((o) => o.side === a.side && o !== a && o.alive && adj(o, d))) atk += 4 + (T(a, 'shadow') ? 2 : 0);
+    if (T(a, 'twinstar') && b.units.some((o) => o.side === a.side && o !== a && o.alive && adj(o, a))) atk += 3;
+  }
+  // 旗印：隣（将軍旗は2マス）にいる仲間の攻撃+2
+  if (b.units.some((o) => o.side === a.side && o !== a && o.alive && (T(o, 'banner') && adj(o, a, T(o, 'general_flag') ? 2 : 1)))) atk += 2;
   if (a.teacher) atk = Math.round(atk * TB.teacherAtk);
   let df = defOf(b, d);
   if (magic) df = Math.floor(df * TB.magicDefRate);
   df += d.bonus?.prot ?? 0;
   if (d.bonus?.protFrom?.[a.classId]) df += d.bonus.protFrom[a.classId];
   if (d.bonus?.protFrom?.[type]) df += d.bonus.protFrom[type];
-  const resisted = d.resist.includes(type);
-  let per = Math.max(1, atk - df);
+  if (T(d, 'greatknight')) df += 2;
+  if (T(d, 'ranger') && isForest(b, d.x, d.y)) df += 2;
+  if (b.units.some((o) => o.side === d.side && o !== d && o.alive && T(o, 'barrier') && adj(o, d, T(o, 'seal') ? 2 : 1))) df += 2;
+  df -= d.cursed ? 2 : 0;
+  const resisted = types.every((t) => d.resist.includes(t));
+  let per = Math.max(1, atk - Math.max(0, df));
   if (resisted) per = Math.max(1, Math.floor(per / TB.resistDiv));
+  // 飛兵は射に弱い・呪いの子は光に弱い
+  if (type === 'shot' && (T(d, 'fly') || T(d, 'roar'))) per = Math.round(per * 1.5);
+  if (type === 'light' && T(d, 'cursed')) per = Math.round(per * 1.5);
   const broken = d.broken > 0;
   if (broken) per *= TB.breakMul;
-  const hits = tech ? tech.hits : a.spd >= d.spd + TB.doubleSpd ? 2 : 1;
-  const weak = d.side === 'foe' && d.weak.includes(type) && !resisted;
-  const shields = weak && !broken ? Math.min(d.sh, hits) : 0;
+  const always2 = !tech && (T(a, 'brave') || T(a, 'bowknight'));
+  const hits = tech ? tech.hits : always2 || a.spd >= d.spd + (T(a, 'twin') ? 1 : TB.doubleSpd) ? 2 : 1;
+  const weakTypes = d.side === 'foe' ? types.filter((t) => d.weak.includes(t) && !d.resist.includes(t)) : [];
+  const weak = weakTypes.length > 0;
+  const perHit = (weak ? weakTypes.length * (T(a, 'sniper') || (T(a, 'oneeye') && Math.abs(a.x - d.x) + Math.abs(a.y - d.y) === 2) ? 2 : 1) : 0) + (!weak && tech?.smash && (a.traits?.includes('smash')) ? 1 : 0);
+  const shields = !broken && d.side === 'foe' ? Math.min(d.sh, perHit * hits) : 0;
   const total = per * hits;
   const brk = !broken && shields > 0 && d.sh - shields <= 0 && d.hp - total > 0;
   const kill = total >= d.hp && !(d.nemesis && !d.clung && !broken);
   const lethal = a.side === 'foe' && total >= d.hp && !!(b.nemesisId && (a.nemesis || a.boss)) && !d.teacher;
-  return { per, hits, total, weak, resisted, broken, type, shields, brk, kill, lethal };
+  return { per, hits, total, weak, resisted, broken, type, shields, brk, kill, lethal, perHit };
 }
 
 /** その子の使える攻撃（ふつうの攻撃＝null と、のこりのある技） */
 export function attacksOf(u: TUnit): (string | null)[] {
-  const out: (string | null)[] = [null];
+  // 魔道士などは、ふつうの攻撃の種類を選べる（炎・雷・氷）
+  const out: (string | null)[] = (u.atks?.length ?? 0) > 1 && !u.dual ? u.atks!.map((t) => `basic:${t}`) : [null];
   for (const t of u.techs) { const d = TECH_BY_ID[t.id]; if (d && !d.heal && t.left > 0) out.push(t.id); }
   return u.teacher ? [null] : out;
 }
@@ -182,24 +232,34 @@ export function attack(b: TBattle, uid: string, targetUid: string, techId: strin
   if (!opt.keepUndo) remember(b);
   const pos = spot ?? bestSpot(b, a, d, techId);
   if (!pos) return fx;
+  const steps = reach(b, a)[key(pos.x, pos.y)] ?? 0;
   if (pos.x !== a.x || pos.y !== a.y) { a.x = pos.x; a.y = pos.y; fx.push({ k: 'move', uid: a.uid, x: a.x, y: a.y }); }
   if (!inRange(b, a, a.x, a.y, d, techId)) return fx;
-  strike(b, a, d, techId, fx, opt.noDeath ?? false, false);
+  strike(b, a, d, techId, fx, opt.noDeath ?? false, false, steps);
   a.acted = true;
   afterAction(b, fx);
   b.fx = fx;
   return fx;
 }
 
-function strike(b: TBattle, a: TUnit, d: TUnit, techId: string | null, fx: TFx[], noDeath: boolean, rage: boolean): void {
+function strike(b: TBattle, a: TUnit, d0: TUnit, techId: string | null, fx: TFx[], noDeath: boolean, rage: boolean, steps = 0): void {
+  // かばう：隣の仲間（重装兵など）が代わりに受ける。パラディンは先生をかばう
+  let d = d0;
+  if (a.side === 'foe') {
+    const g = b.units.find((o) => o.side === d0.side && o !== d0 && o.alive && ((T(o, 'guard') && !o.teacher) || (T(o, 'paladin') && d0.teacher)) && Math.abs(o.x - d0.x) + Math.abs(o.y - d0.y) === 1);
+    if (g) { d = g; g.guarded = (g.guarded ?? 0) + 1; fx.push({ k: 'say', by: g.uid, text: `${d0.name}、下がって！`, tone: 'me' }); log(b, `${g.name}が${d0.name}をかばった`); }
+  }
+  const halve = d !== d0 && T(d, 'fortress');
   const tech = techOf(techId);
   const tt = a.techs.find((t) => t.id === techId);
   if (tt) tt.left -= 1;
   if (tech && (d.boss || tech.hits > 1)) fx.push({ k: 'cutin', by: a.uid, title: `${tech.name}！`, sub: `${a.name}の技` });
-  const c = calc(b, a, d, techId, { rage });
+  const c = calc(b, a, d, techId, { rage, steps });
   let shieldGone = 0;
   for (let i = 0; i < c.hits && d.alive; i++) {
-    let dmg = c.per;
+    let dmg = halve ? Math.max(1, Math.floor(c.per / 2)) : c.per;
+    // 死に損ない：一度だけ立ち上がる（教え子）
+    if (T(d, 'undying') && !d.clung && d.hp - dmg <= 0) { dmg = d.hp - 1; d.clung = true; log(b, `${d.name}は倒れなかった！`, true); }
     // 執念：ブレイクしていないとき、一度だけ持ちこたえる（宿敵）
     if (d.nemesis && !d.clung && d.broken === 0 && d.hp - dmg <= 0) { dmg = d.hp - 1; d.clung = true; say(b, d, 'clung', fx); log(b, `${d.name}は執念で持ちこたえた！`, true); }
     d.hp = Math.max(0, d.hp - dmg);
@@ -208,8 +268,8 @@ function strike(b: TBattle, a: TUnit, d: TUnit, techId: string | null, fx: TFx[]
     d.lastType = c.type;
     if (a.studentId && !a.teacher) (d.hitBy ??= {})[a.studentId] = ((d.hitBy ??= {})[a.studentId] ?? 0) + dmg;
     let shield = false, brk = false;
-    if (c.weak && d.sh > 0 && d.broken === 0) {
-      d.sh -= 1; shield = true; shieldGone++; a.weakHits++;
+    if (c.perHit > 0 && d.sh > 0 && d.broken === 0) {
+      d.sh = Math.max(0, d.sh - c.perHit); shield = true; shieldGone++; a.weakHits++;
       if (!d.known.includes(c.type)) { d.known.push(c.type); }
       (d.weakHitBy ??= []).includes(c.type) || d.weakHitBy!.push(c.type);
       if (d.sh === 0 && d.hp > 0) {
@@ -217,6 +277,8 @@ function strike(b: TBattle, a: TUnit, d: TUnit, techId: string | null, fx: TFx[]
         (d.brokenBy ??= []).push(a.studentId ?? a.uid);
       }
     }
+    // 呪縛：闇を当てた敵の守りを下げる（刻印：隠れた弱点が見える・死霊の声：宿敵の執念を削る）
+    if (c.type === 'dark' && T(a, 'curse') && !d.cursed) { d.cursed = true; log(b, `${d.name}の守りが呪いで下がった`); if (T(a, 'hex')) { const h = d.weak.find((w) => !d.known.includes(w)); if (h) { d.known.push(h); fx.push({ k: 'reveal', d: d.uid, type: h }); } } if (T(a, 'necro') && d.nemesis) d.clung = true; }
     const kill = d.hp <= 0;
     fx.push({ k: 'hit', a: a.uid, d: d.uid, dmg, weak: c.weak, resisted: c.resisted, shield, brk, kill, tech: tech?.name, broken: d.broken > 0 && !brk });
     if (shield && !brk && d.nemesis && shieldGone === 1) say(b, d, 'shield', fx);
@@ -240,7 +302,10 @@ function down(b: TBattle, a: TUnit, d: TUnit, fx: TFx[], noDeath: boolean, letha
   d.alive = false;
   a.kills++;
   if (d.side === 'me') {
-    d.down = d.teacher ? 'out' : lethal ? (noDeath ? 'injured' : 'dead') : 'injured';
+    // 祈り：命の危険の一撃を、その戦いで一度だけ防ぐ
+    const priest = lethal && !noDeath ? b.units.find((o) => o.side === 'me' && o.alive && T(o, 'prayer') && !b.said.includes(`prayer:${o.uid}`)) : null;
+    if (priest) { b.said.push(`prayer:${priest.uid}`); log(b, `${priest.name}の祈りが、${d.name}の命をつないだ`, true); fx.push({ k: 'say', by: priest.uid, text: `${d.name}……戻ってきて！`, tone: 'me' }); }
+    d.down = d.teacher ? 'out' : lethal && !priest ? (noDeath ? 'injured' : 'dead') : 'injured';
     if (a.nemesis) say(b, a, 'kill', fx);
     log(b, d.down === 'dead' ? `${d.name}が倒れた……` : d.teacher ? `${d.name}が倒れた！` : `${d.name}は深手を負って退いた`, true);
   } else {

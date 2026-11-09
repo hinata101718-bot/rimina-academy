@@ -1,5 +1,5 @@
 // 19夜目：新しい戦いを組み立てる（依頼・出撃する子・先生・敵将から）。DOMに依存しない
-import { TB, ENEMY_KINDS, ENEMY_MIX, ENEMY_BASE, BOSS_MUL, WTYPE_ATK, SPELL_MIGHT, FIELD_BY_ID, ATK_TYPES, type AtkType } from '../../data/tactics';
+import { TB, ENEMY_KINDS, ENEMY_MIX, ENEMY_BASE, BOSS_MUL, WTYPE_ATK, SPELL_MIGHT, FIELD_BY_ID, ATK_TYPES, ATK_NAME, MAGIC_TYPES, type AtkType } from '../../data/tactics';
 import { CLASSES, newClassId } from '../../data/classes';
 import { WEAPONS } from '../../data/weapons';
 import { SKILLS } from '../../data/balance';
@@ -72,13 +72,56 @@ export function unitFromStudent(s: GameState, st: Student, uid: string, x: numbe
   const w = weaponOf(s, st, armoryUid);
   const atk = WTYPE_ATK[w.wtype] ?? WTYPE_ATK.sword;
   const techs = battleTechs(st).map((t) => ({ id: t.id, left: t.uses }));
-  return {
+  const u: TUnit = {
     uid, side: 'me', name: st.given, studentId: st.id, classId: st.classId, x, y,
     hp: e.hp, max: e.hp, str: e.str, mag: e.mag, skl: e.skl, spd: e.spd, def: e.def,
     mov: c.move, rmin: atk.range[0], rmax: atk.range[1], type: atk.type, magic: !!atk.magic, might: w.might,
     techs, sh: 0, shMax: 0, weak: [], resist: [], known: [], broken: 0, acted: false, alive: true,
-    armoryUid: armoryUid ?? null, bonus: mindBonus(st, nemesisId, s), kills: 0, dealt: 0, taken: 0, weakHits: 0, breaks: 0,
+    armoryUid: armoryUid ?? null, bonus: { ...mindBonus(st, nemesisId, s), fight: st.mind?.fight ?? 50 }, kills: 0, dealt: 0, taken: 0, weakHits: 0, breaks: 0,
   };
+  applyClass(u, st.classId, w.wtype);
+  return u;
+}
+
+/** 兵種の特技・攻撃の種類・届く距離・動ける歩数をユニットに。enemy のときは、敵に向かない特技（かばう・祈り など）を外す */
+export function applyClass(u: TUnit, classId: string, wtype?: string, enemy = false): void {
+  const c = CLASSES[classId];
+  if (!c) return;
+  const NOT_FOE = ['guard', 'paladin', 'prayer', 'spot', 'trap', 'trick', 'ambush', 'farsight', 'hunter_n', 'undying', 'pilfer', 'mend'];
+  u.traits = c.traits.filter((t) => !enemy || !NOT_FOE.includes(t));
+  const has = (t: string) => u.traits!.includes(t);
+  const atks = c.atk.length ? c.atk : [u.type];
+  // 武器の種類に合う攻撃の種類を、ふつうの攻撃に
+  const wt = wtype ? WTYPE_ATK[wtype]?.type : undefined;
+  u.type = wt && atks.includes(wt) ? wt : atks[0];
+  u.magic = MAGIC_TYPES.includes(u.type);
+  if (has('flameblade') || has('firearrow')) { u.dual = atks.find((t) => t !== u.type) ?? undefined; u.atks = [u.type]; }
+  else u.atks = atks.length > 1 ? [...atks] : [u.type];
+  if (has('allarts')) u.atks = ['fire', 'thunder', 'ice', 'light', 'dark'];
+  // 届く距離
+  if (u.type === 'shot' || has('longshot')) { u.rmin = 2; u.rmax = 3; }
+  if (u.magic) { u.rmin = 1; u.rmax = 2; }
+  if (has('reach') || has('spear')) { u.rmin = 1; u.rmax = 2; }
+  if (has('ironspear')) { u.rmin = 1; u.rmax = 3; }
+  if (has('aim')) { u.rmin = 2; u.rmax = 4; }
+  if (has('thousand')) { u.rmin = 1; u.rmax = 8; }
+  if (u.type === 'blunt' && !wtype) u.might = Math.max(u.might, 4);
+  // 動ける歩数（兵種の移動は data/classes の move）
+  u.mov = c.move + (has('step') ? 1 : 0) + (has('falcon') ? 1 : 0) + (has('shadow') ? 1 : 0);
+}
+
+/** 戦いのはじめに効く特技（見抜き・読み切り・罠・いたずら・闇討ち・宿敵狩り） */
+export function startTraits(b: TBattle): void {
+  const bs = b.units.find((u) => u.boss) ?? b.units.filter((u) => u.side === 'foe').sort((a, c) => c.max - a.max)[0];
+  for (const u of b.units.filter((x) => x.side === 'me')) {
+    const has = (t: string) => !!u.traits?.includes(t);
+    if (bs && has('farsight')) { for (const w of bs.weak) if (!bs.known.includes(w)) bs.known.push(w); b.log.push({ turn: 1, text: `${u.name}の読み切り：${bs.name}の弱点がすべて分かった` }); }
+    else if (bs && has('spot')) { const h = bs.weak.find((w) => !bs.known.includes(w)); if (h) { bs.known.push(h); b.log.push({ turn: 1, text: `${u.name}の見抜き：${bs.name}の弱点は「${ATK_NAME[h]}」` }); } }
+    if (has('trap')) { const f = b.units.filter((x) => x.side === 'foe' && !x.boss).sort((a, c) => c.hp - a.hp)[0]; if (f) { const d = Math.min(f.hp - 1, 6); f.hp -= d; b.log.push({ turn: 1, text: `${u.name}の罠に、${f.name}がかかった（−${d}）` }); } }
+    if (has('trick')) { const f = b.units.filter((x) => x.side === 'foe' && x.sh > 0)[0]; if (f) { f.sh -= 1; b.log.push({ turn: 1, text: `${u.name}のいたずらで、${f.name}の盾が1つ減った` }); } }
+    if (bs && has('ambush') && bs.broken === 0) { bs.sh = 0; bs.broken = 2; b.log.push({ turn: 1, text: `${u.name}の闇討ち！ ${bs.name}が崩れた`, big: true }); }
+    if (bs?.nemesis && has('hunter_n') && bs.sh > 1) { bs.sh -= 1; bs.shMax -= 1; b.log.push({ turn: 1, text: `${u.name}は宿敵の盾を見抜いている（盾−1）` }); }
+  }
 }
 
 function teacherUnit(s: GameState, x: number, y: number): TUnit {
@@ -169,7 +212,8 @@ export function createTactics(s: GameState, q: Quest, deploys: Deploy[], opt: Se
       techs: [], sh, shMax: sh, weak: [...k.weak], resist: [], known: opt.tutorial ? [...k.weak] : [k.weak[0]], broken: 0, acted: false, alive: true, kills: 0, dealt: 0, taken: 0, weakHits: 0, breaks: 0,
     });
   }
-  for (const u of b.units) if (u.side === 'foe') u.hp = u.max = Math.max(u.max, 6);
+  for (const u of b.units) if (u.side === 'foe') { u.hp = u.max = Math.max(u.max, 6); const keepType = u.type; const r0 = [u.rmin, u.rmax]; applyClass(u, u.classId, undefined, true); if (!u.boss) { u.type = keepType; u.atks = [keepType]; u.dual = undefined; u.rmin = r0[0]; u.rmax = r0[1]; u.mov = Math.min(u.mov, 4); } }
+  startTraits(b);
   b.foes0 = b.units.filter((u) => u.side === 'foe').length;
   intents(b);
   return b;

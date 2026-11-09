@@ -68,6 +68,8 @@ export interface Student {
   scars?: { year: number; text: string }[];
   /** 19夜目：使える技（技能のランクで覚える。技のid） */
   techs?: string[];
+  /** 19夜目：宿敵戦に出た回数・討った宿敵の数・仲間をかばった回数・蘇った（呪い）・双星の縁 */
+  nemBattles?: number; nemKills?: number; guards?: number; revivedBy?: string; twinStar?: string;
   /** 12夜目：覚えた戦技・心得、付けているもの（おまかせ。手で選んだら artsManual） */
   arts?: string[]; artsOn?: string[]; artsManual?: boolean;
   /** 14夜目：卒業生の講師に手ほどきを受けた技（1つ前のランクで覚える） */

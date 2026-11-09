@@ -10,16 +10,42 @@ import { available, chronicle, notify } from './game';
 import { addRecent } from './support';
 import { SKILL_NAMES } from '../data/people';
 import { rankOf } from './util';
+import { learnTechs } from './techs';
 
 /** 学校で受けられる段階（設計書：上級まで。1夜目は中級までを主対象にするが、上級もデータ上は受験可） */
 export const SCHOOL_MAX_TIER = 3;
 
 export function classUnlocked(s: GameState, c: ClassDef): boolean {
-  if (c.needGun && !s.world.gunUnlocked) return false;
-  if (c.needStable && (s.facilities.stable ?? 0) < 1) return false;
-  if (c.hidden) return true; // 英雄：受けられる子だけが nextClasses に出る
-  if (c.nation || c.tier > SCHOOL_MAX_TIER) return false;
+  void s;
+  if (c.hidden) return true; // 隠れた兵種：道が開いた子だけが nextClasses に出る
+  if (c.tier > SCHOOL_MAX_TIER) return false;
   return true;
+}
+
+/** 19夜目：その段階に上がれる学年と、出撃の回数（宿敵戦は2回に数える） */
+export function sortieCount(st: Student): number { return st.battles + (st.nemBattles ?? 0); }
+export function gradeOk(st: Student, c: ClassDef): boolean {
+  const E = B.exam;
+  if (c.hidden) return true;
+  if (c.tier === 2) return st.grade >= E.tier2Grade || st.status === 'graduated';
+  if (c.tier === 3) return st.grade >= E.tier3Grade || st.status === 'graduated';
+  if (c.tier === 4) return st.status === 'graduated';
+  return true;
+}
+export function sortiesNeed(c: ClassDef): number { return c.hidden ? 0 : B.exam.sorties[c.tier] ?? 0; }
+/** 隠れた兵種の道が開いたか（出来事で横道が開く） */
+export function hiddenOpen(s: GameState, st: Student, c: ClassDef): boolean {
+  const rv = Object.values(s.rivalries ?? {}).filter((r) => r.sid === st.id);
+  switch (c.id) {
+    case 'oneeye': return (st.scars ?? []).some((x) => x.text.includes('目')) && ['bow', 'dagger'].includes((CLASSES[st.classId] as { line?: string })?.line ?? '');
+    case 'avenger': return rv.some((r) => !!r.vow && !r.settled) && (st.mind?.grudge ?? 0) >= 80;
+    case 'undying': return (st.wounds ?? 0) >= 2;
+    case 'nemhunter': return (st.nemKills ?? 0) >= 3;
+    case 'oathshield': return (st.guards ?? 0) >= 3 && (st.wounds ?? 0) >= 3;
+    case 'cursechild': return !!st.revivedBy;
+    case 'twinstar': return !!st.twinStar;
+    default: return false;
+  }
 }
 
 /** 隠し兵種「英雄」：才能「英雄の器」の子が上級から（在学中は Lv20 以上で受験できる） */
@@ -27,14 +53,14 @@ export function classUnlocked(s: GameState, c: ClassDef): boolean {
 export function heroOpen(st: Student): boolean { return (st.talent === 'hero' || (!!st.bud?.gold && !!st.bud.done)) && (CLASSES[st.classId]?.tier ?? 0) === 3; }
 
 /** 受験に必要なレベル（段階ごと） */
-export function levelReq(c: ClassDef): number { return c.hidden ? B.exam.heroLevel : B.exam.levelReq[c.tier] ?? 0; }
+export function levelReq(c: ClassDef): number { return c.hidden ? 0 : B.exam.levelReq[c.tier] ?? 0; }
 
 export function meetsSkillReq(st: Student, c: ClassDef): boolean {
   return Object.entries(c.req).every(([k, r]) => st.skills[k as SkillId] >= RANK_POINTS[r as Rank]);
 }
 /** 技能ランクとレベルの両方を満たすか */
 export function meetsReq(st: Student, c: ClassDef): boolean {
-  return st.level >= levelReq(c) && meetsSkillReq(st, c);
+  return st.level >= levelReq(c) && meetsSkillReq(st, c) && gradeOk(st, c) && sortieCount(st) >= sortiesNeed(c);
 }
 
 /** 足りない条件を、やさしい文で返す（例「Lv10から受験できます（あと3）」「槍 C が必要（いま D+）」） */
@@ -45,14 +71,17 @@ export function missingReqs(s: GameState, st: Student, c: ClassDef): string[] {
   for (const [k, r] of Object.entries(c.req)) {
     if (st.skills[k as SkillId] < RANK_POINTS[r as Rank]) out.push(`${SKILL_NAMES[k as SkillId]} ${r} が必要（いま ${rankOf(st.skills[k as SkillId])}）`);
   }
-  if (c.needStable && (s.facilities.stable ?? 0) < 1) out.push('厩舎（段階1以上）が必要');
-  if (c.needGun && !s.world.gunUnlocked) out.push('銃が登場してから');
+  if (!gradeOk(st, c)) out.push(c.tier === 2 ? '1年目の終わり（2年生）から' : c.tier === 3 ? '3年生から' : '卒業してから');
+  const need = sortiesNeed(c);
+  if (sortieCount(st) < need) out.push(`出撃 ${need}回から（いま ${sortieCount(st)}回。宿敵戦は2回に数える）`);
+  void s;
   return out;
 }
 
 /** 受けられる兵種（前提を満たすもの全部。条件を満たさないものも含めて返す） */
 export function nextClasses(s: GameState, st: Student): ClassDef[] {
-  return CLASS_LIST.filter((c) => c.prereq.includes(st.classId) && !c.nation && (c.hidden ? heroOpen(st) : c.tier <= SCHOOL_MAX_TIER) && (!c.needGun || s.world.gunUnlocked));
+  const cur = CLASSES[st.classId];
+  return CLASS_LIST.filter((c) => (c.hidden ? c.id !== st.classId && hiddenOpen(s, st, c) : c.prereq.includes(st.classId) && (c.tier <= SCHOOL_MAX_TIER || st.status === 'graduated')) && !(cur?.hidden && !c.hidden && c.tier <= (cur?.tier ?? 0)));
 }
 
 export function passRate(st: Student, c: ClassDef): number {
@@ -74,7 +103,7 @@ export function examCandidates(s: GameState): Student[] {
 
 export function takeExam(s: GameState, rng: Rng, st: Student, classId: string): { ok: boolean; rate: number; text: string } {
   const c = CLASSES[classId];
-  if (!c || !canTakeExam(s, st) || !classUnlocked(s, c) || !meetsReq(st, c) || !c.prereq.includes(st.classId)) return { ok: false, rate: 0, text: '受験できません' };
+  if (!c || !canTakeExam(s, st) || !classUnlocked(s, c) || !meetsReq(st, c) || !(c.prereq.includes(st.classId) || (c.hidden && hiddenOpen(s, st, c)))) return { ok: false, rate: 0, text: '受験できません' };
   const rate = passRate(st, c);
   st.examMonth = absMonth(s.year, s.month);
   const ok = rng.next() * 100 < rate;
@@ -85,7 +114,8 @@ export function takeExam(s: GameState, rng: Rng, st: Student, classId: string): 
     addRecent(s, st, 'ev_exam', c.name);
     st.motivation = Math.min(4, st.motivation + 1);
     if (c.tier >= 2) chronicle(s, `${st.given}が${c.name}に`, 'student');
-    if (c.hidden) { st.talentReveal = 100; st.growthKnown = true; chronicle(s, `${st.given}が隠された兵種「${c.name}」に至った`, 'student'); }
+    if (c.hidden) { st.growthKnown = true; chronicle(s, `${st.given}が隠れた兵種「${c.name}」への道を選んだ`, 'student'); }
+    learnTechs(s, st);
     notify(s, `${st.given}が兵種試験に合格し、${c.name}になった`, st.id);
     return { ok, rate, text: `合格！ ${st.given}は${c.name}になった` };
   }

@@ -9,8 +9,8 @@ const MIN_POINTS = 20;
 const WT_SKILL: Record<WeaponType, SkillId> = { sword: 'sword', lance: 'lance', axe: 'axe', bow: 'bow', magic: 'magic', holy: 'faith', staff: 'faith', gun: 'gun' };
 
 /** その子が覚えられる技（技能の点が届いたもの） */
-export function techsFor(st: Pick<Student, 'skills'>): TechDef[] {
-  return TECHS.filter((t) => (st.skills[t.skill] ?? 0) >= Math.max(MIN_POINTS, t.at));
+export function techsFor(st: Pick<Student, 'skills'> & { classId?: string }): TechDef[] {
+  return TECHS.filter((t) => (t.cls ? !!st.classId && t.cls.includes(st.classId) && (st.skills[t.skill] ?? 0) >= t.at : (st.skills[t.skill] ?? 0) >= Math.max(MIN_POINTS, t.at)));
 }
 /** 技能のランクが上がったら覚える。新しく覚えた技の id を返す。show のとき演出を積む */
 export function learnTechs(s: GameState | null, st: Student, show = true): string[] {
@@ -31,7 +31,7 @@ export function battleTechs(st: Pick<Student, 'skills' | 'classId' | 'techs'>): 
   if (c.moveType === 'flying') fit.add('flying');
   if (c.moveType === 'armor') fit.add('heavy');
   const known = (st.techs ?? techsFor(st).map((t) => t.id)).map((id) => TECH_BY_ID[id]).filter((t): t is TechDef => !!t);
-  const list = known.filter((t) => fit.has(t.skill) || st.classId === 'novice');
+  const list = known.filter((t) => (t.cls ? t.cls.includes(st.classId) : fit.has(t.skill) || st.classId === 'novice'));
   // 強い技（覚えるのが遅い技）を先に
   list.sort((a, b) => Number(!!b.heal) - Number(!!a.heal) || b.at - a.at);
   return list.slice(0, TECH_MAX);

@@ -105,7 +105,7 @@ export const B = {
     talentChance: 0.55,         // 何かしらの才能を持つ確率
     heroChance: 0.01,
     startSkillPoints: [0, 45] as [number, number], // 夢・出身に沿った技能の初期値
-    capacityByRep: [ [0, 7], [20, 8], [40, 9], [60, 10] ] as [number, number][],
+    capacityByRep: [ [0, 6], [30, 7], [60, 8] ] as [number, number][], // 19夜目：1学年6〜8人（全体20人前後）
   },
   // ---- やる気・疲労 ----
   motivationMul: [0.8, 0.9, 1.0, 1.1, 1.2],
@@ -252,7 +252,7 @@ export const B = {
     yearlyDecay: 0.08, decayFloor: 40, schoolDefenseWin: 3,
   },
   // ---- 試験 ----
-  exam: { baseRate: 60, perPoints: 5, max: 100, levelReq: [0, 5, 15, 25, 45] as number[], heroLevel: 25 }, // 段階ごとの受験レベル（7夜目：初級5・中級15・上級25・最上級（卒業後）45、英雄25）
+  exam: { baseRate: 60, perPoints: 5, max: 100, levelReq: [0, 0, 6, 14, 30] as number[], heroLevel: 25, /** 19夜目：中級は2年生（1年目の終わり）から、上級は3年生から。出撃の回数（宿敵戦は2回に数える） */ tier2Grade: 2, tier3Grade: 3, sorties: [0, 0, 3, 8, 15] as number[] }, // 段階ごとの受験レベル（7夜目：初級5・中級15・上級25・最上級（卒業後）45、英雄25）
   // ---- 戦闘 ----
   /** 19夜目：全盛期と衰え（年齢）：伸び盛り〜27歳、28〜34歳は伸びが0.6倍、35〜44歳は0.3倍、45歳から伸びなくなり、毎年少しずつ衰える */
   prime: { peakEnd: 27, slowEnd: 34, slowMul: 0.6, stopAt: 44, lateMul: 0.3, declineAt: 45, declineChance: 0.15, declinePerYear: 0.02 },

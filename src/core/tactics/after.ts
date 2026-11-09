@@ -45,6 +45,8 @@ export function applyTactics(s: GameState, b: TBattle, r: Rng): TacticsOutcome {
     if (!st || st.status !== 'enrolled') continue;
     const snap = snapGrowth(st);
     st.battles += 1;
+    if (b.nemesisId) st.nemBattles = (st.nemBattles ?? 0) + 1;
+    if (u.guarded) st.guards = (st.guards ?? 0) + u.guarded;
     st.kills += u.kills;
     const X = TB.exp;
     const exp = X.join + u.kills * X.kill + u.weakHits * X.weak + u.breaks * X.brk + (win ? X.win : 0) + (bossU && !bossU.alive && bossU.lastHitBy === u.uid ? X.boss : 0);
@@ -56,6 +58,8 @@ export function applyTactics(s: GameState, b: TBattle, r: Rng): TacticsOutcome {
     const uses = Math.max(1, Math.round(u.dealt / 8));
     addSkill(st, k, uses * B.battle.skillPerUse * B.motivationMul[st.motivation] * (s.settings.mods.skill ?? 1));
     revealTalent(s, st, B.talent.battleReveal / 4);
+    // 盗賊のかすめ取り
+    if (win && u.traits?.includes('pilfer')) addMoney(s, 60 + u.kills * 20);
     if (u.armoryUid) { const a = s.armory.find((x) => x.uid === u.armoryUid); if (a) (a.uses ??= {})[st.id] = (a.uses[st.id] ?? 0) + 1; }
     const learned = learnTechs(s, st);
     growth.push(diffGrowth(st, snap, learned));

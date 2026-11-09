@@ -225,6 +225,7 @@ export function afterTactics(s: GameState, b: TBattle, r: Rng, lines: string[]):
     const t = `${FACTION_NAMES[o.faction]}の${fn}を討ち取った`;
     chronicle(s, t, 'school'); out.push({ icon: 'star', text: t });
     const ks = killer ? s.students[killer] : null;
+    if (ks) ks.nemKills = (ks.nemKills ?? 0) + (b.nemesisId === o.id ? 1 : 0);
     if (ks && b.nemesisId === o.id) { const ep = studentEpithet(s, ks, 'slay', o.given, r); if (ep) { lines.push(ep); out.push({ id: ks.id, icon: 'star', text: ep }); } }
     for (const rv of Object.values(s.rivalries ?? {})) if (rv.oid === o.id && !rv.settled) { rv.settled = 'kill'; rv.settledYear = s.year; rv.log.push({ year: s.year, month: s.month, text: `${ks?.given ?? '仲間'}が討ち取った` }); }
     // 大切な人を奪われた：同じ陣営の縁者（二代目・師弟）が恨む

@@ -10,6 +10,8 @@ import type { Student, FaceParts, GameState } from './state';
 import { Rng } from './rng';
 import { emptySkills, emptyStats, clamp } from './util';
 import { round5 } from './growth';
+import { entryClassFor } from '../data/classes';
+import { learnTechs } from './techs';
 import { assignApt, assignBud, fitTotal } from './aptitude';
 import { takenNames } from './officers';
 import { regionMul } from './regions';
@@ -156,6 +158,9 @@ export function generateStudent(s: GameState, rng: Rng, opt: GenOptions = {}): S
   assignApt(st, rng, inherit);
   assignBud(st, rng);
   st.mind = rollMind(rng, personality);
+  // 19夜目：入学のときに初級の兵種（いちばん育った技能から）
+  st.classId = entryClassFor(st.skills);
+  learnTechs(null, st, false);
   st.birthday = birthdayFor(st.id + st.given);
   return st;
 }
