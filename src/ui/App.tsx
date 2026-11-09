@@ -3,7 +3,8 @@ import { Icon } from './icons';
 import { SeasonFx, PageFlip } from './HomeDeco';
 import { seasonOf } from '../core/calendar';
 import { laneMul } from './anim';
-import { useStore, navigate } from './store';
+import { useStore, navigate, act } from './store';
+import { startOpeningBattle } from '../core/flow';
 import { MONTH_NAMES } from '../core/util';
 import { DAY_NAMES } from '../core/lessons';
 import { Title } from './Title';
@@ -53,6 +54,8 @@ export function App() {
   const season = s ? seasonOf(s.month) : 'spring';
   useEffect(() => { document.body.dataset.season = season; }, [season]);
   if (!s) return <Title />;
+  // 19夜目：新しく始めたときは、着任の道中の戦いから
+  if (s.openingPending && !s.battle) { setTimeout(() => act((g) => startOpeningBattle(g)), 0); return null; }
   if (s.battle) return <TacticsView key={`${s.battle.questId}${s.year}${s.month}`} />;
   const unread = importantUnread(s).length;
   const stamina = Math.round(teacherStamina(s));

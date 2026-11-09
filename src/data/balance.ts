@@ -82,6 +82,8 @@ export const B = {
   // ---- 生徒 ----
   student: {
     firstYearCount: [6, 8] as [number, number],
+    /** 19夜目：始めたときの上級生（2〜3人） */
+    seniors: [2, 3] as [number, number],
     startAge: [18, 20] as [number, number],
     olderChance: 0.06,          // 年上の新入生
     olderAge: [23, 26] as [number, number],
@@ -256,6 +258,8 @@ export const B = {
   // ---- 試験 ----
   exam: { baseRate: 60, perPoints: 5, max: 100, levelReq: [0, 0, 6, 14, 30] as number[], heroLevel: 25, /** 19夜目：中級は2年生（1年目の終わり）から、上級は3年生から。出撃の回数（宿敵戦は2回に数える） */ tier2Grade: 2, tier3Grade: 3, sorties: [0, 0, 3, 8, 15] as number[] }, // 段階ごとの受験レベル（7夜目：初級5・中級15・上級25・最上級（卒業後）45、英雄25）
   // ---- 戦闘 ----
+  /** 19夜目：入学の希望者（10人ほど＋評判25ごとに1人）・仇討ちの子が来る見込み */
+  admission: { base: 10, perRep: 25, avenger: 0.3 },
   /** 19夜目：全盛期と衰え（年齢）：伸び盛り〜27歳、28〜34歳は伸びが0.6倍、35〜44歳は0.3倍、45歳から伸びなくなり、毎年少しずつ衰える */
   prime: { peakEnd: 27, slowEnd: 34, slowMul: 0.6, stopAt: 44, lateMul: 0.3, declineAt: 45, declineChance: 0.15, declinePerYear: 0.02 },
   /** 19夜目：月末の出撃（教え子の人数）・出撃しない子の罠の傷 */

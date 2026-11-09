@@ -26,12 +26,16 @@ describe('乱数', () => {
 });
 
 describe('生徒の生成', () => {
-  it('一期生は6〜8人、全員18歳以上', () => {
+  it('一期生は6〜8人と上級生2〜3人、全員18歳以上', () => {
     for (let seed = 1; seed < 30; seed++) {
       const s = mk(seed);
       const list = enrolled(s);
-      expect(list.length).toBeGreaterThanOrEqual(6);
-      expect(list.length).toBeLessThanOrEqual(8);
+      const first = list.filter((x) => x.grade === 1);
+      expect(first.length).toBeGreaterThanOrEqual(6);
+      expect(first.length).toBeLessThanOrEqual(8);
+      // 19夜目：頼れる上級生が2〜3人
+      expect(list.length - first.length).toBeGreaterThanOrEqual(2);
+      expect(list.length - first.length).toBeLessThanOrEqual(3);
       for (const st of list) {
         expect(st.age).toBeGreaterThanOrEqual(18);
         expect(st.stats.hp).toBeGreaterThanOrEqual(18);

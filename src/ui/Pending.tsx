@@ -142,7 +142,8 @@ function ApplicantCard({ st, on, toggle }: { st: Student; on: boolean; toggle: (
         <div class="grow">
           <div class="row nowrap between"><NameLine st={st} size={18} /><span class={`checkbox${on ? ' on' : ''}`}>{on ? '✓' : ''}</span></div>
           <div class="row gap4"><CountryChip o={st.origin} /><Chip>{HOUSE_NAMES[st.house]}</Chip><Chip>{PERSONALITIES[st.personality].name}</Chip><span class="small muted">{st.age}歳</span>{st.parents.length > 0 && <Chip tone="gold">卒業生の子</Chip>}</div>
-          <div class="small muted" style={{ marginTop: 2 }}>夢：{d.name}</div>
+          <div class="small muted" style={{ marginTop: 2 }}>夢：{d.name}・{CLASSES[st.classId]?.name ?? ''}志望</div>
+          {st.history.length > 0 && <div class="small" style={{ color: 'var(--accent)' }}>{st.history[st.history.length - 1].text}</div>}
         </div>
       </div>
       <div class="appstats">{STATS.map((k) => <div><span>{STAT_NAMES[k]}</span><b>{st.stats[k]}</b></div>)}</div>
@@ -155,9 +156,9 @@ function Entrance({ s }: { s: GameState }) {
   const cap = capacity(s);
   const [sel, setSel] = useState<string[]>(() => autoAdmitIds(s));
   return (
-    <Sheet title={`${s.year}年目 入学試験`}>
+    <Sheet title={`${s.year}年目 新入生を選ぶ`}>
       <ArtSlot name="event_entrance" />
-      <div class="muted">志願者は{s.applicants.length}人です。{cap}人まで合格にできます（いま{sel.length}人を選んでいます）。</div>
+      <div class="muted">希望者は{s.applicants.length}人です。{cap}人まで選べます（いま{sel.length}人）。学校の評判が上がると、才能のある子や遠い国の子も来るようになります。</div>
       {s.applicants.map((a) => <ApplicantCard st={a} on={sel.includes(a.id)} toggle={() => setSel(sel.includes(a.id) ? sel.filter((x) => x !== a.id) : sel.length < cap ? [...sel, a.id] : sel)} />)}
       <button class="btn primary block" disabled={!sel.length} onClick={() => { sfx('graduation'); act((g) => admit(g, sel)); }}>この{sel.length}人を合格にする</button>
     </Sheet>

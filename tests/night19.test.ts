@@ -9,7 +9,7 @@ import { TB } from '../src/data/tactics';
 import type { TBattle, TUnit } from '../src/core/tactics/types';
 import { attack, endTurn, undoLast, calc, intents, unit, attackable, bestSpot, reach, insight, command } from '../src/core/tactics/engine';
 import { autoFinish } from '../src/core/tactics/ai';
-import { buildBattle, finishBattle, chooseLesson } from '../src/core/flow';
+import { buildBattle, finishBattle, chooseLesson, startOpeningBattle } from '../src/core/flow';
 import { recommendSquad } from '../src/core/sortie';
 import type { GameState } from '../src/core/state';
 
@@ -125,6 +125,26 @@ function toQuest(s: GameState): GameState {
   while (!s.pending.some((p) => p.type === 'questBoard') && k++ < 40) { s.pending = []; chooseLesson(s, 0); }
   return s;
 }
+
+describe('19夜目：始まりの1時間', () => {
+  it('着任の道中の戦いから始まり、その敵将が最初の宿敵になる', () => {
+    const s = mk(11);
+    expect(s.openingPending).toBe(true);
+    startOpeningBattle(s);
+    expect(s.battle?.tutorial).toBe(true);
+    const oid = s.openingOfficer!;
+    expect(s.battle!.units.find((u) => u.boss)?.officerId).toBe(oid);
+    autoFinish(s.battle!, { noDeath: true });
+    finishBattle(s);
+    expect(s.battle).toBeNull();
+    expect(s.month).toBe(0);
+    expect(s.pending.some((p) => p.type === 'nemesis' && p.kind === 'first')).toBe(true);
+    const o = s.officers!.find((x) => x.id === oid)!;
+    expect(o.status).toBe('active');
+    expect(o.meets.length).toBe(1);
+    expect(Object.values(s.students).every((st) => st.status !== 'dead')).toBe(true);
+  });
+});
 
 describe('19夜目：片づけ', () => {
   it('兵種の木（初級8・中級24・上級26）、能力は体の6つ＋心の3つ', () => {

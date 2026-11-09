@@ -19,6 +19,8 @@ import { autoTargets } from './week';
 import { fx } from './mentor';
 import { startNewsDesk } from './newspaper';
 import { markYear } from './review';
+import { startOpening } from './opening';
+import { learnTechs } from './techs';
 import { ensureLegends } from './rarity';
 
 export function defaultSettings(): Settings {
@@ -31,7 +33,7 @@ export function defaultSettings(): Settings {
 export function rng(s: { rng: number }): Rng { return new Rng(s); }
 
 export type StartKind = 'poor' | 'normal' | 'elite';
-export function newGame(opts: { name: string; background: string; seed: number; slot?: number; startGrade?: number; start?: StartKind; /** 14夜目：最初の1時間の案内をつける */ tutorial?: boolean }): GameState {
+export function newGame(opts: { name: string; background: string; seed: number; slot?: number; startGrade?: number; start?: StartKind; /** 14夜目：最初の1時間の案内をつける */ tutorial?: boolean; /** 19夜目：着任の道中の戦い（はじめは true） */ opening?: boolean }): GameState {
   const st0 = B.starts[opts.start ?? 'poor'];
   const bg = BACKGROUNDS.find((b) => b.id === opts.background) ?? BACKGROUNDS[3];
   const skills = emptySkills(RANK_POINTS[bg.defaultRank as Rank]);
@@ -75,6 +77,23 @@ export function newGame(opts: { name: string; background: string; seed: number; 
       for (const k of Object.keys(st.stats) as (keyof Stats)[]) st.stats[k] += (opts.startGrade - 1) * 3;
     }
   }
+  // 19夜目：頼れる上級生が2〜3人（1〜2年で卒業する。早くから卒業生の流れが見られる）
+  if (!opts.startGrade || opts.startGrade <= 1) {
+    const nSenior = r.int(...B.student.seniors);
+    for (let i = 0; i < nSenior; i++) {
+      const g = i === 0 ? 3 : r.chance(0.5) ? 3 : 2;
+      const st = generateStudent(s, r, { quality: Math.min(1, st0.quality + 0.2) });
+      s.students[st.id] = st;
+      st.cohort = 1 - (g - 1); st.grade = g; st.enrollYear = 1 - (g - 1); st.status = 'enrolled'; st.lastAttention = 0;
+      st.level = 1 + (g - 1) * 6; st.age += g - 1;
+      for (const k of SKILLS) if (k !== 'gun' && (st.skills[k] ?? 0) > 0) st.skills[k] += (g - 1) * 55;
+      for (const k of Object.keys(st.stats) as (keyof Stats)[]) st.stats[k] += (g - 1) * 3;
+      st.battles = (g - 1) * 4;
+      st.trust = 30 + (g - 1) * 10;
+      st.targets = autoTargets(s, st, 'balance');
+      learnTechs(null, st, false);
+    }
+  }
   for (let g = 1; g <= 3; g++) s.focus[g] = ['sword', 'lance'];
   // 敵将の名簿（6夜目）
   s.officers = []; s.rivalries = {};
@@ -82,10 +101,10 @@ export function newGame(opts: { name: string; background: string; seed: number; 
   ensureLegends(s, r); // 14夜目：伝説の武器の行方
   startNewsDesk(s);
   if (opts.tutorial) s.tutorial = { tour: 0, seen: [] }; // 14夜目：最初の1時間の案内
-  s.cardGuide = 'pending'; // 17夜目：最初の札の戦いに案内（最初の依頼なら案内つきの1戦、ほかは「戦い方が新しくなりました」）
   s.quests = rollQuests(s);
   ensureRegions(s); // 13夜目：勢力図
   markYear(s); // 14夜目：1年の振り返りの控え
+  if (opts.opening !== false) startOpening(s, r);
   return s;
 }
 

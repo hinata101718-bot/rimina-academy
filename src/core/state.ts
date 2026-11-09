@@ -295,6 +295,8 @@ export interface Quest {
   tutorial?: boolean;
   /** 19夜目：この依頼の先にいる宿敵（宿敵戦）。challenge＝宿敵から挑んできた（断れない）、rush＝教え子が勝手に向かった */
   nemesisId?: string; nemesisKind?: 'quest' | 'challenge' | 'rush'; mustGo?: boolean; rushBy?: string;
+  /** 19夜目：決まった敵将（着任の道中など）・着任の道中の戦い */
+  officerId?: string; opening?: boolean;
   /** 2つ目・3つ目の部隊向けの小さな依頼（9夜目）：報酬・評判は少なめ、戦況は動かない */
   small?: boolean;
   /** 偵察を出した（6夜目）。scoutFree は斥候がいて出撃の人数が減らないとき */
@@ -736,6 +738,8 @@ export interface GameState {
   orgSeen?: Record<string, { at: number; o: Record<string, OrgMark> }>;
   /** 自動の戦闘で直近に使った文・出来事（同じ並びを避ける） */
   autoMemory?: { lines: string[]; events: string[]; n?: number };
+  /** 19夜目：最初の宿敵（着任の道中の敵将）と、着任の道中の戦いをまだ始めていない印 */
+  openingOfficer?: string; openingPending?: boolean;
   /** 19夜目：古い版（この版の番号）から変換したセーブ（タイトルで「新しく始めるのがおすすめ」） */
   oldSave?: number;
   /** 19夜目：記録枠（自動セーブ＝0、手動＝1〜3）。slot と同じ */

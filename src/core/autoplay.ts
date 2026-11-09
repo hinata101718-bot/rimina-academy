@@ -4,6 +4,8 @@ import type { CountryId, Path } from './types';
 import { COUNTRIES } from '../data/people';
 import { enrolled } from './game';
 import { recommendCard, recommendSocial, todayCards } from './lessons';
+import { startOpeningBattle, finishBattle } from './flow';
+import { autoFinish } from './tactics/ai';
 import { chooseWeek, startSortie, finishCareers, admit, autoAdmitIds, rng } from './flow';
 import { autoExam } from './exam';
 import { autoRecommend, suitablePath, availableChoices as availableChoicesOf, type CareerChoice, type CareerPlan } from './career';
@@ -111,6 +113,7 @@ export function setLessonPick(f: ((s: GameState) => number) | null): void { less
 
 /** 1日（1回の授業）ぶん自動で進める */
 export function autoDay(s: GameState): void {
+  if (s.openingPending) { startOpeningBattle(s); if (s.battle) { autoFinish(s.battle, { noDeath: true }); finishBattle(s); } }
   autoPending(s);
   if (s.week === 1 && (s.day ?? 1) === 1) autoManage(s);
   if (s.pending.length || s.battle) return;

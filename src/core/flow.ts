@@ -18,8 +18,10 @@ import { addRecent, getSupport, pruneArchive } from './support';
 import { createTactics, questSeed } from './tactics/setup';
 import { autoFinish } from './tactics/ai';
 import { applyTactics } from './tactics/after';
-import { ensureRosters, yearlyOfficers, pickOfficerForQuest, officerById } from './officers';
-import { bondOf, battleLines, scoutWeak, afterNemesisBattle, nemesisMonth } from './nemesis';
+import { ensureRosters, yearlyOfficers, pickOfficerForQuest, officerById, ensureRivalry } from './officers';
+import { bondOf, battleLines, scoutWeak, afterNemesisBattle, nemesisMonth, pushReunion, reunionLines, bondedOfficers } from './nemesis';
+import { arrivalLines } from './opening';
+import { officerName } from './officers';
 import { fx } from './mentor';
 import { publishIssue } from './newspaper';
 import { rollSides, deferShows } from './discovery';
@@ -190,6 +192,7 @@ export function buildBattle(s: GameState, q: Quest, deploys: Deploy[]): TBattle 
 
 /** この依頼の敵将（名簿から。編成によらず同じ） */
 export function officerForQuest(s: GameState, q: Quest): EnemyOfficer | null {
+  if (q.officerId) { const o = officerById(s, q.officerId); if (o) return o; }
   if (q.nemesisId) { const o = officerById(s, q.nemesisId); if (o && o.status === 'active') return o; }
   if (q.small && ((questSeed(s, q) >>> 3) % 100) >= B.quests.smallOfficer * 100) return null;
   const ids = Object.values(s.students).filter((x) => x.status === 'enrolled').map((x) => x.id);
@@ -209,6 +212,16 @@ export function applySupportCrew(s: GameState, b: TBattle, ids: string[]): void 
   if (trapper) { const f = b.units.filter((u) => u.side === 'foe' && !u.boss).sort((a, c) => c.hp - a.hp)[0]; if (f) { const d = Math.min(f.hp - 1, B.sortie.trapDmg); f.hp -= d; b.support.push({ kind: 'trap', by: trapper.id, text: `${trapper.given}の仕掛けた罠で、${f.name}が傷を負った（−${d}）` }); } }
   if (scholar) { const bu = b.units.find((u) => u.boss) ?? b.units.find((u) => u.side === 'foe'); const hidden = bu?.weak.find((w) => !bu.known.includes(w)); if (bu && hidden) { bu.known.push(hidden); b.support.push({ kind: 'study', by: scholar.id, text: `${scholar.given}が調べておいた：${bu.name}の弱点は「${ATK_NAME[hidden]}」` }); } }
   for (const x of b.support) b.log.push({ turn: 1, text: x.text });
+}
+
+/** 19夜目：着任の道中の戦いを始める（新しく始めたとき） */
+export function startOpeningBattle(s: GameState): void {
+  if (!s.openingPending || s.battle) return;
+  s.openingPending = false;
+  const q = s.quests.find((x) => x.opening);
+  const sq = s.sortie?.squads[0];
+  if (!q || !sq) return;
+  s.battle = buildBattle(s, q, sq.deploy);
 }
 
 /** 自分で遊んでいる戦いを、おまかせで最後まで */
@@ -248,6 +261,17 @@ export function finishBattle(s: GameState): void {
   s.battle = null;
   if (q?.kind === 'schoolDefense' && b.result === 'win') checkEndings(s, r, 'month');
   afterNemesisBattle(s, b, out.report);
+  // 19夜目：着任の道中のあとは、学校に着く（月は進めない）
+  if (q?.opening) {
+    s.pending.splice(Math.min(pendFrom, s.pending.length), 0, { type: 'battleResult', ...out.report });
+    s.sortie = null;
+    s.pending.push({ type: 'scene', title: 'リミナ分校に着く', lines: arrivalLines(s).map((t) => ({ by: 'narr', text: t })) });
+    const o = officerById(s, s.openingOfficer);
+    if (o) pushReunion(s, o, b.units.filter((u) => u.studentId && !u.teacher).map((u) => u.studentId!), 'first', [`${officerName(o)}。着任の道中で刃を交えた、最初の因縁の相手。`, ...reunionLines(s, o)]);
+    s.quests = rollQuests(s);
+    todayCards(s);
+    return;
+  }
   const so = s.sortie;
   const from = so ? Math.min(so.pendFrom, s.pending.length) : pendFrom;
   s.pending.splice(from, 0, { type: 'battleResult', ...out.report });
@@ -435,11 +459,11 @@ export function yearEnd(s: GameState, graduated: string[]): void {
   void graduated; void MONTH_NAMES; void absMonth; void tensionStage; void titleOf; void mail; void SKILL_NAMES; void getSupport; void available;
 }
 
-/** 入学試験の志願者 */
+/** 入学試験の志願者（19夜目：10人ほどから6〜8人を選ぶ。評判が上がると、才能のある子・遠い国の子・仇討ちの子が来る） */
 export function prepareEntrance(s: GameState): void {
   const r = rng(s);
-  const cap = capacity(s);
-  const n = Math.max(cap, Math.round(cap * (1 + s.reputation / 40) * (1 + fx(s, 'applicants'))));
+  const A = B.admission;
+  const n = A.base + Math.floor(s.reputation / A.perRep);
   const quality = Math.min(1, s.reputation / 100);
   const stage = tensionStage(s.world.tension);
   const orphanBias = (stage === 'tension' ? 10 : stage === 'war' ? 25 : 0) + (s.world.famine ? 20 : 0);
@@ -449,9 +473,24 @@ export function prepareEntrance(s: GameState): void {
     const a = s.students[h.a], b = s.students[h.b];
     if (a && b) { const c = generateStudent(s, r, { parents: [a, b], quality }); c.age = 18; c.birthYear = s.year - 18; s.applicants.push(c); a.children.push(c.id); b.children.push(c.id); }
   }
+  // 宿敵に家族を奪われた、仇討ちの子
+  const nem = bondedOfficers(s).filter((o) => o.victims.length || o.memory?.lost.length || o.rank <= 1);
+  if (nem.length && r.chance(A.avenger + quality * 0.2)) {
+    const o = r.pick(nem);
+    const c = generateStudent(s, r, { quality, origin: o.country && o.country !== s.world.vassal ? (['kingdom', 'empire', 'alliance'] as const).find((x) => x !== o.country) : undefined });
+    const rv = ensureRivalry(s, c.id, o.id);
+    rv.vow = `kin:${o.id}`; rv.stage = 1;
+    rv.log.push({ year: s.year, month: s.month, text: `${o.given}に家族を奪われた` });
+    c.mind = { ...(c.mind ?? { fight: 50, calm: 50, grudge: 20 }), grudge: 75 };
+    c.history.push({ year: s.year, text: `${officerName(o)}に家族を奪われ、仇を討つために志願した` });
+    (c as Student & { avengerOf?: string }).avengerOf = o.id;
+    s.applicants.push(c);
+  }
   const vassalOrigin = s.world.vassal;
   while (s.applicants.length < n) {
-    const origin = vassalOrigin && r.chance(0.35) ? vassalOrigin : undefined;
+    // 評判が高いと、遠い国の子（辺境の外）・才能のある子が来る
+    const far = quality > 0.5 && r.chance(quality - 0.4);
+    const origin = far ? r.pick(['kingdom', 'empire', 'alliance'] as const) : vassalOrigin && r.chance(0.35) ? vassalOrigin : undefined;
     s.applicants.push(generateStudent(s, r, { quality, orphanBias, origin }));
   }
   s.pending.push({ type: 'entrance' });
