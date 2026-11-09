@@ -73,6 +73,7 @@ export function deathWordLeaks(): { issues: { where: string; text: string; why: 
   // 札の名前（戦技・スキル・策・伝説の武器の札）は、当たっただけの文にも出る
   live('戦技・スキルの名前', ART_LIST.map((a) => a.name));
   live('策の名前', Object.values(STRATS).map((x) => x.name));
+  live('策の帯の文', Object.values(STRATS).flatMap((x) => [...x.ok, ...x.ng, ...(x.dud ?? [])]));
   live('伝説の武器の札', LEGENDS.map((x) => x.art));
   hurt('敵将が逃げのびる', [PROSE_FLEE]);
   hurt('敵の卒業生が退く', [PROSE_ALUMNI_RETREAT]);

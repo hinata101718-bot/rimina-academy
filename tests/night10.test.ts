@@ -26,7 +26,8 @@ function toBoard(s: GameState): void {
 
 describe('① 教官が同行しない部隊', () => {
   const base = (() => { const s = mk(11); autoYears(s, 4); toBoard(s); return serialize(s); })();
-  const fresh = () => deserialize(base);
+  // 16夜目：小さな依頼は結果だけになったので、同行する部隊を見るテストでは小さな依頼にしない
+  const fresh = () => { const g = deserialize(base); for (const q of g.quests) delete q.small; return g; };
   it('2つ目・3つ目の部隊ははじめ同行しない：1つ目の戦いを終えると、残りは結果だけで1枚の結果に', () => {
     const s = fresh();
     const sq = recommendSquads(s);

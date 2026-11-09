@@ -5,6 +5,8 @@ import type { GameState } from './state';
 import { defaultSettings, mailImportant } from './game';
 import { ARTS, ART_SLOTS } from '../data/arts';
 import { migrateArtPlan } from './arts';
+import { restartBattleAsCards } from './flow';
+import { isCardMode } from './battle/auto';
 import { WEAPONS } from '../data/weapons';
 import { ensureSpellPlan, learnSpells } from './spells';
 import { ensureTeacherSince, instructorCaps } from './instructor';
@@ -63,6 +65,8 @@ export function migrate(s: GameState, from: number): GameState {
   s.heirs ??= [];
   s.archive ??= {};
   s.notices ??= [];
+  // 16夜目：古い形の戦い（マス目・場面の戦い）の途中なら、札の戦いとしてやり直す
+  if (s.battle && !s.battle.auto?.cards && isCardMode()) restartBattleAsCards(s);
   s.version = SAVE_VERSION;
   return s;
 }
@@ -469,4 +473,6 @@ function migrateTo16(s: GameState): void {
 export const NIGHT16_LINES = [
   '生徒ごとに、覚える戦技・魔法・スキルが違うようになりました。同じ剣でも、ある子は「燕返し」、別の子は「居合い」を覚えます。性格・夢・生まれた国の流派・家柄で決まり、もう覚えた技はそのままです。',
   '「HPが半分以下のとき」「仲間が倒れたとき」など、条件で効くスキルが増えました。覚えた技は、技能のランクが上がると「燕返し＋」のように強くなります。',
+  '戦いが「札の戦い」になりました。授業で覚えた戦技・魔法・スキルと先生の策が札になり、毎ターン手札から行動力の分だけ出します。敵の札の下に「次の行動」が出ているので、それを読んで、かばう・守る・先に倒すを選んでください。「おまかせで札を出す」もあります。',
+  '戦いの途中で保存していた場合は、同じ依頼・同じ顔ぶれで、札の戦いとしてはじめからやり直します。手で動かすマス目の戦闘と、その設定はなくしました。小さな依頼と、教官が同行しない部隊は、結果だけ届きます。',
 ];

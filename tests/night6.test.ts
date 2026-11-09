@@ -6,7 +6,8 @@ import { enrolled } from '../src/core/game';
 import { autoYears, autoWeek, autoDeploy, autoBattle, finishAuto } from '../src/core/autoplay';
 import { startAutoQuest, battleCtx, finishBattle } from '../src/core/flow';
 import { rollQuests } from '../src/core/quests';
-import { defaultPlan, skipAuto, chooseAuto, advanceAuto, officerForQuest, scoutQuest, leaderOf } from '../src/core/battle/auto';
+import { defaultPlan, skipAuto, chooseAuto, advanceAuto, officerForQuest, scoutQuest, leaderOf, playCardTurn } from '../src/core/battle/auto';
+import { autoPick } from '../src/core/battle/cards';
 import { officerName, activeOf, ensureRivalry, rivalryOf, memoryLine, yearlyOfficers, headOf, ensureRosters } from '../src/core/officers';
 import { revealTalent } from '../src/core/week';
 import { Rng } from '../src/core/rng';
@@ -67,19 +68,19 @@ describe('5夜目の版のセーブ（形式4）', () => {
     expect(s.stats.battlesWon + s.stats.battlesLost).toBeGreaterThan(n0 + 8);
     expect(deserialize(serialize(s)).year).toBe(s.year);
   });
-  it('自動の戦闘の途中（判断の手前）のセーブ：続きから最後まで遊べる', () => {
+  it('自動の戦闘の途中（判断の手前）のセーブ：札の戦いとしてやり直して最後まで遊べる（16夜目）', () => {
     const s = deserialize(fixture('v5-auto.json'));
-    expect(s.battle?.auto?.choice).toBeTruthy();
+    expect(s.battle?.auto?.cards).toBeTruthy();
     finishAuto(s);
     expect(s.battle).toBeNull();
     expect(s.pending.some((p) => p.type === 'battleResult')).toBe(true);
     for (let i = 0; i < 8; i++) autoWeek(s);
     expect(s.gameOver).toBe(false);
   });
-  it('手動の戦闘の途中のセーブ：手動の戦闘の続きから最後まで遊べる', () => {
+  it('手動の戦闘の途中のセーブ：札の戦いとしてやり直して最後まで遊べる（16夜目）', () => {
     const s = deserialize(fixture('v5-manual.json'));
     expect(s.battle).not.toBeNull();
-    expect(s.battle!.auto).toBeUndefined();
+    expect(s.battle!.auto?.cards).toBeTruthy();
     autoBattle(s);
     expect(s.battle).toBeNull();
     expect(s.pending.some((p) => p.type === 'battleResult')).toBe(true);
@@ -199,7 +200,7 @@ describe('宿敵の仕組み', () => {
       const rv = ensureRivalry(s, hero.id, o.id); rv.battles = 3; rv.stage = 2;
       const d = autoDeploy(s);
       startAutoQuest(s, q.id, d, defaultPlan(s, q, d));
-      for (let i = 0; i < 6 && s.battle?.auto && s.battle.auto.seg < 3; i++) {
+      for (let i = 0; i < 12 && s.battle?.auto && s.battle.auto.seg < 3; i++) {
         const c = s.battle.auto.choice;
         if (c?.kind === 'settle') {
           found = true;
@@ -211,7 +212,8 @@ describe('宿敵の仕組み', () => {
           expect(sc?.title).toBe('宿命の対決');
           break;
         }
-        if (c) chooseAuto(s, c.recommended, battleCtx(s)); else advanceAuto(s, battleCtx(s));
+        // 16夜目：札の戦いは、おまかせで札を出して進める
+        if (c) chooseAuto(s, c.recommended, battleCtx(s)); else if (s.battle.auto.cards) { const p = autoPick(s, s.battle, battleCtx(s)); playCardTurn(s, p.ids, p.target, battleCtx(s)); } else advanceAuto(s, battleCtx(s));
       }
       if (!found) continue;
       skipAuto(s, battleCtx(s));

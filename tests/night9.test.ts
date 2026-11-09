@@ -7,7 +7,7 @@ import { autoYears, autoPending, autoDay, finishAuto, autoBattle, recommendSquad
 import { battleCtx, squadCount, squadLimit, startSortie, finishBattle, chooseLesson, rng } from '../src/core/flow';
 import { todayCards, recommendCard } from '../src/core/lessons';
 import { startAutoQuest } from '../src/core/flow';
-import { defaultPlan, skipAuto, chooseAuto, advanceAuto, officerForQuest, previewBattle } from '../src/core/battle/auto';
+import { defaultPlan, skipAuto, chooseAuto, advanceAuto, officerForQuest, previewBattle, setCardMode } from '../src/core/battle/auto';
 import { SAVE_VERSION } from '../src/data/balance';
 import { STRATS, STRAT_IDS, SQUADS } from '../src/data/stratagems';
 import { knownStrats, stratOdds, stratSlots, checkStratUnlocks, defaultRow, START_STRATS, addStrat } from '../src/core/stratagems';
@@ -68,9 +68,9 @@ describe('8夜目版のセーブ（形式8）', () => {
     for (let i = 0; i < 10; i++) autoDay(s);
     expect(s.gameOver).toBe(false);
   });
-  it('手動の戦闘の途中：最後まで遊べる', () => {
+  it('手動の戦闘の途中：札の戦いとしてやり直して最後まで遊べる（16夜目）', () => {
     const s = deserialize(fixture('v8-manual.json'));
-    expect(s.battle && !s.battle.auto).toBe(true);
+    expect(!!s.battle?.auto?.cards).toBe(true);
     autoBattle(s);
     expect(s.battle).toBeNull();
     autoPending(s);
@@ -90,7 +90,8 @@ describe('8夜目版のセーブ（形式8）', () => {
 
 describe('月末に最大3部隊', () => {
   const base = (() => { const s = mk(11); autoYears(s, 4); toBoard(s); return serialize(s); })();
-  const fresh = () => deserialize(base);
+  // 16夜目：小さな依頼は結果だけになったので、部隊ごとに戦う流れを見るテストでは小さな依頼にしない
+  const fresh = () => { const g = deserialize(base); for (const q of g.quests) delete q.small; return g; };
   it('部隊の数：在籍20人まで1、21人から2、30人で3（依頼の数まで）', () => {
     const s = fresh();
     // 30人にそろえる（足りなければ同じ子を写して足す）
@@ -196,7 +197,9 @@ describe('策（作戦カード）と陣形', () => {
     const after = enrolled(s).map((x) => x.skills.tactics);
     expect(after.reduce((a, b) => a + b, 0)).toBeGreaterThan(before.reduce((a, b) => a + b, 0));
   });
-  it('開戦の策は黄色い帯になり、ぶつかり合いのあとの策はここぞの判断で早めに切れる', () => {
+  it('開戦の策は黄色い帯になり、ぶつかり合いのあとの策はここぞの判断で早めに切れる（古い場面の戦い）', () => {
+    setCardMode(false);
+    try {
     const s = mk(6);
     autoYears(s, 1);
     toBoard(s);
@@ -221,6 +224,7 @@ describe('策（作戦カード）と陣形', () => {
     skipAuto(s, battleCtx(s)); finishBattle(s);
     const p = s.pending.find((x) => x.type === 'battleResult');
     expect(p && p.type === 'battleResult' && (p.stratReview ?? []).length).toBeGreaterThan(0);
+    } finally { setCardMode(true); }
   });
   it('陣形：役割から前列・後列が決まり、戦場の子に付く', () => {
     expect(defaultRow('front')).toBe('front');

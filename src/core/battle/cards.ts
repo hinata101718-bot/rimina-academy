@@ -502,7 +502,6 @@ export function nextTurn(s: GameState, b: BattleState): void {
   cs.phase = 'result';
 }
 
-function nameOf(b: BattleState, uid: string): string { return b.units.find((u) => u.uid === uid)?.name ?? '敵'; }
 /** 前の敵が倒れたら、控えの敵が前に出る */
 function stepForward(b: BattleState, lines: CLine[]): void {
   const cs = b.auto!.cards!;
@@ -825,7 +824,9 @@ function timeout(s: GameState, b: BattleState, lines: CLine[]): void {
     end(b, 'win');
     return;
   }
-  if (left / all <= C().timeoutWin) {
+  // 最初の依頼（案内つき）は負けない：敵が退く
+  const tut = !!s.quests.find((q) => q.id === b.questId)?.tutorial;
+  if (left / all <= C().timeoutWin || tut) {
     if (b.objective === 'rescue') b.rescued = true;
     for (const u of foes) if (alive(u) && !b.retreated.includes(u.uid)) b.retreated.push(u.uid);
     const L = b.auto?.leader;

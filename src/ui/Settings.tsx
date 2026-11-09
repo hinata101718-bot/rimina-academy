@@ -57,21 +57,12 @@ function SettingsBody({ s, set, days }: { s: GameState; set: (fn: (x: GameState[
       </div>
       <div class="card">
         <h3>戦闘</h3>
-        <label class="row between nowrap ab-manual"><span>戦闘を自分で指揮する</span><input type="checkbox" checked={s.settings.manualBattle} onChange={(e) => set((x) => { x.manualBattle = (e.target as HTMLInputElement).checked; })} /></label>
-        <div class="muted small">オフ（はじめの設定）：出撃メンバー・作戦・役割を決めると自動で決着し、戦いの様子を場面で見せます。オン：マスを動かして自分で指揮します。オフのままでも、出撃前に「この戦いは自分で指揮する」を選べます。</div>
-        <div class="small" style={{ marginTop: 8 }}><b>戦いの記録の進め方</b></div>
-        <div class="seg" style={{ marginTop: 4 }}>{([['tap', 'タップ'], ['normal', '自動'], ['fast', '速く']] as const).map(([v, l]) => <button class={(s.settings.battleLog ?? 'tap') === v ? 'on' : ''} onClick={() => set((x) => { x.battleLog = v; })}>{l}</button>)}</div>
-        <div class="muted small">戦いの記録の下のボタンでも、いつでも切り替えられます。「結果へ」で残りをとばせます。</div>
+        <div class="muted small">戦いは「札の戦い」です。授業で覚えた戦技・魔法・スキルと先生の策が札になり、毎ターン手札から行動力の分だけ出します（16夜目）。</div>
         <div class="small" style={{ marginTop: 8 }}><b>戦闘の演出</b></div>
         <div class="seg" style={{ marginTop: 4 }}>{(['big', 'normal', 'low'] as const).map((v) => <button class={(s.settings.battleFx ?? 'big') === v ? 'on' : ''} onClick={() => set((x) => { x.battleFx = v; })}>{FX_NAMES[v]}</button>)}</div>
         <div class="small" style={{ marginTop: 8 }}>戦の描写：戦いの文で、傷や死をどこまで書くかを選べます</div>
         <div class="seg" style={{ marginTop: 4 }}>{(['normal', 'dense', 'brutal'] as const).map((v) => <button class={(s.settings.battleProse ?? 'dense') === v ? 'on' : ''} onClick={() => { if (v === 'brutal' && !s.settings.proseAsked && !confirm('むごい描写が増えます（斬り落とされる手足や血しぶきなど）。よろしいですか？')) return; set((x) => { x.battleProse = v; if (v === 'brutal') x.proseAsked = true; }); }}>{PROSE_NAMES[v]}</button>)}</div>
-        <div class="muted small">派手：攻撃ごとの斬撃・必殺のカットイン・撃破の判・宿命の対決の画面。ふつう：見せ場を短く。控えめ：顔の札と文だけ。どれもタップで早送りできます。</div>
-        <details class="fold" style={{ marginTop: 8 }}><summary>自分で指揮する戦闘（マスを動かす戦闘）の設定 ▼</summary>
-          <div class="row between" style={{ marginTop: 6 }}><span>敵ターンの速さ</span><div class="seg">{([1, 2, 3] as const).map((c) => <button class={s.settings.enemySpeed === c ? 'on' : ''} onClick={() => set((x) => { x.enemySpeed = c; })}>{{ 1: 'ゆっくり', 2: 'ふつう', 3: 'はやい' }[c]}</button>)}</div></div>
-          <div class="row between" style={{ marginTop: 6 }}><span>巻き戻し（1戦闘3回）</span><input type="checkbox" checked={s.settings.rewind} onChange={(e) => set((x) => { x.rewind = (e.target as HTMLInputElement).checked; })} /></div>
-          <div class="row between" style={{ marginTop: 6 }}><span>カットイン</span><div class="seg">{(['all', 'important', 'off'] as const).map((c) => <button class={s.settings.cutin === c ? 'on' : ''} onClick={() => set((x) => { x.cutin = c; })}>{{ all: '毎回', important: '大事な時', off: 'なし' }[c]}</button>)}</div></div>
-        </details>
+        <div class="muted small">派手：必殺・開花の技・伝説の武器のカットイン、撃破の判、宿命の対決の画面。ふつう：見せ場を短く。控えめ：顔の札と文だけ。どれもタップで早送りできます。</div>
       </div>
       <div class="card">
         <h3>表示・演出</h3>

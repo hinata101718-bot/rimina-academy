@@ -9,7 +9,7 @@ import { countryColor } from './cards';
 import { FxOverlay, leaderFace, GRUNT_ICON, type FxShow } from './AutoBattle';
 import type { GameState, Student } from '../core/state';
 import type { BattleState, Unit } from '../core/battle/types';
-import { battleCtx, finishBattle, moreEscorted, squadAway } from '../core/flow';
+import { battleCtx, finishBattle, moreEscorted, squadWatched } from '../core/flow';
 import { chooseAuto, playCardTurn, skipCards, type LeaderInfo } from '../core/battle/auto';
 import { cardPreview, intentText, autoPick, incoming, previewDeck, type Card, type CLine } from '../core/battle/cards';
 import { officerById } from '../core/officers';
@@ -81,6 +81,14 @@ export function CardBattleView() {
     return () => clearTimeout(tm);
   }, [fxNow]);
   useEffect(() => { setSel([]); }, [cs?.turn, cs?.phase]);
+  // 宿命の対決・一騎打ち：判断の前に大きな演出
+  useEffect(() => {
+    const c = a?.choice;
+    if (!c || !s || fxLevel === 'low' || showingResult) return;
+    if (!(c.duo || c.kind === 'duel')) return;
+    const actor = c.actor ?? c.options.find((o) => o.actor)?.actor;
+    if (actor && a?.leader) setFxq((q) => [...q, { k: 'duel', a: actor, title: c.duo ? '宿命の対決' : '一騎打ち', say: c.prompt.split('\n')[1] ?? '' }]);
+  }, [a?.choice?.prompt, showingResult]);
   if (!s || !b || !a || !cs) return null;
   const leader = a.leader;
   const lo = officerById(s, leader?.officerId);
@@ -102,7 +110,7 @@ export function CardBattleView() {
   const ctx = battleCtx(s);
   const stop = (e: Event) => e.stopPropagation();
   const nextSquad = !!s.sortie && s.sortie.idx < s.sortie.squads.length - 1 && moreEscorted(s);
-  const nextIdx = s.sortie ? s.sortie.squads.findIndex((sq, i) => i > s.sortie!.idx && !squadAway(sq, i)) : -1;
+  const nextIdx = s.sortie ? s.sortie.squads.findIndex((sq, i) => i > s.sortie!.idx && squadWatched(s, sq, i)) : -1;
   const finishLabel = nextSquad ? `${SQUAD_LABEL[nextIdx]}の戦いへ` : s.sortie && s.sortie.idx < s.sortie.squads.length - 1 ? 'ほかの部隊の結果を待つ' : '結果を見る';
   const head = (t: string) => (
     <div class="cb-head row between nowrap">
@@ -164,6 +172,7 @@ export function CardBattleView() {
     const c = a.choice;
     return (
       <div class="cb-view">
+        {overlay}
         {head(c.duo ? '宿命の対決' : 'ここぞの判断')}
         <div class="ab-choice rb-choice cb-choice">
           {c.duo && c.actor && s.students[c.actor] && leader && (

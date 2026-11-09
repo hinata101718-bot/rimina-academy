@@ -113,6 +113,7 @@ function SquadCard({ s, d, i, n, onOpen, onMove, onRemove, onAway }: { s: GameSt
     return () => clearTimeout(t);
   }, [key]);
   const cap = plan.captain ? s.students[plan.captain] : null;
+  const small = !!q.small; // 16夜目：小さな依頼は結果だけ
   return (
     <div class="pcard sq-card" style={{ ['--band' as string]: q.clientCountry ? countryColor(q.clientCountry) : 'var(--main)' }}>
       <div class="row between nowrap">
@@ -127,16 +128,17 @@ function SquadCard({ s, d, i, n, onOpen, onMove, onRemove, onAway }: { s: GameSt
         <div class="row between nowrap"><b class="serif">{q.title}</b><span class={`flag ${q.real ? 'red' : ''}`}>{q.real ? '実戦' : '演習'}</span></div>
         <div class="small muted">{OBJECTIVE_NAMES[q.objective]}・{WEATHER_NAMES[q.weather]}・危険度{'★'.repeat(q.danger)}{q.reward ? `・報酬${q.reward}G` : ''}{q.region && REGION_BY_ID[q.region] ? `・${REGION_BY_ID[q.region].name}` : ''}</div>
         <div class="sq-faces">{d.deploy.map((x) => { const st = s.students[x.studentId]; return st ? <span class="sq-face"><Portrait st={st} size={34} frame={countryColor(st.origin)} />{plan.captain === st.id && <i class="sq-captmark">長</i>}</span> : null; })}</div>
-        <div class="small">部隊長：<b>{cap?.given ?? '—'}</b>　方針：{TACTICS[plan.tactic].name}　{d.manual ? '先生が指揮' : ''}</div>
+        <div class="small">部隊長：<b>{cap?.given ?? '—'}</b>　方針：{TACTICS[plan.tactic].name}</div>
         <div class="small">策：{(plan.strats ?? []).length ? (plan.strats ?? []).map((x) => <span class="st-chip">{STRATS[x].mark} {STRATS[x].name}</span>) : <span class="muted">なし</span>}</div>
       </div>
-      {i > 0 && !d.manual && (
+      {i > 0 && !small && (
         <div class="sq-away">
           <button class={`btn small${d.away !== false ? ' primary' : ''}`} onClick={() => onAway(true)}>同行しない</button>
           <button class={`btn small${d.away === false ? ' primary' : ''}`} onClick={() => onAway(false)}>同行する</button>
         </div>
       )}
-      {i > 0 && !d.manual && d.away !== false && <div class="small muted">ここぞの判断は部隊長の{cap?.given ?? ''}がします。統率と軍略が高い子ほど、うまく決めてくれます</div>}
+      {i > 0 && !small && d.away !== false && <div class="small muted">ここぞの判断は部隊長の{cap?.given ?? ''}がします。統率と軍略が高い子ほど、うまく決めてくれます</div>}
+      {small && <div class="small muted">小さな依頼は、部隊長がおまかせで札を出して、結果だけ届きます</div>}
       <div class="tap" onClick={onOpen}>
         <div class="row between nowrap small"><span>{d.deploy.length}人　勝ち目：<b class={`ab-oddsv ${est?.key === key ? ({ 優勢: 'good', 五分: 'even', 苦しい: 'bad' } as Record<string, string>)[est.label] ?? '' : ''}`}>{est?.key === key ? est.label : '…'}</b></span><span class="muted">タップして組む ›</span></div>
       </div>

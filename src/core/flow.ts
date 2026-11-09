@@ -24,7 +24,7 @@ import { gainExp, startGrowthLog, stopGrowthLog, snapGrowth, diffGrowth } from '
 import { learnSpells } from './spells';
 import { createBattle, unitFromStudent, defaultWeaponFor, type Deploy } from './battle/setup';
 import { startPlayerPhase, setReinforcementFactory, weaponSkillId } from './battle/engine';
-import { startAutoBattle, setCardReinforce, isCardMode, applyAutoResults, setupLeader, officerAfterBattle, officerForQuest, questSeed, skipAuto, type AutoPlan, type AwayCall } from './battle/auto';
+import { startAutoBattle, setCardReinforce, isCardMode, defaultPlan, applyAutoResults, setupLeader, officerAfterBattle, officerForQuest, questSeed, skipAuto, type AutoPlan, type AwayCall } from './battle/auto';
 import type { BattleState } from './battle/types';
 import { ensureRosters, yearlyOfficers, revealOne } from './officers';
 import { fx } from './mentor';
@@ -180,13 +180,18 @@ export function squadAway(sq: SquadPlan, idx: number): boolean { return idx > 0 
 export function moreEscorted(s: GameState): boolean {
   const so = s.sortie;
   if (!so) return false;
-  return so.squads.some((sq, i) => i > so.idx && !squadAway(sq, i));
+  return so.squads.some((sq, i) => i > so.idx && squadWatched(s, sq, i));
+}
+/** 16夜目：教官が同行して札を出す部隊か（同行しない部隊と、小さな依頼は結果だけ） */
+export function squadWatched(s: GameState, sq: SquadPlan, idx: number): boolean {
+  return !squadAway(sq, idx) && !(isCardMode() && !!s.quests.find((q) => q.id === sq.questId)?.small);
 }
 function startSquad(s: GameState): void {
   const so = s.sortie;
   if (!so) return;
   const sq = so.squads[so.idx];
-  if (sq.manual) startBattle(s, sq.questId, sq.deploy);
+  // 16夜目：いつも札の戦い（手で動かすマス目の戦いはなくした）
+  if (sq.manual && !isCardMode()) startBattle(s, sq.questId, sq.deploy);
   else startAutoQuest(s, sq.questId, sq.deploy, sq.plan);
   // 16夜目：小さな依頼は、札の戦いでも結果だけ（部隊長がおまかせで札を出す）
   const small = isCardMode() && !!s.quests.find((q) => q.id === sq.questId)?.small;
@@ -236,6 +241,31 @@ export function startBattle(s: GameState, questId: string, deploys: Deploy[]): v
   });
   startPlayerPhase(s.battle);
   s.pending = s.pending.filter((p) => p.type !== 'questBoard');
+}
+
+/**
+ * 16夜目：古い形の戦い（マス目の戦い・場面の戦い）の途中のセーブは、同じ依頼・同じ顔ぶれ・同じ計画で、
+ * 札の戦いとしてはじめからやり直す（敵も同じ種から作る。持たせた道具は出撃のときに引いてあるので、そのまま）
+ */
+export function restartBattleAsCards(s: GameState): boolean {
+  const b = s.battle;
+  if (!b || b.auto?.cards) return false;
+  const q = s.quests.find((x) => x.id === b.questId);
+  const members = b.units.filter((u) => u.side === 'player' && u.studentId && s.students[u.studentId]?.status === 'enrolled');
+  s.battle = null;
+  if (!q || !members.length) {
+    // 依頼が見つからない：戦いはなかったことにして、出撃の続きへ
+    if (s.sortie) { s.sortie.idx += 1; if (s.sortie.idx < s.sortie.squads.length) { startSquad(s); return true; } s.sortie = null; endMonth(s); }
+    return false;
+  }
+  const sq = s.sortie?.squads[s.sortie.idx];
+  const deploys: Deploy[] = sq && sq.questId === q.id ? sq.deploy : members.map((u) => ({ studentId: u.studentId!, armoryUid: u.armoryUid ?? null, item: u.item, staffUid: null }));
+  const a = b.auto;
+  const plan: AutoPlan = sq && sq.questId === q.id ? sq.plan : a ? { tactic: a.tactic, roles: a.roles, planner: a.plan?.planner, captain: a.plan?.captain, rows: a.plan?.rows, strats: [...(a.strats ?? []).map((x) => x.id), ...(a.held ?? [])] } : defaultPlan(s, q, deploys);
+  if (sq) { sq.manual = undefined; startSquad(s); return true; }
+  ensureReinforcementFactory(s);
+  startAutoBattle(s, q, deploys, plan, battleCtx(s));
+  return true;
 }
 
 /** 自動の戦闘を始める（5夜目） */

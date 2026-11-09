@@ -36,7 +36,7 @@ import { fireStrat, stratReview, captainMod, defaultRow, formationMod, oddsLabel
 
 // ---------- 16夜目：札の戦い ----------
 /** 札の戦いで戦うか（16夜目。切り替えるまでは、今までのマス目の戦い） */
-let cardMode = false;
+let cardMode = true;
 export function setCardMode(v: boolean): void { cardMode = v; }
 /** おまかせで札を出すときの方針（シミュレーションの方針ごと：和平狙い＝守り厚め、統一狙い＝攻め厚め） */
 let cardPolicy: CardPolicy = 'balanced';

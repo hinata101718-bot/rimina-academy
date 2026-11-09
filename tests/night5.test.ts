@@ -1,12 +1,12 @@
 // 5夜目の追加分のテスト：自動の戦闘
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { deserialize, serialize } from '../src/core/save';
 import { enrolled } from '../src/core/game';
 import { autoYears, autoWeek, autoDeploy, autoBattle, finishAuto } from '../src/core/autoplay';
 import { startAutoQuest, battleCtx, finishBattle } from '../src/core/flow';
 import { rollQuests } from '../src/core/quests';
-import { defaultPlan, skipAuto, chooseAuto, roleFit, defaultRole, estimateWin, previewBattle, enemyIntel, advanceAuto, momentum } from '../src/core/battle/auto';
+import { defaultPlan, skipAuto, chooseAuto, roleFit, defaultRole, estimateWin, previewBattle, enemyIntel, advanceAuto, momentum, setCardMode } from '../src/core/battle/auto';
 import { AUTO, TACTIC_OPTIONS } from '../src/data/autobattle';
 import { SAVE_VERSION } from '../src/data/balance';
 import type { GameState, Quest } from '../src/core/state';
@@ -37,11 +37,10 @@ describe('4夜目の版のセーブ（形式3）', () => {
     const back = deserialize(serialize(s));
     expect(back.year).toBe(s.year);
   });
-  it('手動の戦闘の途中のセーブは、手動の戦闘の続きから遊べる', () => {
+  it('手動の戦闘の途中のセーブは、札の戦いとしてやり直して遊べる（16夜目）', () => {
     const s = deserialize(fixture('v4-battle.json'));
     expect(s.battle).not.toBeNull();
-    expect(s.battle!.auto).toBeUndefined();
-    expect(s.battle!.turn).toBeGreaterThan(1);
+    expect(s.battle!.auto?.cards).toBeTruthy();
     autoBattle(s);
     expect(s.battle).toBeNull();
     expect(s.pending.some((p) => p.type === 'battleResult')).toBe(true);
@@ -51,6 +50,9 @@ describe('4夜目の版のセーブ（形式3）', () => {
 });
 
 describe('自動の戦闘', () => {
+  // 16夜目：5夜目の場面の戦い（古い戦い）を確かめるテスト。今の戦いは札の戦い（tests/night16.test.ts）
+  beforeAll(() => setCardMode(false));
+  afterAll(() => setCardMode(true));
   it('開戦→ぶつかり合い→（山場）→決着の3〜4場面、選択は1〜2回、結果にMVP', () => {
     for (let seed = 1; seed <= 12; seed++) {
       const s = deserialize(fixture('v3-save.json'));

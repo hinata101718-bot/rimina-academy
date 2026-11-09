@@ -73,6 +73,8 @@ export function bestArmoryWeapon(s: GameState, st: Student, used: Set<string>, s
 export function autoBattle(s: GameState): void {
   const b = s.battle;
   if (!b) return;
+  // 16夜目：札の戦いは、おまかせで札を出して最後まで
+  if (b.auto?.cards) { finishAuto(s); return; }
   ensureReinforcementFactory(s);
   const ctx = battleCtx(s);
   let guard = 0;
@@ -128,7 +130,7 @@ export function recommendSquads(s: GameState, fixed: (string | null | undefined)
     ids.forEach((id) => used.add(id));
     const d = deployFor(s, ids, arms, items);
     items += d.filter((x) => x.item).length;
-    out.push({ questId: qid, deploy: d, plan: defaultPlan(s, q, d), manual: s.settings.manualBattle || undefined });
+    out.push({ questId: qid, deploy: d, plan: defaultPlan(s, q, d) });
   }
   return out;
 }

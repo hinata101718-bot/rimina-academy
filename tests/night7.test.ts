@@ -1,5 +1,5 @@
 // 7夜目のテスト：日ごとの授業カード・育ち方・6夜目版のセーブの変換
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { deserialize, serialize } from '../src/core/save';
 import { newGame, enrolled } from '../src/core/game';
@@ -187,9 +187,9 @@ describe('6夜目版のセーブ（形式5）', () => {
     expect(s.pending.some((p) => p.type === 'battleResult')).toBe(true);
     autoDay(s);
   });
-  it('手動の戦闘の途中：自分で指揮する戦闘の続きから遊べる', () => {
+  it('手動の戦闘の途中：札の戦いとしてやり直して遊べる（16夜目）', () => {
     const s = deserialize(fixture('v6-manual.json'));
-    expect(s.battle && !s.battle.auto).toBe(true);
+    expect(!!s.battle?.auto?.cards).toBe(true);
     autoBattle(s);
     expect(s.battle).toBeNull();
     autoPending(s);
@@ -198,13 +198,16 @@ describe('6夜目版のセーブ（形式5）', () => {
 });
 
 import { startAutoQuest, battleCtx } from '../src/core/flow';
-import { defaultPlan, skipAuto } from '../src/core/battle/auto';
+import { defaultPlan, skipAuto, setCardMode } from '../src/core/battle/auto';
 import { battleItems, hpAt, compact } from '../src/core/battle/blog';
 import type { Unit, BLog } from '../src/core/battle/types';
 import { autoDeploy } from '../src/core/autoplay';
 import { rollQuests } from '../src/core/quests';
 
 describe('戦いの記録', () => {
+  // 16夜目：7夜目の戦いの記録（古い場面の戦い）を確かめるテスト
+  beforeAll(() => setCardMode(false));
+  afterAll(() => setCardMode(true));
   const battle = (seed: number) => {
     const s = newGame({ name: 't', background: 'knight', seed });
     autoYears(s, 1); autoPending(s);

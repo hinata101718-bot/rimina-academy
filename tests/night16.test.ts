@@ -83,10 +83,17 @@ describe('15夜目版のセーブ（形式15）', () => {
         for (const id of before[st.id] ?? []) { const a = ARTS[id]; expect(st.artPlan![`${a.skill}:${a.bloom ? 'bloom' : a.rank}`]).toBe(id); }
       }
       const n0 = Object.fromEntries(Object.values(s.students).map((x) => [x.id, (x.arts ?? []).length]));
+      const grads = new Set(Object.values(s.students).filter((x) => x.status === 'graduated').map((x) => x.id));
+      // 戦いの途中のセーブは、札の戦いとしてやり直している（同じ依頼）
+      const qid = raw.state.battle?.questId;
+      // （小さな依頼は結果だけになったので、そのときは次の部隊の戦いへ進んでいる）
+      const small = !!raw.state.quests.find((q: { id: string; small?: boolean }) => q.id === qid)?.small;
+      if (qid && !small) expect(s.battle?.questId).toBe(qid);
+      if (qid && s.battle) expect(s.battle.auto?.cards).toBeTruthy();
       for (let i = 0; i < 5 && s.battle; i++) { skipAuto(s, battleCtx(s)); finishBattle(s); }
       autoPending(s);
       // 読みこんだだけでは、通り過ぎた節目の技を急に覚えない
-      for (const st of Object.values(s.students)) if (st.status !== 'enrolled') expect((st.arts ?? []).length).toBe(n0[st.id]);
+      for (const st of Object.values(s.students)) if (grads.has(st.id)) expect((st.arts ?? []).length).toBe(n0[st.id]);
       autoYears(s, 1);
       expect(s.gameOver).toBe(false);
     });
