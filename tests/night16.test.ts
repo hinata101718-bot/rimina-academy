@@ -195,3 +195,60 @@ describe('結果の4段（「串刺し」なのに生きている）', () => {
     expect(lethal).toBeGreaterThan(0);
   });
 });
+
+describe('札の戦いの細かな決まり', async () => {
+  const { setCardMode, playCardTurn } = await import('../src/core/battle/auto');
+  const { autoPick, strikeCalc, coverTarget, incoming } = await import('../src/core/battle/cards');
+  const { recommendSquads, autoDay } = await import('../src/core/autoplay');
+  const { startSortie } = await import('../src/core/flow');
+  const start = (seed: number) => {
+    const s = newGame({ name: 'テスト', background: 'knight', seed, start: 'normal' });
+    autoYears(s, 2);
+    let g = 0; while (!s.pending.some((p) => p.type === 'questBoard') && g++ < 80) { autoPending(s); if (!s.pending.some((p) => p.type === 'questBoard')) autoDay(s); }
+    s.pending = s.pending.filter((p) => p.type === 'questBoard');
+    const sq = recommendSquads(s).slice(0, 1);
+    sq[0].plan.strats = ['rally'];
+    startSortie(s, sq);
+    return s;
+  };
+  it('先生の策は山札の札になり、出すと黄色い帯の結果が出る', () => {
+    setCardMode(true);
+    const s = start(41);
+    const b = s.battle!; const cs = b.auto!.cards!;
+    const strat = Object.values(cs.cards).find((c) => c.kind === 'strat');
+    expect(strat?.src).toBe('strat:rally');
+    cs.hand = [strat!.id, ...cs.hand.filter((x) => x !== strat!.id)].slice(0, cs.handSize);
+    playCardTurn(s, [strat!.id], undefined, battleCtx(s));
+    expect(cs.turns[0].lines.some((l) => l.cls === 'strat' || l.cls === 'stratng')).toBe(true);
+    expect((b.auto!.strats ?? []).map((x) => x.id)).toContain('rally');
+  });
+  it('かばう相手は、予告でいちばん傷を受けそうな仲間。札の数字と実際の計算は同じ式', () => {
+    const s = start(42);
+    const b = s.battle!; const cs = b.auto!.cards!;
+    const inc = incoming(b);
+    const mates = b.units.filter((u) => u.side === 'player' && !u.dead);
+    const g = mates[0];
+    const t = coverTarget(b, g)!;
+    const worst = mates.filter((u) => u !== g).sort((x, y) => (inc[y.uid] ?? 0) / y.hp - (inc[x.uid] ?? 0) / x.hp)[0];
+    expect(t.uid).toBe(worst.uid);
+    const foe = b.units.find((u) => u.uid === cs.front[0])!;
+    const h1 = strikeCalc(s, b, battleCtx(s), g, foe, { type: 'atk' });
+    const h2 = strikeCalc(s, b, battleCtx(s), g, foe, { type: 'atk' });
+    expect(h1).toEqual(h2);
+    expect(h1.dmg).toBeGreaterThan(0);
+  });
+  it('信頼の低い子は、ときどき自分の判断で別の札を使う（信頼が高いと減る）', () => {
+    let low = 0, high = 0;
+    for (const trust of [0, 100]) for (const seed of [51, 52, 53, 54]) {
+      const s = start(seed);
+      for (const st of Object.values(s.students)) st.trust = trust;
+      const b = s.battle!; const cs = b.auto!.cards!;
+      let k = 0;
+      while (b.phase !== 'done' && k++ < 8) { if (b.auto!.choice) { b.auto!.choice = null; } const p = autoPick(s, b, battleCtx(s)); playCardTurn(s, p.ids, p.target, battleCtx(s)); }
+      const n = cs.played.filter((x) => x.disobey).length;
+      if (trust === 0) low += n; else high += n;
+    }
+    expect(low).toBeGreaterThan(0);
+    expect(high).toBe(0);
+  });
+});

@@ -287,7 +287,7 @@ function FoeRow({ s, b, nameOf, leader, leaderColor, onTarget, hideIntent }: { s
           </button>
         );
       })}
-      {reserve > 0 && <span class="cb-reserve small">控え {reserve}人{leader && cs.reserve.includes(leader.uid) ? <><br />（敵将も後ろに）</> : null}</span>}
+      {reserve > 0 && <span class="cb-reserve small">後ろに控えている敵 {reserve}人{leader && cs.reserve.includes(leader.uid) ? `（敵将${leader.name}も）` : ''}</span>}
     </div>
   );
 }
