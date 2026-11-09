@@ -21,7 +21,7 @@ export function LegendView({ s, id, onDone }: { s: GameState; id: string; onDone
       <h2 class="serif legend-name">{L.name}</h2>
       <div class="legend-lore serif">{L.lore.slice(0, i + 1).map((x, k) => <p class={k === i ? 'new' : ''}>{x}</p>)}</div>
       {i >= L.lore.length && <div class="legend-art">
-        <div><b>専用の心得「{L.art}」</b>　{L.artText}</div>
+        <div><b>専用のスキル「{L.art}」</b>　{L.artText}</div>
         <div class="small">もとの武器：{w?.name}（威力{w?.might}・命中{w?.hit}）　持ち主を選ぶ：{L.cond.text}</div>
       </div>}
       <div class="small legend-tap">{i + 1 > L.lore.length ? 'タップで閉じる' : 'タップで次へ'}</div>

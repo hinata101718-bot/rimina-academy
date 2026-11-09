@@ -1,7 +1,7 @@
 // 依頼から戦闘を組み立てる（マップの型の組み替え・敵の生成・戦力の調整）
 import { itemMod } from '../rarity';
 import { armoryItem } from '../loot';
-import { equippedOf } from '../arts';
+import { equippedOf, equippedSpells } from '../arts';
 import { ART_LIST } from '../../data/arts';
 import { B, STATS } from '../../data/balance';
 import { MAPS } from '../../data/maps';
@@ -45,8 +45,12 @@ export function studentAbilities(st: Student): string[] {
 export function unitFromStudent(st: Student, side: Unit['side'], uid: string, x: number, y: number, arms: string[]): Unit {
   const stats = effectiveStats(st);
   // 武器（武器庫から持ってきたもの）＋今の兵種で使える覚えた魔法
-  const weapons = [...arms.filter((w) => WEAPONS[w] && !WEAPONS[w].spell), ...usableSpells(st)];
-  const spells = usableSpells(st).map((id) => WEAPONS[id]).filter((w) => w.type !== 'staff').sort((a, b) => b.might - a.might);
+  // 15夜目：魔法は「つけている戦技と魔法」（5つまで）に入れたものだけ。武器も魔法もないときは、使える魔法のいちばん強いもの
+  const phys = arms.filter((w) => WEAPONS[w] && !WEAPONS[w].spell);
+  let mine = equippedSpells(st);
+  if (!phys.length && !mine.length) mine = usableSpells(st).map((id) => WEAPONS[id]).sort((a, b) => b.might - a.might).slice(0, 1).map((w) => w.id);
+  const weapons = [...phys, ...mine];
+  const spells = mine.map((id) => WEAPONS[id]).filter((w) => w.type !== 'staff').sort((a, b) => b.might - a.might);
   const attack = weapons.find((w) => WEAPONS[w] && !WEAPONS[w].spell) ?? spells[0]?.id ?? null;
   return baseUnit({
     uid, side, studentId: st.id, name: st.given, classId: st.classId, level: st.level, stats, x, y,

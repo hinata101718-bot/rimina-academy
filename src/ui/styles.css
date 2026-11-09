@@ -1781,3 +1781,8 @@ details.fold > summary::-webkit-details-marker { display: none; }
 /* 武器庫の棚（たたむ） */
 .shelf-head { display: flex; align-items: center; gap: 8px; width: 100%; min-height: 44px; background: none; border: 0; padding: 4px 2px; cursor: pointer; text-align: left; font: inherit; color: inherit; }
 .shelf-head:disabled { cursor: default; opacity: .85; }
+/* 戦技と魔法・スキル（15夜目） */
+.when-mark { flex: none; margin-left: auto; font-size: 11px; padding: 1px 6px; border-radius: 8px; border: 1px solid var(--line); color: #6b5a40; background: rgba(255, 255, 255, .5); white-space: nowrap; }
+.art-tile.spell { border-left-color: #5a6fb0; }
+.art-tile.off { opacity: .6; }
+.art-tile.fixed { cursor: default; }

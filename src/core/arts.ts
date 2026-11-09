@@ -63,25 +63,55 @@ export function learnArts(s: GameState | null, st: Student, show = true): string
 }
 /** その子の今の兵種で使える武器の種類 */
 function weaponTypes(st: Student): WeaponType[] { return (CLASSES[st.classId] ?? CLASSES.novice).weapons; }
-/** 付けかえはおまかせ：今の兵種の武器で使える戦技を上から3つ、心得は高いランクから5つ（手で選んだときはそれを使う） */
-export function autoEquip(st: Student): void {
-  if (st.artsManual) return;
+/** 15夜目：魔法の id か（戦技・スキルと同じ「つけている」一覧に入る） */
+export function isSpellId(id: string): boolean { return !!WEAPONS[id]?.spell; }
+/** 今の兵種で使える覚えた魔法 */
+function usable(st: Student): string[] { const ws = weaponTypes(st); return (st.spells ?? []).filter((id) => { const w = WEAPONS[id]; return w && ws.includes(w.type); }); }
+/**
+ * 15夜目：おまかせの組み合わせ。戦技と魔法を合わせて5つ、スキル（心得）を5つ。
+ * 回復役は回復の魔法を必ず入れ、魔法で戦う子はいちばん強い攻撃の魔法を入れる。残りは強い戦技から、そのあと残りの魔法
+ */
+export function autoLoadout(st: Student): string[] {
   const ws = weaponTypes(st);
   const learned = artsOf(st).map((id) => ARTS[id]).filter(Boolean);
   const score = (a: ArtDef) => rankIdx(a.rank) * 10 + (a.bloom ? 25 : 0) + (st.apt?.good.includes(a.skill) ? 3 : 0);
-  const arts = learned.filter((a) => a.kind === 'art' && (!a.weapons || a.weapons.some((w) => ws.includes(w)))).sort((x, y) => score(y) - score(x)).slice(0, ART_SLOTS.art);
+  const arts = learned.filter((a) => a.kind === 'art' && (!a.weapons || a.weapons.some((w) => ws.includes(w)))).sort((x, y) => score(y) - score(x));
   const minds = learned.filter((a) => a.kind === 'mind' && (!a.ability?.wtype || a.ability.wtype.some((w) => ws.includes(w)))).sort((x, y) => score(y) - score(x)).slice(0, ART_SLOTS.mind);
-  st.artsOn = [...arts, ...minds].map((a) => a.id);
+  const sp = usable(st).map((id) => WEAPONS[id]);
+  const staffs = sp.filter((w) => w.type === 'staff').sort((a, b) => b.might + (b.maxRange - 1) * 6 - (a.might + (a.maxRange - 1) * 6));
+  const atk = sp.filter((w) => w.type !== 'staff').sort((a, b) => b.might - a.might);
+  const pick: string[] = [];
+  if (staffs[0]) pick.push(staffs[0].id);
+  if (atk[0]) pick.push(atk[0].id);
+  for (const a of arts) pick.push(a.id);
+  for (const w of [...atk.slice(1), ...staffs.slice(1)]) pick.push(w.id);
+  return [...pick.slice(0, ART_SLOTS.art), ...minds.map((a) => a.id)];
 }
-/** 付けている技（戦いで使う） */
-export function equippedOf(st: Student): ArtDef[] { return (st.artsOn ?? []).map((id) => ARTS[id]).filter(Boolean); }
-/** 手で付けかえる（上限まで） */
+/** 付けかえはおまかせ（手で選んだときはそれを使う） */
+export function autoEquip(st: Student): void {
+  if (st.artsManual) return;
+  st.artsOn = autoLoadout(st);
+}
+/** いまつけているもの（戦技・魔法・スキルの id）。おまかせの子は、今の兵種に合わせてその場で選び直す */
+export function loadoutOf(st: Student): string[] { return st.artsManual ? (st.artsOn ?? []) : autoLoadout(st); }
+/** 付けている技（戦技とスキル。戦いで使う） */
+export function equippedOf(st: Student): ArtDef[] { return loadoutOf(st).map((id) => ARTS[id]).filter(Boolean); }
+/** 付けている魔法（今の兵種で使えるものだけ）。手で全部外して武器もないときは、いちばん強い魔法を1つ */
+export function equippedSpells(st: Student): string[] {
+  const u = usable(st);
+  const on = new Set(loadoutOf(st));
+  return u.filter((id) => on.has(id));
+}
+/** 戦技と魔法を合わせた数（5つまで） */
+export function battleCount(ids: string[]): number { return ids.filter((id) => isSpellId(id) || ARTS[id]?.kind === 'art').length; }
+/** 手で付けかえる（上限まで）。魔法も同じ一覧で */
 export function toggleArt(st: Student, id: string): void {
+  const spell = isSpellId(id);
   const a = ARTS[id];
-  if (!a || !artsOf(st).includes(id)) return;
-  const on = new Set(st.artsOn ?? []);
+  if (spell ? !(st.spells ?? []).includes(id) : !a || !artsOf(st).includes(id)) return;
+  const on = new Set(loadoutOf(st));
   if (on.has(id)) on.delete(id);
-  else if ([...on].filter((x) => ARTS[x]?.kind === a.kind).length < ART_SLOTS[a.kind]) on.add(id);
+  else if (spell || a.kind === 'art' ? battleCount([...on]) < ART_SLOTS.art : [...on].filter((x) => ARTS[x]?.kind === 'mind').length < ART_SLOTS.mind) on.add(id);
   st.artsOn = [...on]; st.artsManual = true;
 }
 
@@ -114,7 +144,6 @@ export function pickArt(u: Unit, d: Unit, weaponType: WeaponType | undefined, ba
   }
   return null;
 }
-void WEAPONS;
 
 // 開花したら、その技能の固有の戦技を覚える（演出は開花の場面にまとめる）
 setBloomHook((_s, st) => { learnArts(null, st, false); });

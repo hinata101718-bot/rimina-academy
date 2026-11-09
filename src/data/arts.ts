@@ -106,8 +106,8 @@ export const ART_LIST: ArtDef[] = [
   ...(['sword', 'lance', 'axe', 'bow', 'magic', 'faith', 'riding', 'heavy', 'flying', 'gun', 'tactics', 'command'] as SkillId[]).map((k) => art(`bl_${k}`, '眠りからの一撃', k, 'D+', '開花した才能で放つ、その子だけの技。威力×1.5、必殺+10', { mul: 1.5, crit: 10, bloom: true, chance: 30, weapons: W[k] })),
 ];
 export const ARTS: Record<string, ArtDef> = Object.fromEntries(ART_LIST.map((a) => [a.id, a]));
-/** 持てる数の上限 */
-export const ART_SLOTS = { art: 3, mind: 5 };
+/** 持てる数の上限。15夜目：art は「戦技と魔法」を合わせた数（5つまで）。mind は「スキル」（呼び名を心得から変えた） */
+export const ART_SLOTS = { art: 5, mind: 5 };
 /** 使う見込みの上乗せ：敵将・名のある敵を相手に、相手のHPが半分以下のとき */
 export const ART_CHANCE = { leader: 15, lowHp: 10, max: 60, vsMoveDmg: 6 };
 /** 心得を、戦いの固有スキル（ABILITIES）として登録するための形 */

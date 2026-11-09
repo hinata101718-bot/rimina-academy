@@ -36,7 +36,7 @@ import { armoryItem, armoryName, isStock, stockList } from '../core/loot';
 import { legendFits } from '../core/rarity';
 import { PROSE_DENSE, PROSE_BRUTAL, PROSE_FALL, PROSE_LIGHT, PROSE_GRUNT_KILL } from '../data/warprose';
 import { ARTS } from '../data/arts';
-import { officerArts, artsLabel } from '../core/arts';
+import { officerArts, artsLabel, equippedSpells } from '../core/arts';
 
 const FIT_MARK = ['△', '○', '◎'];
 const SQUAD_LABEL = ['第一部隊', '第二部隊', '第三部隊'];
@@ -245,7 +245,7 @@ export function SquadEditor({ s, draft, setDraft, limit, exclude, usedArms, ques
         const role = roles[st.id];
         const row = plan.rows![st.id];
         const arms = [...s.armory, ...stockList(s)].filter((a) => canEquip(st, a.weaponId) && WEAPONS[a.weaponId].type !== 'staff' && (isStock(a.uid) || !usedHere.has(a.uid) || d.armoryUid === a.uid));
-        const spells = usableSpells(st).map((id) => WEAPONS[id]?.name).filter(Boolean);
+        const spells = equippedSpells(st).map((id) => WEAPONS[id]?.name).filter(Boolean);
         return (
           <div class="ab-role">
             <div class="row nowrap gap6">
@@ -270,7 +270,7 @@ export function SquadEditor({ s, draft, setDraft, limit, exclude, usedArms, ques
                   <option value="vulnerary" disabled={s.items.vulnerary <= deploy.filter((x) => x.studentId !== st.id && x.item === 'vulnerary').length}>傷薬（残{s.items.vulnerary}）</option>
                   <option value="elixir" disabled={s.items.elixir <= deploy.filter((x) => x.studentId !== st.id && x.item === 'elixir').length}>特効薬（残{s.items.elixir}）</option>
                 </select>
-                {spells.length > 0 && <div class="small muted" style={{ width: '100%' }}><Icon name="tome" size={14} /> 使える魔法：{spells.join('・')}</div>}
+                {spells.length > 0 && <div class="small muted" style={{ width: '100%' }}><Icon name="tome" size={14} /> つけている魔法：{spells.join('・')}</div>}
               </div>
             )}
           </div>

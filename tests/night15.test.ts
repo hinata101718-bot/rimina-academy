@@ -89,3 +89,41 @@ describe('兵種試験（2タップ）', () => {
     expect(s.students[st.id].classId).toBe(c.id);
   });
 });
+
+describe('戦技と魔法（合わせて5つ）・スキル', () => {
+  it('おまかせは戦技と魔法を合わせて5つまで。回復の魔法を覚えた子は必ず入れる。手で6つ目はつけられない', async () => {
+    const { autoLoadout, battleCount, isSpellId, toggleArt, loadoutOf } = await import('../src/core/arts');
+    const { usableSpells } = await import('../src/core/spells');
+    const { WEAPONS } = await import('../src/data/weapons');
+    const { ARTS, ART_SLOTS } = await import('../src/data/arts');
+    const s = newGame({ name: 'テスト', background: 'knight', seed: 9, start: 'normal' });
+    autoYears(s, 3);
+    let healers = 0;
+    for (const st of Object.values(s.students)) {
+      const lo = autoLoadout(st);
+      expect(battleCount(lo)).toBeLessThanOrEqual(ART_SLOTS.art);
+      expect(lo.filter((id) => ARTS[id]?.kind === 'mind').length).toBeLessThanOrEqual(ART_SLOTS.mind);
+      if (usableSpells(st).some((id) => WEAPONS[id].type === 'staff')) { healers++; expect(lo.some((id) => isSpellId(id) && WEAPONS[id].type === 'staff')).toBe(true); }
+    }
+    expect(healers).toBeGreaterThan(0);
+    const st = Object.values(s.students).find((x) => (x.arts ?? []).filter((id) => ARTS[id].kind === 'art').length + (x.spells ?? []).length > ART_SLOTS.art)!;
+    if (st) {
+      const all = [...(st.arts ?? []).filter((id) => ARTS[id].kind === 'art'), ...(st.spells ?? [])];
+      for (const id of all) if (!loadoutOf(st).includes(id)) toggleArt(st, id);
+      expect(battleCount(loadoutOf(st))).toBeLessThanOrEqual(ART_SLOTS.art);
+    }
+  });
+  it('14夜目版のセーブで手で選んでいた子は、今の戦技によく使う魔法を足して5つまで', async () => {
+    const { battleCount } = await import('../src/core/arts');
+    const raw = JSON.parse(fixture('v14-day.json'));
+    const ids = Object.keys(raw.state.students).filter((id) => (raw.state.students[id].spells ?? []).length > 0).slice(0, 3);
+    for (const id of ids) raw.state.students[id].artsManual = true;
+    const s = deserialize(JSON.stringify(raw));
+    for (const id of ids) {
+      const st = s.students[id];
+      expect(battleCount(st.artsOn ?? [])).toBeLessThanOrEqual(5);
+    }
+    autoYears(s, 1);
+    expect(s.gameOver).toBe(false);
+  });
+});

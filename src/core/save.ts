@@ -3,6 +3,7 @@ import { SAVE_VERSION, DIFFICULTY } from '../data/balance';
 import type { SkillId } from './types';
 import type { GameState } from './state';
 import { defaultSettings, mailImportant } from './game';
+import { ARTS, ART_SLOTS } from '../data/arts';
 import { WEAPONS } from '../data/weapons';
 import { ensureSpellPlan, learnSpells } from './spells';
 import { ensureTeacherSince, instructorCaps } from './instructor';
@@ -18,7 +19,7 @@ import { startNewsDesk } from './newspaper';
 import { STATS } from '../data/balance';
 import { STOCK_IDS, stockUid } from './loot';
 import { liftGrowth, talentToApt } from './aptitude';
-import { learnArts } from './arts';
+import { learnArts, autoLoadout, isSpellId } from './arts';
 import { ensureRegions, borderOf, setOwner } from './regions';
 import { RANK_POINTS } from '../data/balance';
 import { rebuildReviews } from './review';
@@ -431,6 +432,15 @@ function migrateTo15(s: GameState): void {
   for (const sp of s.spotlight ?? []) if (!sp.done) { sp.done = true; sp.res = '先生が声をかけた。'; }
   // 7夜目になくなった「体調不良」の残り
   for (const st of Object.values(s.students ?? {})) st.sickWeeks = 0;
+  // 戦技と魔法は合わせて5つ：手で選んでいた子は、今の戦技に、よく使う魔法（おまかせで選ぶもの）を足して5つ。おまかせの子は選び直す
+  for (const st of Object.values(s.students ?? {})) {
+    const auto = autoLoadout(st);
+    if (!st.artsManual) { st.artsOn = auto; continue; }
+    const mine = (st.artsOn ?? []).filter((id) => ARTS[id]);
+    const arts = mine.filter((id) => ARTS[id].kind === 'art').slice(0, ART_SLOTS.art);
+    const spells = auto.filter((id) => isSpellId(id)).slice(0, Math.max(0, ART_SLOTS.art - arts.length));
+    st.artsOn = [...spells, ...arts, ...mine.filter((id) => ARTS[id].kind === 'mind').slice(0, ART_SLOTS.mind)];
+  }
   s.pending ??= [];
   s.pending.push({ type: 'event', title: '15夜目の片づけ', lines: NIGHT15_LINES });
 }
@@ -441,4 +451,5 @@ const NIGHT15_LINES = [
   '傷薬と特効薬は、毎月のはじめに自動で補充します（お金から少し引きます）。武器庫の「買う」はなくしました。武器庫の棚はたためるようになりました。',
   '図鑑（兵種・技・武器・敵将）は、年鑑の「図鑑」にまとめました。年鑑の「新聞」はなくしました（ホームの新聞から、これまでの号も読めます）。戦況の三国の図と国どうしの関係は、1つの欄になりました。',
   '兵種試験は、個人ページの「兵種試験を受ける」から兵種を選ぶだけで変わります。',
+  '「戦技と心得」を分け直しました。戦いの中で使う「戦技と魔法」は、合わせて5つまでつけられます（おまかせのときは、回復の魔法を必ず入れます）。いつも効く力は「心得」から「スキル」という呼び名になり、兵種のスキルも同じ欄に並びます。',
 ];
