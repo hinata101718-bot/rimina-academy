@@ -149,6 +149,8 @@ export function CardBattleView() {
   }
 
   // ---- 場面（開戦・判断の結果・決着） ----
+  // 決着したのに見る場面が残っていないとき（再開したときなど）は、決着の場面をもう一度
+  if (cs.phase === 'done' && a.shown >= a.scenes.length && a.scenes.length) a.shown = a.scenes.length - 1;
   if (a.shown < a.scenes.length && (cs.phase !== 'done' || doneAck || a.shown === 0)) {
     const sc = a.scenes[a.shown];
     const last = a.shown === a.scenes.length - 1 && a.seg >= 3;
@@ -238,7 +240,7 @@ export function CardBattleView() {
         <button class="btn primary block cb-go" disabled={!sel.length} onClick={() => play(sel, cs.target)}>{sel.length ? `この${sel.length}枚を出す` : '札を選んでください'}</button>
         <div class="row nowrap gap6">
           <button class="btn block" onClick={() => { const p = autoPick(s, b, ctx); play(p.ids, cs.target ?? p.target); }}>おまかせで札を出す</button>
-          <button class="btn ghost" onClick={() => { if (!confirm('残りのターンを、おまかせで最後まで進めます。よろしいですか？')) return; sfx('ok'); act((g) => { skipCards(g, battleCtx(g)); }); setDoneAck(true); }}>最後まで</button>
+          <button class="btn ghost" onClick={() => { if (!confirm('残りのターンを、おまかせで最後まで進めます。よろしいですか？')) return; sfx('ok'); act((g) => { const b0 = g.battle; skipCards(g, battleCtx(g), undefined, undefined, false); if (g.battle === b0 && g.battle?.auto) g.battle.auto.shown = Math.max(0, g.battle.auto.scenes.length - 1); }); setDoneAck(true); }}>最後まで</button>
         </div>
       </div>
       {help && <Sheet title="札の戦い" onClose={() => setHelp(false)}>
@@ -281,7 +283,7 @@ function FoeRow({ s, b, nameOf, leader, leaderColor, onTarget, hideIntent }: { s
             <b class="cb-fn">{nameOf(u.uid)}</b>
             <span class="rb-bar"><span style={{ width: `${dn ? 0 : Math.max(0, Math.min(100, (u.hp / Math.max(1, u.maxHp)) * 100))}%` }} /></span>
             <span class="cb-fhp">{dn ? '倒れた' : `${u.hp}/${u.maxHp}`}</span>
-            {!hideIntent && !dn && it && <span class={`cb-intent${stun ? ' stun' : ''}`}>{stun ? '動けない' : <>{(() => { const m = /^(.*?)（(.*)）$/.exec(intentText(b, it)); return m ? <><b>次：{m[1]}</b><small>→{m[2]}</small></> : <b>次：{intentText(b, it)}</b>; })()}</>}</span>}
+            {!hideIntent && !dn && it && <span class={`cb-intent${stun ? ' stun' : ''}`}>{stun ? '動けない' : <>{(() => { const m = /^(.*?)（(.*)）$/.exec(intentText(b, it)); const pre = n >= 5 ? '' : '次：'; return m ? <><b>{pre}{m[1]}</b><small>→{m[2]}</small></> : <b>{pre}{intentText(b, it)}</b>; })()}</>}</span>}
           </button>
         );
       })}

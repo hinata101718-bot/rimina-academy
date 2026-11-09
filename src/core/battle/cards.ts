@@ -426,8 +426,8 @@ export function makeIntents(s: GameState | null, b: BattleState): void {
 }
 function attackName(e: Unit): string {
   const w = weaponOf(e);
-  const names: Record<string, string> = { sword: '斬りかかる', lance: '突く', axe: '斧を振るう', bow: '矢を射る', gun: '撃つ', magic: '魔法を放つ', holy: '光を放つ' };
-  return names[w?.type ?? ''] ?? '殴りかかる';
+  const names: Record<string, string> = { sword: '斬る', lance: '突く', axe: '斧', bow: '射る', gun: '撃つ', magic: '魔法', holy: '光' };
+  return names[w?.type ?? ''] ?? '殴る';
 }
 /** 予告の短い文（「次：大振り 14（前列の1人）」） */
 export function intentText(b: BattleState, it: Intent): string {

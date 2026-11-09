@@ -1337,7 +1337,7 @@ function cardsFinish(s: GameState, b: BattleState): void {
   a.scenes.push(endScene(s, b));
 }
 /** 札の戦いを、おまかせで最後まで（小さな依頼・同行しない部隊・シミュレーション・「結果へ」） */
-export function skipCards(s: GameState, ctx: BattleCtx, pick?: (c: AutoChoice) => number, policy: CardPolicy = cardPolicy): void {
+export function skipCards(s: GameState, ctx: BattleCtx, pick?: (c: AutoChoice) => number, policy: CardPolicy = cardPolicy, markShown = true): void {
   let guard = 0;
   while (s.battle?.auto?.cards && s.battle.auto.seg < 3 && guard++ < 30) {
     const b = s.battle;
@@ -1347,7 +1347,7 @@ export function skipCards(s: GameState, ctx: BattleCtx, pick?: (c: AutoChoice) =
     const p = autoPick(s, b, ctx, policy);
     playCardTurn(s, p.ids, p.target, ctx);
   }
-  if (s.battle?.auto) s.battle.auto.shown = s.battle.auto.scenes.length;
+  if (s.battle?.auto && markShown) s.battle.auto.shown = s.battle.auto.scenes.length;
 }
 export type { CLine };
 
