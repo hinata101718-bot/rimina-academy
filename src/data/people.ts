@@ -138,7 +138,7 @@ export const BACKGROUNDS: BackgroundDef[] = [
   { id: 'merc', name: '元帝国の傭兵', desc: '斧と実戦に強い。実戦の報酬+20%。', age: 37,
     skills: { axe: 'B', sword: 'C', bow: 'C', heavy: 'C' }, defaultRank: 'D',
     friendship: { kingdom: -5, empire: 15, alliance: 0 }, realRewardMul: 1.2 },
-  { id: 'mage', name: '元同盟の宮廷魔道士', desc: '魔道と信仰が得意。人望が厚い。', age: 42,
+  { id: 'mage', name: '元同盟の宮廷魔道士', desc: '魔道と信仰が得意。同盟と縁がある。', age: 42,
     skills: { magic: 'B', faith: 'C' }, defaultRank: 'D',
     friendship: { kingdom: 0, empire: 0, alliance: 15 }, realRewardMul: 1 },
   { id: 'wanderer', name: '流れの旅人', desc: 'なんでもそこそこ。どの国とも縁がない。', age: 35,

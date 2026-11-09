@@ -284,8 +284,8 @@ function RenownLine({ st }: { st: Student }) {
   const why = [p.calm >= 20 ? '落ち着き' : '', p.trust >= 20 ? '先生への信頼' : '', p.house >= 10 ? '家柄' : '', p.epithet ? '二つ名' : '', p.leader ? '人の上に立つ才' : ''].filter(Boolean);
   return (
     <div class="renown" style={{ marginTop: 6 }}>
-      <div class="row nowrap gap6"><span class="small" style={{ width: 40 }}><b>人望</b></span><Stars n={n} max={5} /><span class="small grow">{renownWord(p.total)}</span><HelpTip text={`人望は、平静・先生への信頼・家柄・二つ名（とその数）で決まります。${why.length ? `いまは${why.join('・')}が効いています。` : ''}人望が高い子は、文官に向き、国から声がかかりやすく、卒業後に出世しやすく、文官として和平に近づけます。`} /></div>
-      <div class="small muted">平静・先生への信頼・家柄・二つ名で上がります。</div>
+      <div class="row nowrap gap6"><span class="small" style={{ width: 40 }}><b>人望</b></span><span class="grow"><Stars n={n} max={5} /></span><HelpTip text={`人望は、平静・先生への信頼・家柄・二つ名（とその数）で決まります。${why.length ? `いまは${why.join('・')}が効いています。` : ''}人望が高い子は、文官に向き、国から声がかかりやすく、卒業後に出世しやすく、文官として和平に近づけます。`} /></div>
+      <div class="small"><b>{renownWord(p.total)}</b><span class="muted">。平静・先生への信頼・家柄・二つ名で上がります。</span></div>
     </div>
   );
 }

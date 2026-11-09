@@ -174,8 +174,8 @@ function Leaf({ c, seen, on, onTap, small }: { c: ClassDef; seen: Set<string>; o
 function Tree({ s, id, seen, kids, sel, onSel }: { s: GameState; id: string; seen: Set<string>; kids: (id: string) => ClassDef[]; sel: string | null; onSel: (id: string) => void }) {
   return (
     <div class="ct-tree">
+      <div class="small muted">この木は「おすすめの道」です。技能がそろえば、ほかの枝へも移れます。</div>
       <div class="ct-cols small muted"><span>中級</span><span>上級</span><span>最上級</span></div>
-      <div class="small muted">おすすめの道（技能がそろえば、ほかの枝へも移れます）</div>
       {kids(id).map((m) => (
         <div class="ct-row">
           <div class="ct-c"><Leaf small c={m} seen={seen} on={sel === m.id} onTap={() => onSel(m.id)} /></div>
