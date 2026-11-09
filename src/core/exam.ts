@@ -8,7 +8,7 @@ import { absMonth } from './util';
 import { markClassSeen } from './growth';
 import { available, chronicle, notify } from './game';
 import { addRecent } from './support';
-import { SKILL_NAMES } from '../data/people';
+import { SKILL_NAMES, DREAMS } from '../data/people';
 import { rankOf } from './util';
 import { learnTechs } from './techs';
 
@@ -75,10 +75,75 @@ export function missingReqs(s: GameState, st: Student, c: ClassDef): string[] {
   return out;
 }
 
-/** 受けられる兵種（前提を満たすもの全部。条件を満たさないものも含めて返す） */
-export function nextClasses(s: GameState, st: Student): ClassDef[] {
+/** 22夜目：枝分かれの先（図鑑の「おすすめの道」） */
+export function onBranch(st: Student, c: ClassDef): boolean { return c.prereq.includes(st.classId); }
+/** 22夜目：次の段階の兵種（枝分かれの先でなくても）。隠れた兵種は出来事で開いたものだけ */
+function nextTierPool(s: GameState, st: Student): ClassDef[] {
   const cur = CLASSES[st.classId];
-  return CLASS_LIST.filter((c) => (c.hidden ? c.id !== st.classId && hiddenOpen(s, st, c) : c.prereq.includes(st.classId) && (c.tier <= SCHOOL_MAX_TIER || st.status === 'graduated')) && !(cur?.hidden && !c.hidden && c.tier <= (cur?.tier ?? 0)));
+  const tier = cur?.tier ?? 0;
+  return CLASS_LIST.filter((c) => c.id !== st.classId && (c.hidden ? hiddenOpen(s, st, c) : c.tier === tier + 1 && (c.tier <= SCHOOL_MAX_TIER || st.status === 'graduated'))
+    && !(cur?.hidden && !c.hidden && c.tier <= (cur?.tier ?? 0)));
+}
+/** 次の段階があるか（試験のボタンを出すか） */
+export function hasNextTier(s: GameState, st: Student): boolean {
+  return nextTierPool(s, st).length > 0 || CLASS_LIST.some((c) => onBranch(st, c) && !c.hidden);
+}
+/** 最上級：その兵種の、なる条件の出来事を成し遂げたか */
+export function deedOk(st: Student, c: ClassDef): boolean {
+  const x = c as ClassDef & { deed?: string; need?: number };
+  return c.tier !== 4 || !x.deed || (st.deeds?.[x.deed] ?? 0) >= (x.need ?? 1);
+}
+/** 22夜目：先生の勧め。技能が条件をどれだけ上回っているか・兵種の伸びが本人の伸びやすさに合うか・枝分かれの先か、で決める */
+export function teacherScore(st: Student, c: ClassDef): number {
+  const E = B.exam;
+  let v = 0;
+  for (const [k, r] of Object.entries(c.req)) v += (st.skills[k as SkillId] - RANK_POINTS[r as Rank]) / 100;
+  for (const [k, g] of Object.entries(c.growth)) v += ((st.growth as Record<string, number>)[k] ?? 30) * (g as number) * E.recGrowthW;
+  if (onBranch(st, c)) v += E.recBranch;
+  return v;
+}
+/** 22夜目：生徒の好み。夢に沿う技能・執念（強く攻める兵種へ）・性格で、先生の勧めと違う道を選ぶ子も */
+export function studentScore(st: Student, c: ClassDef): number {
+  const E = B.exam;
+  const dream = DREAMS.find((d) => d.id === st.dream);
+  let v = teacherScore(st, c) * 0.5;
+  const req = Object.keys(c.req) as SkillId[];
+  if (dream) v += req.filter((k) => dream.skills.includes(k)).length * E.prefDream;
+  if ((st.mind?.grudge ?? 0) >= E.grudgeAt && ((c.bonus.str ?? 0) + (c.bonus.mag ?? 0)) >= 4) v += E.prefGrudge;
+  // 同じ子なら、いつも同じ好み（ゲームの乱数の流れを変えない）
+  let h = 7; for (const ch of st.id + c.id) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+  return v + (h % 100) / 100 * E.prefNoise;
+}
+/** 受けられる兵種。22夜目：技能の条件を満たすものだけ。並ぶ順は ①先生の勧め ②枝分かれの先（おすすめの道）③そのほか */
+export function nextClasses(s: GameState, st: Student): ClassDef[] {
+  const pool = nextTierPool(s, st).filter((c) => meetsSkillReq(st, c) && deedOk(st, c));
+  const rec = recommendedOf(st, pool);
+  return pool.sort((a, b) => Number(b.id === rec) - Number(a.id === rec) || Number(onBranch(st, b)) - Number(onBranch(st, a)) || teacherScore(st, b) - teacherScore(st, a));
+}
+/** 先生の勧め（受けられる兵種のうちの1つ） */
+export function recommendedOf(st: Student, opts: ClassDef[]): string | null {
+  const ok = opts.filter((c) => !c.hidden);
+  const list = ok.length ? ok : opts;
+  return list.slice().sort((a, b) => teacherScore(st, b) - teacherScore(st, a))[0]?.id ?? null;
+}
+export function recommendedClass(s: GameState, st: Student): string | null { return recommendedOf(st, nextClasses(s, st).filter((c) => meetsReq(st, c))); }
+/** 生徒がいちばん行きたい兵種 */
+export function studentWish(st: Student, opts: ClassDef[]): string | null {
+  return opts.slice().sort((a, b) => studentScore(st, b) - studentScore(st, a))[0]?.id ?? null;
+}
+/** 先生の勧めを聞く見込み（％）。信頼が高いほど聞く。執念が強い子・負けず嫌い・気まぐれは自分の道を選びやすい */
+export function followChance(st: Student): number {
+  const E = B.exam;
+  let p = E.followBase + st.trust * E.followPerTrust;
+  if ((st.mind?.grudge ?? 0) >= E.grudgeAt) p -= E.followGrudge;
+  if (['competitive', 'whimsical', 'hot'].includes(st.personality)) p -= E.followStubborn;
+  return Math.round(Math.max(E.followMin, Math.min(E.followMax, p)));
+}
+/** 先生が勧め、生徒が決める。勧めと好みが同じなら、そのまま */
+export function decideClass(st: Student, rng: Rng, advised: string, opts: ClassDef[]): { id: string; own: boolean } {
+  const wish = studentWish(st, opts.filter((c) => c.id === advised || !c.hidden));
+  if (!wish || wish === advised) return { id: advised, own: false };
+  return rng.next() * 100 < followChance(st) ? { id: advised, own: false } : { id: wish, own: true };
 }
 
 export function passRate(st: Student, c: ClassDef): number {
@@ -98,9 +163,13 @@ export function examCandidates(s: GameState): Student[] {
   return Object.values(s.students).filter((st) => canTakeExam(s, st) && nextClasses(s, st).some((c) => classUnlocked(s, c) && meetsReq(st, c)));
 }
 
-export function takeExam(s: GameState, rng: Rng, st: Student, classId: string): { ok: boolean; rate: number; text: string } {
-  const c = CLASSES[classId];
-  if (!c || !canTakeExam(s, st) || !classUnlocked(s, c) || !meetsReq(st, c) || !(c.prereq.includes(st.classId) || (c.hidden && hiddenOpen(s, st, c)))) return { ok: false, rate: 0, text: '受験できません' };
+/** 兵種試験。22夜目：先生が勧めた兵種（classId）を、生徒が受けるか決める（decide=false なら勧めのまま） */
+export function takeExam(s: GameState, rng: Rng, st: Student, classId: string, decide = true): { ok: boolean; rate: number; text: string; classId?: string; own?: boolean } {
+  const ready = () => nextClasses(s, st).filter((x) => classUnlocked(s, x) && meetsReq(st, x));
+  if (!CLASSES[classId] || !canTakeExam(s, st) || !ready().some((x) => x.id === classId)) return { ok: false, rate: 0, text: '受験できません' };
+  const pick = decide ? decideClass(st, rng, classId, ready()) : { id: classId, own: false };
+  const c = CLASSES[pick.id];
+  const advised = CLASSES[classId];
   const rate = passRate(st, c);
   st.examMonth = absMonth(s.year, s.month);
   const ok = rng.next() * 100 < rate;
@@ -114,7 +183,11 @@ export function takeExam(s: GameState, rng: Rng, st: Student, classId: string): 
     if (c.hidden) { st.growthKnown = true; chronicle(s, `${st.given}が隠れた兵種「${c.name}」への道を選んだ`, 'student'); }
     learnTechs(s, st);
     notify(s, `${st.given}が兵種試験に合格し、${c.name}になった`, st.id);
-    return { ok, rate, text: `合格！ ${st.given}は${c.name}になった` };
+    if (pick.own) {
+      st.history.push({ year: s.year, text: `先生の勧めた${advised.name}ではなく、自分で選んだ${c.name}の道へ` });
+      return { ok, rate, classId: c.id, own: true, text: `「先生、ありがとうございます。でも、わたしは${c.name}の道を行きたいんです」——${st.given}は自分で道を選び、${c.name}になった` };
+    }
+    return { ok, rate, classId: c.id, text: `合格！ ${st.given}は${c.name}になった` };
   }
   st.motivation = Math.max(0, st.motivation - 1);
   return { ok, rate, text: `不合格……。${st.given}は来月また挑戦できる` };
@@ -124,7 +197,8 @@ export function takeExam(s: GameState, rng: Rng, st: Student, classId: string): 
 export function autoExam(s: GameState, rng: Rng, st: Student): string | null {
   const opts = nextClasses(s, st).filter((c) => classUnlocked(s, c) && meetsReq(st, c));
   if (!opts.length || !canTakeExam(s, st)) return null;
-  const best = opts.sort((a, b) => passRate(st, b) - passRate(st, a))[0];
-  if (passRate(st, best) < 70) return null;
-  return takeExam(s, rng, st, best.id).text;
+  // 22夜目：先生の勧め（条件を満たす兵種から）を、生徒が受けるか決める
+  const best = recommendedOf(st, opts) ?? opts[0].id;
+  if (passRate(st, CLASSES[best]) < 70) return null;
+  return takeExam(s, rng, st, best).text;
 }

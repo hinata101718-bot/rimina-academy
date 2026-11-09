@@ -195,7 +195,8 @@ describe('19夜目：古いセーブ（17夜目版・16夜目版）を読み込�
       for (const st of Object.values(s.students)) {
         expect(CLASSES[st.classId]).toBeTruthy();
         expect((st.stats as unknown as Record<string, number>).lck).toBeUndefined();
-        expect((st.stats as unknown as Record<string, number>).res).toBeUndefined();
+        // 22夜目：魔防を足した（古い魔防は守りに混ぜたまま、魔力とレベルから出し直す）
+        expect(st.stats.res).toBeGreaterThan(0);
         expect(st.mind).toBeTruthy();
       }
       expect(s.pending.some((p) => p.type === 'event' && p.title === '大きく作り直しました')).toBe(true);

@@ -271,14 +271,18 @@ function resolveLessonMain(s: GameState, r: Rng, idx: number, talkWith?: string,
 
   for (const st of list) {
     const b = boostOf(card, st.id);
-    // 11夜目：先輩後輩のタッグ：後輩はよく伸び、先輩は教えることで人を動かす力（魅力）が少し育つ
-    if (b.tag && seniorInTag(s, card, st.id)) { b.tag = false; trainUp(st, 'skl', B.support.senpaiChaTrain); }
+    // 11夜目：先輩後輩のタッグ：後輩はよく伸びる
+    // 22夜目④：魅力をなくしたので、先輩は教えることで落ち着き（平静）が少し育つ（人望のもと）
+    if (b.tag && seniorInTag(s, card, st.id)) { b.tag = false; moveMind(st, 'calm', B.support.senpaiCalm); }
     const faceM = faceMulOf(s, b);
     const tagM = tagMulOf(s, b);
     // 技能
     for (const [k, w] of Object.entries(l.skills ?? {}) as [SkillId, number][]) skillUp(st, k, pointsFor(s, st, k, w, b));
     if (l.special === 'field') skillUp(st, st.targets[0], pointsFor(s, st, st.targets[0], D.field.skill, b));
     if (l.special === 'spar') for (const k of SKILLS) if (k !== 'gun' || s.world.gunUnlocked) skillUp(st, k, pointsFor(s, st, k, D.spar.skill, b));
+    // 22夜目④：心（平静）・先生への信頼が育つ授業（礼法・外交の作法）
+    for (const [k, w] of Object.entries(l.mind ?? {}) as ['calm', number][]) moveMind(st, k, D.mindPts * w * faceM);
+    if (l.trust) addTrust(st, D.trustPts * l.trust * faceM);
     // 鍛錬ゲージ
     for (const [k, w] of Object.entries(l.stats ?? {}) as [StatId, number][]) trainUp(st, k, D.trainPts * w * faceM * tagM * (camp ? B.lesson.campMul : 1) * B.motivationMul[st.motivation] * WMUL);
     // 経験値（授業の経験値。交流は紅白戦だけ）

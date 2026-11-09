@@ -1,5 +1,7 @@
-import { presence, cohortName } from './util';
 // 卒業生の毎年のシミュレーション
+import { nextClasses, recommendedOf, decideClass, deedOk } from './exam';
+import { cohortName } from './util';
+import { renown } from './renown';
 import type { SkillId } from './types';
 import { ARM_SKILLS } from '../data/balance';
 import { regionMul } from './regions';
@@ -64,10 +66,13 @@ function classUp(s: GameState, rng: Rng, st: Student, news: AlumniNews[], big: (
   const cls = CLASSES[st.classId];
   if (cls && cls.tier === 3) alumniDeed(s, rng, st, cls.id, news);
   if (cls && cls.tier < 3 && st.level >= (B.exam.levelReq[cls.tier + 1] ?? 99)) {
-    const kids = CLASS_LIST.filter((k) => k.prereq.includes(cls.id) && !k.hidden);
-    if (kids.length && rng.chance(0.5)) { const next = rng.pick(kids); st.classId = next.id; markClassSeen(s, next.id); st.history.push({ year: s.year, text: `${next.name}になった` }); }
+    // 22夜目：技能の条件を満たす次の段階の兵種から（枝分かれの先でなくても）。先生の勧めは手紙で届き、本人が決める
+    const kids = nextClasses(s, st).filter((k) => !k.hidden);
+    if (kids.length && rng.chance(0.5)) { const rec = recommendedOf(st, kids) ?? kids[0].id; const next = CLASSES[decideClass(st, rng, rec, kids).id]; st.classId = next.id; markClassSeen(s, next.id); st.history.push({ year: s.year, text: `${next.name}になった` }); }
   } else if (cls && cls.tier === 3 && st.level >= B.alumni.tier4Level) {
-    const next = CLASS_LIST.find((k) => k.prereq.includes(cls.id) && k.tier === 4);
+    // 最上級：今までどおり、なる条件の出来事も要る（22夜目：ほかの枝の最上級も、技能と出来事がそろえば）
+    const own = CLASS_LIST.find((k) => k.prereq.includes(cls.id) && k.tier === 4);
+    const next = (own && deedOk(st, own) ? own : null) ?? (nextClasses(s, st).find((k) => k.tier === 4) as typeof own);
     if (next?.deed && (st.deeds?.[next.deed] ?? 0) >= (next.need ?? 1)) {
       st.classId = next.id;
       markClassSeen(s, next.id);
@@ -101,7 +106,8 @@ export function simulateAlumni(s: GameState, rng: Rng): AlumniNews[] {
       const max = RANK_TITLES[c.path].length - 1;
       const e = effectiveStats(st);
       let p = B.alumni.promoteBase + (st.level - B.alumni.promoteLevel - c.rank * 7) * 0.02 + c.rankYears * 0.03;
-      if (c.path === 'civil') p += (presence(e) - 10) * 0.015 + (st.house === 'noble' ? 0.05 : 0);
+      // 22夜目：文官の出世は人望（平静・信頼・家柄・二つ名）で
+      if (c.path === 'civil') p += (renown(st) - B.renown.promoteBase) * B.renown.civilPromote;
       // 10夜目：将は統率、参謀は軍略のランクが出世に大きく効く。勇士は隊長どまりになりやすい
       const A = B.alumni;
       if (c.path === 'warrior') p += ((st.skills.command ?? 0) - A.rankSkillBase) * A.rankSkill;
@@ -109,7 +115,7 @@ export function simulateAlumni(s: GameState, rng: Rng): AlumniNews[] {
       if (c.path === 'champion' && c.rank >= 1) p *= A.championRankMul;
       if (c.country === 'kingdom') p += st.house === 'noble' ? 0.08 : -0.06;
       if (c.country === 'empire') p += 0.05;
-      if (c.country === 'alliance') p += (presence(e) - 10) * 0.01;
+      if (c.country === 'alliance') p += (renown(st) - B.renown.promoteBase) * B.renown.allianceMul;
       p += c.growthMul;
       if (c.rank < max && rng.chance(Math.max(0.02, Math.min(0.7, p)))) {
         c.rank += 1; c.rankYears = 0;

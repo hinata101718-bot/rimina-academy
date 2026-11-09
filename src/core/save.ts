@@ -1,6 +1,7 @@
 // セーブデータの変換（バージョン番号つき）。DOMに依存しない
 // 19夜目：大改修。古いセーブ（1〜18夜目版）は、ここで一度に新しい形へ変換する（1つずつの古い変換はなくした）
-import { SAVE_VERSION, DIFFICULTY, STATS } from '../data/balance';
+import { SAVE_VERSION, DIFFICULTY, STATS, SAVE_RES, B } from '../data/balance';
+import type { Stats } from './types';
 import { newClassId } from '../data/classes';
 import type { GameState, Pending, Student } from './state';
 import { defaultSettings } from './game';
@@ -36,6 +37,7 @@ export function migrate(s: GameState, from: number): GameState {
   s.settings.mods = { ...DIFFICULTY[s.settings.difficulty ?? 'normal'], ...(s.settings.mods ?? {}) };
   if (from < 19) convertTo19(s, from);
   if (from < 20) convertTo20(s);
+  if (from < 21) convertTo21(s);
   s.heirs ??= [];
   s.archive ??= {};
   s.notices ??= [];
@@ -49,6 +51,23 @@ export function convertTo20(s: GameState): void {
   for (const o of s.officers ?? []) o.classId = newClassId(o.classId);
   if (s.classSeen) s.classSeen = [...new Set(s.classSeen.map((c) => newClassId(c)))];
   // 古い隠れた兵種の記録（双星の縁など）は、そのまま残す（使わない）
+}
+
+/** 22夜目：魔防を足す。守りはそのまま。魔防は、魔力とレベルからほどよく分ける（兵種の上乗せは兵種の表から足される） */
+export function resFromOld(st: { stats: Partial<Stats>; level?: number }): number {
+  const mag = st.stats.mag ?? 4;
+  const lv = Math.max(1, st.level ?? 1);
+  return Math.max(1, Math.round(mag * SAVE_RES.magRate + (SAVE_RES.base + (lv - 1) * SAVE_RES.perLevel) * (1 - SAVE_RES.magRate)));
+}
+export function convertTo21(s: GameState): void {
+  for (const st of [...Object.values(s.students ?? {}), ...(s.applicants ?? [])]) {
+    if (!st.stats) continue;
+    const cap = st.status === 'graduated' ? B.student.statCapGrad : B.student.statCapSchool;
+    st.stats.res = Math.min(cap, resFromOld(st));
+    if (st.growth) st.growth.res = Math.max(15, Math.min(70, Math.round(((st.growth.mag ?? 35) * SAVE_RES.growthMagRate + SAVE_RES.growthBase) / 5) * 5));
+    if (st.train && st.train.res === undefined) st.train.res = 0;
+  }
+  // 戦いの途中のセーブ：魔防のない駒は、守りから出す（engine の resOf）
 }
 
 /** 古い能力（9つ）→ 体の6つ：守りは守備と魔防から。幸運・魅力はなくす */

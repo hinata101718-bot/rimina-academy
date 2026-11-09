@@ -1,5 +1,5 @@
-import { presence, cohortName } from './util';
 // 教官：教えるほど上がる技能（③）、加齢・引退・後継（④）、副教官（⑤）。DOMに依存しない
+import { cohortName } from './util';
 import { goodOf } from './aptitude';
 import { RANK_TITLES } from '../data/people';
 import { B, SKILLS, RANK_POINTS, TEACHER_RANK } from '../data/balance';
@@ -179,7 +179,7 @@ export function becomeInstructor(s: GameState, rng: Rng, st: Student): void {
   const prev = s.instructor;
   const ins: Instructor = {
     name: st.given, background: bg, age: st.age, experience: 0, skills,
-    cha: presence(effectiveStats(st)), generation: s.instructor.generation + 1, studentId: st.id, since: s.year,
+    generation: s.instructor.generation + 1, studentId: st.id, since: s.year,
   };
   s.instructor = ins;
   ins.caps = undefined; instructorCaps(s);
@@ -210,7 +210,7 @@ export function externalSuccessor(s: GameState, rng: Rng): void {
   const skills = emptySkills(RANK_POINTS.C);
   skills.gun = s.world.gunUnlocked ? RANK_POINTS.D : 0;
   const prev = s.instructor;
-  s.instructor = { name, background: bg.id, age: rng.int(...B.instructor.externalAge), experience: 0, skills, cha: bg.cha, generation: s.instructor.generation + 1, since: s.year };
+  s.instructor = { name, background: bg.id, age: rng.int(...B.instructor.externalAge), experience: 0, skills, generation: s.instructor.generation + 1, since: s.year };
   instructorCaps(s);
   inheritAbilities(prev, s.instructor, rng, false);
   chronicle(s, `流れの旅人 ${name}が${s.instructor.generation}代目教官に就任`, 'school');

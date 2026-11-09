@@ -115,7 +115,7 @@ function scoreAttack(b: TBattle, u: TUnit, f: TUnit, t: string | null, spot: { x
   if (danger >= u.hp) sc -= b.nemesisId ? 40 : 15;
   // 宿敵戦：宿敵の一撃で倒れる場所は「命の危険」。とても避ける
   const nem = b.nemesisId ? foes(b).find((f) => f.nemesis && f.broken === 0) : null;
-  if (nem && !u.teacher) { const dd = Math.abs(nem.x - spot.x) + Math.abs(nem.y - spot.y); const hit = Math.max(1, nem.str + nem.might + (nem.rage ? TB.ragePow : 0) - u.def); if (dd <= nem.mov + nem.rmax && hit >= u.hp) sc -= 90; }
+  if (nem && !u.teacher) { const dd = Math.abs(nem.x - spot.x) + Math.abs(nem.y - spot.y); const hit = Math.max(1, (nem.magic ? nem.mag : nem.str) + nem.might + (nem.rage ? TB.ragePow : 0) - (nem.magic ? (u.res ?? Math.floor(u.def * TB.magicDefRate)) : u.def)); if (dd <= nem.mov + nem.rmax && hit >= u.hp) sc -= 90; }
   if (u.teacher) sc -= 25 + (danger > 0 ? 30 : 0);
   u.x = ox; u.y = oy;
   return sc;

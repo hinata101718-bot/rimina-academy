@@ -15,8 +15,7 @@ import { activeAlumni } from './world';
 import { autoSpend } from './mentor';
 import { instructorCaps, goodSkillsOf, retireInstructor, successorCandidates, askSuccessor, externalSuccessor } from './instructor';
 import { recommendQuest, recommendSquad } from './sortie';
-import { presence } from './util';
-import { effectiveStats } from './game';
+import { renown } from './renown';
 
 // ---------- 進路の方針（長期シミュレーション用） ----------
 export type CareerPolicy = 'auto' | 'peace' | 'unify' | 'none' | 'neutral';
@@ -43,7 +42,7 @@ export function autoCareerPlans(s: GameState, policy: CareerPolicy = careerPolic
   }
   const civilCount = (c: CountryId) => activeAlumni(s, c).filter((st) => st.career!.path === 'civil').length;
   const counts: Record<CountryId, number> = { kingdom: civilCount('kingdom'), empire: civilCount('empire'), alliance: civilCount('alliance') };
-  const byP = [...third].sort((a, b) => presence(effectiveStats(b)) + (b.house === 'noble' ? 3 : 0) - presence(effectiveStats(a)) - (a.house === 'noble' ? 3 : 0));
+  const byP = [...third].sort((a, b) => renown(b) - renown(a)); // 22夜目：人望の高い子から文官に
   const nCivil = Math.ceil(third.length * 0.55);
   return byP.map((st, i) => {
     if (i >= nCivil) return { studentId: st.id, recommend: autoRecommend(s, st), path: suitablePath(st) };

@@ -4,19 +4,20 @@ import { useState } from 'preact/hooks';
 import { useStore, navigate, act } from './store';
 import { enrolled, effectiveStats } from '../core/game';
 import { growthRates } from '../core/growth';
-import { nextClasses, classUnlocked, meetsReq, passRate, canTakeExam, takeExam } from '../core/exam';
+import { nextClasses, classUnlocked, meetsReq, passRate, canTakeExam, takeExam, recommendedClass, onBranch, hasNextTier } from '../core/exam';
 import { rng } from '../core/flow';
 import { skillUnlocked } from '../core/week';
 import { StuRow, Back, Bar, moodIcon, Sheet, HelpTip } from './common';
 import { RankUpPlayer } from './RankUp';
 import { careerTitleOnly, sidesFor } from '../core/discovery';
 import { SIDES } from '../data/discovery';
-import { StuCard, SecTitle, MoodDots, studentFlags, countryColor, LvBadge, ClassName, CountryChip, Chip, Gauge, FatigueBar, SkillBox, FaceRow, MiniCard, Num } from './cards';
+import { StuCard, SecTitle, MoodDots, studentFlags, countryColor, LvBadge, ClassName, CountryChip, Chip, Gauge, FatigueBar, SkillBox, FaceRow, MiniCard, Num, Stars } from './cards';
 import { Icon } from './icons';
 import { examCandidates, missingReqs, levelReq } from '../core/exam';
 import { OfficerFace, Portrait } from './Portrait';
-import { SKILL_NAMES, STAT_NAMES, PERSONALITIES, TRAITS, TALENTS, DREAMS, COUNTRY_NAMES, HOUSE_NAMES, PATH_NAMES, PATH_LINES, PATH_SAY } from '../data/people';
-import { CLASSES } from '../data/classes';
+import { STAT_GUARD_NOTE, SKILL_NAMES, STAT_NAMES, PERSONALITIES, TRAITS, TALENTS, DREAMS, COUNTRY_NAMES, HOUSE_NAMES, PATH_NAMES, PATH_LINES, PATH_SAY } from '../data/people';
+import { CLASSES, CLASS_LIST } from '../data/classes';
+import { renownParts, renownStars, renownWord } from '../core/renown';
 import { B, SKILLS, STATS, RANK_POINTS, LEAD_SKILLS } from '../data/balance';
 import { goodOf, badOf, budKnown, budHinted, budName } from '../core/aptitude';
 import { suitablePath } from '../core/career';
@@ -145,7 +146,7 @@ function Detail({ s, st, exam, sub }: { s: GameState; st: Student; exam?: boolea
         {!grad && (
           <div class="row" style={{ marginTop: 8 }}>
             <button class="btn small" onClick={() => act((g) => { g.pinned = pinned ? g.pinned.filter((x) => x !== st.id) : [...g.pinned, st.id].slice(-5); })}><span class={pinned ? 'pinstar' : ''}><Icon name="star" size={16} /></span> {pinned ? '★を外す' : '気にかける'}</button>
-            {nextClasses(s, st).length > 0 && <button class={`btn small${examReady ? ' primary glow' : ''}`} onClick={() => { sfx('move'); setExamOpen(true); }}><Icon name="exam" size={16} /> 兵種試験を受ける{examReady ? '（受験できます）' : ''}</button>}
+            {hasNextTier(s, st) && <button class={`btn small${examReady ? ' primary glow' : ''}`} onClick={() => { sfx('move'); setExamOpen(true); }}><Icon name="exam" size={16} /> 兵種試験を受ける{examReady ? '（受験できます）' : ''}</button>}
           </div>
         )}
       </div>
@@ -164,6 +165,7 @@ function Detail({ s, st, exam, sub }: { s: GameState; st: Student; exam?: boolea
                 return <div class="statrow"><span>{STAT_NAMES[k]}</span><b>{es[k]}</b><span class={`bonus ${b > 0 ? 'up' : b < 0 ? 'down' : ''}`}>{b ? `${b > 0 ? '+' : '−'}${Math.abs(b)}` : ''}</span><Gauge v={es[k]} max={k === 'hp' ? capHp : cap} thin /><span class={`gr total ${g > 0 ? 'up' : g < 0 ? 'down' : ''}`}>{st.growthKnown ? `${gr[k]}%` : g ? `？${g > 0 ? '+' : '−'}${Math.abs(g)}` : '？'}</span></div>;
               })}
             </div>
+            <div class="small muted">{STAT_GUARD_NOTE}</div>
             <div class="small muted">数字が大きい能力ほど、レベルが上がったときに伸びやすくなります。<HelpTip text="成長率は、本人と兵種と特徴の分を足したものです。本人の分は入学したときから見えます。内わけは下の「成長率の内わけを見る」で見られます。" /></div>
             <ClassMods c={cls} />
             {!grad && (
@@ -268,9 +270,22 @@ function MindCard({ s, st }: { s: GameState; st: Student }) {
       {st.epithet && <div class="small">二つ名：<b>「{st.epithet}{st.given}」</b></div>}
       {(['fight', 'calm', 'grudge'] as const).map((k) => <div class="row nowrap gap6" style={{ marginTop: 4 }}><span class="small" style={{ width: 40 }}>{MIND_NAMES[k]}</span><Gauge v={m[k]} max={100} thin tone={k === 'fight' && m[k] > 90 ? 'warn' : k === 'grudge' && m[k] >= 60 ? 'red' : 'main'} /><Num v={Math.round(m[k])} /></div>)}
       <div class="small muted">{MIND_DESC.fight}。{MIND_DESC.calm}。{MIND_DESC.grudge}。</div>
+      <RenownLine st={st} />
       <div class="small" style={{ marginTop: 6 }}><b>教訓</b>（戦いの経験から身についた力）</div>
       {(st.lessons ?? []).length ? <ul class="list">{(st.lessons ?? []).map((l) => <li class="small"><b>{l.text}</b>（{l.why}・{l.year}年目）</li>)}</ul> : <div class="small muted">まだありません。戦いの中の大きな出来事で身につきます。</div>}
       {(st.scars ?? []).length > 0 && <div class="small" style={{ marginTop: 4 }}>傷跡：{(st.scars ?? []).map((x) => x.text).join('・')}</div>}
+    </div>
+  );
+}
+/** 22夜目③：人望（数字ではなく、星とことば）。何で上がるかの一言と、内わけ */
+function RenownLine({ st }: { st: Student }) {
+  const p = renownParts(st);
+  const n = renownStars(p.total);
+  const why = [p.calm >= 20 ? '落ち着き' : '', p.trust >= 20 ? '先生への信頼' : '', p.house >= 10 ? '家柄' : '', p.epithet ? '二つ名' : '', p.leader ? '人の上に立つ才' : ''].filter(Boolean);
+  return (
+    <div class="renown" style={{ marginTop: 6 }}>
+      <div class="row nowrap gap6"><span class="small" style={{ width: 40 }}><b>人望</b></span><Stars n={n} max={5} /><span class="small grow">{renownWord(p.total)}</span><HelpTip text={`人望は、平静・先生への信頼・家柄・二つ名（とその数）で決まります。${why.length ? `いまは${why.join('・')}が効いています。` : ''}人望が高い子は、文官に向き、国から声がかかりやすく、卒業後に出世しやすく、文官として和平に近づけます。`} /></div>
+      <div class="small muted">平静・先生への信頼・家柄・二つ名で上がります。</div>
     </div>
   );
 }
@@ -371,9 +386,12 @@ function ExamSheet({ s, st, onClose }: { s: GameState; st: Student; onClose: () 
   const [msg, setMsg] = useState('');
   const opts = nextClasses(s, st);
   const can = canTakeExam(s, st);
+  const rec = recommendedClass(s, st);
+  // 22夜目：技能の条件を満たす兵種だけが並ぶ。まだ満たしていない「おすすめの道」は、要る技能を一言で
+  const branchTodo = CLASS_LIST.filter((c) => onBranch(st, c) && !c.hidden && !opts.includes(c));
   return (
     <Sheet title={`${st.given}の兵種試験`} onClose={onClose}>
-      <div class="small muted">今の兵種：<b>{CLASSES[st.classId].name}</b>（レベル{st.level}）です。条件がそろっていれば、必ず合格します。</div>
+      <div class="small muted">今の兵種：<b>{CLASSES[st.classId].name}</b>（レベル{st.level}）です。技能の条件を満たした兵種だけが並びます。枝分かれの先（おすすめの道）でなくても受けられます。先生が勧め、{st.given}が決めます（先生への信頼が高いほど、勧めを聞きます）。</div>
       {msg && <div class="guide">{msg}</div>}
       {opts.map((c) => {
         const ok = classUnlocked(s, c) && meetsReq(st, c);
@@ -382,18 +400,23 @@ function ExamSheet({ s, st, onClose }: { s: GameState; st: Student; onClose: () 
           <div class="pcard" style={{ ['--band' as string]: ok ? 'var(--good)' : '#cfc6b2', margin: '8px 0 0' }}>
             <div class="row between nowrap">
               <div class="grow"><ClassName classId={c.id} size={17} /> <span class="muted small">{TIER_NAMES[c.tier]}</span></div>
-              {ok ? <span class="flag" style={{ background: 'var(--good)' }}>条件がそろっています</span> : <span class="flag gray-flag">条件が足りません</span>}
+              {ok ? <span class="flag" style={{ background: 'var(--good)' }}>条件がそろっています</span> : <span class="flag gray-flag">あと少し</span>}
+            </div>
+            <div class="row gap6" style={{ marginTop: 2 }}>
+              {c.id === rec && <span class="tag">先生の勧め</span>}
+              {onBranch(st, c) ? <span class="tag gray">おすすめの道</span> : !c.hidden && <span class="tag gray">ほかの枝へ</span>}
             </div>
             {!ok && <div class="small" style={{ color: 'var(--accent)' }}>{miss.join('／')}</div>}
             <div class="small muted">{c.desc}</div>
             <div class="small" style={{ marginTop: 4 }}><b>{CLASSES[st.classId].name} → {c.name}</b>に変わると</div>
             <ClassCompare from={CLASSES[st.classId]} to={c} />
             <div class="small muted">兵種が変わっても、これまでに伸びた分はそのまま残ります。<HelpTip text="「いるあいだ」の補正だけが、新しい兵種のものに入れ替わります。" /></div>
-            <button class={`btn block${ok && can ? ' primary' : ''}`} style={{ marginTop: 6 }} disabled={!ok || !can} onClick={() => { let ok = false; act((g) => { const from = CLASSES[g.students[st.id].classId]?.name ?? ''; const n0 = g.pending.length; const r = takeExam(g, rng(g), g.students[st.id], c.id); ok = r.ok; setMsg(r.text); sfx(r.ok ? 'pass' : 'cancel'); if (r.ok) { /* 15夜目：受かったら、そのまま兵種昇格の演出（2タップ） */ const item = { icon: 'exam', title: `${st.given}の兵種`, from, to: c.name, p0: 0.4, p1: 1, studentId: st.id, note: '兵種昇格！' }; const p0 = g.pending[n0]; if (p0 && p0.type === 'rankup') p0.items.unshift(item); else g.pending.push({ type: 'rankup', items: [item] }); } }); if (ok) onClose(); }}>{ok ? `${c.name}になる` : '条件が足りません'}</button>
+            <button class={`btn block${ok && can ? ' primary' : ''}`} style={{ marginTop: 6 }} disabled={!ok || !can} onClick={() => { let ok = false; act((g) => { const from = CLASSES[g.students[st.id].classId]?.name ?? ''; const n0 = g.pending.length; const r = takeExam(g, rng(g), g.students[st.id], c.id); ok = r.ok; setMsg(r.text); sfx(r.ok ? 'pass' : 'cancel'); if (r.ok) { /* 15夜目：受かったら、そのまま兵種昇格の演出（2タップ）。22夜目：自分で道を選んだ子は、その兵種で */ const to = CLASSES[r.classId ?? c.id]?.name ?? c.name; const item = { icon: 'exam', title: `${st.given}の兵種`, from, to, p0: 0.4, p1: 1, studentId: st.id, note: r.own ? `${st.given}が自分で選んだ道` : '兵種昇格！' }; const p0 = g.pending[n0]; if (p0 && p0.type === 'rankup') p0.items.unshift(item); else g.pending.push({ type: 'rankup', items: [item] }); } }); if (ok) onClose(); }}>{ok ? `${c.name}を勧める` : '条件が足りません'}</button>
           </div>
         );
       })}
-      {!opts.length && <div class="empty-note">次の兵種はありません</div>}
+      {!opts.length && <div class="empty-note">{branchTodo.length ? 'まだ技能の条件を満たす兵種はありません' : '次の兵種はありません'}</div>}
+      {branchTodo.length > 0 && <div class="small muted" style={{ marginTop: 6 }}>おすすめの道：{branchTodo.map((c) => `${c.name}（${Object.entries(c.req).map(([k, r]) => `${SKILL_NAMES[k as SkillId]}${r}`).join('・') || '条件なし'}）`).join('・')}。ほかの枝の兵種も、技能の条件を満たすとここに並びます。</div>}
       {!can && <div class="muted small" style={{ marginTop: 4 }}>けがで休んでいるあいだは、試験を受けられません</div>}
     </Sheet>
   );

@@ -60,7 +60,6 @@ export function legendFits(st: Student, legendId: string): boolean {
     case 'noble': return st.house === 'noble';
     case 'frontier': return st.origin === 'frontier';
     case 'kills': return st.kills >= 10;
-    case 'cha': return (st.trust ?? 0) >= 60;
     case 'grade3': return st.grade >= 3 || st.status === 'graduated';
     default: return true;
   }

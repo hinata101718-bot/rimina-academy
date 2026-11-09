@@ -48,7 +48,7 @@ export function newGame(opts: { name: string; background: string; seed: number; 
     teachers: [], teacherCandidates: [],
     armory: STARTING_ARMORY.filter((w) => !STOCK_IDS.has(w)).map((w, i) => ({ uid: `w${i}`, weaponId: w })), // 10夜目：鉄の武器は学校の備え（数の制限なし）
     items: { vulnerary: 3, elixir: 0 },
-    instructor: { name: opts.name || '教官', background: bg.id, age: bg.age, experience: 0, skills, cha: bg.cha, generation: 1, since: 1 },
+    instructor: { name: opts.name || '教官', background: bg.id, age: bg.age, experience: 0, skills, generation: 1, since: 1 },
     students: {}, supports: {}, archive: {}, focus: {}, plan: { tutoring: [], weekend: [] },
     consults: [], pinned: [], spotlight: [], notices: [], pending: [], quests: [], battle: null, applicants: [],
     world: {

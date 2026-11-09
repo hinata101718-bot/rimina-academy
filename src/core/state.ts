@@ -65,6 +65,8 @@ export interface Student {
   mind?: Mind;
   lessons?: Lesson[];
   epithet?: string;
+  /** 22夜目：古いセーブの才能「隠れた統率者」（人望が高く出る） */
+  bornLeader?: boolean;
   scars?: { year: number; text: string }[];
   /** 19夜目：使える技（技能のランクで覚える。技のid） */
   techs?: string[];
@@ -219,7 +221,8 @@ export interface Instructor {
   age: number;
   experience: number;
   skills: Record<SkillId, number>;
-  cha: number;
+  /** 22夜目：使っていなかった魅力。古いセーブにだけ残る（使わない） */
+  cha?: number;
   generation: number;
   /** 技能の上限（ポイント）。得意科目はS、それ以外はB */
   caps?: Record<SkillId, number>;

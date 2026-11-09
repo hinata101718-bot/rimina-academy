@@ -146,7 +146,7 @@ export function ClassBook({ s, embedded }: { s: GameState; embedded?: boolean })
       {!embedded && <Back to={() => navigate({ tab: 'students' })} />}
       <div class="ledger">
         {!embedded && <div class="row between nowrap"><h2 class="ledger-title" style={{ margin: 0 }}>兵種図鑑</h2><span class="stamp">図鑑</span></div>}
-        <div class="small muted">初級 → 中級 → 上級 → 最上級 の木です。だれかがなった兵種は明るく、まだの兵種は名前だけ。最上級になる条件は「？」から少しずつ分かります（{got}／{total}）。</div>
+        <div class="small muted">初級 → 中級 → 上級 → 最上級 の木です。枝分かれは「おすすめの道」です。技能の条件を満たせば、ほかの枝の兵種へも移れます（兵種試験には、条件を満たした兵種だけが並びます）。だれかがなった兵種は明るく、まだの兵種は名前だけ。最上級になる条件は「？」から少しずつ分かります（{got}／{total}）。</div>
         <div class="cb-grid">
           {tier1.map((c) => <Leaf c={c} seen={seen} on={open === c.id} onTap={() => { sfx('move'); setOpen(open === c.id ? null : c.id); setSel(c.id); }} />)}
         </div>
@@ -175,6 +175,7 @@ function Tree({ s, id, seen, kids, sel, onSel }: { s: GameState; id: string; see
   return (
     <div class="ct-tree">
       <div class="ct-cols small muted"><span>中級</span><span>上級</span><span>最上級</span></div>
+      <div class="small muted">おすすめの道（技能がそろえば、ほかの枝へも移れます）</div>
       {kids(id).map((m) => (
         <div class="ct-row">
           <div class="ct-c"><Leaf small c={m} seen={seen} on={sel === m.id} onTap={() => onSel(m.id)} /></div>
@@ -217,7 +218,7 @@ function ClassSheet({ s, c, known, onClose }: { s: GameState; c: ClassDef; known
         {(c as ClassDefX).unlock && <div class="small ruled"><b>{c.hidden ? '道が開く出来事' : 'なる条件の出来事'}</b>：{c.hidden && !known ? '？？？' : unlockText(c as ClassDefX, c.hidden ? 2 : deedReveal(s, c as ClassDefX, seenClasses(s)))}{c.tier === 4 && <div class="muted">卒業生のうち、この出来事を成し遂げた子だけがなれます。</div>}</div>}
         {known && c.tier >= 2 && holders(s, c.id).length > 0 && <div class="small ruled">なった子：{holders(s, c.id).slice(0, 8).join('・')}</div>}
         {(good.length > 0 || bloom.length > 0) && <div class="small ruled">{bloom.length > 0 && <div>開花で道が開けた子：<b>{bloom.join('・')}</b></div>}{good.length > 0 && <div>要る技能が得意な子：{good.slice(0, 8).join('・')}{good.length > 8 ? ' ほか' : ''}</div>}</div>}
-        <div class="small ruled">なる条件：{c.prereq.length ? `${c.prereq.map((p) => CLASSES[p].name).join('・')}から` : c.hidden ? '出来事で道が開く' : '入学したとき'}{Object.entries(c.req).length ? `・${Object.entries(c.req).map(([k, r]) => `${SKILL_NAMES[k as keyof typeof SKILL_NAMES]}${r as Rank}`).join('・')}` : ''}{c.tier >= 1 && !c.hidden ? `・Lv${c.tier === 4 ? B.alumni.tier4Level : B.exam.levelReq[c.tier]}以上` : ''}{c.tier === 4 ? '（卒業後）' : ''}</div>
+        <div class="small ruled">なる条件：{c.prereq.length ? `おすすめの道は${c.prereq.map((p) => CLASSES[p].name).join('・')}から（技能がそろえば、ほかの${TIER_NAMES[c.tier - 1]}の兵種からも）` : c.hidden ? '出来事で道が開く' : '入学したとき'}{Object.entries(c.req).length ? `・${Object.entries(c.req).map(([k, r]) => `${SKILL_NAMES[k as keyof typeof SKILL_NAMES]}${r as Rank}`).join('・')}` : ''}{c.tier >= 1 && !c.hidden ? `・Lv${c.tier === 4 ? B.alumni.tier4Level : B.exam.levelReq[c.tier]}以上` : ''}{c.tier === 4 ? '（卒業後）' : ''}</div>
       </div>
     </div>
   );

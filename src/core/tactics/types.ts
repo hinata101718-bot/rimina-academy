@@ -26,6 +26,8 @@ export interface TUnit {
   x: number; y: number;
   hp: number; max: number;
   str: number; mag: number; skl: number; spd: number; def: number;
+  /** 22夜目：魔防（炎・雷・氷・光・闇を受けるとき）。古い戦いの途中のセーブにはないので、なければ守りから出す */
+  res?: number;
   mov: number; rmin: number; rmax: number;
   /** ふつうの攻撃の種類と、魔力で戦うか */
   type: AtkType; magic: boolean;

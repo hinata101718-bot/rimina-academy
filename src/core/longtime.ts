@@ -51,7 +51,7 @@ export function yearlyLong(s: GameState, r: Rng, report: string[]): void {
       const t = `${officerName(o)}は、学校に負け続けた責めを負い、${from}を追われた。盗賊に身を落としても、執念は消えていない`;
       chronicle(s, t, 'world'); report.push(t); if (ep) report.push(ep);
     }
-    if (o.age >= B.prime.declineAt) { const st = { age: o.age, stats: { hp: 0, str: o.level, mag: 0, skl: 0, spd: 0, def: 0 } }; if (decline(st, r).length) o.level = Math.max(1, o.level - 1); }
+    if (o.age >= B.prime.declineAt) { const st = { age: o.age, stats: { hp: 0, str: o.level, mag: 0, skl: 0, spd: 0, def: 0, res: 0 } }; if (decline(st, r).length) o.level = Math.max(1, o.level - 1); }
   }
   for (const o of officers(s)) {
     if (o.status !== 'dead' || o.endYear !== s.year || o.presumed || o.kind === 'monster' || o.alumniId) continue;

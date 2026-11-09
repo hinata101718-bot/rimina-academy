@@ -167,8 +167,8 @@ export function generateStudent(s: GameState, rng: Rng, opt: GenOptions = {}): S
 
 /** 本人の成長率を作る：得意な能力2〜3つ（50〜65）・苦手2つ（20〜30）・ほか（30〜45）、HP（40〜65） */
 const STAT_FOR_SKILL: Partial<Record<SkillId, (keyof Stats)[]>> = {
-  sword: ['str', 'spd'], lance: ['str', 'def'], axe: ['str', 'hp'], bow: ['skl', 'spd'], magic: ['mag', 'skl'], faith: ['mag', 'def'],
-  riding: ['spd', 'def'], heavy: ['def', 'hp'], flying: ['spd', 'skl'], gun: ['skl'], tactics: ['skl', 'mag'], command: ['def', 'hp'],
+  sword: ['str', 'spd'], lance: ['str', 'def'], axe: ['str', 'hp'], bow: ['skl', 'spd'], magic: ['mag', 'res'], faith: ['mag', 'res'],
+  riding: ['spd', 'def'], heavy: ['def', 'hp'], flying: ['spd', 'res'], gun: ['skl'], tactics: ['skl', 'mag'], command: ['def', 'hp'],
 };
 export function rollGrowth(rng: Rng, favor: SkillId[], q = 0): Stats {
   const g: Stats = emptyStats();

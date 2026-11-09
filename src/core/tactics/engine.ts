@@ -81,6 +81,16 @@ const flyer = (u: TUnit) => T(u, 'fly') || T(u, 'roar');
 export function defOf(b: TBattle, u: TUnit): number {
   return u.def + (isForest(b, u.x, u.y) ? TB.forestDef : 0) - (u.bonus?.note?.includes('reckless') ? TB.recklessDef : 0);
 }
+/** 22夜目：魔防（なければ守りから）。森は魔法を防がない。無茶は魔防も下げる */
+export function resOf(b: TBattle, u: TUnit): number {
+  void b;
+  return (u.res ?? Math.floor(u.def * TB.magicDefRate)) - (u.bonus?.note?.includes('reckless') ? TB.recklessDef : 0);
+}
+/** 22夜目：受ける側の守り。斬・突・射・砕・打は守り、炎・雷・氷・光・闇は魔防、両方を同時に当てるときは間をとる */
+export function guardOf(b: TBattle, d: TUnit, magic: boolean, mixed = false): number {
+  if (mixed) return Math.floor((defOf(b, d) + resOf(b, d)) / 2);
+  return magic ? resOf(b, d) : defOf(b, d);
+}
 
 export interface Calc { per: number; hits: number; total: number; weak: boolean; resisted: boolean; broken: boolean; type: AtkType; shields: number; brk: boolean; kill: boolean; lethal: boolean; perHit: number }
 
@@ -148,15 +158,16 @@ export function calc(b: TBattle, a: TUnit, d: TUnit, techId?: string | null, opt
   if (banner) atk += 2;
   if (a.bonus?.note?.includes('fear') && (banner || hasSide(b, a.side, 'warflag'))) atk += TB.fearDmg;
   if (a.teacher) atk = Math.round(atk * TB.teacherAtk);
-  let df = defOf(b, d);
-  if (magic) df = Math.floor(df * TB.magicDefRate);
+  // 22夜目：守り（斬・突・射・砕・打）と魔防（炎・雷・氷・光・闇）を分けた（前は魔法が守りの6割を受けていた）
+  let df = guardOf(b, d, magic, anyMagic && anyPhys);
   df += d.bonus?.prot ?? 0;
   if (d.bonus?.protFrom?.[a.classId]) df += d.bonus.protFrom[a.classId];
   if (d.bonus?.protFrom?.[type]) df += d.bonus.protFrom[type];
-  if (T(d, 'push') || T(d, 'scales')) df += 2;
+  if ((T(d, 'push') || T(d, 'scales')) && !magic) df += 2;
   if (T(d, 'frenzy')) df -= 2;
   if (T(d, 'forest') && isForest(b, d.x, d.y)) df += 2;
-  if (b.units.some((o) => o.side === d.side && o !== d && o.alive && T(o, 'barrier') && adj(o, d, 1))) df += 2;
+  // 22夜目：結界は魔法を防ぐ壁（隣の仲間の魔防+3。斬・突などには+1）
+  if (b.units.some((o) => o.side === d.side && o !== d && o.alive && T(o, 'barrier') && adj(o, d, 1))) df += magic ? TB.barrierRes : TB.barrierDef;
   df -= d.cursed ? 2 : 0;
   const resisted = types.every((t) => d.resist.includes(t));
   let per = Math.max(1, atk - Math.max(0, df));
@@ -239,7 +250,7 @@ export function threatAt(b: TBattle, me: TUnit, x: number, y: number): number {
   for (const f of foes(b)) {
     if (f.broken > 0) continue;
     const dd = Math.abs(f.x - x) + Math.abs(f.y - y);
-    if (dd <= f.mov + f.rmax) n += Math.max(1, f.str + f.might - me.def);
+    if (dd <= f.mov + f.rmax) n += Math.max(1, (f.magic ? f.mag : f.str) + f.might - (f.magic ? (me.res ?? Math.floor(me.def * TB.magicDefRate)) : me.def));
   }
   return n;
 }

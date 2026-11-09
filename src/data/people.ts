@@ -113,15 +113,15 @@ export const TALENTS: Record<string, TalentDef> = {
   genius_lance: genius('lance', '槍', { str: 15, def: 15 }),
   genius_axe: genius('axe', '斧', { str: 15, hp: 15 }),
   genius_bow: genius('bow', '弓', { skl: 15, spd: 15 }),
-  genius_magic: genius('magic', '魔道', { mag: 15, def: 15 }),
-  genius_faith: genius('faith', '信仰', { mag: 15, def: 15 }),
+  genius_magic: genius('magic', '魔道', { mag: 15, res: 15 }),
+  genius_faith: genius('faith', '信仰', { mag: 15, res: 15 }),
   genius_riding: genius('riding', '騎乗', { spd: 15, def: 15 }),
   genius_heavy: genius('heavy', '重装', { def: 15, hp: 15 }),
-  genius_flying: genius('flying', '飛行', { spd: 15, def: 15 }),
+  genius_flying: genius('flying', '飛行', { spd: 15, res: 15 }),
   /** 9夜目：策を立てるのがうまい（策の成功率+、軍略がたまりやすい） */
   strategist: { id: 'strategist', name: '軍師の才', hint1: '物事の先を読むのがうまい気がする', hint2: '戦の駆け引きに向いているかもしれない', stats: { skl: 10}, weight: 6 },
   leader: { id: 'leader', name: '隠れた統率者', hint1: '人を惹きつけるところがある気がする', hint2: '人の上に立つ才能があるかもしれない', stats: {}, weight: 8 },
-  hero: { id: 'hero', name: '英雄の器', hint1: '何をやらせても伸びる気がする', hint2: 'とてつもない器かもしれない', hero: true, stats: { hp: 10, str: 10, mag: 10, skl: 10, spd: 10, def: 10}, weight: 0 },
+  hero: { id: 'hero', name: '英雄の器', hint1: '何をやらせても伸びる気がする', hint2: 'とてつもない器かもしれない', hero: true, stats: { hp: 10, str: 10, mag: 10, skl: 10, spd: 10, def: 10, res: 10 }, weight: 0 },
 };
 
 export interface BackgroundDef {
@@ -130,21 +130,20 @@ export interface BackgroundDef {
   defaultRank: string;
   friendship: Record<CountryId, number>;
   realRewardMul: number;
-  cha: number;
 }
 export const BACKGROUNDS: BackgroundDef[] = [
   { id: 'knight', name: '元王国騎士', desc: '剣・槍・騎乗が得意。王国と縁がある。', age: 39,
     skills: { sword: 'B', lance: 'B', riding: 'B' }, defaultRank: 'D',
-    friendship: { kingdom: 15, empire: -5, alliance: 0 }, realRewardMul: 1, cha: 8 },
+    friendship: { kingdom: 15, empire: -5, alliance: 0 }, realRewardMul: 1 },
   { id: 'merc', name: '元帝国の傭兵', desc: '斧と実戦に強い。実戦の報酬+20%。', age: 37,
     skills: { axe: 'B', sword: 'C', bow: 'C', heavy: 'C' }, defaultRank: 'D',
-    friendship: { kingdom: -5, empire: 15, alliance: 0 }, realRewardMul: 1.2, cha: 6 },
+    friendship: { kingdom: -5, empire: 15, alliance: 0 }, realRewardMul: 1.2 },
   { id: 'mage', name: '元同盟の宮廷魔道士', desc: '魔道と信仰が得意。人望が厚い。', age: 42,
     skills: { magic: 'B', faith: 'C' }, defaultRank: 'D',
-    friendship: { kingdom: 0, empire: 0, alliance: 15 }, realRewardMul: 1, cha: 14 },
+    friendship: { kingdom: 0, empire: 0, alliance: 15 }, realRewardMul: 1 },
   { id: 'wanderer', name: '流れの旅人', desc: 'なんでもそこそこ。どの国とも縁がない。', age: 35,
     skills: {}, defaultRank: 'C',
-    friendship: { kingdom: 0, empire: 0, alliance: 0 }, realRewardMul: 1, cha: 10 },
+    friendship: { kingdom: 0, empire: 0, alliance: 0 }, realRewardMul: 1 },
 ];
 
 export const SKILL_NAMES: Record<SkillId, string> = {
@@ -152,8 +151,10 @@ export const SKILL_NAMES: Record<SkillId, string> = {
   riding: '騎乗', heavy: '重装', flying: '飛行', gun: '銃', tactics: '軍略', command: '統率',
 };
 export const STAT_NAMES: Record<StatId, string> = {
-  hp: '体力', str: '力', mag: '魔力', skl: '技', spd: '速さ', def: '守り',
+  hp: '体力', str: '力', mag: '魔力', skl: '技', spd: '速さ', def: '守り', res: '魔防',
 };
+/** 22夜目：守りと魔防のちがい（個人ページ・図鑑） */
+export const STAT_GUARD_NOTE = '守りは斬・突・射・砕・打を、魔防は炎・雷・氷・光・闇を受けるときに効きます。';
 /** 19夜目：心の3つ */
 export const MIND_NAMES: Record<keyof import('../core/types').Mind, string> = { fight: '闘志', calm: '平静', grudge: '執念' };
 export const MIND_DESC: Record<keyof import('../core/types').Mind, string> = {
@@ -173,7 +174,7 @@ export const PATH_SAY: Record<Path, string> = {
 export const PATH_LINES: Record<Path, string> = {
   warrior: '兵を率いて戦う。統率の高い子ほど、上の位へ上りやすい',
   strategist: '後ろから策を立てる。軍略の高い子ほど、無駄な戦を避けさせる',
-  civil: '国と国のあいだを取り持つ。魅力の高い子ほど、和平に近づける',
+  civil: '国と国のあいだを取り持つ。人望の高い子ほど、和平に近づける',
   champion: '兵を率いるより、自分で道を切り開く。武勲で名を上げる',
 };
 export const RANK_TITLES: Record<Path, string[]> = {

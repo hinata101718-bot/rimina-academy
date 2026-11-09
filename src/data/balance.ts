@@ -1,7 +1,7 @@
 // バランス値。ゲームの数値はすべてここに集める（設計書の「ふつう」が初期値）。
 import type { Rank, SkillId, StatId } from '../core/types';
 
-export const SAVE_VERSION = 20;
+export const SAVE_VERSION = 21; // 22夜目：魔防を足した
 
 /** 20夜目④：宿敵が味方になる・好敵手・密偵 */
 export const BONDS = {
@@ -28,6 +28,15 @@ export const BONDS = {
   heartLetter: 0.06, confessAfter: 2, heartConfess: 0.25,
   /** 宿敵が味方になる見込み：恩があるときの倍率と、縁だけでも味方になる見込み（年度末。気持ちを確かめ合ったあとは倍） */
   heartAllyMul: 2, heartAlly: 0.06,
+};
+
+/** 22夜目③：人望（魅力の代わり）。平静×割合＋先生への信頼×割合＋家柄＋二つ名（1つめ＋2つめからは少しずつ、数の上限つき）＋隠れた統率者 */
+export const RENOWN = {
+  calm: 0.35, trust: 0.35, house: { noble: 15, commoner: 5, orphan: 0 } as Record<string, number>,
+  epithet: 8, epithetMore: 4, epithetMax: 4, leader: 12,
+  words: ['まだ目立たない', '少しずつ慕われている', '頼りにされている', '人がついてくる', 'だれもが一目おく'],
+  /** 人望を使うところ：声かけの見込み（1あたり）・文官の出世（基準の人望からの差1あたり）・同盟での出世・向いている道（文官・将） */
+  offer: 0.004, civilPromote: 0.006, allianceMul: 0.004, promoteBase: 30, pathCivil: 4, pathWarrior: 2.4,
 };
 
 /** 20夜目：先生の兵種（教官 → 指揮官 → 軍師 → 名将）。在任の年数と、勝った宿敵戦の数で上がる。段階で号令の回数・見極めの深さが増える */
@@ -58,11 +67,15 @@ export const SKILLS: SkillId[] = ['sword', 'lance', 'axe', 'bow', 'magic', 'fait
 export const ARM_SKILLS: SkillId[] = ['sword', 'lance', 'axe', 'bow', 'magic', 'faith', 'riding', 'heavy', 'flying', 'gun'];
 /** 采配の技能（10夜目） */
 export const LEAD_SKILLS: SkillId[] = ['tactics', 'command'];
-export const STATS: StatId[] = ['hp', 'str', 'mag', 'skl', 'spd', 'def'];
+/** 22夜目：21夜目版のセーブの変換で、魔防を出す割合（魔力×割合 ＋ レベルの目安×のこり）・伸びやすさ（魔力の伸び×割合＋もと） */
+export const SAVE_RES = { magRate: 0.5, base: 5, perLevel: 0.33, growthMagRate: 0.5, growthBase: 15 };
+export const STATS: StatId[] = ['hp', 'str', 'mag', 'skl', 'spd', 'def', 'res'];
 
 export const B = {
   /** 20夜目④ */
   bonds: undefined as unknown as typeof BONDS,
+  /** 22夜目③ */
+  renown: undefined as unknown as typeof RENOWN,
   // ---- 最初の1時間の案内（14夜目） ----
   tutorial: {
     /** 1日目の授業の札の数（休講なし） */
@@ -138,7 +151,7 @@ export const B = {
     growthBase: [7, 30] as [number, number], // 9夜目まで（古いセーブの変換の目安）
     /** 10夜目：本人の成長率（風花雪月くらいの基準）。得意な能力50〜65・ふつう30〜45・苦手20〜30、HP40〜65。全能力の合計330〜420 */
     growthHigh: [50, 65] as [number, number], growthMid: [30, 40] as [number, number], growthLow: [20, 30] as [number, number], growthHp: [40, 65] as [number, number],
-    growthTotal: [330, 420] as [number, number],
+    growthTotal: [365, 460] as [number, number], // 22夜目：魔防を足したので 330〜420 → 365〜460
     hpGrowthBonus: 10,
     growthQuality: 4,           // 評判が高いほど成長率の高い子が来る（7夜目：8→4）          // HPの成長率は少し高め
     // 10夜目：成長率を上げたので、上限も上げる（30のままだと3年生の4分の3が頭打ちになった）
@@ -176,6 +189,7 @@ export const B = {
     expDamp: { base: 1.25, perLevel: 0.028, min: 0.3, max: 1.2 }, // レベルが上がるほど授業の経験値は少なく
     reveal: 0.5,                   // 才能の判明度（顔なし）
     trainPts: 12,                  // 鍛錬ゲージ（↑↑・顔なし）。100で能力+1
+    mindPts: 1.2, trustPts: 0.4,   // 22夜目④：礼法・外交の作法で育つ平静・信頼（↑↑・顔なし）
     trainFull: 100,
     naturalRecovery: 3, chapelRecovery: [0, 1, 2, 3],
     lowStamina: 40,                // 体力がこれ未満で「疲」（＝疲労60以上）
@@ -248,8 +262,8 @@ export const B = {
     },
     range: 2, maxPartners: 2,
     loveChance: 0.35,
-    /** 11夜目：学年の違う二人が支援Cになったとき、先輩と後輩になる見込み。先輩後輩のタッグは後輩だけ伸び（×tagMul）、先輩は魅力の鍛錬が少したまる */
-    senpaiChance: 0.6, senpaiChaTrain: 6,
+    /** 11夜目：学年の違う二人が支援Cになったとき、先輩と後輩になる見込み。先輩後輩のタッグは後輩だけ伸び（×tagMul）、先輩は平静が少し上がる（22夜目） */
+    senpaiChance: 0.6, /** 22夜目④：先輩後輩のタッグで、先輩の平静が上がる分（前は「技」の鍛錬＝魅力の代わり） */ senpaiCalm: 1.5,
     /** 11夜目：同じ授業のカードに顔が並んだ、学年の違う子どうしの支援 */
     crossFace: 3,
   },
@@ -302,7 +316,11 @@ export const B = {
     yearlyDecay: 0.08, decayFloor: 40, schoolDefenseWin: 3,
   },
   // ---- 試験 ----
-  exam: { baseRate: 60, perPoints: 5, max: 100, levelReq: [0, 0, 6, 14, 30] as number[], heroLevel: 25, /** 19夜目：中級は2年生（1年目の終わり）から、上級は3年生から。出撃の回数（宿敵戦は2回に数える） */ tier2Grade: 2, tier3Grade: 3, sorties: [0, 0, 3, 8, 15] as number[] }, // 段階ごとの受験レベル（7夜目：初級5・中級15・上級25・最上級（卒業後）45、英雄25）
+  exam: { baseRate: 60, perPoints: 5, max: 100, levelReq: [0, 0, 6, 14, 30] as number[], heroLevel: 25, /** 19夜目：中級は2年生（1年目の終わり）から、上級は3年生から。出撃の回数（宿敵戦は2回に数える） */ tier2Grade: 2, tier3Grade: 3, sorties: [0, 0, 3, 8, 15] as number[],
+    /** 22夜目：先生の勧め（枝分かれの先に足す点・兵種の伸びと本人の伸びやすさの合い方の重み）と、生徒の好み（夢・執念・ばらつき） */
+    recBranch: 1.0, recGrowthW: 0.0004, prefDream: 0.8, prefGrudge: 0.6, prefNoise: 0.6,
+    /** 22夜目：先生の勧めを聞く見込み（％）＝ もと＋信頼×割合。執念が強い子・負けず嫌い／気まぐれ／熱い子は下がる */
+    followBase: 60, followPerTrust: 0.4, followMin: 25, followMax: 97, followGrudge: 15, followStubborn: 10, grudgeAt: 70 }, // 段階ごとの受験レベル（7夜目：初級5・中級15・上級25・最上級（卒業後）45、英雄25）
   // ---- 戦闘 ----
   /** 19夜目：人の地図。教え子が領主になる役職の段階・見込み、大きな戦で将の力をどれだけ足すか */
   rulers: { alumniRank: 3, alumniChance: 0.5, generalWeight: 0.05, /** 評判で仲立ち・和平の席 */ mediateRep: 65, mediateChance: 0.3, mediateRel: 12, mediateTension: 6 },
@@ -395,7 +413,8 @@ export const B = {
   },
   // ---- 敵の強さ（7夜目：生徒の成長率を下げた分、敵の1レベルあたりの伸びも下げた。6夜目は hp .75 str .42 …、武器は Lv7・15 で持ち替え） ----
   enemy: {
-    growth: { hp: 0.5, str: 0.31, mag: 0.23, skl: 0.3, spd: 0.3, lck: 0.23, def: 0.25, res: 0.19, cha: 0.15 } as Record<string, number>,
+    // 22夜目：もう使っていない幸運・魅力をはずした（19夜目からの戦いの敵の強さは data/tactics.ts の ENEMY_BASE）
+    growth: { hp: 0.5, str: 0.31, mag: 0.23, skl: 0.3, spd: 0.3, def: 0.25, res: 0.19 } as Record<string, number>,
     weaponLv: [12, 26] as [number, number],
     // 8夜目「2ピン保証」：生徒のレベルアップは最低2つの能力が上がるので、敵の1レベルあたりの伸びも数値で同じだけ上げる
     pinMul: 1.22,
@@ -605,3 +624,4 @@ export const DIFFICULTY: Record<Difficulty, DifficultyMods> = {
 };
 
 B.bonds = BONDS;
+B.renown = RENOWN;

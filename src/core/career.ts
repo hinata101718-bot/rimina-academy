@@ -13,7 +13,8 @@ import type { GameState, Student, CareerInfo } from './state';
 import { Rng } from './rng';
 import { effectiveStats, chronicle, addFriendship, enrolled } from './game';
 import { addTrust } from './support';
-import { bestSkillOf, presence, cohortName } from './util';
+import { bestSkillOf, cohortName } from './util';
+import { renown } from './renown';
 import { fx } from './mentor';
 
 export type CareerChoice = CountryId | 'stay' | 'home' | 'merc';
@@ -21,13 +22,12 @@ export const CHOICE_NAMES: Record<CareerChoice, string> = {
   kingdom: '王国の軍', empire: '帝国の軍', alliance: '同盟の軍', stay: '学校に残る', home: '故郷に帰る', merc: '流れの傭兵',
 };
 
-/** 声かけ（演武会・実戦の活躍・兵種・魅力・友好度） */
+/** 声かけ（演武会・実戦の活躍・兵種・人望・友好度。22夜目：魅力→人望） */
 export function computeOffers(s: GameState, rng: Rng, st: Student): CountryId[] {
   const out = new Set<CountryId>(st.offers);
   const tier = CLASSES[st.classId]?.tier ?? 0;
-  const es = effectiveStats(st);
   for (const c of COUNTRIES) {
-    let p = B.career.offerBase + st.exhibitionScore * 0.03 + tier * 0.08 + presence(es) * 0.01 + s.world.friendship[c] * 0.004 + st.battles * 0.01;
+    let p = B.career.offerBase + st.exhibitionScore * 0.03 + tier * 0.08 + renown(st) * B.renown.offer + s.world.friendship[c] * 0.004 + st.battles * 0.01;
     if (COUNTRY_FAVOR_SKILLS[c].some((k) => (st.skills[k] ?? 0) >= 140)) p += 0.1;
     if (COUNTRY_FAVOR_HOUSE[c] && COUNTRY_FAVOR_HOUSE[c] === st.house) p += 0.1;
     if (st.origin === c) p += 0.15;
@@ -57,15 +57,15 @@ export function hopes(s: GameState, st: Student): CareerChoice[] {
   return (Object.keys(score) as CareerChoice[]).sort((a, b) => score[b] - score[a]);
 }
 
-/** 向いている道（10夜目：強さの2つの軸。采配＝統率→将・軍略→参謀、個の武→勇士、魅力→文官） */
+/** 向いている道（10夜目：強さの2つの軸。采配＝統率→将・軍略→参謀、個の武→勇士、人望→文官。22夜目：魅力→人望。家柄は人望に入っている） */
 export function pathScores(st: Student): Record<Path, number> {
   const e = effectiveStats(st);
   const cmd = st.skills.command ?? 0, tac = st.skills.tactics ?? 0;
   const arms = Math.max(...ARM_SKILLS.map((k) => st.skills[k] ?? 0));
   // 自分のいちばん高い武器の技能と比べる（采配の技能が武器に近いほど、将・参謀に向く）
   return {
-    civil: presence(e) * 10 + (st.house === 'noble' ? 30 : 0),
-    warrior: cmd * 3.5 + presence(e) * 6,
+    civil: renown(st) * B.renown.pathCivil,
+    warrior: cmd * 3.5 + renown(st) * B.renown.pathWarrior,
     strategist: tac * 3.5 + (e.skl + e.mag) * 1.5,
     champion: arms,
   };

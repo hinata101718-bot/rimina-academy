@@ -149,7 +149,7 @@ export function talentToApt(st: Student, rng: Rng, enrolled: boolean): void {
   const must: SkillId[] = [];
   if (t?.skill) must.push(t.skill);
   if (st.talent === 'strategist') must.push('tactics');
-  if (st.talent === 'leader') must.push('command');
+  if (st.talent === 'leader') { must.push('command'); st.bornLeader = true; }
   if (!st.apt) assignApt(st, rng, must);
   if (enrolled && !st.bud) assignBud(st, rng, st.talent === 'hero');
   if (st.talent === 'hero' && !enrolled) st.bud = { gold: true, reveal: 100, done: (CLASSES[st.classId]?.hidden ?? false) };
