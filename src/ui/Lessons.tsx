@@ -194,7 +194,8 @@ function LessonRows({ s, p, onNext, label }: { s: GameState; p: ResultP; onNext:
       {rows.map((r) => <ResultRow s={s} r={r} go={go} dur={dur} />)}
       {p.others > 0 && l?.group !== 'rest' && <div class="muted small" style={{ margin: '4px 2px' }}>ほかの{p.others}人も、少しずつ伸びました</div>}
       {p.lines.length > 0 && <ul class="list sumlist small">{p.lines.slice(0, 10).map((x) => <li>{x}</li>)}</ul>}
-      <button class="btn primary block" style={{ marginTop: 8 }} onClick={() => { sfx('ok'); onNext(); }}>{label}</button>
+      {/* 15夜目：人数が多い日も、スクロールせずに押せるよう下に固定 */}
+      <button class="btn primary block sticky-bottom" style={{ marginTop: 8 }} onClick={() => { sfx('ok'); onNext(); }}>{label}</button>
     </div>
   );
 }

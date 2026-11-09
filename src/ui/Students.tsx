@@ -356,7 +356,7 @@ function ExamSheet({ s, st, onClose }: { s: GameState; st: Student; onClose: () 
             <div class="small" style={{ marginTop: 4 }}><b>{CLASSES[st.classId].name} → {c.name}</b>に変わると</div>
             <ClassCompare from={CLASSES[st.classId]} to={c} />
             <div class="small muted">兵種が変わっても、これまでに伸びた分はそのまま残ります。<HelpTip text="「いるあいだ」の補正だけが、新しい兵種のものに入れ替わります。" /></div>
-            <button class={`btn block${ok && can ? ' primary' : ''}`} style={{ marginTop: 6 }} disabled={!ok || !can} onClick={() => { let ok = false; act((g) => { const r = takeExam(g, rng(g), g.students[st.id], c.id); ok = r.ok; setMsg(r.text); sfx(r.ok ? 'pass' : 'cancel'); }); if (ok) onClose(); }}>{ok ? `${c.name}になる` : '条件が足りません'}</button>
+            <button class={`btn block${ok && can ? ' primary' : ''}`} style={{ marginTop: 6 }} disabled={!ok || !can} onClick={() => { let ok = false; act((g) => { const from = CLASSES[g.students[st.id].classId]?.name ?? ''; const n0 = g.pending.length; const r = takeExam(g, rng(g), g.students[st.id], c.id); ok = r.ok; setMsg(r.text); sfx(r.ok ? 'pass' : 'cancel'); if (r.ok) { /* 15夜目：受かったら、そのまま兵種昇格の演出（2タップ） */ const item = { icon: 'exam', title: `${st.given}の兵種`, from, to: c.name, p0: 0.4, p1: 1, studentId: st.id, note: '兵種昇格！' }; const p0 = g.pending[n0]; if (p0 && p0.type === 'rankup') p0.items.unshift(item); else g.pending.push({ type: 'rankup', items: [item] }); } }); if (ok) onClose(); }}>{ok ? `${c.name}になる` : '条件が足りません'}</button>
           </div>
         );
       })}
