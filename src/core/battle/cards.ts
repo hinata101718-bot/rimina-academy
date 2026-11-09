@@ -187,16 +187,16 @@ export function initCards(s: GameState, b: BattleState, strats: StratId[]): void
   const ap = clamp(C().ap + Math.floor(Math.max(0, nMem - 4) / C().apPerMembers), C().ap, C().apMax);
   const L = b.auto?.leader;
   const foes = b.units.filter((u) => u.side === 'enemy' && !u.dead);
-  // 前に出る敵：敵将（勝利条件が敵将なら、はじめから前に）・卒業生・ほかは並び順
+  // 前に出る敵：卒業生・敵将（勝利条件が敵将のとき）・ほかは並び順
   const order = [...foes].sort((x, y) => rank(y) - rank(x));
-  function rank(u: Unit) { return (u.uid === L?.uid ? (b.objective === 'boss' || b.objective === 'seize' ? 3 : 0.5) : 0) + (u.persuadable ? 2 : 0) + (u.boss ? 1 : 0); }
+  // 敵将：勝利条件が敵将なら、はじめから前に。ほかの戦いでは、兵が倒れてから前に出てくる（16夜目の調整2）
+  function rank(u: Unit) { return (u.uid === L?.uid ? (b.objective === 'boss' || b.objective === 'seize' ? 3 : -1) : 0) + (u.persuadable ? 2 : 0) + (u.boss && u.uid !== L?.uid ? 1 : 0); }
   // 敵将は手ごわく（一撃で決着しないように）
   const lu = L ? b.units.find((u) => u.uid === L.uid) : null;
   if (lu && !lu.persuadable) { lu.maxHp = Math.round(lu.maxHp * C().leaderHp); lu.hp = lu.maxHp; }
   const fs = frontSize(nMem);
   const front = order.slice(0, fs).map((u) => u.uid);
   const reserve = order.slice(fs).map((u) => u.uid);
-  // 敵将がまだ控えにいるなら、前の端に（見えないまま決着しないように、名前は控えの一覧に）
   b.rng = r.h.rng;
   const cs: CardState = {
     cards, deck, hand: [], discard: [], ap, apBase: ap, handSize: C().hand + (ap - C().ap),

@@ -287,7 +287,7 @@ function FoeRow({ s, b, nameOf, leader, leaderColor, onTarget, hideIntent }: { s
           </button>
         );
       })}
-      {reserve > 0 && <span class="cb-reserve small">控え {reserve}人</span>}
+      {reserve > 0 && <span class="cb-reserve small">控え {reserve}人{leader && cs.reserve.includes(leader.uid) ? <><br />（敵将も後ろに）</> : null}</span>}
     </div>
   );
 }
@@ -322,7 +322,7 @@ function ResultLine({ s, b, l, nameOf, leader, leaderColor }: { s: GameState; b:
   void nameOf;
   return (
     <div class={`cb-line ${l.cls}`}>
-      {st && (l.cls.startsWith('ally') || l.cls === 'guard') && <span class="cb-lface"><Portrait st={st} size={22} /></span>}
+      {st && (l.cls.startsWith('ally') || l.cls === 'guard' || l.cls === 'say') && <span class="cb-lface"><Portrait st={st} size={22} /></span>}
       {isL && <span class="cb-lface"><OfficerFace o={leaderFace(leader)} size={22} frame={leaderColor} s={s} /></span>}
       {l.cls === 'strat' || l.cls === 'stratng' ? <span class={`rb-tag ${l.cls}`}>策</span> : null}
       <span>{l.text}</span>

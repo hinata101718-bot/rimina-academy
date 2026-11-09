@@ -1788,7 +1788,7 @@ details.fold > summary::-webkit-details-marker { display: none; }
 .art-tile.fixed { cursor: default; }
 
 /* ===== 16夜目：札の戦い（見本 battle-ideaA-cards.png） ===== */
-.cb-view { max-width: 640px; margin: 0 auto; min-height: 100vh; min-height: 100dvh; display: flex; flex-direction: column; gap: 8px; padding: calc(8px + env(safe-area-inset-top)) 10px calc(10px + env(safe-area-inset-bottom)); background: radial-gradient(ellipse at 50% 20%, #3b2a1c, #1c130c 75%); color: #f3e7cf; overflow-x: hidden; }
+.cb-view { max-width: 640px; margin: 0 auto; height: 100vh; height: 100dvh; overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; display: flex; flex-direction: column; gap: 8px; padding: calc(8px + env(safe-area-inset-top)) 10px calc(10px + env(safe-area-inset-bottom)); background: radial-gradient(ellipse at 50% 20%, #3b2a1c, #1c130c 75%); color: #f3e7cf; overflow-x: hidden; }
 .cb-head { gap: 6px; }
 .cb-title { font-size: 19px; color: #f3e7cf; letter-spacing: .04em; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .cb-chip { flex: none; font-size: 12px; font-weight: bold; padding: 3px 9px; border-radius: 6px; background: linear-gradient(#e3c06a, #b88a32); color: #2a1a0a; white-space: nowrap; }
@@ -1844,7 +1844,7 @@ details.fold > summary::-webkit-details-marker { display: none; }
 .cb-btns .btn { min-height: 44px; background: #3a2a1c; color: #f3e7cf; border: 1px solid #8a6a3a; }
 .cb-go { min-height: 52px !important; font-size: 17px; background: linear-gradient(#c0452f, #8f2a1a) !important; color: #fff !important; border: 2px solid #e8c45a !important; font-family: var(--mincho); letter-spacing: .1em; }
 .cb-go:disabled { opacity: .5; }
-.cb-view > .cb-go { margin-top: auto; }
+.cb-view > .cb-go { margin-top: auto; position: sticky; bottom: calc(8px + env(safe-area-inset-bottom)); z-index: 3; box-shadow: 0 -6px 14px rgba(28, 19, 12, .9); }
 .cb-log { background: #120c08; border: 3px double #e8dcc0; border-radius: 10px; padding: 10px 12px; display: flex; flex-direction: column; gap: 6px; min-height: 120px; position: relative; }
 .cb-log.scene { gap: 8px; }
 .cb-line { display: flex; align-items: center; gap: 6px; font-size: 15px; line-height: 1.5; color: #f3e7cf; animation: abIn .25s both; }
@@ -1874,3 +1874,5 @@ details.fold > summary::-webkit-details-marker { display: none; }
   .cb-cname { font-size: 14px; }
   .cb-title { font-size: 17px; }
 }
+.cb-view > * { flex-shrink: 0; }
+.cb-line.say { color: #f3e7cf; } .cb-line.event { color: #ffe39a; }

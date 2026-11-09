@@ -1311,8 +1311,15 @@ export function playCardTurn(s: GameState, ids: string[], target: string | undef
       rec.lines.push({ cls: 'strat', text: `${Lc.name}が倒れ、敵の兵が崩れ出した！` });
     }
   }
-  // 戦いで目立った一般兵が名を得る
+  // 戦いの最中の出来事（伸び盛り・負けん気・芽の兆し・恋人・好敵手・息の合った連携など）：1ターン目と3ターン目のあと
   b.rng = r.h.rng;
+  if ((rec.turn === 1 || rec.turn === 3) && b.phase !== 'done') {
+    for (const l of takeEvent(s, b, r, 'mid')) {
+      const st = s.students[l.by];
+      rec.lines.push(st ? { cls: 'say', text: `${st.given}「${l.text}」`, a: b.units.find((u) => u.studentId === st.id)?.uid } : { cls: 'event', text: l.text });
+    }
+  }
+  // 戦いで目立った一般兵が名を得る
   for (const l of raiseGrunts(s, b, r, q, false)) rec.lines.push({ cls: 'raise', text: l.text });
   b.feed = (b.feed ?? []).filter((f) => f.t === 'heal');
   b.rng = r.h.rng;
