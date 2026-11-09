@@ -3,6 +3,24 @@ import type { Rank, SkillId, StatId } from '../core/types';
 
 export const SAVE_VERSION = 20;
 
+/** 20夜目④：宿敵が味方になる・好敵手・密偵 */
+export const BONDS = {
+  /** 宿敵戦に勝ち、宿敵が生きて退いたとき、止めを刺さなかった恩が残る見込み */
+  debtChance: 0.25,
+  /** 年度末：恩のある宿敵が味方になる見込み・屈辱がこれだけ重なった宿敵が国に裏切られて味方になる見込み */
+  allyDebt: 0.3, betrayShame: 3, allyBetrayed: 0.12,
+  /** 味方の宿敵が戦場に駆けつける見込み（本物の依頼）。この年になると来なくなる */
+  allyHelp: 0.3, allyMaxAge: 62,
+  /** 好敵手：これだけ戦った相手と、宿敵戦のあとにこの見込みで決着を約束する。約束した子は、その宿敵への傷+ */
+  oathBattles: 2, oathChance: 0.3, oathDmg: 2,
+  /** 密偵：見つからない見込み（％）＝ もと＋密偵の系統＋（速さ＋技）×割合（上限つき）。見つかったとき捕らわれる見込み・捕らわれる週 */
+  spyBase: 45, spyDagger: 20, spyPerStat: 0.8, spyStatMax: 25, spyCaught: 0.5, captiveWeeks: 6,
+  /** 密偵として同じ宿敵に（3年のうちに）これだけ入りこめたら、偽の知らせで失脚させることがある */
+  toppleAfter: 3, toppleChance: 0.3,
+  /** おまかせで密偵を送る見込み（月ごと） */
+  autoSpy: 0.5,
+};
+
 /** 20夜目：先生の兵種（教官 → 指揮官 → 軍師 → 名将）。在任の年数と、勝った宿敵戦の数で上がる。段階で号令の回数・見極めの深さが増える */
 export const TEACHER_RANK = {
   names: ['教官', '指揮官', '軍師', '名将'],
@@ -34,6 +52,8 @@ export const LEAD_SKILLS: SkillId[] = ['tactics', 'command'];
 export const STATS: StatId[] = ['hp', 'str', 'mag', 'skl', 'spd', 'def'];
 
 export const B = {
+  /** 20夜目④ */
+  bonds: undefined as unknown as typeof BONDS,
   // ---- 最初の1時間の案内（14夜目） ----
   tutorial: {
     /** 1日目の授業の札の数（休講なし） */
@@ -278,7 +298,7 @@ export const B = {
   /** 19夜目：人の地図。教え子が領主になる役職の段階・見込み、大きな戦で将の力をどれだけ足すか */
   rulers: { alumniRank: 3, alumniChance: 0.5, generalWeight: 0.05, /** 評判で仲立ち・和平の席 */ mediateRep: 65, mediateChance: 0.3, mediateRel: 12, mediateTension: 6 },
   /** 19夜目⑧：長い時間。蘇り（死んだと思われた者が1年に戻る見込み・呪いで蘇る見込み）・捕らわれて生きていた教え子・追放・二代目・先生がさらわれる・敵に回る教え子 */
-  long: { revive: 0.25, curse: 0.03, captured: 0.2, exileShame: 3, exile: 0.25, heir: 0.35, teacherCaptured: 0.2, teacherReturn: [3, 6] as [number, number], turnMax: 4, turnBase: 0.5, turnPerDistrust: 0.01, turnForced: 0.3 },
+  long: { revive: 0.25, curse: 0.03, captured: 0.2, exileShame: 3, exile: 0.25, heir: 0.35, teacherCaptured: 0.07, /** 20夜目：おまかせで先生が引退する年 */ autoRetireAge: 60, /** 20夜目：故郷へ帰った子・傭兵になった子が宿敵の陣に加わる見込み（軍に入った子の何倍か） */ turnHomeMul: 0.6, turnMercMul: 1.2, teacherReturn: [3, 6] as [number, number], turnMax: 4, turnBase: 0.5, turnPerDistrust: 0.01, turnForced: 0.3 },
   /** 19夜目：入学の希望者（10人ほど＋評判25ごとに1人）・仇討ちの子が来る見込み */
   admission: { base: 10, perRep: 25, avenger: 0.3 },
   /** 19夜目：全盛期と衰え（年齢）：伸び盛り〜27歳、28〜34歳は伸びが0.6倍、35〜44歳は0.3倍、45歳から伸びなくなり、毎年少しずつ衰える */
@@ -423,9 +443,9 @@ export const B = {
     lowCommandAt: 50, lowCommandFail: 0.12, championDeed: 0.18,
     promoteBase: 0.25,
     promoteLevel: 22, // 昇進のしやすさの基準のレベル（7夜目：卒業時のレベルが上がったので 15→22）
-    tier4Level: 40,
+    tier4Level: 45,
     /** 20夜目：卒業後の戦いで、最上級の条件の出来事を成し遂げる見込みの倍率（data/deeds の odds に掛ける） */
-    deedMul: 1,
+    deedMul: 0.6,
   },
   // ---- 戦況 ----
   world: {
@@ -455,12 +475,13 @@ export const B = {
       neutralDefenseChance: 0.12, // 中立宣言の条件が防衛戦以外そろっているとき、激戦期でなくても学校が狙われる（毎月）
       peaceRel: 0,
       peaceTension: 45,             // 関係がすべて0以上で、緊張度がこれ未満なら和平会議が開かれやすい
-      peaceChance: 0.3,
+      peaceChance: 0.22, // 20夜目：0.3→0.22
       diplomatTalksTension: 62,     // 教え子の大使が二国以上にいれば、戦争中でなければ会議を呼びかけられる
       diplomatTalksChance: 0.02,
       peaceCooldown: 30,
       peaceBaseRel: 6, peacePerAmbassador: 3,
       roundTableRel: 25,            // 和平の円卓での関係の改善
+      roundTableTalks: 3,           // 20夜目：和平の円卓は、それまでに和平会議がこの回数開かれてから
       diplomatAmbitionDamp: 0.25,   // 帝国の大使の教え子1人ごとに、帝国の野心を弱める割合
     },
     alumniAppear: { peace: 0.08, tension: 0.18, war: 0.3 },
@@ -490,9 +511,9 @@ export const B = {
   ending: {
     unifyYears: 2,               // 一国の国力が他の二国の合計を上回る状態が2年続く
     /** 19夜目：最初の戦争のエンディングは、この年から（和平の大成功などの早い道でも） */
-    minYear: 17,
-    ceasefireWarYears: 11, // 19夜目：8→11（最初のエンディングを20〜30年目に）        // 戦いの疲れ（激戦期1年=1、緊張期1年=0.5、平和期は−1）が8年分
-    ceasefirePower: 35,          // 三国すべての国力が35以下
+    minYear: 21, // 20夜目：17→21
+    ceasefireWarYears: 13, // 19夜目：8→11、20夜目：11→13（最初のエンディングを20〜30年目に）        // 戦いの疲れ（激戦期1年=1、緊張期1年=0.5、平和期は−1）が8年分
+    ceasefirePower: 32,          // 三国すべての国力が32以下（20夜目：35→32）
     neutralRep: 90, neutralGrads: 100, neutralFriendship: 60, // 学校の中立宣言（4夜目にゆるめた）
     neutralBalance: 1.15, neutralAlumniMin: 10, // 三国にいる教え子の数が釣り合っている（多い国が少ない国の1.15倍まで・各国10人以上）
     neutralRevealRep: 70,        // 評判70になるまで、戦況タブの「中立宣言への道」は「？？？」
@@ -573,3 +594,5 @@ export const DIFFICULTY: Record<Difficulty, DifficultyMods> = {
   normal: { enemy: 1, exp: 1, money: 1, death: 1, reveal: 1, war: 1, skill: 1 },
   hard: { enemy: 1.15, exp: 0.85, money: 0.85, death: 1.3, reveal: 0.8, war: 1.2, skill: 0.85 },
 };
+
+B.bonds = BONDS;

@@ -20,14 +20,26 @@ function bestFor(b: TBattle, u: TUnit, noDeath: boolean): Plan | null {
   }
   if (u.potion && u.hp < u.max * 0.4) consider(30, () => usePotion(b, u.uid));
   // 宿敵戦：深手の子は、宿敵の届かない場所へ下がる（命の危険を読んで避ける）
-  const nem = b.nemesisId ? foes(b).find((f) => f.nemesis && f.broken === 0) : null;
-  if (nem && !u.teacher && u.hp <= u.max * 0.6) {
-    const R = reach(b, u);
-    let safe: { x: number; y: number; d: number } | null = null;
-    for (const k of Object.keys(R)) { const [x, y] = k.split('-').map(Number); const d = Math.abs(nem.x - x) + Math.abs(nem.y - y); if (!safe || d > safe.d) safe = { x, y, d }; }
+  // 20夜目：宿敵の一撃で倒れる子（命の危険）は、攻撃よりも先に下がる。届かない場所がなければ、なるべく遠く・仲間のかげへ
+  const nem = b.nemesisId ? foes(b).find((f) => f.nemesis && f.broken <= 1 && !f.fleeing) : null;
+  if (nem && !u.teacher && !u.raised && !u.helper) {
+    const hit = calc(b, nem, u, null, { rage: true }).total;
+    const danger = hit >= u.hp || u.hp <= u.max * 0.6;
     const reachN = nem.mov + nem.rmax;
     const now = Math.abs(nem.x - u.x) + Math.abs(nem.y - u.y);
-    if (safe && now <= reachN) consider(safe.d > reachN ? 60 : 26, () => moveOnly(b, u.uid, safe!.x, safe!.y));
+    if (danger && now <= reachN + 1) {
+      if (u.potion && hit >= u.hp && u.hp + TB.potionHeal > hit) consider(85, () => usePotion(b, u.uid));
+      const R = reach(b, u);
+      let safe: { x: number; y: number; sc: number; d: number } | null = null;
+      for (const [k, st] of Object.entries(R)) {
+        const [x, y] = k.split('-').map(Number);
+        const d = Math.abs(nem.x - x) + Math.abs(nem.y - y);
+        const guarded = mine(b).some((m) => m !== u && m.alive && (m.traits?.includes('guard') ?? false) && Math.abs(m.x - x) + Math.abs(m.y - y) === 1);
+        const sc = (d > reachN ? 100 : d * 6) + (guarded ? 40 : 0) - threatAt(b, u, x, y) * 0.5 - st * 0.1;
+        if (!safe || sc > safe.sc) safe = { x, y, sc, d };
+      }
+      if (safe) consider(hit >= u.hp ? (safe.d > reachN ? 95 : 70) : safe.d > reachN ? 60 : 26, () => moveOnly(b, u.uid, safe!.x, safe!.y));
+    }
   }
   for (const h of healsOf(u)) {
     for (const o of mine(b)) {

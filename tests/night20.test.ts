@@ -191,3 +191,66 @@ describe('20夜目②：先生の兵種（教官 → 指揮官 → 軍師 → �
     expect(TEACHER_RANK.command[3]).toBeGreaterThan(TEACHER_RANK.command[0]);
   });
 });
+
+import { makeAlly, allies, maybeOath, sendSpy, spyReady, spyChance } from '../src/core/bonds';
+import { officers, ensureRivalry } from '../src/core/officers';
+import { memoryOf } from '../src/core/nemesis';
+import { endingReady } from '../src/core/ending';
+import { B } from '../src/data/balance';
+
+function withNemesis() {
+  const s = newGame({ name: 'テスト', background: 'knight', seed: 9, opening: false });
+  autoYears(s, 1);
+  const o = officers(s).find((x) => x.status === 'active' && x.kind !== 'monster' && !x.alumniId)!;
+  const st = Object.values(s.students).find((x) => x.status === 'enrolled')!;
+  const rv = ensureRivalry(s, st.id, o.id); rv.stage = 2; rv.battles = 3;
+  return { s, o, st, rv };
+}
+
+describe('20夜目④：宿敵が味方になる・好敵手・密偵', () => {
+  it('恩のある宿敵が味方になる。場面が出て、援軍として戦場に来られる', () => {
+    const { s, o, st } = withNemesis();
+    memoryOf(o).debts.push({ id: st.id, text: '止めを刺さなかった', year: s.year });
+    makeAlly(s, o, 'debt');
+    expect(o.allied?.why).toBe('debt');
+    expect(o.status).toBe('retired');
+    expect(allies(s).map((x) => x.id)).toContain(o.id);
+    expect(s.pending.some((p) => p.type === 'nemesis' && p.kind === 'ally')).toBe(true);
+    expect(s.rivalries![`${st.id}|${o.id}`].settled).toBe('ally');
+  });
+  it('好敵手：たがいに名を呼び合い、決着を約束する（ひとりの宿敵に1人だけ）', () => {
+    const { s, o, st, rv } = withNemesis();
+    o.heart = 'steady';
+    let t: string | null = null;
+    for (let i = 0; i < 40 && !t; i++) t = maybeOath(s, o, st.id, new Rng({ rng: i + 1 }));
+    expect(t).toBeTruthy();
+    expect(rv.oath).toBeTruthy();
+    expect(o.grudge).toBe(st.id);
+    expect(s.pending.some((p) => p.type === 'nemesis' && p.kind === 'rival' && p.text.some((x) => x.includes(st.given)))).toBe(true);
+  });
+  it('密偵：月に1回。弱点・性格・次の動きが分かるか、見つかると捕らわれる', () => {
+    const { s, o, st } = withNemesis();
+    st.injuredWeeks = 0; st.sickWeeks = 0;
+    expect(spyReady(s)).toBe(true);
+    expect(spyChance(s, st, o)).toBeGreaterThan(0);
+    const r = sendSpy(s, st.id, o.id, new Rng({ rng: 4 }));
+    expect(spyReady(s)).toBe(false);
+    expect(r.lines.length).toBeGreaterThan(0);
+    if (r.ok) expect(r.lines.some((x) => x.startsWith('次の動き'))).toBe(true);
+    if (r.caught) expect(s.spyCaptive?.sid).toBe(st.id);
+    expect(s.pending.some((p) => p.type === 'nemesis' && p.kind === 'spy')).toBe(true);
+    // 2回目は同じ月には送れない
+    expect(sendSpy(s, st.id, o.id, new Rng({ rng: 5 })).ok).toBe(false);
+  });
+});
+
+describe('20夜目③：数字の調整', () => {
+  it('最初の戦争は21年目より前には終わらない', () => {
+    const s = newGame({ name: 'テスト', background: 'knight', seed: 3 });
+    s.world.peaceRoundYear = 5; s.year = 20;
+    expect(endingReady(s, 'year')).toBeNull();
+    s.year = 21;
+    expect(endingReady(s, 'year')?.kind).toBe('peace');
+    expect(B.ending.minYear).toBe(21);
+  });
+});

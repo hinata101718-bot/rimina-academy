@@ -11,7 +11,7 @@ export interface DeedDef {
   alumni: string[];
 }
 export const DEEDS: Record<string, DeedDef> = {
-  unhurt: { id: 'unhurt', kind: 'count', odds: 0.7, alumni: ['この年の戦も、傷ひとつ負わずに戦い抜いた'] },
+  unhurt: { id: 'unhurt', kind: 'count', odds: 0.4, alumni: ['この年の戦も、傷ひとつ負わずに戦い抜いた'] },
   overcome: { id: 'overcome', kind: 'nemesis', odds: 0.06, alumni: ['弱点を克服した敵の名将を、一騎打ちで退けた'] },
   turnTide: { id: 'turnTide', kind: 'war', odds: 0.1, alumni: ['{a}の負け戦を、ただひとりの突撃でひっくり返した', '総崩れの{a}軍の先頭に立ち、戦の流れを変えた'] },
   skyChase: { id: 'skyChase', kind: 'nemesis', odds: 0.06, alumni: ['逃げる敵の名将を空から追いつめた'] },

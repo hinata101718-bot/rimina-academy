@@ -34,7 +34,8 @@ export function addBattleDeeds(b: TBattle, u: TUnit, st: Student, win: boolean, 
   const hitBoss = !!bossU && (bossU.hitBy?.[st.id] ?? 0) > 0;
   const kids = b.units.filter((x) => x.side === 'me' && x.studentId && !x.teacher && !x.raised);
   if (!win) { if (b.nemesisId && u.alive && b.objective === 'escape') add('outwit'); return; }
-  if (b.real && u.alive && u.taken === 0) add('unhurt');
+  // 傷を負わない戦：宿敵戦か、危ない依頼（危険度2以上）だけを数える
+  if (b.real && u.alive && u.taken === 0 && (b.nemesisId || (b.foes0 >= 5))) add('unhurt');
   if (b.nemesisId && bossU && bossU.resist.length > 0 && hitBoss) add('overcome');
   if (b.objective === 'defend' && hitBoss) add('holdGeneral');
   if (b.field === 'fort' && u.usedFire) add('burnFort');
@@ -155,6 +156,14 @@ export function applyTactics(s: GameState, b: TBattle, r: Rng): TacticsOutcome {
         if (!q.small) { seedHelp(s, q.clientCountry); lines.push(...questWorldEffect(s, q.clientCountry, q.enemyCountry, true)); }
         const rg = questRegionResult(s, q, true, r); if (rg) lines.push(rg);
       } else { const lose = B.reputation.questLose; addRep(s, lose); lines.push(`依頼は失敗。評判${lose}`); const rg = questRegionResult(s, q, false, r); if (rg) lines.push(rg); }
+    }
+  }
+  // 20夜目④：捕らわれた密偵を救い出す戦い
+  if (q?.spyRescue) {
+    const st = s.students[q.spyRescue];
+    if (st) {
+      if (win) { st.injuredWeeks = Math.min(st.injuredWeeks, 1); lines.push(`${st.given}を救い出した！`); st.history.push({ year: s.year, text: '捕らわれていたところを、仲間に救い出された' }); }
+      else { lines.push(`${st.given}を救い出せなかった……。しばらくして、${st.given}はやせ細って自力で逃げ帰ってきた`); st.injuredWeeks = Math.max(st.injuredWeeks, 3); }
     }
   }
   // 先生が倒れた：負け（宿敵戦では、さらわれる危険も＝⑧）

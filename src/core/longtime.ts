@@ -11,6 +11,7 @@ import { memoryOf, setEpithet, pushReunion, reunionLines, moveMind } from './nem
 import { chronicle, mail, notify, enrolled } from './game';
 import { decline } from './growth';
 import { retireInstructor } from './instructor';
+import { makeAlly, yearlyAllies } from './bonds';
 
 /** 年度末にまとめて */
 export function yearlyLong(s: GameState, r: Rng, report: string[]): void {
@@ -41,6 +42,9 @@ export function yearlyLong(s: GameState, r: Rng, report: string[]): void {
     if (o.status !== 'active' || o.kind === 'monster' || o.alumniId) continue;
     const m = memoryOf(o);
     if (m.shame.length >= L.exileShame && o.faction !== 'bandit' && r.chance(L.exile)) {
+      // 20夜目④：国に追われた宿敵が、正面から戦い続けた学校の味方になることがある
+      const bondedNow = Object.values(s.rivalries ?? {}).some((rv) => rv.oid === o.id && !rv.settled && rv.stage >= 1);
+      if (bondedNow && o.heart !== 'mad' && r.chance(0.5)) { makeAlly(s, o, 'betrayed', report); continue; }
       const from = FACTION_NAMES[o.faction];
       o.faction = 'bandit'; o.kind = 'bandit'; o.country = null; o.rank = 2; o.heart = 'fallen';
       const ep = setEpithet(s, o, r.pick(EPITHET_WORDS.fallen), `${from}を追われた`);
@@ -63,6 +67,8 @@ export function yearlyLong(s: GameState, r: Rng, report: string[]): void {
     chronicle(s, t, 'world'); report.push(t);
     mail(s, '旅の行商人', `うわさ：${h.given}`, t, killer, false);
   }
+  // ---- 20夜目④：恩のある宿敵・国に裏切られた宿敵が、味方になる ----
+  yearlyAllies(s, r, report);
   // ---- 全盛期と衰え（卒業生） ----
   for (const st of Object.values(s.students)) if (st.status === 'graduated' && st.career?.alive) decline(st, r);
   // ---- 敵に回る教え子（育て方しだい：信頼・進路の勧め・故郷の事情） ----
@@ -83,23 +89,33 @@ export function revive(s: GameState, r: Rng, o: EnemyOfficer, why: string, curse
   pushReunion(s, o, ids, 'revived', [t, ...reunionLines(s, o)]);
 }
 
-/** 卒業生が敵の将になる（1学年に1人くらい。信頼が低く、勧めを振り切った子・故郷が戦争中の子ほど） */
+/** 卒業生が敵の将になる（1学年に1人くらい。信頼が低く、勧めを振り切った子・故郷が戦争中の子ほど）
+ *  20夜目：軍に入った子だけでなく、故郷へ帰った子・傭兵になった子も、宿敵の陣に加わることがある */
 function turnAlumni(s: GameState, r: Rng, report: string[]): void {
   const L = B.long;
-  const cands = Object.values(s.students).filter((st) => st.status === 'graduated' && st.career?.alive && !st.career.retired && st.career.kind === 'army' && st.career.country && !officers(s).some((o) => o.alumniId === st.id) && s.year - (st.enrollYear + 3) <= 4);
+  const bonded = Object.values(s.rivalries ?? {}).map((rv) => officers(s).find((o) => o.id === rv.oid)).filter((o): o is EnemyOfficer => !!o && o.status === 'active' && !!o.country && !o.alumniId && !o.allied);
+  const cands = Object.values(s.students).filter((st) => st.status === 'graduated' && st.career?.alive && !st.career.retired && !st.career.instructor && ['army', 'home', 'merc'].includes(st.career.kind) && !officers(s).some((o) => o.alumniId === st.id) && s.year - (st.enrollYear + 3) <= 4);
   for (const st of cands) {
-    const c = st.career!.country as CountryId;
+    const k = st.career!.kind;
+    // 軍に入った子はその国、故郷へ帰った子は故郷の国、傭兵は宿敵の陣（因縁のある宿敵の国）に
+    const home = st.origin !== 'frontier' ? (st.origin as CountryId) : null;
+    const nem = bonded.length ? r.pick(bonded) : null;
+    const c = (k === 'army' ? st.career!.country : k === 'home' ? home ?? nem?.country : nem?.country ?? home) as CountryId | null;
+    if (!c) continue;
     if (activeOf(s, c).filter((o) => o.alumniId).length >= L.turnMax) continue;
     const forced = st.history.some((h) => h.text.includes('勧めを振り切'));
-    const p = L.turnBase + Math.max(0, 50 - st.trust) * L.turnPerDistrust + (forced ? L.turnForced : 0) + (st.betraySign ?? 0) * 0.05 - (st.trust >= 80 ? 0.08 : 0);
+    const mul = k === 'army' ? 1 : k === 'home' ? L.turnHomeMul : L.turnMercMul;
+    const p = (L.turnBase + Math.max(0, 50 - st.trust) * L.turnPerDistrust + (forced ? L.turnForced : 0) + (st.betraySign ?? 0) * 0.05 - (st.trust >= 80 ? 0.08 : 0)) * mul;
     if (!r.chance(Math.max(0, p))) continue;
     const o = alumniOfficer(s, st, c, Math.max(0, 2 - Math.floor(st.career!.rank / 2)));
     officers(s).push(o);
-    const t = `卒業生の${st.given}が、${COUNTRY_SHORT[c]}の将として学校の前に立ちはだかる`;
-    st.history.push({ year: s.year, text: `${COUNTRY_SHORT[c]}の将として、学校と刃を交える道へ` });
+    const why = k === 'army' ? `${COUNTRY_SHORT[c]}の将として` : k === 'home' ? `故郷の${COUNTRY_SHORT[c]}の兵を率いて` : `${nem && nem.country === c ? `${officerName(nem)}の陣に雇われ、` : `${COUNTRY_SHORT[c]}に雇われ、`}傭兵の将として`;
+    if (k !== 'army') { st.career!.kind = 'army'; st.career!.country = c; st.career!.path = 'warrior'; }
+    const t = `卒業生の${st.given}が、${why}学校の前に立ちはだかる`;
+    st.history.push({ year: s.year, text: `${why}、学校と刃を交える道へ` });
     chronicle(s, t, 'student'); report.push(t); notify(s, t, st.id);
     // 同級生との因縁（敵国の友・裏切った同級生）
-    for (const k of enrolled(s).concat(Object.values(s.students).filter((x) => x.status === 'graduated' && x.cohort === st.cohort))) if (k.id !== st.id && k.cohort === st.cohort) ensureRivalry(s, k.id, o.id);
+    for (const kk of enrolled(s).concat(Object.values(s.students).filter((x) => x.status === 'graduated' && x.cohort === st.cohort))) if (kk.id !== st.id && kk.cohort === st.cohort) ensureRivalry(s, kk.id, o.id);
   }
 }
 

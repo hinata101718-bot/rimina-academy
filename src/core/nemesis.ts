@@ -4,10 +4,11 @@ import { ATK_NAME, ATK_TYPES, type AtkType } from '../data/tactics';
 import { CLASSES } from '../data/classes';
 import { FACTION_NAMES } from '../data/officers';
 import type { LeaderPersonality } from '../data/autobattle';
-import type { GameState, EnemyOfficer, OfficerCard, OfficerMemory, BattleFinding, Student } from './state';
+import type { GameState, EnemyOfficer, OfficerCard, OfficerMemory, BattleFinding, Student, Quest } from './state';
 import type { TBattle, TUnit } from './tactics/types';
 import { Rng } from './rng';
 import { officers, officerById, officerName, rankName, ensureRivalry, stageFor, stageName, voice, whenText, activeOf, headOf } from './officers';
+import { maybeDebt, maybeOath } from './bonds';
 import { chronicle, mail } from './game';
 import { clamp } from './util';
 import { B } from '../data/balance';
@@ -268,6 +269,13 @@ export function afterTactics(s: GameState, b: TBattle, r: Rng, lines: string[]):
       m.shame.push({ text: `「${b.title}」で学校の${s.students[top]?.given}に退けられた`, year: s.year });
       const ks = s.students[top];
       if (ks && b.nemesisId === o.id && fled) { const ep = studentEpithet(s, ks, 'repel', o.given, r); if (ep) { lines.push(ep); out.push({ id: ks.id, icon: 'star', text: ep }); } }
+      // 20夜目④：止めを刺さなかった恩・好敵手の約束（宿敵戦で、宿敵が生きて退いたとき）
+      if (b.nemesisId === o.id && fled) {
+        const dt = (bu.brokenBy ?? []).length ? maybeDebt(s, o, top, r) : null;
+        if (dt) { lines.push(dt); out.push({ id: top, icon: 'lantern', text: dt }); }
+        const ot = maybeOath(s, o, top, r);
+        if (ot) { lines.push(ot); out.push({ id: top, icon: 'flame', text: ot }); }
+      }
       if (r.chance(NEM.heartChange)) { o.heart = r.pick(m.shame.length >= 2 ? ['mad', 'careful'] as const : ['careful', 'steady', 'mad'] as const); }
       if (o.meets.length >= 3 && r.chance(0.5)) { const ep = setEpithet(s, o, EPITHET_WORDS.again[Math.min(EPITHET_WORDS.again.length - 1, o.meets.length - 2)] ?? '不死身の', `${o.meets.length}度目の再会を生きのびた`); if (ep) { lines.push(ep); } }
       o.level += NEM.levelPerMeet;
@@ -336,7 +344,7 @@ export function nemesisLetter(s: GameState, o: EnemyOfficer, kind: 'challenge' |
 }
 
 /** 再会の札（昔と今）を出す */
-export function pushReunion(s: GameState, o: EnemyOfficer, ids: string[], kind: 'reunion' | 'rumor' | 'first' | 'revived' | 'letter', text: string[]): void {
+export function pushReunion(s: GameState, o: EnemyOfficer, ids: string[], kind: 'reunion' | 'rumor' | 'first' | 'revived' | 'letter' | 'ally' | 'rival' | 'spy', text: string[]): void {
   s.pending.push({ type: 'nemesis', officerId: o.id, studentIds: ids, kind, text });
 }
 
@@ -397,6 +405,20 @@ export function nemesisMonth(s: GameState, r: Rng): void {
     if (o.lastMet) lines.push(`最後に会ったのは${whenText(s, o.lastMet.year, o.lastMet.month)}。`);
     pushReunion(s, o, rushBy ? [rushBy, ...ids.filter((x) => x !== rushBy)] : ids, o.revived && o.reviveNote && !o.presumed ? 'revived' : 'reunion', lines);
   };
+  // 20夜目④：捕らわれた密偵を救い出す（断れない）
+  if (s.spyCaptive) {
+    const sc = s.spyCaptive; s.spyCaptive = undefined;
+    const o = officerById(s, sc.oid), st = s.students[sc.sid];
+    if (st && o && o.status === 'active' && st.status === 'enrolled') {
+      if (s.nextNemesis === o.id) s.nextNemesis = undefined;
+      nemesisField(o, r);
+      const q: Quest = { id: `q${s.nextId++}`, kind: 'rescue', title: `${st.given}を救い出せ`, client: '学校', clientCountry: null, enemyCountry: o.country, objective: 'rescue', template: 'field', level: Math.max(1, o.level - 2), reward: 200, danger: 2, weather: 'clear', real: true, nemesisId: o.id, nemesisKind: 'quest', mustGo: true, spyRescue: st.id };
+      s.quests.unshift(q);
+      pushReunion(s, o, [st.id], 'reunion', [`${officerName(o)}の陣に、${st.given}が捕らわれている。`, voice(`ねずみが一匹、迷いこんできた。返してほしければ、取りに来い`, o), ...reunionLines(s, o)]);
+      return;
+    }
+    if (st) st.injuredWeeks = Math.min(st.injuredWeeks, 1);
+  }
   // 勝手に向かう子
   for (const rv of Object.values(s.rivalries ?? {})) {
     const st = s.students[rv.sid];

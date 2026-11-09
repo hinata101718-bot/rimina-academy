@@ -199,7 +199,7 @@ export function majorEvents(s: GameState, rng: Rng, yearEnd: boolean): string[] 
   if ((calm || byDiplomats) && cd(s, 'peace') && rng.chance(calm ? E.peaceChance : E.diplomatTalksChance)) {
     setCd(s, 'peace', E.peaceCooldown);
     w.peaceTalksHeld += 1;
-    const round = ambassadors.length === 3 && !w.vassal && calm && !w.peaceRoundYear;
+    const round = ambassadors.length === 3 && !w.vassal && calm && !w.peaceRoundYear && w.peaceTalksHeld > E.roundTableTalks;
     for (const p of PAIRS) addRel(s, p.key, E.peaceBaseRel + ambassadors.length * E.peacePerAmbassador + (round ? E.roundTableRel : 0));
     const names = ambassadors.map((c) => activeAlumni(s, c).filter((st) => st.career!.path === 'civil' && st.career!.rank >= 2).map((st) => st.given)[0]).filter(Boolean);
     if (round) {

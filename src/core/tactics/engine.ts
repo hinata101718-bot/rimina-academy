@@ -183,7 +183,7 @@ export function calc(b: TBattle, a: TUnit, d: TUnit, techId?: string | null, opt
   const brk = !broken && shields > 0 && d.sh - shields <= 0 && d.hp - total > 0;
   const kill = total >= d.hp && !(d.nemesis && !d.clung && !broken);
   // 命の危険：宿敵のとどめ（すでに深手を負った子への、宿敵その人の倒れる一撃）だけ
-  const lethal = a.side === 'foe' && total >= d.hp && d.hp <= d.max * TB.lethalHp && !!(b.nemesisId && a.nemesis) && !d.teacher && !d.raised;
+  const lethal = a.side === 'foe' && total >= d.hp && d.hp <= d.max * TB.lethalHp && !!(b.nemesisId && a.nemesis) && !d.teacher && !d.raised && !d.helper;
   return { per, hits, total, weak, resisted, broken, type, shields, brk, kill, lethal, perHit };
 }
 
@@ -477,6 +477,7 @@ function down(b: TBattle, a: TUnit, d: TUnit, fx: TFx[], noDeath: boolean, letha
   a.kills++;
   if (d.side === 'me') {
     if (d.raised) { log(b, `起こされた${d.name.replace(/^起こされた/, '')}は、ふたたび土に還った`); return; }
+    if (d.helper) { d.down = 'out'; log(b, `${d.name}は傷を負って退いた`, true); return; }
     // 祈り：命の危険の一撃を、その戦いで一度だけ防ぐ
     const priest = lethal && !noDeath ? b.units.find((o) => o.side === 'me' && o.alive && T(o, 'prayer') && !b.said.includes(`prayer:${o.uid}`)) : null;
     if (priest) { b.said.push(`prayer:${priest.uid}`); addDeed(priest, 'saveLife'); log(b, `${priest.name}の祈りが、${d.name}の命をつないだ`, true); fx.push({ k: 'say', by: priest.uid, text: `${d.name}……戻ってきて！`, tone: 'me' }); }
@@ -758,7 +759,7 @@ function inRangeBasic(f: TUnit, m: TUnit): boolean { const d = dist(f, m); retur
 export function checkEnd(b: TBattle): void {
   if (b.phase === 'done') return;
   const t = unit(b, b.teacherUid);
-  const kids = mine(b).filter((u) => !u.teacher && !u.raised);
+  const kids = mine(b).filter((u) => !u.teacher && !u.raised && !u.helper);
   if (t && !t.alive) return finish(b, 'lose', '先生が倒れた……');
   if (!kids.length && !t) return finish(b, 'lose', 'みな倒れた……');
   if (!kids.length) return finish(b, 'lose', '教え子がみな倒れた……');

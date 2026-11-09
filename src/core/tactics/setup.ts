@@ -13,6 +13,8 @@ import { officerName } from '../officers';
 import { intents, key, myTurnStart } from './engine';
 import { TEACHER_RANK } from '../../data/balance';
 import { teacherRank } from '../instructor';
+import { allies } from '../bonds';
+import { B } from '../../data/balance';
 
 function hash(s: string): number { let h = 7; for (const c of s) h = (h * 31 + c.charCodeAt(0)) | 0; return h; }
 export function questSeed(s: GameState, q: Pick<Quest, 'id'>): number { return hash(`${q.id}|${s.year}|${s.month}|${s.createdAt}`) ^ 0x5bd1e995; }
@@ -57,7 +59,7 @@ export function mindBonus(st: Student, nemesisId?: string | null, s?: GameState)
   if (nemesisId) {
     if (m.calm < TB.calmLow) { bonus.dmg! -= TB.fearDmg; bonus.note!.push('fear'); }
     const rv = s?.rivalries?.[`${st.id}|${nemesisId}`];
-    if (rv) bonus.vsOfficer = Math.floor(m.grudge / TB.grudgeDiv) + (rv.vow ? 1 : 0);
+    if (rv) bonus.vsOfficer = Math.floor(m.grudge / TB.grudgeDiv) + (rv.vow ? 1 : 0) + (rv.oath ? B.bonds.oathDmg : 0);
   }
   for (const l of st.lessons ?? []) {
     if (!l.vs) continue;
@@ -199,7 +201,7 @@ export function createTactics(s: GameState, q: Quest, deploys: Deploy[], opt: Se
   if (objective === 'escape') b.exitRow = 0;
   const free = (x: number, y: number) => !b.rock.includes(key(x, y)) && !b.units.some((u) => u.x === x && u.y === y) && !(b.captive && b.captive.x === x && b.captive.y === y);
   const place = (cands: [number, number][]): [number, number] => { for (const [x, y] of cands) if (free(x, y)) return [x, y]; for (let y = 0; y < b.h; y++) for (let x = 0; x < b.w; x++) if (free(x, y)) return [x, y]; return [0, 0]; };
-  if (objective === 'rescue') { const cx = r.int(1, 4); b.rock = b.rock.filter((k) => k !== key(cx, 0)); b.captive = { x: cx, y: 0, name: q.kind === 'rescue' ? '捕らわれた村人' : '捕らわれた仲間', freed: false }; }
+  if (objective === 'rescue') { const cx = r.int(1, 4); b.rock = b.rock.filter((k) => k !== key(cx, 0)); b.captive = { x: cx, y: 0, name: q.spyRescue && s.students[q.spyRescue] ? s.students[q.spyRescue].given : q.kind === 'rescue' ? '捕らわれた村人' : '捕らわれた仲間', freed: false }; }
   // 味方：先生は後ろ、教え子は前の列
   const [tx, ty] = place([[2, 7], [3, 7], [1, 7], [4, 7]]);
   { const tu = teacherUnit(s, tx, ty, Math.max(1, q.level)); b.units.push(tu); }
@@ -235,6 +237,18 @@ export function createTactics(s: GameState, q: Quest, deploys: Deploy[], opt: Se
       mov: k.mov, rmin: k.range[0], rmax: k.range[1], type: k.type, magic: !!k.magic, might: 4 + Math.floor(lv / 8),
       techs: [], sh, shMax: sh, weak: [...k.weak], resist: [], known: opt.tutorial ? [...k.weak] : [k.weak[0]], broken: 0, acted: false, alive: true, kills: 0, dealt: 0, taken: 0, weakHits: 0, breaks: 0,
     });
+  }
+  // 20夜目④：味方になった宿敵が、ときどき駆けつける
+  const al = q.real && !opt.tutorial && !q.opening ? allies(s).filter((x) => x.id !== o?.id) : [];
+  if (al.length && r.chance(B.bonds.allyHelp)) {
+    const ao = r.pick(al);
+    const [x, y] = place([[0, 7], [5, 7], [0, 6], [5, 6]]);
+    const h = bossUnit(s, ao, 'army', lv, mul * 0.8, x, y, false, 0, r);
+    Object.assign(h, { uid: 'ally', side: 'me' as const, boss: false, nemesis: false, helper: true, sh: 0, shMax: 0, weak: [], resist: [], known: [], grudge: undefined, studentId: undefined });
+    applyClass(h, h.classId, undefined, false);
+    b.units.push(h);
+    b.log.push({ turn: 1, text: `援軍：かつての宿敵、${h.name}が駆けつけた！`, big: true });
+    b.scenes.push({ turn: 1, text: `援軍：かつての宿敵、${h.name}が駆けつけた！`, big: true });
   }
   for (const u of b.units) if (u.side === 'foe') { u.hp = u.max = Math.max(u.max, 6); const keepType = u.type; const r0 = [u.rmin, u.rmax]; applyClass(u, u.classId, undefined, true); if (!u.boss) { u.type = keepType; u.atks = [keepType]; u.dual = undefined; u.rmin = r0[0]; u.rmax = r0[1]; u.mov = Math.min(u.mov, 4); } }
   { const bu = b.units.find((u) => u.boss); if (bu && o?.cursed) (bu.traits ??= []).push('cursed'); }

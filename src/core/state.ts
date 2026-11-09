@@ -304,6 +304,8 @@ export interface Quest {
   tutorial?: boolean;
   /** 19夜目：この依頼の先にいる宿敵（宿敵戦）。challenge＝宿敵から挑んできた（断れない）、rush＝教え子が勝手に向かった */
   nemesisId?: string; nemesisKind?: 'quest' | 'challenge' | 'rush'; mustGo?: boolean; rushBy?: string;
+  /** 20夜目④：捕らわれた密偵（生徒id）を救い出す戦い */
+  spyRescue?: string;
   /** 19夜目：決まった敵将（着任の道中など）・着任の道中の戦い */
   officerId?: string; opening?: boolean;
   /** 2つ目・3つ目の部隊向けの小さな依頼（9夜目）：報酬・評判は少なめ、戦況は動かない */
@@ -518,7 +520,7 @@ export type Pending =
   /** 19夜目：月末の戦いを、自分で遊ぶか、おまかせにするか */
   | { type: 'sortieChoice' }
   /** 19夜目：宿敵との再会（昔の札と今の札） */
-  | { type: 'nemesis'; officerId: string; studentIds: string[]; kind: 'reunion' | 'rumor' | 'first' | 'revived' | 'letter'; text: string[] }
+  | { type: 'nemesis'; officerId: string; studentIds: string[]; kind: 'reunion' | 'rumor' | 'first' | 'revived' | 'letter' | 'ally' | 'rival' | 'spy'; text: string[] }
   /** 19夜目：新入生を選ぶ（10人ほどの希望者から6〜8人） */
   | { type: 'admission' }
   /** 才能開花（10夜目：大きな演出） */
@@ -763,6 +765,8 @@ export interface GameState {
   openingOfficer?: string; openingPending?: boolean;
   /** 19夜目：次の月末に結びつける宿敵（蘇った・敵として戻った）・さらわれた先代 */
   nextNemesis?: string;
+  /** 20夜目④：密偵を送った月（絶対月）・捕らわれた密偵（救い出す戦いになる） */
+  spyMonth?: number; spyCaptive?: { sid: string; oid: string };
   capturedTeacher?: { name: string; by: string; year: number; returnYear: number; done?: boolean };
   /** 19夜目：古い版（この版の番号）から変換したセーブ（タイトルで「新しく始めるのがおすすめ」） */
   oldSave?: number;

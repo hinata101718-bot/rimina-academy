@@ -1,6 +1,7 @@
 // オートプレイ（長期シミュレーション・テスト用）。画面なしで1年を進める（19夜目：新しい戦い）
 import type { GameState } from './state';
 import type { CountryId, Path } from './types';
+import { B } from '../data/balance';
 import { COUNTRIES } from '../data/people';
 import { enrolled } from './game';
 import { recommendCard, recommendSocial, todayCards } from './lessons';
@@ -8,6 +9,7 @@ import { startOpeningBattle, finishBattle } from './flow';
 import { autoFinish } from './tactics/ai';
 import { chooseWeek, startSortie, finishCareers, admit, autoAdmitIds, rng } from './flow';
 import { autoExam } from './exam';
+import { autoSpy } from './bonds';
 import { autoRecommend, suitablePath, availableChoices as availableChoicesOf, type CareerChoice, type CareerPlan } from './career';
 import { activeAlumni } from './world';
 import { autoSpend } from './mentor';
@@ -54,7 +56,7 @@ export function autoCareerPlans(s: GameState, policy: CareerPolicy = careerPolic
 /** シミュレーション用：画面の操作の回数の目安 */
 export const opCount: { lesson: number; pending: number; battle: number; nemesis: number; reunions: number } = { lesson: 0, pending: 0, battle: 0, nemesis: 0, reunions: 0 };
 
-const AUTO_RETIRE_AGE = 55; // 19夜目：最初のエンディング（20〜30年）までに、たいてい1回代替わり
+const AUTO_RETIRE_AGE = B.long.autoRetireAge; // 20夜目：60歳前後で引退（19夜目は55）
 let endingHook: ((s: GameState) => void) | null = null;
 export function setAutoEnding(f: ((s: GameState) => void) | null): void { endingHook = f; }
 let pendingHook: ((s: GameState, p: GameState['pending'][number]) => void) | null = null;
@@ -69,6 +71,7 @@ export function autoPending(s: GameState): void {
     opCount.pending += 1;
     pendingHook?.(s, p);
     if (p.type === 'questBoard' || p.type === 'sortieChoice') {
+      autoSpy(s, rng(s));
       const q = recommendQuest(s);
       if (!q) { s.pending.shift(); continue; }
       opCount.battle += 1;

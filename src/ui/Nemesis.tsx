@@ -4,7 +4,9 @@ import { useState } from 'preact/hooks';
 import type { GameState, EnemyOfficer, OfficerCard, Pending } from '../core/state';
 import { Sheet } from './common';
 import { OfficerFace, Portrait } from './Portrait';
-import { navigate } from './store';
+import { navigate, act } from './store';
+import { rng } from '../core/flow';
+import { spyReady, spyTargets, spyCandidates, spyChance, sendSpy } from '../core/bonds';
 import { sfx } from './sound';
 import { officerById, officerName, rankName, rivalriesOf, stageName, whenText } from '../core/officers';
 import { memoryOf, intelOf, bondOf, bondText, bondedOfficers, pastNemeses, cardOf } from '../core/nemesis';
@@ -64,16 +66,19 @@ export function NemDetail({ s, o }: { s: GameState; o: EnemyOfficer }) {
   }
   if (o.reviveNote) rows.push(['蘇り', o.reviveNote]);
   if (o.lastMet) rows.push(['最後に会った日', whenText(s, o.lastMet.year, o.lastMet.month)]);
+  if (o.allied) rows.push(['いま', o.allied.why === 'debt' ? '恩を返すため、学校の味方になった' : '国に裏切られ、学校の味方になった']);
+  if ((o.spied ?? []).length) { const sp = o.spied![o.spied!.length - 1]; rows.push(['密偵の報告', `${whenText(s, sp.year, sp.month)}：${sp.plan ?? ''}`]); }
   const bonds = Object.values(s.rivalries ?? {}).filter((rv) => rv.oid === o.id && (rv.stage >= 1 || rv.vow || rv.settled) && s.students[rv.sid]);
   return (
     <div>
       <div class="nem-pair"><NemCard s={s} o={o} /></div>
       <table class="nem-tbl">{rows.map(([k, v]) => <tr><th>{k}</th><td>{v}</td></tr>)}</table>
+      {spyTargets(s).some((x) => x.id === o.id) && <SpyBox s={s} o={o} />}
       {bonds.length > 0 && <>
         <div class="nem-h">教え子との因縁</div>
         {bonds.map((rv) => { const st = s.students[rv.sid]; return (
           <button class="nem-bond" onClick={() => { sfx('ok'); navigate({ tab: 'students', page: 'detail', id: st.id, sub: 'bonds' }); }}>
-            <Portrait st={st} size={36} /><span><b>{st.given}</b>{st.status !== 'enrolled' ? '（卒業生）' : ''}<small>{bondText(s, o, st.id) || stageName(rv.stage)}</small></span>
+            <Portrait st={st} size={36} /><span><b>{st.given}</b>{st.status !== 'enrolled' ? '（卒業生）' : ''}<small>{rv.oath ? '好敵手（決着を約束した）' : rv.settled === 'ally' ? '味方になった' : bondText(s, o, st.id) || stageName(rv.stage)}</small></span>
           </button>); })}
       </>}
     </div>
@@ -84,7 +89,7 @@ export function NemDetail({ s, o }: { s: GameState; o: EnemyOfficer }) {
 export function NemesisPendingView({ s, p, onDone }: { s: GameState; p: Extract<Pending, { type: 'nemesis' }>; onDone: () => void }) {
   const o = officerById(s, p.officerId);
   if (!o) { onDone(); return null; }
-  const title = p.kind === 'reunion' ? '宿敵との再会' : p.kind === 'revived' ? '死んだはずの敵が' : p.kind === 'rumor' ? 'うわさ' : p.kind === 'letter' ? '宿敵からの手紙' : '新しい因縁';
+  const title = p.kind === 'reunion' ? '宿敵との再会' : p.kind === 'revived' ? '死んだはずの敵が' : p.kind === 'rumor' ? 'うわさ' : p.kind === 'letter' ? '宿敵からの手紙' : p.kind === 'ally' ? '宿敵が味方に' : p.kind === 'rival' ? '好敵手' : p.kind === 'spy' ? '密偵の報告' : '新しい因縁';
   return (
     <Sheet title={title}>
       {o.lastCard && (p.kind === 'reunion' || p.kind === 'revived') ? (
@@ -141,3 +146,29 @@ export function TechLearnView({ s, p, onDone }: { s: GameState; p: { studentId: 
   );
 }
 void FACTION_COLOR; void officerName; void rankName;
+
+/** 20夜目④：密偵を送る（月に1回、宿敵ひとりに）。弱点・性格・次の動きが分かる。見つかると捕らわれる */
+function SpyBox({ s, o }: { s: GameState; o: EnemyOfficer }) {
+  const [open, setOpen] = useState(false);
+  const ready = spyReady(s);
+  const cands = spyCandidates(s).slice(0, 6);
+  return (
+    <div class="spy-box">
+      <div class="nem-h">密偵を送る</div>
+      <div class="small muted">月に1回、宿敵ひとりの陣へ教え子を送れます。弱点・性格・次の動きが分かります。見つかると捕らわれ、救い出す戦いになります。密偵の系統の子ほど見つかりにくい。</div>
+      {!ready ? <div class="small">今月は、もう密偵を送りました。</div> : !open ? (
+        <button class="btn block" onClick={() => { sfx('ok'); setOpen(true); }}>{o.given}の陣へ、密偵を送る</button>
+      ) : (
+        <div class="spy-list">
+          {cands.length === 0 && <div class="small muted">送れる子がいません（けが・病気の子は送れません）。</div>}
+          {cands.map((st) => (
+            <button class="spy-pick" onClick={() => { sfx('ok'); act((g) => { const go = g.officers?.find((x) => x.id === o.id); if (go) sendSpy(g, st.id, go.id, rng(g)); }); setOpen(false); }}>
+              <Portrait st={st} size={36} /><span class="grow"><b>{st.given}</b><small>{CLASSES[st.classId]?.name ?? ''}</small></span><span class="spy-pct">見つからない見込み<b>{spyChance(s, st, o)}%</b></span>
+            </button>
+          ))}
+          <button class="btn ghost small block" onClick={() => setOpen(false)}>やめる</button>
+        </div>
+      )}
+    </div>
+  );
+}

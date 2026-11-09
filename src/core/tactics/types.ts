@@ -87,6 +87,8 @@ export interface TUnit {
   moved?: boolean; mikiriUsed?: boolean; mikiriTurn?: number; lastStand?: number; lastStandUsed?: boolean;
   /** 20夜目：死霊術士に起こされた敵兵（味方として動く。学校には残らない） */
   raised?: boolean;
+  /** 20夜目④：味方になった宿敵（援軍。学校には残らない） */
+  helper?: boolean;
   /** 20夜目：前に逃げのびたことのある宿敵（狩りの王の条件） */
   fledBefore?: boolean;
   /** 20夜目：最上級の条件になる出来事（この戦いでの数）。戦いのあと Student.deeds に足す */
