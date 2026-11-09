@@ -12,6 +12,7 @@ import type { MoveType } from './types';
 import { Rng } from './rng';
 import { fx } from './mentor';
 import { enrolled, effectiveStats } from './game';
+import { stPerk } from './arts';
 
 export const START_STRATS: StratId[] = STRAT_IDS.filter((id) => STRATS[id].unlock.start);
 
@@ -85,6 +86,9 @@ export function stratOdds(id: StratId, x: OddsIn): StratOdds {
   if (d.needMove && !x.members.some((st) => d.needMove!.includes((CLASSES[st.classId] ?? CLASSES.novice).moveType as MoveType))) { rate += STRAT.missingNeed; bad.push('騎馬・飛行の子がいない'); }
   if (d.minMembers && x.members.length < d.minMembers) { rate += STRAT.missingNeed; bad.push(`${d.minMembers}人以上が要る`); }
   if (x.early) rate += STRAT.early;
+  // 18夜目：策を読む子（策の下読み・軍配の心得）が出撃していると決まりやすい
+  const sp = Math.min(STRAT.perkMax, x.members.reduce((n, st) => n + stPerk(st, 'stratPlus'), 0));
+  if (sp) { rate += sp; good.push('策を読む子がいる'); }
   return { rate: dud ? 0 : Math.max(STRAT.min, Math.min(STRAT.max, Math.round(rate))), good, bad, dud, weak };
 }
 export function oddsLabel(rate: number): string { return rate >= 75 ? '高い' : rate >= 55 ? 'まずまず' : rate >= 35 ? '五分' : '低い'; }

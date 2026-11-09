@@ -123,6 +123,8 @@ export const STRATS: Record<StratId, StratDef> = {
 export const STRAT_IDS = Object.keys(STRATS) as StratId[];
 
 export const STRAT = {
+  /** 18夜目：策を読むスキルで上がる見込みの上限 */
+  perkMax: 15,
   /** 出撃前に選べる策の数（先生の「軍師の眼」で+1） */
   slots: 2,
   /** 成功率：策を立てる子の軍略・魅力、軍師の才、地形・天候・勝利条件が合う、敵将の弱点・苦手、人数・兵種が足りない、早めに切った */

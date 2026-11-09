@@ -80,7 +80,7 @@ export function startCardGuide(s: GameState, b: BattleState): boolean {
   if (!cover) {
     const a = ARTS[COVER_ART];
     const id = newId();
-    cs.cards[id] = { id, kind: 'skill', name: a?.name ?? 'かばう', fx: { ...(a?.card ?? { type: 'guard', cover: true }) } as CardFx, owner: coverBy.uid, src: COVER_ART, skill: a?.skill ?? 'heavy' };
+    cs.cards[id] = { id, kind: 'art', name: a?.name ?? 'かばう', fx: { ...(a?.card ?? { type: 'guard', cover: true }) } as CardFx, owner: coverBy.uid, src: COVER_ART, skill: a?.skill ?? 'heavy' };
     temp.push(id); cover = id;
   }
   const coverCost = cs.cards[cover].fx.cost ?? 1;

@@ -58,13 +58,13 @@ describe('戦技と心得', () => {
   it('戦技は戦いで使われ、記録に技の名前が残る。敵将も使い手', () => {
     const s = mk(32);
     autoYears(s, 3);
-    const st = enrolled(s).find((x) => equippedOf(x).some((a) => a.kind === 'art'));
+    const st = enrolled(s).find((x) => equippedOf(x).some((a) => a.kind === 'art' && a.card?.type === 'atk'));
     expect(st).toBeTruthy();
     const u = unitFromStudent(st!, 'player', 'p0', 0, 0, ['iron_sword']);
     expect((u.arts ?? []).length).toBeGreaterThan(0);
     const d = { ...u, uid: 'e', side: 'enemy', boss: true, hp: 5, maxHp: 30 } as typeof u;
     let used = 0;
-    const wt = equippedOf(st!).find((x) => x.kind === 'art')!.weapons?.[0] ?? 'sword';
+    const wt = equippedOf(st!).find((x) => x.kind === 'art' && x.card?.type === 'atk')!.weapons?.[0] ?? 'sword';
     for (let i = 0; i < 50; i++) if (pickArt(u, d, wt, 10, () => (i % 10) / 10, () => 'infantry')) used++;
     expect(used).toBeGreaterThan(0);
     const o = (s.officers ?? []).find((x) => x.kind !== 'monster')!;

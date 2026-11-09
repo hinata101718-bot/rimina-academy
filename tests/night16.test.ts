@@ -7,24 +7,25 @@ import { autoYears, autoPending, setAutoChoicePick, humanLikePick } from '../src
 import { battleCtx, finishBattle } from '../src/core/flow';
 import { skipAuto } from '../src/core/battle/auto';
 import { SAVE_VERSION } from '../src/data/balance';
-import { ART_LIST, ARTS, ART_MILESTONES } from '../src/data/arts';
+import { ART_LIST, ARTS, ART_MILESTONES, ART_REMAP } from '../src/data/arts';
 import { makeArtPlan, canLearn, artsOf, plannedArts } from '../src/core/arts';
 
 const fixture = (n: string) => readFileSync(new URL(`./fixtures/${n}`, import.meta.url), 'utf8');
 setAutoChoicePick(humanLikePick(5));
 
 describe('生徒ごとに覚える技（覚える表）', () => {
-  it('技能×節目ごとに3〜5通りの候補があり、全体で250種以上', () => {
+  it('技能×節目ごとに候補があり、全体で250種以上（18夜目：スキルの節目は2つずつ、戦技の節目は4〜8つ）', () => {
     const skills = [...new Set(ART_LIST.map((a) => a.skill))];
     expect(skills.length).toBe(12);
     for (const k of skills) for (const r of ART_MILESTONES) {
       const n = ART_LIST.filter((a) => a.skill === k && a.rank === r && !a.bloom).length;
-      expect(n).toBeGreaterThanOrEqual(3); expect(n).toBeLessThanOrEqual(5);
+      if (r === 'E+' || r === 'C' || r === 'A') expect(n).toBe(2);
+      else { expect(n).toBeGreaterThanOrEqual(4); expect(n).toBeLessThanOrEqual(8); }
     }
     expect(ART_LIST.length).toBeGreaterThanOrEqual(250);
     // 条件で効くスキルが混ざっている
     expect(ART_LIST.filter((a) => a.cond).length).toBeGreaterThanOrEqual(30);
-    expect(new Set(ART_LIST.filter((a) => a.cond).map((a) => a.cond)).size).toBe(5);
+    expect(new Set(ART_LIST.filter((a) => a.cond).map((a) => a.cond)).size).toBeGreaterThanOrEqual(10);
   });
   it('入学のときに表が決まり、生徒によって覚える技が違う。表にない技は覚えない', () => {
     const s = newGame({ name: 'テスト', background: 'knight', seed: 16, start: 'normal' });
@@ -78,9 +79,13 @@ describe('15夜目版のセーブ（形式15）', () => {
       expect(s.pending.some((p) => p.type === 'event' && p.title === '16夜目の新しいこと')).toBe(true);
       for (const st of Object.values(s.students)) {
         expect(st.artPlan).toBeTruthy();
-        for (const id of before[st.id] ?? []) expect(st.arts).toContain(id);
-        // もう覚えた技は、その節目の技として表に入っている
-        for (const id of before[st.id] ?? []) { const a = ARTS[id]; expect(st.artPlan![`${a.skill}:${a.bloom ? 'bloom' : a.rank}`]).toBe(id); }
+        // 18夜目：なくしたスキルは入れ替え（ART_REMAP）、同じ効果の重なりは外す。戦技はそのまま、その節目の技として表に入っている
+        for (const id0 of before[st.id] ?? []) {
+          const id = ART_REMAP[id0] ?? id0; const a = ARTS[id];
+          if (a.kind === 'mind') continue;
+          expect(st.arts).toContain(id);
+          if (!ARTS[id0].card || ARTS[id0].id.includes('_art') || ARTS[id0].id.includes('_a')) expect(st.artPlan![`${a.skill}:${a.bloom ? 'bloom' : a.rank}`]).toBeTruthy();
+        }
       }
       const n0 = Object.fromEntries(Object.values(s.students).map((x) => [x.id, (x.arts ?? []).length]));
       const grads = new Set(Object.values(s.students).filter((x) => x.status === 'graduated').map((x) => x.id));
@@ -102,7 +107,8 @@ describe('15夜目版のセーブ（形式15）', () => {
 
 describe('札の戦い', async () => {
   const { setCardMode, playCardTurn, chooseAuto } = await import('../src/core/battle/auto');
-  const { autoPick, usable, cardPreview } = await import('../src/core/battle/cards');
+  const { autoPick, usable, cardPreview, cardCosts } = await import('../src/core/battle/cards');
+  const { B } = await import('../src/data/balance');
   const { recommendSquads, autoDay } = await import('../src/core/autoplay');
   const { startSortie } = await import('../src/core/flow');
   const toBoard = (s: ReturnType<typeof newGame>) => { let g = 0; while (!s.pending.some((p) => p.type === 'questBoard') && g++ < 80) { autoPending(s); if (!s.pending.some((p) => p.type === 'questBoard')) autoDay(s); } s.pending = s.pending.filter((p) => p.type === 'questBoard'); };
@@ -117,7 +123,8 @@ describe('札の戦い', async () => {
         expect(cs).toBeTruthy();
         const owners = new Set(Object.values(cs.cards).map((c) => c.owner));
         for (const u of b.units.filter((x) => x.side === 'player' && x.studentId)) expect(owners.has(u.uid)).toBe(true);
-        expect(cs.hand.length).toBe(cs.handSize);
+        // 18夜目：札を多く引くスキル（詠唱短縮・軍師の眼）があると、そのぶん多い
+        expect(cs.hand.length).toBeGreaterThanOrEqual(cs.handSize); expect(cs.hand.length).toBeLessThanOrEqual(cs.handSize + B.cards.perkDrawMax);
         expect(cs.ap).toBeGreaterThanOrEqual(3);
         expect(cs.intents.length).toBeGreaterThan(0);
         expect(cs.maxTurns).toBeGreaterThanOrEqual(4); expect(cs.maxTurns).toBeLessThanOrEqual(6);
@@ -128,7 +135,7 @@ describe('札の戦い', async () => {
           // 倒れた子の札は手札に来ない
           for (const id of cs.hand) expect(usable(b, cs.cards[id])).toBe(true);
           const p = autoPick(s, b, battleCtx(s));
-          const cost = p.ids.reduce((a, id) => a + (cs.cards[id].fx.cost ?? 1), 0);
+          const cost = cardCosts(s, b, p.ids).reduce((a, x) => a + x, 0);
           expect(cost).toBeLessThanOrEqual(cs.ap);
           playCardTurn(s, p.ids, p.target, battleCtx(s));
         }
@@ -226,8 +233,8 @@ describe('札の戦いの細かな決まり', async () => {
     const s = start(42);
     const b = s.battle!; const cs = b.auto!.cards!;
     const inc = incoming(b);
-    const mates = b.units.filter((u) => u.side === 'player' && !u.dead);
-    const g = mates[0];
+    const mates = b.units.filter((u) => (u.side === 'player' || u.side === 'npc') && !u.dead);
+    const g = mates.find((u) => u.side === 'player')!;
     const t = coverTarget(b, g)!;
     const worst = mates.filter((u) => u !== g).sort((x, y) => (inc[y.uid] ?? 0) / y.hp - (inc[x.uid] ?? 0) / x.hp)[0];
     expect(t.uid).toBe(worst.uid);

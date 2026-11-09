@@ -4,7 +4,7 @@ import type { SkillId } from './types';
 import type { GameState } from './state';
 import { defaultSettings, mailImportant } from './game';
 import { ARTS, ART_SLOTS } from '../data/arts';
-import { migrateArtPlan } from './arts';
+import { migrateArtPlan, migrateArts18 } from './arts';
 import { restartBattleAsCards } from './flow';
 import { isCardMode } from './battle/auto';
 import { WEAPONS } from '../data/weapons';
@@ -63,6 +63,7 @@ export function migrate(s: GameState, from: number): GameState {
   if (from < 15) migrateTo15(s);
   if (from < 16) migrateTo16(s);
   if (from < 17) migrateTo17(s);
+  if (from < 18) migrateTo18(s);
   s.heirs ??= [];
   s.archive ??= {};
   s.notices ??= [];
@@ -478,6 +479,23 @@ function migrateTo16(s: GameState): void {
  */
 function migrateTo17(s: GameState): void {
   s.cardGuide ??= 'pending';
+}
+/**
+ * 17夜目の版（version 17）→ 18夜目の版（version 18）：技の夜
+ * - スキルを少なく・違うものに（なくしたスキルは同じ節目の新しいスキルに。同じ効果の重なりは入れ替え。つけられるのは3つ）
+ * - 札になるスキル（かばう・鉄壁など）は「戦技と魔法」へ
+ */
+function migrateTo18(s: GameState): void {
+  let swapped = 0;
+  for (const st of [...Object.values(s.students ?? {}), ...(s.applicants ?? [])]) swapped += migrateArts18(st);
+  s.pending ??= [];
+  s.pending.push({ type: 'event', title: '18夜目の新しいこと', lines: night18Lines(swapped) });
+}
+export function night18Lines(swapped: number): string[] {
+  return [
+    `スキルを少なく、強く、違うものにしました。つけられるスキルは3つです（兵種のスキルは別）。同じ効き目のスキルが1人に重ならないようにし、重なっていたスキルは同じ節目の別のスキルに入れ替えました${swapped ? `（${swapped}個）` : ''}。`,
+    '「かばう」「鉄壁の構え」など、札になるものは「戦技と魔法」の欄に移りました。',
+  ];
 }
 export const NIGHT16_LINES = [
   '生徒ごとに、覚える戦技・魔法・スキルが違うようになりました。同じ剣でも、ある子は「燕返し」、別の子は「居合い」を覚えます。性格・夢・生まれた国の流派・家柄で決まり、もう覚えた技はそのままです。',

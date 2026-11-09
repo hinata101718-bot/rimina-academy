@@ -44,7 +44,8 @@ export function proseMismatches(): { issues: ProseIssue[]; checked: number } {
   for (const oc of ['injured', 'dead'] as const) for (const lv of ['normal', 'dense', 'brutal'] as const) look(`属性を言わない${oc}（${lv}）`, PROSE_FALL[oc][lv], 'none');
   look('倒れたときの見せ場', [...FALL_TEXT.injured, ...FALL_TEXT.dead], 'none');
   // 戦技の名前：武器を決めた戦技は、その武器の言葉だけ。どの武器でも使う戦技は、武器・属性を言わない
-  for (const a of ART_LIST.filter((x) => x.kind === 'art')) {
+  // 18夜目：守り・強め・回復の札（もとは札になるスキル）は攻撃の文ではないので、ここでは見ない
+  for (const a of ART_LIST.filter((x) => x.kind === 'art' && (!x.card || x.card.type === 'atk'))) {
     const ws = a.weapons ?? [];
     if (!ws.length) { look(`戦技「${a.name}」（どの武器でも）`, [a.name + a.desc], 'none'); continue; }
     // 魔道・信仰の戦技は、属性のちがう魔法でも使うので、属性を言わない

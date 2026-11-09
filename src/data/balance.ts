@@ -1,7 +1,7 @@
 // バランス値。ゲームの数値はすべてここに集める（設計書の「ふつう」が初期値）。
 import type { Rank, SkillId, StatId } from '../core/types';
 
-export const SAVE_VERSION = 17;
+export const SAVE_VERSION = 18;
 
 export const RANKS: Rank[] = ['E', 'E+', 'D', 'D+', 'C', 'C+', 'B', 'B+', 'A', 'A+', 'S'];
 export const RANK_POINTS: Record<Rank, number> = {
@@ -284,6 +284,10 @@ export const B = {
   cards: {
     /** 手札の数・行動力（出撃した人数で少し増える：4人まで3、そこから3人ごとに+1、5まで） */
     hand: 5, ap: 3, apPerMembers: 3, apMax: 5,
+    /** 18夜目：スキルで増える行動力（1ターン目・仲間が倒れたとき）と、多く引く札の上限（部隊みんなの合計） */
+    perkApMax: 1, perkDrawMax: 2,
+    /** 18夜目：反撃（間合い取り）・追い打ち（連ね太刀）の威力の倍率 */
+    counterMul: 0.6,
     /** 決着までのターン（勝利条件ごと） */
     turns: { rout: 6, boss: 6, defend: 4, escort: 5, seize: 6, rescue: 6, escape: 4 } as Record<string, number>,
     /** 敵の前に出る数（出撃した人数で増える） */

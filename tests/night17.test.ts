@@ -126,7 +126,7 @@ describe('16夜目版のセーブ（形式16）', () => {
     it(`${f}：読みこめて、次の戦いのはじめに1回だけ「戦い方が新しくなりました」。1年遊べる`, () => {
       const s = deserialize(fixture(f));
       expect(s.version).toBe(SAVE_VERSION);
-      expect(SAVE_VERSION).toBe(17);
+      expect(SAVE_VERSION).toBeGreaterThanOrEqual(17);
       expect(s.cardGuide).toBe('pending');
       // 戦いの途中のセーブ：1ターン目の札を選ぶところなら、そこで出る
       if (!s.battle) toNextBattle(s);
