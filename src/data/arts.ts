@@ -227,7 +227,7 @@ export const ART_LIST: ArtDef[] = [
   art('bo_art2', '落鳥', 'bow', 'B', [], { type: 'atk', mul: 1.1, vsMove: ['flying'] }),
   art('bo_a2b', '雨の矢', 'bow', 'B', ['atk'], { type: 'atk', aoe: true, mul: 0.7 }),
   art('bo_a2c', '縫い止め', 'bow', 'B', ['trick'], { type: 'atk', mul: 0.8, stun: true }, { rare: true }),
-  art('bo_a2d', '貫き矢', 'bow', 'B', ['heavy'], { type: 'atk', pierce: 8, mul: 1.1 }),
+  art('bo_a2d', '鎧抜きの矢', 'bow', 'B', ['heavy'], { type: 'atk', pierce: 8, mul: 1.1 }),
   mind('bo_mind3', '鷹の目', 'bow', 'A', [], { crit: 10, wtype: ['bow'] }),
   cmind('bo_m3b', '静かな狙い', 'bow', 'A', ['trick'], 'first', { crit: 20 }),
   cmind('bo_m3c', '逃げ足', 'bow', 'A', ['swift', 'guard'], 'lowHp', { avo: 15, prot: 1 }),

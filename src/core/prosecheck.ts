@@ -4,6 +4,8 @@ import { PROSE_LIGHT, PROSE_DENSE, PROSE_BRUTAL, PROSE_FALL, PROSE_FALL_BY, PROS
 import { FALL_TEXT } from '../data/battlefx';
 import { WEAPONS } from '../data/weapons';
 import { ART_LIST } from '../data/arts';
+import { STRATS } from '../data/stratagems';
+import { LEGENDS } from '../data/rarity';
 
 export interface ProseIssue { where: string; text: string; want: string; found: string }
 
@@ -68,6 +70,10 @@ export function deathWordLeaks(): { issues: { where: string; text: string; why: 
   for (const [k, v] of Object.entries(PROSE_FALL_BY)) for (const lv of ['dense', 'brutal'] as const) hurt(`重傷・${k}（${lv}）`, v.injured[lv]);
   for (const k of Object.keys(PROSE_FALL_BY)) for (const lv of ['normal', 'dense', 'brutal'] as const) hurt(`重傷・${k}（${lv}・使われる文）`, fallLines(k, 'injured', lv));
   hurt('重傷の見せ場', FALL_TEXT.injured);
+  // 札の名前（戦技・スキル・策・伝説の武器の札）は、当たっただけの文にも出る
+  live('戦技・スキルの名前', ART_LIST.map((a) => a.name));
+  live('策の名前', Object.values(STRATS).map((x) => x.name));
+  live('伝説の武器の札', LEGENDS.map((x) => x.art));
   hurt('敵将が逃げのびる', [PROSE_FLEE]);
   hurt('敵の卒業生が退く', [PROSE_ALUMNI_RETREAT]);
   return { issues, checked };

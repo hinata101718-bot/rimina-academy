@@ -171,8 +171,11 @@ describe('結果の4段（「串刺し」なのに生きている）', () => {
           const b = s.battle!; const cs = b.auto!.cards!; let k = 0;
           while (b.phase !== 'done' && k++ < 20) { if (b.auto!.choice) { chooseAuto(s, 0, battleCtx(s)); continue; } const p = autoPick(s, b, battleCtx(s)); playCardTurn(s, p.ids, p.target, battleCtx(s)); }
           const L = b.auto!.leader;
+          const names = [...b.units.map((u) => u.name), L?.name ?? ''].filter(Boolean).sort((x, y) => y.length - x.length);
           for (const t of cs.turns) for (const l of t.lines) {
-            if (!DEATH_WORDS.test(l.text)) continue;
+            // 名前（「首狩りの〇〇」のような二つ名も）は除いて調べる
+            let bare = l.text; for (const n of names) bare = bare.split(n).join('＿');
+            if (!DEATH_WORDS.test(bare)) continue;
             lethal++;
             const named = b.units.filter((u) => l.text.includes(u.name) || (L && u.uid === L.uid && l.text.includes(L.name)));
             const dead = named.some((u) => u.dead && !(L && u.uid === L.uid && L.fled) && !(u.studentId && b.fallen.find((f) => f.studentId === u.studentId)?.outcome !== 'dead') && !u.persuadable);
