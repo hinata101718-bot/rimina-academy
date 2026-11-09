@@ -3,7 +3,7 @@ import { slotInfos, loadSlot, deleteSlot, importFile, type SlotInfo } from './st
 import { setGame } from './store';
 import { newGame, type StartKind } from '../core/game';
 import { startsUnlocked } from './storage';
-import { B } from '../data/balance';
+import { B, DIFFICULTY } from '../data/balance';
 import { makeSeed } from '../core/rng';
 import { BACKGROUNDS } from '../data/people';
 import { sfx, unlockAudio } from './sound';
@@ -109,6 +109,8 @@ function Opening({ slot, onCancel }: { slot: number; onCancel: () => void }) {
   const [unlocked, setUnlocked] = useState(false);
   useEffect(() => { startsUnlocked().then(setUnlocked); }, []);
   const [game, setG] = useState<GameState | null>(null);
+  const [diff, setDiff] = useState<'easy' | 'normal' | 'hard'>('normal');
+  const [noDeath, setNoDeath] = useState(false);
   if (step === -1) {
     return (
       <div class="app"><div class="content">
@@ -132,6 +134,11 @@ function Opening({ slot, onCancel }: { slot: number; onCancel: () => void }) {
             <div class="muted small" style={{ marginTop: 4 }}>{start === 'poor' ? '施設はボロボロで、お金も評判もわずかです。名もない分校を、少しずつ立て直していきます。' : start === 'normal' ? `施設はすべて段階${B.starts.normal.facility}、所持金${B.starts.normal.money}G、評判${B.starts.normal.rep}から始まります。` : `施設はすべて段階${B.starts.elite.facility}、所持金${B.starts.elite.money}G、評判${B.starts.elite.rep}から始まります。素質のある子が集まります。`}</div>
           </div>
         )}
+        <div class="card">
+          <h3>難しさ</h3>
+          <div class="seg">{(['easy', 'normal', 'hard'] as const).map((d) => <button class={diff === d ? 'on' : ''} onClick={() => { sfx('move'); setDiff(d); }}>{{ easy: 'やさしい', normal: 'ふつう', hard: 'きびしい' }[d]}</button>)}</div>
+          <label class="row nowrap gap6" style={{ marginTop: 8, minHeight: 44 }}><input type="checkbox" checked={noDeath} onChange={(e) => setNoDeath((e.target as HTMLInputElement).checked)} /><span>生徒が死なない<small class="muted" style={{ display: 'block' }}>命の危険のある攻撃で倒れても、大けがで済みます（傷跡は残ります）。あとで設定から変えられます</small></span></label>
+        </div>
         <details class="card"><summary class="muted">テスト用の設定</summary>
           <div class="row" style={{ marginTop: 8 }}>一期生を
             <select value={debugGrade} onChange={(e) => setDebugGrade(Number((e.target as HTMLSelectElement).value))}>
@@ -144,6 +151,7 @@ function Opening({ slot, onCancel }: { slot: number; onCancel: () => void }) {
           <button class="btn primary grow" onClick={() => {
             sfx('ok');
             const g = newGame({ name: name.trim() || 'アルノルト', background: bg, seed: makeSeed(), slot, startGrade: debugGrade, start: unlocked ? start : undefined, tutorial: debugGrade === 1 });
+            g.settings.difficulty = diff; g.settings.mods = { ...DIFFICULTY[diff] }; g.settings.noDeath = noDeath;
             setG(g); setStep(0);
           }}>着任する</button>
         </div>

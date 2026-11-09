@@ -110,7 +110,17 @@ export function applyTactics(s: GameState, b: TBattle, r: Rng): TacticsOutcome {
     } else if (q.kind === 'schoolDefense') {
       s.world.schoolDefensePending = false;
       if (win) { addRep(s, B.reputation.schoolDefenseWin); s.world.defenseWonYear = s.year; chronicle(s, '学校防衛戦に勝利', 'school'); lines.push(`学校を守り抜いた！ 評判+${B.reputation.schoolDefenseWin}`); }
-      else { addRep(s, -5); s.money = Math.round(s.money * 0.7); chronicle(s, '学校防衛戦に敗れ、校舎が荒らされた', 'school'); lines.push('校舎が荒らされた……（お金−30%、評判−5）'); }
+      else {
+        // 19夜目⑨：学校が焼かれても、バッドエンドにはしない。残った教え子と立て直す
+        addRep(s, -8); s.money = Math.round(s.money * 0.6);
+        chronicle(s, '学校防衛戦に敗れ、校舎が焼かれた', 'school');
+        lines.push('校舎が焼かれた……（お金−40%、評判−8）');
+        s.pending.push({ type: 'scene', title: '焼け跡から', lines: [
+          { by: 'narr', text: '夜が明けると、校舎の半分は黒い柱だけになっていた。' },
+          { by: 'narr', text: '教え子たちは、だれに言われるでもなく、焼け残った机を運び出しはじめた。' },
+          { by: 'narr', text: `「先生、授業は外でもできますよ」——${Object.values(s.students).find((x) => x.status === 'enrolled')?.given ?? '教え子'}が笑った。学校は、まだ終わらない。` },
+        ] });
+      }
     } else if (q.real) {
       if (win) {
         const bg = BACKGROUNDS.find((x) => x.id === s.instructor.background);

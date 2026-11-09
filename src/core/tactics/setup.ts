@@ -213,6 +213,7 @@ export function createTactics(s: GameState, q: Quest, deploys: Deploy[], opt: Se
     });
   }
   for (const u of b.units) if (u.side === 'foe') { u.hp = u.max = Math.max(u.max, 6); const keepType = u.type; const r0 = [u.rmin, u.rmax]; applyClass(u, u.classId, undefined, true); if (!u.boss) { u.type = keepType; u.atks = [keepType]; u.dual = undefined; u.rmin = r0[0]; u.rmax = r0[1]; u.mov = Math.min(u.mov, 4); } }
+  { const bu = b.units.find((u) => u.boss); if (bu && o?.cursed) (bu.traits ??= []).push('cursed'); }
   startTraits(b);
   b.foes0 = b.units.filter((u) => u.side === 'foe').length;
   intents(b);
@@ -238,6 +239,6 @@ function bossUnit(s: GameState, o: EnemyOfficer | null, kind: 'army' | 'bandit' 
     str: Math.round(baseStat('str', lv, mul) * oM), mag: Math.round(baseStat('mag', lv, mul) * oM), skl: Math.round(baseStat('skl', lv, mul) * oM), spd: Math.round(baseStat('spd', lv, mul) * oM), def: Math.round(baseStat('def', lv, mul) * oM),
     mov: Math.min(4, c.move), rmin: atk.range[0], rmax: atk.range[1], type: atk.type, magic: !!atk.magic, might: 5 + Math.floor(lv / 6),
     techs: [], sh, shMax: sh, weak, resist, known: o?.knownWeak ? o.knownWeak.filter((t) => weak.includes(t)) : [], broken: 0, acted: false, alive: true,
-    grudge: o?.grudge ?? undefined, kills: 0, dealt: 0, taken: 0, weakHits: 0, breaks: 0,
+    grudge: o?.grudge ?? undefined, revived: !!o?.revived, kills: 0, dealt: 0, taken: 0, weakHits: 0, breaks: 0,
   };
 }

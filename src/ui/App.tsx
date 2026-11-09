@@ -53,6 +53,9 @@ export function App() {
   useEffect(() => { document.body.dataset.stage = stage; if (s) playBgm(s.battle ? 'battle' : stage); }, [stage, !!s?.battle]);
   const season = s ? seasonOf(s.month) : 'spring';
   useEffect(() => { document.body.dataset.season = season; }, [season]);
+  // 19夜目⑨：平和・春夏は昼の机、戦争・冬は夜のろうそくの机
+  const light = stage !== 'war' && season !== 'winter' && (season === 'spring' || season === 'summer' || stage === 'peace') ? 'day' : 'night';
+  useEffect(() => { document.body.dataset.light = light; }, [light]);
   if (!s) return <Title />;
   // 19夜目：新しく始めたときは、着任の道中の戦いから
   if (s.openingPending && !s.battle) { setTimeout(() => act((g) => startOpeningBattle(g)), 0); return null; }

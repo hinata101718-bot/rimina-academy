@@ -70,6 +70,9 @@ export interface Student {
   techs?: string[];
   /** 19夜目：宿敵戦に出た回数・討った宿敵の数・仲間をかばった回数・蘇った（呪い）・双星の縁 */
   nemBattles?: number; nemKills?: number; guards?: number; revivedBy?: string; twinStar?: string;
+  /** 19夜目：戦死したと思われたが、捕らわれて生きている（この年に戻る）・裏切りの兆し */
+  secretAlive?: { year: number; by: string };
+  betraySign?: number;
   /** 12夜目：覚えた戦技・心得、付けているもの（おまかせ。手で選んだら artsManual） */
   arts?: string[]; artsOn?: string[]; artsManual?: boolean;
   /** 14夜目：卒業生の講師に手ほどきを受けた技（1つ前のランクで覚える） */
@@ -417,6 +420,8 @@ export interface EnemyOfficer {
   heart?: 'steady' | 'careful' | 'mad' | 'mellow' | 'fallen';
   /** 19夜目：蘇った回数と理由（一度蘇った者は、次に討てば本当に死ぬ） */
   revived?: number; reviveNote?: string;
+  /** 19夜目：呪いで蘇った（光に弱い・闇の者） */
+  cursed?: boolean;
   /** 19夜目：分かっていること（0＝顔と名前だけ … 4＝恨みの中身まで） */
   intel?: number;
   /** 19夜目：前に会ったときの札（再会で今の札と並べる） */
@@ -431,6 +436,8 @@ export interface EnemyOfficer {
   holds?: string[];
   /** 19夜目：二代目（親の id） */
   heirOf?: string;
+  /** 19夜目：相手ごとに言った台詞（同じ相手に二度言わない） */
+  lineLog?: string[];
 }
 export interface OfficerMemory {
   beatenBy: string[];
@@ -742,6 +749,9 @@ export interface GameState {
   autoMemory?: { lines: string[]; events: string[]; n?: number };
   /** 19夜目：最初の宿敵（着任の道中の敵将）と、着任の道中の戦いをまだ始めていない印 */
   openingOfficer?: string; openingPending?: boolean;
+  /** 19夜目：次の月末に結びつける宿敵（蘇った・敵として戻った）・さらわれた先代 */
+  nextNemesis?: string;
+  capturedTeacher?: { name: string; by: string; year: number; returnYear: number; done?: boolean };
   /** 19夜目：古い版（この版の番号）から変換したセーブ（タイトルで「新しく始めるのがおすすめ」） */
   oldSave?: number;
   /** 19夜目：記録枠（自動セーブ＝0、手動＝1〜3）。slot と同じ */

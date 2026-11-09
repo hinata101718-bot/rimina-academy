@@ -27,11 +27,17 @@ export const NEM = {
   /** 心が変わる見込み（負けて逃げたとき） */
   heartChange: 0.5,
   /** 討ち取ったのに生きている見込み（ふつうの戦い・宿敵戦）。あとで蘇ることがある */
-  presumed: 0.2, presumedNem: 0.1,
+  presumed: 0.1, presumedNem: 0.08,
 };
 
 function fill(t: string, v: Record<string, string>): string { return t.replace(/\{(\w+)\}/g, (m, k) => v[k] ?? m); }
-function pickLine(r: Rng, key: string, p: string): string { const L = NEM_SAY[key]; const list = (L?.[p as LeaderPersonality] ?? []).concat(L?.default ?? []); return list.length ? r.pick(list) : ''; }
+function pickLine(r: Rng, key: string, p: string, used: string[] = []): string {
+  const L = NEM_SAY[key];
+  const list = (L?.[p as LeaderPersonality] ?? []).concat(L?.default ?? []);
+  // 19夜目⑨：同じ相手に同じ台詞を二度言わない（まだ言っていないものから）
+  const fresh = list.filter((t) => !used.includes(`${key}:${t}`));
+  return fresh.length ? r.pick(fresh) : list.length ? r.pick(list) : '';
+}
 export function memoryOf(o: EnemyOfficer): OfficerMemory { return (o.memory ??= { beatenBy: [], woundedBy: [], debts: [], shame: [], lost: [] }); }
 export function shortName(o: Pick<EnemyOfficer, 'given'>): string { return o.given; }
 
@@ -103,11 +109,15 @@ export function battleLines(s: GameState, o: EnemyOfficer, ids: string[], r: Rng
   // 口上：前に自分をやった子がいれば名前を呼ぶ。傷があれば傷を見せる
   const grudgeHere = o.grudge && ids.includes(o.grudge) ? o.grudge : m.beatenBy.find((x) => ids.includes(x)) ?? null;
   const wound = m.woundedBy.slice().reverse().find((w) => ids.includes(w.id));
-  if (wound) out['boss:intro'] = v(pickLine(r, 'wound', p), { a: nm(wound.id), wound: wound.text });
-  else if (grudgeHere) out['boss:intro'] = v(pickLine(r, 'call', p), { a: nm(grudgeHere) });
-  else if (o.victims.length && r.chance(0.5)) out['boss:intro'] = v(pickLine(r, 'victim', p), { v: o.victims[o.victims.length - 1].name });
-  else if (last) out['boss:intro'] = v(pickLine(r, 'again', p), { when: whenText(s, last.year, last.month) });
-  else out['boss:intro'] = v(pickLine(r, 'intro', p));
+  const log = (o.lineLog ??= []);
+  // 相手ごとに、言ったことのある台詞を覚えておく（同じ相手に同じことは言わない）
+  const said = (who: string | null) => log.filter((x) => x.startsWith(`${who ?? '*'}|`)).map((x) => x.slice(x.indexOf('|') + 1));
+  const take = (key: string, who: string | null, vars: Record<string, string> = {}) => { const t = pickLine(r, key, p, said(who)); log.push(`${who ?? '*'}|${key}:${t}`); if (log.length > 40) log.splice(0, log.length - 40); return v(t, vars); };
+  if (wound) out['boss:intro'] = take('wound', wound.id, { a: nm(wound.id), wound: wound.text });
+  else if (grudgeHere) out['boss:intro'] = take('call', grudgeHere, { a: nm(grudgeHere) });
+  else if (o.victims.length && r.chance(0.5)) out['boss:intro'] = take('victim', null, { v: o.victims[o.victims.length - 1].name });
+  else if (last) out['boss:intro'] = take('again', null, { when: whenText(s, last.year, last.month) });
+  else out['boss:intro'] = take('intro', null);
   for (const k of ['shield', 'break', 'cornered', 'kill', 'fall', 'win', 'flee', 'clung']) out[`boss:${k}`] = v(pickLine(r, k, p));
   out['boss:fled'] = v(pickLine(r, 'fled', p), { a: nm(grudgeHere) || nm(ids[0]) });
   const res = (o.resist ?? [])[0];
@@ -364,7 +374,7 @@ export function nemesisField(o: EnemyOfficer, r: Rng): string { return (o.field 
 export function nemesisMonth(s: GameState, r: Rng): void {
   if (s.quests.some((q) => q.tutorial || q.kind === 'exhibition' || q.kind === 'schoolDefense')) return;
   const bonded = bondedOfficers(s).filter((o) => o.status === 'active' && o.kind !== 'monster' && !o.alumniId);
-  if (!bonded.length) return;
+  if (!bonded.length && !s.nextNemesis) return;
   const enrolledIds = new Set(Object.values(s.students).filter((x) => x.status === 'enrolled').map((x) => x.id));
   const mk = (o: EnemyOfficer, kind: 'quest' | 'challenge' | 'rush', rushBy?: string) => {
     nemesisField(o, r);
@@ -396,6 +406,8 @@ export function nemesisMonth(s: GameState, r: Rng): void {
     mk(o, 'rush', st.id);
     return;
   }
+  // 蘇った者・敵として戻った先代は、すぐに現れる
+  if (s.nextNemesis) { const o = officerById(s, s.nextNemesis); s.nextNemesis = undefined; if (o && o.status === 'active') { mk(o, 'quest'); return; } }
   const grudging = bonded.filter((o) => o.grudge && enrolledIds.has(o.grudge));
   if (grudging.length && r.chance(NEM_MONTH.challenge)) { mk(r.pick(grudging), 'challenge'); return; }
   if (r.chance(NEM_MONTH.quest)) mk(r.weighted(bonded, (o) => 1 + bondOf(s, o)), 'quest');

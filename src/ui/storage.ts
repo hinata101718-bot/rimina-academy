@@ -65,6 +65,21 @@ export async function slotInfos(): Promise<SlotInfo[]> {
   }
   return out;
 }
+/** 19夜目⑨：手動の記録枠（1つのゲームに3つ）。自動セーブとは別に残し、好きなところから戻ってやり直せる */
+export async function saveRecord(s: GameState, k: number): Promise<void> {
+  await put(`rec${s.slot}_${k}`, serialize(s));
+  await put(`recmeta${s.slot}_${k}`, JSON.stringify({ label: `${s.year}年目 ${['4', '5', '6', '7', '8', '9', '10', '11', '12', '1', '2', '3'][s.month]}月 第${s.week}週`, savedAt: Date.now() }));
+}
+export async function loadRecord(slot: number, k: number): Promise<GameState | null> {
+  const t = await get(`rec${slot}_${k}`);
+  if (!t) return null;
+  try { const s = deserialize(t); s.slot = slot; return s; } catch { return null; }
+}
+export async function recordInfos(slot: number): Promise<{ k: number; label: string; savedAt: number }[]> {
+  const out: { k: number; label: string; savedAt: number }[] = [];
+  for (let k = 0; k < 3; k++) { const m = await get(`recmeta${slot}_${k}`); if (m) { try { const j = JSON.parse(m); out.push({ k, label: j.label, savedAt: j.savedAt }); continue; } catch { /* */ } } out.push({ k, label: '', savedAt: 0 }); }
+  return out;
+}
 export async function lastSlot(): Promise<number | null> { const v = await get('last'); return v === null ? null : Number(v); }
 
 /** 書き出すファイルの名前（iPhone の「ファイル」に保存しやすいよう、英数字だけ） */

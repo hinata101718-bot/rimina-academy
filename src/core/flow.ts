@@ -21,6 +21,7 @@ import { applyTactics } from './tactics/after';
 import { ensureRosters, yearlyOfficers, pickOfficerForQuest, officerById, ensureRivalry } from './officers';
 import { bondOf, battleLines, scoutWeak, afterNemesisBattle, nemesisMonth, pushReunion, reunionLines, bondedOfficers, addIntel } from './nemesis';
 import { arrivalLines } from './opening';
+import { yearlyLong, capturedReturns, teacherFell } from './longtime';
 import { officerName } from './officers';
 import { fx } from './mentor';
 import { publishIssue } from './newspaper';
@@ -241,7 +242,13 @@ export function finishBattle(s: GameState): void {
   const pendFrom = s.pending.length;
   const q = s.quests.find((x) => x.id === b.questId);
   const out = applyTactics(s, b, r);
-  for (const { st, u } of out.dead) { killStudent(s, st, `「${b.title}」で戦死`); warAfterScene(s, r, st, 'dead', null); void u; }
+  for (const { st, u } of out.dead) {
+    killStudent(s, st, `「${b.title}」で戦死`); warAfterScene(s, r, st, 'dead', null); void u;
+    // 19夜目⑧：戦死したと思ったが、宿敵に捕らわれて生きていることがある
+    if (b.nemesisId && r.chance(B.long.captured)) st.secretAlive = { year: s.year + r.int(1, 3), by: b.nemesisId };
+  }
+  // 先生が倒れた：宿敵戦では、さらわれることも（代替わり）
+  if (b.units.some((u) => u.teacher && !u.alive)) { const t = teacherFell(s, r, b.nemesisId ?? null); if (t) out.report.lines.push(t); }
   for (const { st } of out.injured) {
     st.injuredWeeks = r.int(...B.battle.injuryWeeks);
     addRecent(s, st, 'ev_injury', b.title);
@@ -391,6 +398,9 @@ export function yearEnd(s: GameState, graduated: string[]): void {
   }
   // 敵将の名簿（6夜目）：年をとる・引退・権力争い・卒業生が敵将に・手紙
   const officerNews = yearlyOfficers(s, r);
+  // 19夜目⑧：蘇り・捕らわれた教え子・追放・二代目・衰え・敵に回る教え子・さらわれた先代
+  yearlyLong(s, r, officerNews);
+  capturedReturns(s, r, officerNews);
   // お金：援助金と寄付
   const aid = aidMoney(s);
   const aidTotal = COUNTRIES.reduce((a, c) => a + aid[c], 0);

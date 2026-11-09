@@ -364,7 +364,7 @@ export function memoryLine(s: GameState, o: EnemyOfficer, ids: string[], r: Rng)
 
 // ---------- 特徴が分かる（偵察・手紙） ----------
 export function revealOne(o: EnemyOfficer, r: Rng): string | null {
-  const unknown = o.traits.filter((t) => !o.knownTraits.includes(t));
+  const unknown = o.traits.filter((t) => !o.knownTraits.includes(t) && !!OFFICER_TRAITS[t]);
   if (!unknown.length) return null;
   const id = r.pick(unknown);
   o.knownTraits.push(id);
@@ -422,6 +422,7 @@ export function yearlyOfficers(s: GameState, r: Rng): string[] {
     const o = r.weighted(met, (x) => (x.faction === w.career!.country ? 3 : 1) + x.meets.length);
     const id = revealOne(o, r)!;
     const T = OFFICER_TRAITS[id];
+    if (!T) continue;
     mail(s, `${w.given}（${w.cohort}期生）`, LETTER_TEXT.title, fill(r.pick(LETTER_TEXT.body), { place: w.career!.country ? `${COUNTRY_SHORT[w.career!.country]}の陣中` : '戦場', leader: officerName(o), faction: FACTION_NAMES[o.faction], desc: T.desc, trait: T.name, a: w.given }), w.id);
     sent++;
   }

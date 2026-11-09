@@ -260,6 +260,8 @@ export const B = {
   // ---- 戦闘 ----
   /** 19夜目：人の地図。教え子が領主になる役職の段階・見込み、大きな戦で将の力をどれだけ足すか */
   rulers: { alumniRank: 3, alumniChance: 0.5, generalWeight: 0.05, /** 評判で仲立ち・和平の席 */ mediateRep: 65, mediateChance: 0.3, mediateRel: 12, mediateTension: 6 },
+  /** 19夜目⑧：長い時間。蘇り（死んだと思われた者が1年に戻る見込み・呪いで蘇る見込み）・捕らわれて生きていた教え子・追放・二代目・先生がさらわれる・敵に回る教え子 */
+  long: { revive: 0.25, curse: 0.03, captured: 0.2, exileShame: 3, exile: 0.25, heir: 0.35, teacherCaptured: 0.2, teacherReturn: [3, 6] as [number, number], turnMax: 3, turnBase: 0.2, turnPerDistrust: 0.008, turnForced: 0.3 },
   /** 19夜目：入学の希望者（10人ほど＋評判25ごとに1人）・仇討ちの子が来る見込み */
   admission: { base: 10, perRep: 25, avenger: 0.3 },
   /** 19夜目：全盛期と衰え（年齢）：伸び盛り〜27歳、28〜34歳は伸びが0.6倍、35〜44歳は0.3倍、45歳から伸びなくなり、毎年少しずつ衰える */

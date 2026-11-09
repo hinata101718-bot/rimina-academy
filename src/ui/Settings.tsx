@@ -1,9 +1,9 @@
-import { useState } from 'preact/hooks';
+import { useState, useEffect } from 'preact/hooks';
 import { encodeTransfer } from '../core/transfer';
 import { PROSE_NAMES } from '../data/warprose';
 import type { GameState } from '../core/state';
 import { useStore, act, setGame, emit } from './store';
-import { exportFile, saveSlot } from './storage';
+import { exportFile, saveSlot, saveRecord, loadRecord, recordInfos } from './storage';
 import { DIFFICULTY, type Difficulty } from '../data/balance';
 import { sfx } from './sound';
 import { autoWeek } from '../core/autoplay';
@@ -41,6 +41,7 @@ function SettingsBody({ s, set, days }: { s: GameState; set: (fn: (x: GameState[
             <button class="btn ghost small" onClick={() => setCode('')}>閉じる</button></span></div>
         </>}
       </div>
+      <RecordSlots />
       <div class="card">
         <h3>難易度</h3>
         <div class="seg">
@@ -90,3 +91,25 @@ function SettingsBody({ s, set, days }: { s: GameState; set: (fn: (x: GameState[
   );
 }
 
+
+/** 19夜目⑨：記録枠（自動セーブのほかに、手動で3つ） */
+function RecordSlots() {
+  const { s } = useStore();
+  const [list, setList] = useState<{ k: number; label: string; savedAt: number }[]>([]);
+  const refresh = () => { if (s) recordInfos(s.slot).then(setList); };
+  useEffect(refresh, [s?.slot]);
+  if (!s) return null;
+  return (
+    <div class="card">
+      <h3>記録枠</h3>
+      <div class="muted small">いつも自動でセーブしています。それとは別に、3つまで今のようすを残せます。あとから、好きな記録に戻ってやり直せます。</div>
+      {list.map((x) => (
+        <div class="row between nowrap" style={{ marginTop: 6 }}>
+          <span class="grow small"><b>記録 {x.k + 1}</b>　{x.label || '空き'}</span>
+          <button class="btn small" onClick={async () => { if (x.label && !confirm(`記録${x.k + 1}に上書きしますか？`)) return; sfx('ok'); await saveRecord(s, x.k); refresh(); }}>ここに残す</button>
+          <button class="btn small ghost" disabled={!x.label} onClick={async () => { if (!confirm(`記録${x.k + 1}（${x.label}）に戻りますか？　今のようすは、自動セーブから消えます。`)) return; const g = await loadRecord(s.slot, x.k); if (g) { sfx('page'); setGame(g); } else alert('読み込めませんでした'); }}>戻る</button>
+        </div>
+      ))}
+    </div>
+  );
+}
