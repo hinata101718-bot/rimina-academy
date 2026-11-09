@@ -13,7 +13,7 @@ import type { GameState, Student, CareerInfo } from './state';
 import { Rng } from './rng';
 import { effectiveStats, chronicle, addFriendship, enrolled } from './game';
 import { addTrust } from './support';
-import { bestSkillOf, presence } from './util';
+import { bestSkillOf, presence, cohortName } from './util';
 import { fx } from './mentor';
 
 export type CareerChoice = CountryId | 'stay' | 'home' | 'merc';
@@ -118,7 +118,7 @@ export function graduate(s: GameState, rng: Rng, plans: CareerPlan[]): { id: str
     if (mood === 'match') addTrust(st, 5);
     st.farewell = farewell(s, rng, st, choice, mood);
     st.seenTitle = careerTitleOnly(titleOf(st)); st.seenClass = st.classId;
-    st.history.push({ year: s.year, text: `リミナ分校を卒業（${st.cohort}期生）。進路：${CHOICE_NAMES[choice]}${kind === 'army' ? `（${PATH_NAMES[plan.path]}）` : ''}` });
+    st.history.push({ year: s.year, text: `リミナ分校を卒業（${cohortName(st.cohort)}）。進路：${CHOICE_NAMES[choice]}${kind === 'army' ? `（${PATH_NAMES[plan.path]}）` : ''}` });
     lines.push({ id: st.id, text: st.farewell });
     // 11夜目：先輩と後輩：卒業する先輩は、いちばん親しい後輩に、言葉・愛用の武器・ノートのどれかを託す
     const kohai = Object.values(s.supports).filter((sp) => sp.kind === 'senpai' && (sp.a === st.id || sp.b === st.id)).map((sp) => ({ sp, o: s.students[sp.a === st.id ? sp.b : sp.a] })).filter((x) => x.o && x.o.status === 'enrolled' && x.o.grade < 3).sort((x, y) => y.sp.value - x.sp.value)[0]?.o;
@@ -144,7 +144,7 @@ export function graduate(s: GameState, rng: Rng, plans: CareerPlan[]): { id: str
   // 卒業写真
   const members = Object.values(s.students).filter((x) => x.cohort === cohort);
   s.photos.push({ cohort, year: s.year, ids: members.filter((x) => x.status === 'graduated').map((x) => x.id), empty: members.filter((x) => x.status === 'dead' || x.status === 'dropped').map((x) => x.id) });
-  chronicle(s, `${cohort}期生 ${third.length}人が卒業`, 'school');
+  chronicle(s, `${cohortName(cohort)} ${third.length}人が卒業`, 'school');
   s.instructor.experience += third.length;
   return lines;
 }

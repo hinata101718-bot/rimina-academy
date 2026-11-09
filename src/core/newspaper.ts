@@ -4,7 +4,7 @@ import { POWER_UP, POWER_DOWN, REL_DOWN, REL_UP, TENSION_UP, TENSION_DOWN, QUIET
 import type { CountryId } from './types';
 import type { GameState, NewsPaper, ChronicleEntry } from './state';
 import { Rng } from './rng';
-import { clamp } from './util';
+import { clamp, cohortName } from './util';
 import { officerName, rankName, factionName } from './officers';
 import { titleOf } from './alumni';
 
@@ -153,7 +153,7 @@ export function publishIssue(s: GameState, kind: 'first' | 'second', input: Issu
   const school: string[] = [];
   if (!alumni.length) {
     const act = Object.values(s.students).filter((x) => x.status === 'graduated' && x.career?.alive && !x.career.retired);
-    alumni = r.shuffle(act).slice(0, 3).map((x) => ({ id: x.id, text: `${x.given}（${x.cohort}期生）、${titleOf(x)}として務める` }));
+    alumni = r.shuffle(act).slice(0, 3).map((x) => ({ id: x.id, text: `${x.given}（${cohortName(x.cohort)}）、${titleOf(x)}として務める` }));
     // 在校生の出来事（兵種の昇格・才能の判明など）は学校の話題へ
     for (const e of period.filter((x) => x.kind === 'student').slice(-3)) school.push(e.text);
   }

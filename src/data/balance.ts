@@ -307,13 +307,13 @@ export const B = {
   /** 19夜目：人の地図。教え子が領主になる役職の段階・見込み、大きな戦で将の力をどれだけ足すか */
   rulers: { alumniRank: 3, alumniChance: 0.5, generalWeight: 0.05, /** 評判で仲立ち・和平の席 */ mediateRep: 65, mediateChance: 0.3, mediateRel: 12, mediateTension: 6 },
   /** 19夜目⑧：長い時間。蘇り（死んだと思われた者が1年に戻る見込み・呪いで蘇る見込み）・捕らわれて生きていた教え子・追放・二代目・先生がさらわれる・敵に回る教え子 */
-  long: { revive: 0.25, curse: 0.03, captured: 0.2, exileShame: 3, exile: 0.25, heir: 0.35, teacherCaptured: 0.07, /** 20夜目：おまかせで先生が引退する年 */ autoRetireAge: 60, /** 20夜目：故郷へ帰った子・傭兵になった子が宿敵の陣に加わる見込み（軍に入った子の何倍か） */ turnHomeMul: 0.6, turnMercMul: 1.2, teacherReturn: [3, 6] as [number, number], turnMax: 4, turnBase: 0.5, turnPerDistrust: 0.01, turnForced: 0.3 },
+  long: { revive: 0.25, curse: 0.03, captured: 0.2, exileShame: 3, exile: 0.25, heir: 0.35, teacherCaptured: 0.07, /** 20夜目：おまかせで先生が引退する年 */ autoRetireAge: 57, /** 21夜目：卒業して何年までの子が敵に回りうるか */ turnYears: 8, /** 20夜目：故郷へ帰った子・傭兵になった子が宿敵の陣に加わる見込み（軍に入った子の何倍か） */ turnHomeMul: 0.6, turnMercMul: 1.2, teacherReturn: [3, 6] as [number, number], turnMax: 6, turnBase: 0.6, turnPerDistrust: 0.01, turnForced: 0.3 },
   /** 19夜目：入学の希望者（10人ほど＋評判25ごとに1人）・仇討ちの子が来る見込み */
   admission: { base: 10, perRep: 25, avenger: 0.3 },
   /** 19夜目：全盛期と衰え（年齢）：伸び盛り〜27歳、28〜34歳は伸びが0.6倍、35〜44歳は0.3倍、45歳から伸びなくなり、毎年少しずつ衰える */
   prime: { peakEnd: 27, slowEnd: 34, slowMul: 0.6, stopAt: 44, lateMul: 0.3, declineAt: 45, declineChance: 0.15, declinePerYear: 0.02 },
   /** 19夜目：月末の出撃（教え子の人数）・出撃しない子の罠の傷 */
-  sortie: { members: 4, trapDmg: 6, /** ふつうの戦いで討った名前のある将が、深手を負って逃げのびる見込み */ officerEscape: 0.5 },
+  sortie: { members: 4, trapDmg: 6, /** 21夜目③：おまかせは、宿敵よりこれだけ以上レベルの低い子を宿敵戦に出さない */ nemesisLvGap: 3, /** ふつうの戦いで討った名前のある将が、深手を負って逃げのびる見込み */ officerEscape: 0.5 },
   battle: {
     width: 8, height: 12,
     deployBase: 6, deployAt12: 8, deployAt20: 10,
@@ -454,7 +454,7 @@ export const B = {
     promoteLevel: 22, // 昇進のしやすさの基準のレベル（7夜目：卒業時のレベルが上がったので 15→22）
     tier4Level: 45,
     /** 20夜目：卒業後の戦いで、最上級の条件の出来事を成し遂げる見込みの倍率（data/deeds の odds に掛ける） */
-    deedMul: 0.6,
+    deedMul: 0.3, // 21夜目：0.6→0.3（最上級を半分に）
   },
   // ---- 戦況 ----
   world: {
@@ -490,14 +490,14 @@ export const B = {
       peaceCooldown: 30,
       peaceBaseRel: 6, peacePerAmbassador: 3,
       roundTableRel: 25,            // 和平の円卓での関係の改善
-      roundTableTalks: 3,           // 20夜目：和平の円卓は、それまでに和平会議がこの回数開かれてから
+      roundTableTalks: 5,           // 21夜目：3→5。20夜目：和平の円卓は、それまでに和平会議がこの回数開かれてから
       diplomatAmbitionDamp: 0.25,   // 帝国の大使の教え子1人ごとに、帝国の野心を弱める割合
     },
     alumniAppear: { peace: 0.08, tension: 0.18, war: 0.3 },
   },
   // ---- 教官 ----
   instructor: {
-    retireMin: 50, retireMax: 65,
+    retireMin: 57, retireMax: 65, // 21夜目：50→57（57歳ごろに「引退を考える」）
     // 教えるほど上がる技能（ポイント。D=50→B=270 は苦手科目を重点にし続けて約10年）
     growFocus: 0.42,         // その科目がどこかの学年の重点科目だった週
     growFocusExtraGrade: 0.05, // 2学年め・3学年めも重点にしていれば少し上乗せ
@@ -508,7 +508,7 @@ export const B = {
     acceptBase: 20, acceptPerTrust: 0.7, acceptMax: 95,
     recallPower: 3, recallFriendship: -5, recallRank: 2, // 部隊長・参謀長・大使以上を呼び戻すと国力と友好度が下がる
     newFriendship: 10,       // 新しい教官の所属していた国との縁
-    externalAge: [30, 38] as [number, number],
+    externalAge: [35, 42] as [number, number], // 21夜目：30〜38→35〜42
   },
   // ---- 開始の状態（「ふつう」「名門」はエンディングに一度届くと選べる） ----
   starts: {
@@ -520,9 +520,9 @@ export const B = {
   ending: {
     unifyYears: 2,               // 一国の国力が他の二国の合計を上回る状態が2年続く
     /** 19夜目：最初の戦争のエンディングは、この年から（和平の大成功などの早い道でも） */
-    minYear: 21, // 20夜目：17→21
-    ceasefireWarYears: 13, // 19夜目：8→11、20夜目：11→13（最初のエンディングを20〜30年目に）        // 戦いの疲れ（激戦期1年=1、緊張期1年=0.5、平和期は−1）が8年分
-    ceasefirePower: 32,          // 三国すべての国力が32以下（20夜目：35→32）
+    minYear: 22, // 20夜目：17→21、21夜目：21→22
+    ceasefireWarYears: 15, // 21夜目：13→15、 19夜目：8→11、20夜目：11→13（最初のエンディングを20〜30年目に）        // 戦いの疲れ（激戦期1年=1、緊張期1年=0.5、平和期は−1）が8年分
+    ceasefirePower: 30,          // 三国すべての国力が30以下（20夜目：35→32、21夜目：32→30）
     neutralRep: 90, neutralGrads: 100, neutralFriendship: 60, // 学校の中立宣言（4夜目にゆるめた）
     neutralBalance: 1.15, neutralAlumniMin: 10, // 三国にいる教え子の数が釣り合っている（多い国が少ない国の1.15倍まで・各国10人以上）
     neutralRevealRep: 70,        // 評判70になるまで、戦況タブの「中立宣言への道」は「？？？」

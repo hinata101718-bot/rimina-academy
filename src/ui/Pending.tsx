@@ -36,7 +36,7 @@ import { RankUpPlayer, DiscoveryView } from './RankUp';
 import { LessonResultView } from './Lessons';
 import { Icon } from './icons';
 import { countryColor, CountryChip, Chip, Stars, Num, LvBadge, MiniCard, NameLine, OBJECTIVE_ICON, WEATHER_ICON } from './cards';
-import { rankOf } from '../core/util';
+import { rankOf, cohortName } from '../core/util';
 import { SKILL_NAMES } from '../data/people';
 import { SKILLS } from '../data/balance';
 import { TechLearnView, NemesisPendingView } from './Nemesis';
@@ -200,7 +200,7 @@ function Graduation({ s, cohort, lines, onDone }: { s: GameState; cohort: number
   if (i < lines.length) {
     const st = s.students[lines[i].id];
     return (
-      <Sheet title={`${cohort}期生 卒業式`}>
+      <Sheet title={`${cohortName(cohort)} 卒業式`}>
         {i === 0 && <ArtSlot name="event_graduation" />}
         <div style={{ textAlign: 'center' }}><Portrait st={st} size={96} /></div>
         <h2 style={{ textAlign: 'center' }}>{st.given} {st.family}</h2>
@@ -212,7 +212,7 @@ function Graduation({ s, cohort, lines, onDone }: { s: GameState; cohort: number
     );
   }
   return (
-    <Sheet title={`${cohort}期生 卒業写真`}>
+    <Sheet title={`${cohortName(cohort)} 卒業写真`}>
       {photo && <div class="photo">
         {photo.ids.map((id) => s.students[id]).filter(Boolean).map((st) => <div class="seat"><Portrait st={st} size={52} /><div>{st.given}</div></div>)}
         {photo.empty.map((id) => s.students[id]).filter(Boolean).map((st) => <div class="seat"><div class="empty" /><div class="muted">{st.given}</div></div>)}

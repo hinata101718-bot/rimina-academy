@@ -203,3 +203,44 @@ describe('21夜目②：宿敵との友情と恋', () => {
     expect(s.pending.filter((p) => p.type === 'nemesis' && p.kind === 'heart').length).toBeGreaterThan(0);
   });
 });
+
+// ---------- 21夜目③④：数字の直し・小さな直し ----------
+import { newGame, enrolled } from '../src/core/game';
+import { B } from '../src/data/balance';
+import { BACKGROUNDS } from '../src/data/people';
+import { cohortName } from '../src/core/util';
+import { recommendDeploy, fragileFor } from '../src/core/sortie';
+import { retireCheck } from '../src/core/instructor';
+
+describe('21夜目③：数字の直し', () => {
+  it('はじめの先生は35〜42歳。57歳から「引退を考える」', () => {
+    for (const bg of BACKGROUNDS) { expect(bg.age).toBeGreaterThanOrEqual(35); expect(bg.age).toBeLessThanOrEqual(42); }
+    const s = newGame({ name: 'テスト', background: 'mage', seed: 4 });
+    s.instructor.age = 56; expect(retireCheck(s).can).toBe(false);
+    s.instructor.age = 57; expect(retireCheck(s).can).toBe(true);
+    expect(B.long.autoRetireAge).toBe(57);
+  });
+  it('敵に回る教え子：国ごとの上限6人・卒業後8年まで', () => {
+    expect(B.long.turnMax).toBe(6);
+    expect(B.long.turnYears).toBe(8);
+  });
+  it('おまかせは、この年に深い傷を負った子・宿敵よりずっと弱い子を宿敵戦に出さない', () => {
+    const s = newGame({ name: 'テスト', background: 'knight', seed: 7 });
+    const kids = enrolled(s);
+    const q = { ...s.quests[0], nemesisId: 'nx' } as typeof s.quests[0];
+    const hurt = kids[0];
+    (hurt.scars ??= []).push({ year: s.year, text: '左の肩の傷' });
+    expect(fragileFor(s, q, hurt)).toBe(true);
+    if (kids.filter((k) => k !== hurt).length >= B.sortie.members) expect(recommendDeploy(s, q, B.sortie.members, true)).not.toContain(hurt.id);
+    expect(fragileFor(s, { ...q, nemesisId: undefined } as typeof q, hurt)).toBe(false);
+  });
+});
+
+describe('21夜目④：はじめの上級生の期', () => {
+  it('期が0以下の子は「はじめの上級生」と出る（-1期生と出ない）', () => {
+    expect(cohortName(1)).toBe('1期生');
+    expect(cohortName(0)).toBe('はじめの上級生');
+    expect(cohortName(-1)).toBe('はじめの上級生');
+    expect(cohortName(3, true)).toBe('3期');
+  });
+});

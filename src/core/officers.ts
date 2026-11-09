@@ -13,7 +13,7 @@ import { Rng } from './rng';
 import { generateFace } from './student';
 import { chronicle, mail } from './game';
 import { supportValue, getSupport } from './support';
-import { MONTH_NAMES } from './util';
+import { MONTH_NAMES, cohortName } from './util';
 
 // ---------- 小さな道具 ----------
 function hash(s: string): number { let h = 7; for (const c of s) h = (h * 31 + c.charCodeAt(0)) | 0; return Math.abs(h); }
@@ -401,7 +401,7 @@ export function yearlyOfficers(s: GameState, r: Rng): string[] {
     // 10夜目：統率の高い教え子ほど上の段（幹部）に。軍略の高い子は策を使ってくる敵将に
     const o = alumniOfficer(s, st, c.country, c.rank >= 3 || (st.skills.command ?? 0) >= 270 ? 1 : 2);
     officers(s).push(o);
-    const t = fill(OFFICER_NEWS.alumni, { a: `${st.given}（${st.cohort}期生）`, faction: FACTION_NAMES[c.country], rank: rankName(o) });
+    const t = fill(OFFICER_NEWS.alumni, { a: `${st.given}（${cohortName(st.cohort)}）`, faction: FACTION_NAMES[c.country], rank: rankName(o) });
     chronicle(s, t, 'student'); report.push(t);
     st.history.push({ year: s.year, text: `${FACTION_NAMES[c.country]}の${rankName(o)}になった（敵将の名簿に載る）` });
   }
@@ -423,7 +423,7 @@ export function yearlyOfficers(s: GameState, r: Rng): string[] {
     const id = revealOne(o, r)!;
     const T = OFFICER_TRAITS[id];
     if (!T) continue;
-    mail(s, `${w.given}（${w.cohort}期生）`, LETTER_TEXT.title, fill(r.pick(LETTER_TEXT.body), { place: w.career!.country ? `${COUNTRY_SHORT[w.career!.country]}の陣中` : '戦場', leader: officerName(o), faction: FACTION_NAMES[o.faction], desc: T.desc, trait: T.name, a: w.given }), w.id);
+    mail(s, `${w.given}（${cohortName(w.cohort)}）`, LETTER_TEXT.title, fill(r.pick(LETTER_TEXT.body), { place: w.career!.country ? `${COUNTRY_SHORT[w.career!.country]}の陣中` : '戦場', leader: officerName(o), faction: FACTION_NAMES[o.faction], desc: T.desc, trait: T.name, a: w.given }), w.id);
     sent++;
   }
   // 宿敵にならなかった記録を整理する

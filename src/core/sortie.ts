@@ -55,9 +55,22 @@ export function mustJoin(s: GameState, q: Quest): string[] {
 }
 
 /** おすすめの顔ぶれ：必ず入る子 → 癒し手1人 → 今年まだ出ていない子（交代で全員） → レベル */
-export function recommendDeploy(s: GameState, q: Quest, limit = B.sortie.members): string[] {
-  const list = enrolled(s).filter(available);
-  const out = mustJoin(s, q).slice(0, limit);
+/** 21夜目③：宿敵戦に出すと命が危ない子（この年に深い傷を負った子・宿敵よりずっとレベルの低い子）。おまかせは出さない */
+export function fragileFor(s: GameState, q: Quest, st: Student): boolean {
+  if (!q.nemesisId) return false;
+  if ((st.scars ?? []).some((x) => x.year === s.year)) return true;
+  const o = officerForQuest(s, q);
+  return !!o && st.level < o.level - B.sortie.nemesisLvGap;
+}
+export function recommendDeploy(s: GameState, q: Quest, limit = B.sortie.members, auto = false): string[] {
+  let list = enrolled(s).filter(available);
+  let must = mustJoin(s, q);
+  if (auto && q.nemesisId) {
+    const safe = list.filter((st) => !fragileFor(s, q, st));
+    // 出せる子が足りないときは、レベルの高い順に足す（宿敵の挑戦は断れない）
+    if (safe.length >= limit) { list = safe; must = must.filter((id) => safe.some((x) => x.id === id)); }
+  }
+  const out = must.slice(0, limit);
   const yearBattles = (st: Student) => (st.evalLog ?? []).filter((e) => e.year === s.year).length;
   const healer = list.filter((st) => !out.includes(st.id) && (st.techs ?? []).some((t) => t === 'heal' || t === 'recover')).sort((a, c) => c.level - a.level)[0];
   if (healer && out.length < limit && q.danger >= 1) out.push(healer.id);
@@ -66,7 +79,7 @@ export function recommendDeploy(s: GameState, q: Quest, limit = B.sortie.members
   return out;
 }
 export function recommendSquad(s: GameState, q: Quest, manual = false): SquadPlan {
-  return { questId: q.id, deploy: deployFor(s, recommendDeploy(s, q)), manual };
+  return { questId: q.id, deploy: deployFor(s, recommendDeploy(s, q, B.sortie.members, !manual)), manual };
 }
 /** おすすめの依頼（宿敵の挑戦は断れない） */
 export function recommendQuest(s: GameState): Quest | null {

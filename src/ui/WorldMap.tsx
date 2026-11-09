@@ -1,4 +1,5 @@
 // 大陸の勢力図（13夜目）：地形の絵の上に、地域ごとに治める国の色。⚔・教え子の数・地域をタップで吹き出し・三国の帯・この前から変わったこと
+import { cohortName } from '../core/util';
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { act, useStore, navigate } from './store';
 import { sfx } from './sound';
@@ -140,7 +141,7 @@ export function WorldMap({ s }: { s: GameState }) {
           <RulerRow s={s} id={r.id} />
           <h3>この地域にいる教え子</h3>
           {alum.length === 0 && <div class="muted small">今はいません</div>}
-          {alum.map((st) => <div class="row nowrap gap6" style={{ margin: '4px 0' }}><Portrait st={st} size={36} /><span><b>{st.given}</b>（{st.cohort}期生）<span class="small muted">{titleOf(st)}</span></span></div>)}
+          {alum.map((st) => <div class="row nowrap gap6" style={{ margin: '4px 0' }}><Portrait st={st} size={36} /><span><b>{st.given}</b>（{cohortName(st.cohort)}）<span class="small muted">{titleOf(st)}</span></span></div>)}
         </Sheet>
       )}
       {play && <MapChangePlayer s={s} onDone={() => { setPlay(false); act((g) => markMapSeen(g)); }} />}

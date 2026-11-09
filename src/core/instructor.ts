@@ -1,4 +1,4 @@
-import { presence } from './util';
+import { presence, cohortName } from './util';
 // 教官：教えるほど上がる技能（③）、加齢・引退・後継（④）、副教官（⑤）。DOMに依存しない
 import { goodOf } from './aptitude';
 import { RANK_TITLES } from '../data/people';
@@ -136,7 +136,7 @@ export function farewellScene(s: GameState, rng: Rng): SceneLine[] {
     const words = st.status === 'graduated'
       ? rng.pick([
         `先生に教わったことは、今でも毎日思い出します。${st.career?.country ? `${COUNTRY_SHORT[st.career.country]}でも、` : ''}先生の教え子だと胸を張っています。`,
-        `${st.cohort}期生の${st.given}です。あの頃、先生がかけてくれた言葉がなければ、今のわたしはいません。`,
+        `${cohortName(st.cohort)}の${st.given}です。あの頃、先生がかけてくれた言葉がなければ、今のわたしはいません。`,
         '先生、本当にお疲れさまでした。今度は、わたしたちが先生の教えを伝えていきます。',
       ])
       : rng.pick(['先生の最後の生徒になれて、うれしいです。', 'まだまだ教わりたいことがあったのに……。でも、先生の言葉は忘れません。', '新しい先生のもとでも、ちゃんと頑張ります。見ていてください。']);
@@ -186,7 +186,7 @@ export function becomeInstructor(s: GameState, rng: Rng, st: Student): void {
   inheritAbilities(prev, ins, rng, true);
   if (country) addFriendship(s, country, B.instructor.newFriendship);
   st.history.push({ year: s.year, text: `リミナ分校の${ins.generation}代目教官になった` });
-  chronicle(s, `${st.cohort}期生の${st.given}が${ins.generation}代目教官に就任`, 'school');
+  chronicle(s, `${cohortName(st.cohort)}の${st.given}が${ins.generation}代目教官に就任`, 'school');
   afterSuccession(s, rng);
   void rng;
 }
@@ -236,7 +236,7 @@ export function firstLessonScene(s: GameState, rng: Rng): SceneLine[] {
   const lines: SceneLine[] = [];
   lines.push({ by: 'narr', title: '初めての授業', text: `新しい年度が始まった。教壇に立つのは、${ins.generation}代目教官の${ins.name}だ。`, faces: list.slice(0, 6).map((x) => x.id) });
   if (st) {
-    lines.push({ by: 'teacher', text: `${st.cohort}期生の${st.given}です。……自分がこの教壇に立つなんて、入学した日には思ってもみなかった。` });
+    lines.push({ by: 'teacher', text: `${cohortName(st.cohort)}の${st.given}です。……自分がこの教壇に立つなんて、入学した日には思ってもみなかった。` });
     lines.push({ by: 'teacher', text: `私がここで教わったのは、${SKILL_NAMES[goodSkillsOf(s)[0] ?? 'sword']}の腕だけじゃない。生きて帰ること、仲間を信じること。それをみんなにも伝えたい。` });
   } else {
     lines.push({ by: 'teacher', text: `${ins.name}だ。旅の途中で、この学校の噂を聞いてね。前の先生から、みんなのことを頼まれた。` });

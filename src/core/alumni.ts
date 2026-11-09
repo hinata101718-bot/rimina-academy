@@ -1,4 +1,4 @@
-import { presence } from './util';
+import { presence, cohortName } from './util';
 // 卒業生の毎年のシミュレーション
 import type { SkillId } from './types';
 import { ARM_SKILLS } from '../data/balance';
@@ -55,7 +55,7 @@ function alumniDeed(s: GameState, rng: Rng, st: Student, clsId: string, news: Al
   const text = rng.pick(D.alumni).replace('{a}', c.country ? COUNTRY_SHORT[c.country] : '雇い主');
   if (D.kind === 'count') { if (have + 1 >= (next.need ?? 1)) st.history.push({ year: s.year, text }); return; }
   st.history.push({ year: s.year, text });
-  news.push({ id: st.id, text: `${st.given}（${st.cohort}期生）が${text}`, big: false });
+  news.push({ id: st.id, text: `${st.given}（${cohortName(st.cohort)}）が${text}`, big: false });
 }
 
 /** 20夜目：卒業生の兵種が上がる（最上級は、なる条件の出来事を成し遂げた子だけ） */
@@ -74,7 +74,7 @@ function classUp(s: GameState, rng: Rng, st: Student, news: AlumniNews[], big: (
       big(st, `が「${next.unlock}」を成し遂げ、最上級の兵種「${next.name}」になった`);
       chronicle(s, `卒業生の${st.given}が最上級の${next.name}に（${next.unlock}）`, 'student');
       notify(s, `卒業生の${st.given}が最上級の${next.name}になった`, st.id);
-      if (st.trust >= 30) mail(s, `${st.given}（${st.cohort}期生）`, '昇格のお知らせ', promotionLetter(rng, st, next.name, false, false), st.id);
+      if (st.trust >= 30) mail(s, `${st.given}（${cohortName(st.cohort)}）`, '昇格のお知らせ', promotionLetter(rng, st, next.name, false, false), st.id);
     }
   }
 }
@@ -82,7 +82,7 @@ function classUp(s: GameState, rng: Rng, st: Student, news: AlumniNews[], big: (
 export function simulateAlumni(s: GameState, rng: Rng): AlumniNews[] {
   const news: AlumniNews[] = [];
   const stage = tensionStage(s.world.tension);
-  const big = (st: Student, text: string) => { news.push({ id: st.id, text: `${st.given}（${st.cohort}期生）${text}`, big: true }); st.history.push({ year: s.year, text }); };
+  const big = (st: Student, text: string) => { news.push({ id: st.id, text: `${st.given}（${cohortName(st.cohort)}）${text}`, big: true }); st.history.push({ year: s.year, text }); };
   for (const st of Object.values(s.students)) {
     if (st.status !== 'graduated' || !st.career || !st.career.alive || st.career.retired) continue;
     if (st.career.instructor) { st.age = s.instructor.age; classUp(s, rng, st, news, big); continue; } // 教官になった教え子は教官として年をとる
@@ -124,7 +124,7 @@ export function simulateAlumni(s: GameState, rng: Rng): AlumniNews[] {
       const A = B.alumni;
       const k: SkillId = c.path === 'warrior' ? 'command' : c.path === 'strategist' ? 'tactics' : c.path === 'champion' ? bestArmSkill(st) : 'command';
       if (c.path !== 'civil') st.skills[k] = Math.min(700, (st.skills[k] ?? 0) + A.pathSkillYear * (0.7 + rng.next() * 0.6));
-      if (c.kind === 'army' && c.path === 'warrior' && c.rank >= 2 && (st.skills.command ?? 0) < A.lowCommandAt && rng.chance(A.lowCommandFail)) { c.rankYears = 0; st.history.push({ year: s.year, text: '兵がついてこず、戦で手痛い目にあった' }); news.push({ id: st.id, text: `${st.given}（${st.cohort}期生）の隊は、兵がついてこず苦しい戦いになった`, big: false }); }
+      if (c.kind === 'army' && c.path === 'warrior' && c.rank >= 2 && (st.skills.command ?? 0) < A.lowCommandAt && rng.chance(A.lowCommandFail)) { c.rankYears = 0; st.history.push({ year: s.year, text: '兵がついてこず、戦で手痛い目にあった' }); news.push({ id: st.id, text: `${st.given}（${cohortName(st.cohort)}）の隊は、兵がついてこず苦しい戦いになった`, big: false }); }
       if (c.path === 'champion' && stage !== 'peace' && rng.chance(A.championDeed)) big(st, rng.pick(['が単騎で敵陣を破った', 'が一騎打ちで敵の名のある将を退けた', 'が先陣を切って砦の門を破った']));
     }
     // 出来事
@@ -179,11 +179,11 @@ export function simulateAlumni(s: GameState, rng: Rng): AlumniNews[] {
     const retireAge = B.alumni.retireAge[0] + ((st.id.charCodeAt(st.id.length - 1) * 7) % (B.alumni.retireAge[1] - B.alumni.retireAge[0] + 1));
     if (st.age >= retireAge) { c.retired = true; big(st, 'が引退した'); continue; }
     // 手紙
-    if (st.trust >= B.trust.letterAt && rng.chance(B.alumni.letterRate)) mail(s, `${st.given}（${st.cohort}期生）`, '先生へ', letterBody(rng, st, s), st.id);
+    if (st.trust >= B.trust.letterAt && rng.chance(B.alumni.letterRate)) mail(s, `${st.given}（${cohortName(st.cohort)}）`, '先生へ', letterBody(rng, st, s), st.id);
     // 後輩への差し入れ（傷薬が届く）
     else if (st.trust >= B.trust.letterAt && rng.chance(B.letters.careChance)) {
       s.items.vulnerary += 2;
-      mail(s, `${st.given}（${st.cohort}期生）`, '後輩たちへの差し入れ', `先生、${c.country ? `${COUNTRY_SHORT[c.country]}の` : ''}町で良い傷薬を見つけたので、少し送ります。後輩たちが無事に帰ってこられますように。—${st.given}（${st.cohort}期生）（傷薬が2つ武器庫に届いた）`, st.id);
+      mail(s, `${st.given}（${cohortName(st.cohort)}）`, '後輩たちへの差し入れ', `先生、${c.country ? `${COUNTRY_SHORT[c.country]}の` : ''}町で良い傷薬を見つけたので、少し送ります。後輩たちが無事に帰ってこられますように。—${st.given}（${cohortName(st.cohort)}）（傷薬が2つ武器庫に届いた）`, st.id);
     }
   }
   return news;
@@ -205,7 +205,7 @@ function promotionLetter(rng: Rng, st: Student, cls: string, nation: boolean, he
   const where = c.country ? COUNTRY_SHORT[c.country] : '';
   const head = hero ? `先生、信じられないかもしれませんが……わたしは「${cls}」と呼ばれるようになりました。` : nation ? `先生、${where}の${cls}に任じられました！ ${where}でも、なれる人はほんのひと握りだそうです。` : `先生、ついに${cls}になりました。`;
   const tail = rng.pick(['学校で最初に剣を握った日のことを、今でも覚えています。', '先生に教わった基本を、毎朝欠かさず続けてきたおかげです。', '後輩たちにも、あきらめなければ届くと伝えてください。']);
-  return `${head}${tail}—${st.given}（${st.cohort}期生）`.replace(/わたし/g, st.gender === 'm' ? '僕' : 'わたし');
+  return `${head}${tail}—${st.given}（${cohortName(st.cohort)}）`.replace(/わたし/g, st.gender === 'm' ? '僕' : 'わたし');
 }
 
 function letterBody(rng: Rng, st: Student, s?: GameState): string {
@@ -219,7 +219,7 @@ function letterBody(rng: Rng, st: Student, s?: GameState): string {
     ...(s && s.world.era === 'peace' ? ['戦のない毎日に、まだ少しとまどっています。でも、悪くないです。'] : s && s.world.tension > B.world.warAbove ? ['前線は厳しいですが、先生の「生きて帰れ」を毎晩思い出しています。'] : []),
     ...(s && s.instructor.generation > 1 ? [`新しい先生にもよろしくお伝えください。${s.instructor.name}先生なら、きっと大丈夫です。`] : []),
   ]);
-  return `先生、お元気ですか。${where}。${extra}—${st.given}（${st.cohort}期生）`;
+  return `先生、お元気ですか。${where}。${extra}—${st.given}（${cohortName(st.cohort)}）`;
 }
 
 export function aidMoney(s: GameState): Record<CountryId, number> {

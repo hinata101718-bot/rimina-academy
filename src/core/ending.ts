@@ -8,7 +8,7 @@ import { chronicle, enrolled } from './game';
 import { activeAlumni, diplomats, recalcTension, PAIRS } from './world';
 import { titleOf } from './alumni';
 import { RANK_TITLES } from '../data/people';
-import { clamp } from './util';
+import { clamp, cohortName } from './util';
 import { SEEDS, SMOLDER_STAGES, warOrdinal } from '../data/aftermath';
 
 export const ENDING_NAMES: Record<EndingKind, string> = { peace: '和平の円卓', unify: '統一', ceasefire: '疲弊の停戦', neutral: '学校の中立宣言' };
@@ -133,7 +133,7 @@ export function keyStudents(s: GameState, kind: EndingKind, country?: CountryId)
 function epilogue(s: GameState, rng: Rng, st: Student, kind: EndingKind, country?: CountryId): string {
   const c = st.career!;
   const where = c.country ? COUNTRY_SHORT[c.country] : '';
-  const head = `${st.given}（${st.cohort}期生・${titleOf(st).replace(/（.*）$/, '')}）`;
+  const head = `${st.given}（${cohortName(st.cohort)}・${titleOf(st).replace(/（.*）$/, '')}）`;
   const path = c.kind === 'army' ? PATH_NAMES[c.path] : '';
   if (c.instructor) return `${head}は、教官として教壇に立ち続けている。授業の最後には必ず「生きて帰れ」と言うのが口ぐせだ。`;
   if (c.kind === 'stay') return `${head}は、学校に残って後輩たちを教えている。卒業生が訪ねてくると、真っ先に駆け寄るのはいつも${st.given}だ。`;
@@ -201,7 +201,7 @@ export function endingScene(s: GameState, rng: Rng, kind: EndingKind, country?: 
   const pick = chron.filter((c, i) => i === 0 || /教官|入学|銃|和平|統一|独立|傘下|防衛戦|崩御|侵攻|英雄|飢饉|内紛|元帥|宰相|講師/.test(c.text)).slice(-24);
   for (let i = 0; i < pick.length; i += 6) lines.push({ by: 'narr', title: i === 0 ? '学校の年表' : undefined, text: pick.slice(i, i + 6).map((c) => `${c.year}年目　${c.text}`).join('\n') });
   // ④ エンドロール：卒業写真を一期ずつ、全卒業生の名前
-  for (const p of s.photos) lines.push({ by: 'narr', photo: p.cohort, text: `${p.cohort}期生　${p.ids.length}人が巣立った。` });
+  for (const p of s.photos) lines.push({ by: 'narr', photo: p.cohort, text: `${cohortName(p.cohort)}　${p.ids.length}人が巣立った。` });
   const all = Object.values(s.students).filter((x) => x.status === 'graduated' || x.status === 'dead').sort((a, b) => a.cohort - b.cohort);
   for (let i = 0; i < all.length; i += 60) lines.push({ by: 'narr', title: i === 0 ? '卒業生' : undefined, roll: all.slice(i, i + 60).map((x) => ({ name: x.given, dead: x.status === 'dead' || !x.career?.alive })), text: i + 60 >= all.length ? `リミナ分校の教え子 ${all.length}人（✝は戦場で倒れた者）` : '……' });
   // ⑤ 最後の一枚
@@ -326,7 +326,7 @@ function omenLetter(s: GameState, rng: Rng, text: string): void {
   const al = Object.values(s.students).filter((x) => x.status === 'graduated' && x.career?.alive && !x.career.retired && x.career.kind === 'army').sort((a, b) => b.trust - a.trust);
   const st = al[0];
   if (!st) return;
-  s.mail.unshift({ id: `m${s.nextId++}`, year: s.year, month: s.month, from: `${st.given}（${st.cohort}期生）`, title: '気になる知らせ', body: `${s.instructor.name}先生へ。お元気ですか。${text}このまま何事もなければいいのですが……。学校の皆にも、どうか気をつけるよう伝えてください。—${st.given}`, read: false, studentId: st.id, important: true });
+  s.mail.unshift({ id: `m${s.nextId++}`, year: s.year, month: s.month, from: `${st.given}（${cohortName(st.cohort)}）`, title: '気になる知らせ', body: `${s.instructor.name}先生へ。お元気ですか。${text}このまま何事もなければいいのですが……。学校の皆にも、どうか気をつけるよう伝えてください。—${st.given}`, read: false, studentId: st.id, important: true });
   void rng;
 }
 

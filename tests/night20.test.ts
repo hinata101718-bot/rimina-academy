@@ -245,13 +245,13 @@ describe('20夜目④：宿敵が味方になる・好敵手・密偵', () => {
 });
 
 describe('20夜目③：数字の調整', () => {
-  it('最初の戦争は21年目より前には終わらない', () => {
+  it('最初の戦争は決まった年より前には終わらない（21夜目：22年目）', () => {
     const s = newGame({ name: 'テスト', background: 'knight', seed: 3 });
-    s.world.peaceRoundYear = 5; s.year = 20;
+    s.world.peaceRoundYear = 5; s.year = B.ending.minYear - 1;
     expect(endingReady(s, 'year')).toBeNull();
-    s.year = 21;
+    s.year = B.ending.minYear;
     expect(endingReady(s, 'year')?.kind).toBe('peace');
-    expect(B.ending.minYear).toBe(21);
+    expect(B.ending.minYear).toBe(22);
   });
 });
 

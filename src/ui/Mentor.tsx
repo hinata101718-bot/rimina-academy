@@ -12,7 +12,7 @@ import { Icon } from './icons';
 import { sfx } from './sound';
 import { B, SKILLS, TEACHER_RANK } from '../data/balance';
 import { SKILL_NAMES, PERSONALITIES } from '../data/people';
-import { rankOf, nextRankPoints } from '../core/util';
+import { rankOf, nextRankPoints, cohortName } from '../core/util';
 import { RANK_POINTS } from '../data/balance';
 import { skillUnlocked } from '../core/week';
 import { instructorCaps, goodSkillsOf, viceEligible, viceOf, setVice, removeVice, VICE_POLICY_NAMES, teacherRank, teacherNext, teacherClassName } from '../core/instructor';
@@ -49,7 +49,7 @@ export function InstructorPage({ s }: { s: GameState }) {
           <div class="mt-face"><TeacherFace s={s} size={84} /><span class="lvbadge">{ins.generation}代目</span></div>
           <div class="grow" style={{ minWidth: 0 }}>
             <div class="nameline"><b class="given" style={{ fontSize: 22 }}>{ins.name}</b><span class="family">教官</span></div>
-            <div class="small">{BG_NAMES[ins.background] ?? ''}{me ? `（${me.cohort}期生）` : ''}・{ins.age}歳・在任{s.year - (ins.since ?? 1)}年</div>
+            <div class="small">{BG_NAMES[ins.background] ?? ''}{me ? `（${cohortName(me.cohort)}）` : ''}・{ins.age}歳・在任{s.year - (ins.since ?? 1)}年</div>
             <div class="small muted">これまでに教えた子 {ins.experience}人・体力 {Math.round(teacherStamina(s))}／{teacherMax(s)}</div>
             <div class="small mt-tclass">先生の兵種：<b>{teacherClassName(s)}</b>（勝った宿敵戦 {ins.nemWins ?? 0}）</div>
           </div>

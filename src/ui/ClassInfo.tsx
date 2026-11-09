@@ -1,4 +1,5 @@
 // 兵種の補正と成長率の見える化（8夜目）：補正の札・成長率の内わけ・兵種図鑑
+import { cohortName } from '../core/util';
 import type { SkillId } from '../core/types';
 import { TECHS, ATK_NAME } from '../data/tactics';
 import { useEffect, useState } from 'preact/hooks';
@@ -128,7 +129,7 @@ function unlockText(c: ClassDefX, lv: number): string {
 }
 /** その兵種になったことのある子（生徒・卒業生） */
 function holders(s: GameState, id: string): string[] {
-  return Object.values(s.students).filter((x) => x.classId === id || x.history?.some((h) => h.text.includes(`「${CLASSES[id]?.name}」`) || h.text === `${CLASSES[id]?.name}になった`)).map((x) => `${x.given}（${x.cohort}期）`);
+  return Object.values(s.students).filter((x) => x.classId === id || x.history?.some((h) => h.text.includes(`「${CLASSES[id]?.name}」`) || h.text === `${CLASSES[id]?.name}になった`)).map((x) => `${x.given}（${cohortName(x.cohort, true)}）`);
 }
 
 export function ClassBook({ s, embedded }: { s: GameState; embedded?: boolean }) {

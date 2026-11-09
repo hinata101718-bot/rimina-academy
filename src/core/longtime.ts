@@ -94,7 +94,7 @@ export function revive(s: GameState, r: Rng, o: EnemyOfficer, why: string, curse
 function turnAlumni(s: GameState, r: Rng, report: string[]): void {
   const L = B.long;
   const bonded = Object.values(s.rivalries ?? {}).map((rv) => officers(s).find((o) => o.id === rv.oid)).filter((o): o is EnemyOfficer => !!o && o.status === 'active' && !!o.country && !o.alumniId && !o.allied);
-  const cands = Object.values(s.students).filter((st) => st.status === 'graduated' && st.career?.alive && !st.career.retired && !st.career.instructor && ['army', 'home', 'merc'].includes(st.career.kind) && !officers(s).some((o) => o.alumniId === st.id) && s.year - (st.enrollYear + 3) <= 4);
+  const cands = Object.values(s.students).filter((st) => st.status === 'graduated' && st.career?.alive && !st.career.retired && !st.career.instructor && ['army', 'home', 'merc'].includes(st.career.kind) && !officers(s).some((o) => o.alumniId === st.id) && s.year - (st.enrollYear + 3) <= B.long.turnYears);
   for (const st of cands) {
     const k = st.career!.kind;
     // 軍に入った子はその国、故郷へ帰った子は故郷の国、傭兵は宿敵の陣（因縁のある宿敵の国）に

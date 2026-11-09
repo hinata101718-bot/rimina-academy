@@ -1346,8 +1346,8 @@ body[data-season="winter"] { --tint: rgba(190, 210, 235, .14); }
 .calc-tag { font-size: 12px; border: 1px solid var(--line); border-radius: 8px; padding: 0 5px; color: var(--sub); white-space: nowrap; }
 .calc-tag.red { border-color: #c97a68; color: var(--accent); font-weight: bold; }
 .todaypage .lb-sheet { padding: 6px 10px 8px; margin: 6px 0 8px; }
-.lb-help { width: 32px; height: 32px; min-width: 32px; border-radius: 50%; border: 1.5px solid var(--line); background: var(--paper2); font-weight: bold; color: var(--sub); cursor: pointer; position: relative; }
-.lb-help::after { content: ''; position: absolute; inset: -6px; }
+.lb-help { width: 44px; height: 44px; min-width: 44px; border-radius: 50%; border: 1.5px solid var(--line); background: var(--paper2); font-weight: bold; color: var(--sub); cursor: pointer; position: relative; }
+.lb-help::after { content: ''; position: absolute; inset: 0; }
 .lb-help.on { background: var(--main); color: #fff; }
 .lb-mini { display: flex; align-items: center; gap: 8px; margin-top: 4px; }
 .lb-st { flex: 1; min-width: 0; display: flex; align-items: center; gap: 4px; }
@@ -1489,7 +1489,7 @@ select, input[type="text"], input[type="number"], textarea { font-size: 16px; }
 .lt-icon { color: #8a6a1a; line-height: 0; }
 .wcard.named { margin: 6px 0; }
 .helptip { position: relative; display: inline-block; vertical-align: middle; margin-left: 4px; }
-.helptip-body { position: absolute; z-index: 30; left: -120px; top: 38px; width: min(300px, 80vw); background: #fffaf0; color: #3a2a1a; border: 1px solid #b89a62; border-radius: 8px; padding: 8px 10px; box-shadow: 0 4px 12px rgba(0,0,0,.3); font-weight: normal; font-family: inherit; line-height: 1.6; }
+.helptip-body { position: absolute; z-index: 30; left: -120px; top: 48px; width: min(300px, 80vw); background: #fffaf0; color: #3a2a1a; border: 1px solid #b89a62; border-radius: 8px; padding: 8px 10px; box-shadow: 0 4px 12px rgba(0,0,0,.3); font-weight: normal; font-family: inherit; line-height: 1.6; }
 .skillbox .apt { font-style: normal; display: inline-flex; align-items: center; justify-content: center; width: 17px; height: 17px; font-size: 12px; font-weight: bold; border-radius: 3px; margin-left: 3px; vertical-align: 1px; }
 i.apt { font-style: normal; display: inline-flex; align-items: center; justify-content: center; min-width: 17px; height: 17px; font-size: 12px; font-weight: bold; border-radius: 3px; padding: 0 2px; }
 .apt.good { background: linear-gradient(#f3d98a, #c99a35); color: #3a2508; }
