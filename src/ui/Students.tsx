@@ -1,3 +1,4 @@
+import { cohortName } from '../core/game';
 import { Badge } from './Results';
 import { BADGES } from '../data/evaluation';
 import { useState } from 'preact/hooks';
@@ -135,7 +136,7 @@ function Detail({ s, st, exam, sub }: { s: GameState; st: Student; exam?: boolea
           <div class="grow" style={{ minWidth: 0 }}>
             <NameLineBig st={st} />
             <div class="row gap4" style={{ marginTop: 2 }}><ClassName classId={st.classId} size={16} /><CountryChip o={st.origin} /><Chip>{PERSONALITIES[st.personality].name}</Chip></div>
-            <div class="muted small" style={{ marginTop: 2 }}>{st.age}歳・{st.gender === 'm' ? '男性' : '女性'}・{grad ? `${st.cohort}期生` : `${st.grade}年生`}・{HOUSE_NAMES[st.house]}</div>
+            <div class="muted small" style={{ marginTop: 2 }}>{st.age}歳・{st.gender === 'm' ? '男性' : '女性'}・{grad ? `${cohortName(st.cohort)}` : `${st.grade}年生`}・{HOUSE_NAMES[st.house]}</div>
             <div class="row nowrap gap6" style={{ marginTop: 4 }}><span class="small muted dt-gl">HP</span><Gauge v={es.hp} max={capHp} tone="main" /><span class="small muted">{es.hp}</span></div>
             <div class="row nowrap gap6" style={{ marginTop: 2 }}><span class="small muted dt-gl">EXP</span><Gauge v={st.exp} max={B.student.expPerLevel} tone="exp" /><span class="small muted">{st.exp}/100</span></div>
             {grad && <div style={{ marginTop: 4 }}><b>{st.status === 'dropped' ? '退学' : st.status === 'dead' ? `在学中に戦死（${st.diedYear}年目）` : titleOf(st)}</b></div>}
@@ -221,7 +222,7 @@ function Detail({ s, st, exam, sub }: { s: GameState; st: Student; exam?: boolea
             <div>出身：{COUNTRY_NAMES[st.origin]}・{HOUSE_NAMES[st.house]}</div>
             <div class="small muted">性格：{PERSONALITIES[st.personality].name}（{PERSONALITIES[st.personality].desc}）</div>
             {st.birthday && <div class="small">誕生日：{MONTH_NAMES[st.birthday.month]} 第{st.birthday.week}週</div>}
-            {parents.length > 0 && <div>親：{parents.map((p) => <a onClick={() => navigate({ tab: 'students', page: 'detail', id: p.id })} style={{ textDecoration: 'underline', marginRight: 6 }}>{p.given}（{p.cohort}期生）</a>)}</div>}
+            {parents.length > 0 && <div>親：{parents.map((p) => <a onClick={() => navigate({ tab: 'students', page: 'detail', id: p.id })} style={{ textDecoration: 'underline', marginRight: 6 }}>{p.given}（{cohortName(p.cohort)}）</a>)}</div>}
             <div class="row gap4" style={{ marginTop: 4 }}>特徴：{st.knownTraits.map((t) => <Chip tone="main">{TRAITS[t].name}</Chip>)}{st.traits.length > st.knownTraits.length && <Chip tone="gray">？</Chip>}</div>
             {st.knownTraits.length > 0 && <div class="small muted">{st.knownTraits.map((t) => `${TRAITS[t].name}：${TRAITS[t].desc}`).join('／')}</div>}
             <div style={{ marginTop: 4 }}>向いている道：<b>{PATH_NAMES[suitablePath(st)]}</b><span class="small muted">（{PATH_LINES[suitablePath(st)]}）</span></div>

@@ -32,7 +32,7 @@ import { simulateAlumni, aidMoney, titleOf } from './alumni';
 import { prepareCareers, graduate, type CareerPlan } from './career';
 import { generateStudent } from './student';
 import { absMonth, MONTH_NAMES } from './util';
-import { retireCheck, teacherRankYear } from './instructor';
+import { retireCheck, teacherRankYear, retireThought } from './instructor';
 import { checkEndings, peaceEraYear } from './ending';
 import { supportValue, bestFriend } from './support';
 import { closeYear, markYear } from './review';
@@ -425,6 +425,7 @@ export function yearEnd(s: GameState, graduated: string[]): void {
   s.instructor.age += 1;
   if (s.instructor.studentId && s.students[s.instructor.studentId]) s.students[s.instructor.studentId].age = s.instructor.age;
   const rc = retireCheck(s);
+  retireThought(s); // 21夜目：57歳ごろに「引退を考える」場面
   pruneArchive(s);
   // 8. 廃校の期限は8夜目でなくした（ヒナタさん了承）。傘下入りは国からの誘いを自分で受けたときだけ。傘下の学校は評判70で独立を取り戻せる
   const deadline: string[] = [];

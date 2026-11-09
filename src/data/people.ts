@@ -133,16 +133,16 @@ export interface BackgroundDef {
   cha: number;
 }
 export const BACKGROUNDS: BackgroundDef[] = [
-  { id: 'knight', name: '元王国騎士', desc: '剣・槍・騎乗が得意。王国と縁がある。', age: 32,
+  { id: 'knight', name: '元王国騎士', desc: '剣・槍・騎乗が得意。王国と縁がある。', age: 38,
     skills: { sword: 'B', lance: 'B', riding: 'B' }, defaultRank: 'D',
     friendship: { kingdom: 15, empire: -5, alliance: 0 }, realRewardMul: 1, cha: 8 },
-  { id: 'merc', name: '元帝国の傭兵', desc: '斧と実戦に強い。実戦の報酬+20%。', age: 30,
+  { id: 'merc', name: '元帝国の傭兵', desc: '斧と実戦に強い。実戦の報酬+20%。', age: 36,
     skills: { axe: 'B', sword: 'C', bow: 'C', heavy: 'C' }, defaultRank: 'D',
     friendship: { kingdom: -5, empire: 15, alliance: 0 }, realRewardMul: 1.2, cha: 6 },
-  { id: 'mage', name: '元同盟の宮廷魔道士', desc: '魔道と信仰が得意。人望が厚い。', age: 35,
+  { id: 'mage', name: '元同盟の宮廷魔道士', desc: '魔道と信仰が得意。人望が厚い。', age: 42,
     skills: { magic: 'B', faith: 'C' }, defaultRank: 'D',
     friendship: { kingdom: 0, empire: 0, alliance: 15 }, realRewardMul: 1, cha: 14 },
-  { id: 'wanderer', name: '流れの旅人', desc: 'なんでもそこそこ。どの国とも縁がない。', age: 28,
+  { id: 'wanderer', name: '流れの旅人', desc: 'なんでもそこそこ。どの国とも縁がない。', age: 35,
     skills: {}, defaultRank: 'C',
     friendship: { kingdom: 0, empire: 0, alliance: 0 }, realRewardMul: 1, cha: 10 },
 ];

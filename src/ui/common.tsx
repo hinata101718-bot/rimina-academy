@@ -1,3 +1,4 @@
+import { cohortName } from '../core/game';
 import { useState } from 'preact/hooks';
 import type { ComponentChildren } from 'preact';
 import type { Student, GameState } from '../core/state';
@@ -29,7 +30,7 @@ export function StuRow({ st, sub, onClick, right }: { st: Student; sub?: string;
       <Portrait st={st} size={44} />
       <div class="grow">
         <div><b>{st.given}</b> <span class="muted">{st.family}</span></div>
-        <div class="meta">{sub ?? `${st.grade ? `${st.grade}年` : `${st.cohort}期生`}・${CLASSES[st.classId]?.name}・Lv${st.level}・${COUNTRY_SHORT[st.origin]}・${PERSONALITIES[st.personality].name}`}</div>
+        <div class="meta">{sub ?? `${st.grade ? `${st.grade}年` : `${cohortName(st.cohort)}`}・${CLASSES[st.classId]?.name}・Lv${st.level}・${COUNTRY_SHORT[st.origin]}・${PERSONALITIES[st.personality].name}`}</div>
       </div>
       {right}
     </div>

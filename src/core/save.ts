@@ -36,6 +36,7 @@ export function migrate(s: GameState, from: number): GameState {
   s.settings.mods = { ...DIFFICULTY[s.settings.difficulty ?? 'normal'], ...(s.settings.mods ?? {}) };
   if (from < 19) convertTo19(s, from);
   if (from < 20) convertTo20(s);
+  if (from < 21) convertTo21(s);
   s.heirs ??= [];
   s.archive ??= {};
   s.notices ??= [];
@@ -49,6 +50,13 @@ export function convertTo20(s: GameState): void {
   for (const o of s.officers ?? []) o.classId = newClassId(o.classId);
   if (s.classSeen) s.classSeen = [...new Set(s.classSeen.map((c) => newClassId(c)))];
   // 古い隠れた兵種の記録（双星の縁など）は、そのまま残す（使わない）
+}
+
+/** 21夜目：宿敵との縁（友情・恋）・宝箱・火矢などは、なくてもよい項目として足しただけ。
+ *  20夜目版のセーブで、すでに引退を考える年をかなり過ぎた先生には、「引退を考える」場面を出さない */
+export function convertTo21(s: GameState): void {
+  if (s.instructor && s.instructor.thought === undefined && s.instructor.age >= 60) s.instructor.thought = true;
+  for (const rv of Object.values(s.rivalries ?? {})) if (rv.heart && rv.heart.letters === undefined) rv.heart.letters = 0;
 }
 
 /** 古い能力（9つ）→ 体の6つ：守りは守備と魔防から。幸運・魅力はなくす */

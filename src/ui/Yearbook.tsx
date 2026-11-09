@@ -1,3 +1,4 @@
+import { cohortName } from '../core/game';
 import { useState, useEffect } from 'preact/hooks';
 import { loadHall } from './storage';
 import { ENDING_NAMES, ENDING_SUB, endingTitle, buildHallEntry, hallRecords, hallCompareRow, type HallEntry, type HallStudent } from '../core/ending';
@@ -59,7 +60,7 @@ function Roster({ s }: { s: GameState }) {
   if (alive === 'dead') list = list.filter((x) => x.status === 'dead' || (x.career && !x.career.alive));
   if (cohort) list = list.filter((x) => x.cohort === cohort);
   list.sort((a, b) => a.cohort - b.cohort);
-  const sub = (x: Student) => x.status === 'dropped' ? `${x.cohort}期生・退学` : x.status === 'dead' ? `${x.cohort}期生・在学中に戦死` : `${x.cohort}期生・${titleOf(x)}・Lv${x.level}`;
+  const sub = (x: Student) => x.status === 'dropped' ? `${cohortName(x.cohort)}・退学` : x.status === 'dead' ? `${cohortName(x.cohort)}・在学中に戦死` : `${cohortName(x.cohort)}・${titleOf(x)}・Lv${x.level}`;
   return (
     <div>
       <div class="row">
@@ -84,7 +85,7 @@ function Photos({ s }: { s: GameState }) {
     <div>
       {[...s.photos].reverse().map((p) => (
         <div class="card">
-          <h3>{p.cohort}期生（{p.year}年目 卒業）</h3>
+          <h3>{cohortName(p.cohort)}（{p.year}年目 卒業）</h3>
           <div class="photo">
             {p.ids.map((id) => s.students[id]).filter(Boolean).map((st) => <div class="seat" onClick={() => navigate({ tab: 'students', page: 'detail', id: st.id })}><Portrait st={st} size={52} frame={countryColor(st.origin)} /><div>{st.given}</div>{st.career && !st.career.alive && <div class="deadmark">✝</div>}</div>)}
             {p.empty.map((id) => s.students[id]).filter(Boolean).map((st) => <div class="seat"><div class="empty" /><div class="muted">{st.given}</div></div>)}
@@ -245,7 +246,7 @@ function HallPage({ h, onBack }: { h: HallEntry; onBack: () => void }) {
           <>
             <div class="row between nowrap photo-nav">
               <button class="btn" disabled={i <= 0} onClick={() => setI(i - 1)} aria-label="前の期">◀</button>
-              <b class="photo-title">{p.cohort}期生（{p.year}年目）<span class="muted small">　{i + 1}／{h.photos.length}</span></b>
+              <b class="photo-title">{cohortName(p.cohort)}（{p.year}年目）<span class="muted small">　{i + 1}／{h.photos.length}</span></b>
               <button class="btn" disabled={i >= h.photos.length - 1} onClick={() => setI(i + 1)} aria-label="次の期">▶</button>
             </div>
             <div class="photo big">
@@ -276,7 +277,7 @@ function HallPage({ h, onBack }: { h: HallEntry; onBack: () => void }) {
       </div>
       <div class="card">
         <h3>卒業生</h3>
-        {(showAll ? h.graduates : h.graduates.slice(0, 30)).map((g) => <div class="row nowrap gap6 small ruled hallgrad"><HallFace g={g} size={32} /><b>{g.given}</b><span class="muted">{g.cohort}期生・Lv{g.level}・{g.title}</span></div>)}
+        {(showAll ? h.graduates : h.graduates.slice(0, 30)).map((g) => <div class="row nowrap gap6 small ruled hallgrad"><HallFace g={g} size={32} /><b>{g.given}</b><span class="muted">{cohortName(g.cohort)}・Lv{g.level}・{g.title}</span></div>)}
         {!showAll && h.graduates.length > 30 && <button class="btn" style={{ minHeight: 44, width: '100%' }} onClick={() => setShowAll(true)}>残り{h.graduates.length - 30}人も見る</button>}
       </div>
       <div class="card">

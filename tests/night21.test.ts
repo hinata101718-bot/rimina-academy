@@ -203,3 +203,41 @@ describe('21夜目②：宿敵との友情と恋', () => {
     expect(s.pending.filter((p) => p.type === 'nemesis' && p.kind === 'heart').length).toBeGreaterThan(0);
   });
 });
+
+import { readFileSync } from 'node:fs';
+import { deserialize, serialize } from '../src/core/save';
+import { SAVE_VERSION } from '../src/data/balance';
+import { autoYears } from '../src/core/autoplay';
+import { cohortName } from '../src/core/game';
+import { recommendDeploy, healing } from '../src/core/sortie';
+import { BACKGROUNDS } from '../src/data/people';
+
+describe('21夜目③④：数字の直し・小さな直し・セーブ', () => {
+  it('20夜目版のセーブを読み込み、1年遊べる。57歳の先生は「引退を考える」場面を一度だけ見る', () => {
+    const s = deserialize(readFileSync(new URL('./fixtures/v20-save.json', import.meta.url), 'utf8'));
+    expect(s.version).toBe(SAVE_VERSION);
+    expect(s.instructor.thought).toBeUndefined();
+    autoYears(s, 1);
+    // 考えた翌年（58歳）に、おまかせは引退する（新しい先生にはまだ場面がない）
+    expect(s.chronicle.filter((c) => c.text.includes('引退を考えはじめた')).length).toBe(1);
+    expect(deserialize(serialize(s)).year).toBe(s.year);
+  });
+  it('はじめの先生は35〜42歳', () => {
+    for (const b of BACKGROUNDS) { expect(b.age).toBeGreaterThanOrEqual(35); expect(b.age).toBeLessThanOrEqual(42); }
+  });
+  it('最初からいる上級生の期は「-1期生」ではなく「開校のときの3年生／2年生」', () => {
+    expect(cohortName(-1)).toBe('開校のときの3年生');
+    expect(cohortName(0)).toBe('開校のときの2年生');
+    expect(cohortName(3)).toBe('3期生');
+  });
+  it('宿敵戦のおすすめの顔ぶれに、深手の治りかけの子を入れない（ほかに出せる子がいるとき）', () => {
+    const s = newGame({ name: 'テスト', background: 'knight', seed: 13 });
+    const kids = Object.values(s.students).filter((x) => x.status === 'enrolled');
+    const hurt = kids[0];
+    (hurt.recent ??= []).push({ type: 'ev_injury', week: s.absWeek, detail: 'x' } as never);
+    expect(healing(s, hurt)).toBe(true);
+    const q = { ...s.quests[0], nemesisId: 'o_x' };
+    expect(recommendDeploy(s, q)).not.toContain(hurt.id);
+    expect(recommendDeploy(s, { ...q, nemesisId: undefined }).length).toBeGreaterThan(0);
+  });
+});

@@ -1,3 +1,4 @@
+import { cohortName } from '../core/game';
 // 教官の画面（8夜目）：教官手帳の頁で、経験ポイント・技能・特殊能力の木・副教官・歴代の教官
 import { useState } from 'preact/hooks';
 import type { GameState } from '../core/state';
@@ -49,7 +50,7 @@ export function InstructorPage({ s }: { s: GameState }) {
           <div class="mt-face"><TeacherFace s={s} size={84} /><span class="lvbadge">{ins.generation}代目</span></div>
           <div class="grow" style={{ minWidth: 0 }}>
             <div class="nameline"><b class="given" style={{ fontSize: 22 }}>{ins.name}</b><span class="family">教官</span></div>
-            <div class="small">{BG_NAMES[ins.background] ?? ''}{me ? `（${me.cohort}期生）` : ''}・{ins.age}歳・在任{s.year - (ins.since ?? 1)}年</div>
+            <div class="small">{BG_NAMES[ins.background] ?? ''}{me ? `（${cohortName(me.cohort)}）` : ''}・{ins.age}歳・在任{s.year - (ins.since ?? 1)}年</div>
             <div class="small muted">これまでに教えた子 {ins.experience}人・体力 {Math.round(teacherStamina(s))}／{teacherMax(s)}</div>
             <div class="small mt-tclass">先生の兵種：<b>{teacherClassName(s)}</b>（勝った宿敵戦 {ins.nemWins ?? 0}）</div>
           </div>

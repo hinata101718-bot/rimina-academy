@@ -1346,8 +1346,8 @@ body[data-season="winter"] { --tint: rgba(190, 210, 235, .14); }
 .calc-tag { font-size: 12px; border: 1px solid var(--line); border-radius: 8px; padding: 0 5px; color: var(--sub); white-space: nowrap; }
 .calc-tag.red { border-color: #c97a68; color: var(--accent); font-weight: bold; }
 .todaypage .lb-sheet { padding: 6px 10px 8px; margin: 6px 0 8px; }
-.lb-help { width: 32px; height: 32px; min-width: 32px; border-radius: 50%; border: 1.5px solid var(--line); background: var(--paper2); font-weight: bold; color: var(--sub); cursor: pointer; position: relative; }
-.lb-help::after { content: ''; position: absolute; inset: -6px; }
+.lb-help { width: 44px; height: 44px; min-width: 44px; border-radius: 50%; border: 1.5px solid var(--line); background: var(--paper2); font-weight: bold; font-size: 16px; color: var(--sub); cursor: pointer; position: relative; flex: none; }
+.lb-help::after { content: none; }
 .lb-help.on { background: var(--main); color: #fff; }
 .lb-mini { display: flex; align-items: center; gap: 8px; margin-top: 4px; }
 .lb-st { flex: 1; min-width: 0; display: flex; align-items: center; gap: 4px; }

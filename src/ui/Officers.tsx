@@ -1,3 +1,4 @@
+import { cohortName } from '../core/game';
 // 敵将の名簿（6夜目）：三国の軍と盗賊団の幹部。会うほど情報が増える
 import { KILL_REACT } from '../data/aftermath_war';
 import { NemDetail } from './Nemesis';
@@ -161,7 +162,7 @@ function OrgNode({ s, n, prev, focus, onOpen }: { s: GameState; n: ONode; prev: 
   if (killer) note = `${killer}が討った`;
   else if (c?.kind === 'promote' && c.from !== undefined) note = `元・${rankName({ kind: o.kind, rank: c.from })}`;
   else if (c?.kind === 'raised') note = '元・一兵卒';
-  else if (alum) note = `${alum.cohort}期生・${factionName(o.faction)}へ`;
+  else if (alum) note = `${cohortName(alum.cohort)}・${factionName(o.faction)}へ`;
   else if (o.victims.length && !prev) note = `${o.victims[o.victims.length - 1].name}の仇`;
   const tag = alum && !c ? { cls: 'alumni', text: '教え子' } : c ? { cls: c.kind, text: CH_LABEL[c.kind] } : o.contest && !prev ? { cls: 'contest', text: CH_LABEL.contest } : null;
   return (
@@ -274,7 +275,7 @@ export function OfficerSheet({ s, o, onClose }: { s: GameState; o: EnemyOfficer;
             {k > 0 ? <div class="small">兵種：{CLASSES[o.classId]?.name}・<LvBadge lv={o.level} /></div> : <div class="small muted">兵種・レベル：？</div>}
             <div class="small">性格：{k > 0 || o.rank === 0 ? LEADER_NAMES[o.personality as keyof typeof LEADER_NAMES] ?? '' : '？'}　{o.kind !== 'monster' && `年頃：${AGE_NAMES[ageBand(o.age)]}`}</div>
             {o.scars > 0 && <div class="small muted">{SCAR_TEXT[Math.min(4, o.scars)]}</div>}
-            {alum && <div class="small" style={{ color: 'var(--gold)' }}>{alum.cohort}期生の教え子</div>}
+            {alum && <div class="small" style={{ color: 'var(--gold)' }}>{cohortName(alum.cohort)}の教え子</div>}
           </div>
         </div>
         {o.endNote && <div class="small" style={{ marginTop: 4 }}>{o.endYear}年目：{o.endNote}</div>}

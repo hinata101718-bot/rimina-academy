@@ -1,3 +1,4 @@
+import { cohortName } from '../core/game';
 // 場面の画面：タップで1ページずつ進む（教官の代替わり・エンディング）
 import { useEffect, useRef, useState } from 'preact/hooks';
 import type { GameState, SceneLine } from '../core/state';
@@ -52,7 +53,7 @@ export function ScenePlayer({ s, lines, onDone }: { s: GameState; lines: SceneLi
       )}
       {photo && (
         <div class="photo scene-photo">
-          <div class="photo-cap">{photo.cohort}期生（{photo.year}年目 卒業）</div>
+          <div class="photo-cap">{cohortName(photo.cohort)}（{photo.year}年目 卒業）</div>
           {photo.ids.map((id) => s.students[id]).filter(Boolean).map((x) => <div class="seat"><Portrait st={x} size={44} />{x.career && !x.career.alive && <div class="deadmark">✝</div>}<div>{x.given}</div></div>)}
           {photo.empty.map((id) => s.students[id]).filter(Boolean).map((x) => <div class="seat"><div class="empty" style={{ width: 44, height: 44 }} /><div class="muted">{x.given}</div></div>)}
         </div>

@@ -110,6 +110,9 @@ export function newGame(opts: { name: string; background: string; seed: number; 
   return s;
 }
 
+/** 21夜目④：期の呼び名。最初からいる上級生（期の番号が0以下）は「開校のときの3年生／2年生」 */
+export function cohortName(c: number): string { return c >= 1 ? `${c}期生` : c === 0 ? '開校のときの2年生' : '開校のときの3年生'; }
+
 export function enrollCohort(s: GameState, list: Student[]): void {
   s.cohortCount += 1;
   for (const st of list) {
