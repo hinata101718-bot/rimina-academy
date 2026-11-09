@@ -253,6 +253,7 @@ export function autoPending(s: GameState): void {
     if (p.type === 'successor') { autoSuccessor(s); continue; }
     if (p.type === 'ending') { autoEnding(s); continue; }
     // 18夜目：技の進化は、その子の性格に合う方を選ぶ
+    if (p.type === 'evolve' && p.done) { s.pending.shift(); continue; }
     if (p.type === 'evolve') { const st = s.students[p.studentId]; const br = st ? autoEvo(st, p.id) : null; if (!st || !br || !chooseEvo(s, st, p.id, br)) s.pending.shift(); opCount.evolve = (opCount.evolve ?? 0) + 1; continue; }
     s.pending.shift();
   }

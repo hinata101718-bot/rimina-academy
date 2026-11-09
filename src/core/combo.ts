@@ -5,6 +5,7 @@ import { COMBO_HEAD, COMBO_TAIL, COMBO_AFFIX, COMBO_TASTE, COMBO_KIND, type Comb
 import type { GameState, Student, Support } from './state';
 import type { SkillId } from './types';
 import { pairKey } from './util';
+import { CLASSES } from '../data/classes';
 
 export interface ComboRec {
   a: string; b: string; name: string; kind: ComboKind;
@@ -15,8 +16,11 @@ export interface ComboRec {
   /** どちらかが戦死した（年鑑に残る。もう使えない） */
   lost?: { year: number; month: number; by: string };
 }
-/** いちばん得意な技能（技能ポイントがいちばん多いもの） */
+/** その子らしい技能：いまの兵種のいちばんの武器（なければ、いちばん得意な技能） */
 function topSkill(st: Student): SkillId {
+  const w = (CLASSES[st.classId]?.weapons ?? []).find((x) => x !== 'staff');
+  const ws: Partial<Record<string, SkillId>> = { sword: 'sword', lance: 'lance', axe: 'axe', bow: 'bow', magic: 'magic', holy: 'faith', gun: 'gun' };
+  if (w && ws[w]) return ws[w]!;
   const ks = Object.entries(st.skills ?? {}) as [SkillId, number][];
   return ks.sort((x, y) => y[1] - x[1])[0]?.[0] ?? 'sword';
 }

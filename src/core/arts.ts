@@ -293,7 +293,8 @@ export function officerArts(o: Pick<EnemyOfficer, 'id' | 'given' | 'classId' | '
   const wt = c?.weapons.find((w) => w !== 'staff') ?? 'sword';
   const skill = (wt === 'holy' ? 'faith' : wt) as SkillId;
   const max: Rank = o.level >= 34 ? 'A' : o.level >= 24 ? 'B' : o.level >= 14 ? 'C' : 'D';
-  const list = ART_LIST.filter((a) => a.kind === 'art' && !a.bloom && a.skill === skill && rankIdx(a.rank) <= rankIdx(max));
+  // 18夜目：札になるスキルが戦技に移ったので、敵将は攻撃の戦技だけ（17夜目までと同じ顔ぶれ）
+  const list = ART_LIST.filter((a) => a.kind === 'art' && (!a.card || a.card.type === 'atk') && !a.bloom && a.skill === skill && rankIdx(a.rank) <= rankIdx(max));
   const r = new Rng({ rng: [...(o.id + o.given)].reduce((h, ch) => (h * 31 + ch.charCodeAt(0)) | 0, 7) });
   return r.shuffle(list).slice(0, o.rank === 2 ? 1 : 2).map((a) => a.id);
 }

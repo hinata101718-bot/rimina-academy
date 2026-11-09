@@ -49,7 +49,8 @@ const SCALE = Number(process.env.SCALE || 2);
     await shot('04-combo-result');
     // ① 個人ページ
     await open('main.json'); await click('nav.tabs button >> nth=1');
-    await click('.stucard >> nth=0'); await click('button:has-text("技能")');
+    const who = require('fs').readFileSync(path.join(dir, 'who.txt'), 'utf8').trim();
+    await click('.stucard:has-text("' + who + '") >> nth=0'); await click('button:has-text("技能")');
     await p.evaluate(() => document.querySelector('.arts-card')?.scrollIntoView());
     await shot('05-arts');
     await p.evaluate(() => { const c = document.querySelector('.arts-card'); if (c) window.scrollBy(0, c.getBoundingClientRect().height - 500); });

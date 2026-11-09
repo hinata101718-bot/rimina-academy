@@ -117,7 +117,7 @@ describe('① スキルを少なく、強く、違うものに', () => {
   });
 });
 
-import { evoOptions, evoName, evoFx, evoPath, masteryOf, evoReady, chooseEvo, autoEvo, gainMastery } from '../src/core/evolve';
+import { evoOptions, evoName, evoFx, evoPath, masteryOf, evoReady, chooseEvo, autoEvo, gainMastery, queueEvolves } from '../src/core/evolve';
 import { ensureCombo, comboOf, combosOf, loseCombos } from '../src/core/combo';
 import { getSupport } from '../src/core/support';
 import { B } from '../src/data/balance';
@@ -167,6 +167,7 @@ describe('② 技が育って、枝分かれする', () => {
     // 熟練を満たして選ぶ
     const st = grown[0];
     const id = Object.keys(st.mastery!)[0];
+    if (st.evo) delete st.evo[id]; // まだ進化していない技として試す
     st.mastery![id] = B.evo.need[0];
     expect(evoReady(st, id)).toBe(true);
     st.personality = 'hot';
@@ -178,6 +179,18 @@ describe('② 技が育って、枝分かれする', () => {
     // 2段目の熟練が満ちるまでは、もう選べない（選び直しはできない）
     if (masteryOf(st, id) < B.evo.need[1]) { expect(chooseEvo(s, st, id, opts.find((x) => x !== br)!)).toBe(false); expect(evoPath(st, id)).toEqual([br]); }
     expect(st.evoLog?.length).toBeGreaterThanOrEqual(1);
+  });
+  it('設定「技の進化：おまかせ」なら、熟練が満ちたときに性格に合う方を選び、結果だけの知らせになる', () => {
+    const s = newGame({ name: 'テスト', background: 'knight', seed: 1820, start: 'normal' });
+    autoYears(s, 1);
+    s.settings.evoMode = 'auto';
+    const st = enrolled(s).find((x) => loadoutOf(x).some((id) => evoOptions(id, [])))!;
+    const id = loadoutOf(st).find((x) => evoOptions(x, []))!;
+    (st.mastery ??= {})[id] = B.evo.need[0];
+    s.pending = [];
+    queueEvolves(s, st, [id]);
+    expect(evoPath(st, id)).toEqual([autoEvo({ ...st, evo: {} } as never, id)]);
+    expect(s.pending[0]).toMatchObject({ type: 'evolve', id, done: evoPath(st, id)[0] });
   });
   it('長く遊ぶと、卒業生の技が進化している（おまかせで選ぶ）', () => {
     const s = newGame({ name: 'テスト', background: 'knight', seed: 1812, start: 'normal' });

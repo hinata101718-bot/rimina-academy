@@ -64,6 +64,9 @@ function SettingsBody({ s, set, days }: { s: GameState; set: (fn: (x: GameState[
         <div class="small" style={{ marginTop: 8 }}>戦の描写：戦いの文で、傷や死をどこまで書くかを選べます</div>
         <div class="seg" style={{ marginTop: 4 }}>{(['normal', 'dense', 'brutal'] as const).map((v) => <button class={(s.settings.battleProse ?? 'dense') === v ? 'on' : ''} onClick={() => { if (v === 'brutal' && !s.settings.proseAsked && !confirm('むごい描写が増えます（斬り落とされる手足や血しぶきなど）。よろしいですか？')) return; set((x) => { x.battleProse = v; if (v === 'brutal') x.proseAsked = true; }); }}>{PROSE_NAMES[v]}</button>)}</div>
         <div class="muted small">派手：必殺・開花の技・伝説の武器のカットイン、撃破の判、宿命の対決の画面。ふつう：見せ場を短く。控えめ：顔の札と文だけ。どれもタップで早送りできます。</div>
+        <div class="small" style={{ marginTop: 8 }}><b>技の進化</b>：戦技と魔法の熟練が満ちたとき</div>
+        <div class="seg" style={{ marginTop: 4 }}>{(['pick', 'auto'] as const).map((v) => <button class={(s.settings.evoMode ?? 'pick') === v ? 'on' : ''} onClick={() => set((x) => { x.evoMode = v; })}>{v === 'pick' ? '自分で選ぶ' : 'おまかせ'}</button>)}</div>
+        <div class="muted small">自分で選ぶ：2つの進化先から選びます。おまかせ：その子の性格に合う方を選んで、結果だけ見せます（選んだ道は、どちらでも変えられません）。</div>
       </div>
       <div class="card">
         <h3>表示・演出</h3>

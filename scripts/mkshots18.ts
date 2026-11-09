@@ -22,21 +22,25 @@ setAutoChoicePick(humanLikePick(3));
 const save = (name: string, g: GameState) => writeFileSync(`${out}/${name}.json`, serialize(g));
 const clone = (g: GameState): GameState => JSON.parse(serialize(g)).state;
 const s = newGame({ name: 'ヒナタ', background: 'knight', seed: Number(process.env.SEED ?? 20261118), start: 'normal' });
+s.createdAt = 1762650000000; // 撮るたびに同じ顔ぶれになるように
 autoYears(s, 3); autoPending(s);
 s.lastExport = Date.now(); s.cardGuide = 'done'; s.cardGuideSeen = true;
 s.pending = [];
 // 個人ページ用：はじめの子に、進化した技・熟練が満ちた技・連携技（戦死した子との技も）
-const kids = enrolled(s);
+// 戦技と魔法を3つ以上つけている子を先に（個人ページで熟練・進化・連携技を見せる子）
+const kids = [...enrolled(s)].sort((x, y) => loadoutOf(y).filter((id) => evoBase(id)).length - loadoutOf(x).filter((id) => evoBase(id)).length);
 for (const st of kids.slice(0, 6)) {
   const ids = loadoutOf(st).filter((id) => evoBase(id));
-  if (ids[0]) { const o = evoOptions(ids[0], [])!; (st.evo ??= {})[ids[0]] = [o[0]]; (st.evoLog ??= []).push({ id: ids[0], branch: o[0], year: s.year - 1, month: 6 }); (st.mastery ??= {})[ids[0]] = 14; }
-  if (ids[1]) (st.mastery ??= {})[ids[1]] = B.evo.need[0];
+  if (ids[0]) { const o = evoOptions(ids[0], [])!; (st.evo ??= {})[ids[0]] = [o[0]]; st.evoLog = (st.evoLog ?? []).filter((e) => e.id !== ids[0]); (st.evoLog ??= []).push({ id: ids[0], branch: o[0], year: s.year - 1, month: 6 }); (st.mastery ??= {})[ids[0]] = 14; }
+  if (ids[1]) { if (st.evo) delete st.evo[ids[1]]; (st.mastery ??= {})[ids[1]] = B.evo.need[0]; }
+  if (ids[2] && st.evo) delete st.evo[ids[2]];
   if (ids[2]) (st.mastery ??= {})[ids[2]] = 3;
 }
 for (let i = 1; i < 4 && i < kids.length; i++) { const sp = getSupport(s, kids[0].id, kids[i].id); sp.value = Math.max(sp.value, B.support.B); if (sp.kind === 'none') sp.kind = (['rival', 'senpai', 'love'] as const)[i - 1]; ensureCombo(s, sp); }
 const lostC = Object.values(s.combos ?? {}).find((c) => c.a !== kids[0].id && c.b !== kids[0].id);
 if (lostC) lostC.lost = { year: s.year - 1, month: 9, by: lostC.a };
 save('main', s);
+writeFileSync(`${out}/who.txt`, kids[0].given);
 // 進化の2択（処理待ち）
 { const g = clone(s); const st = g.students[kids[0].id]; const id = loadoutOf(st).filter((x) => evoBase(x))[1]; if (id) g.pending = [{ type: 'evolve', studentId: st.id, id }]; save('evolve', g); }
 // 支援会話のあとの連携技の発見

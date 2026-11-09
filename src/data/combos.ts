@@ -4,11 +4,11 @@ import type { SkillId } from '../core/types';
 
 export type ComboKind = 'friend' | 'love' | 'rival' | 'senpai';
 /** 関係の種類ごとの呼び名と、効き目の説明 */
-export const COMBO_KIND: Record<ComboKind, { label: string; tip: string }> = {
-  friend: { label: '息の合った連携技', tip: '2枚とも威力×1.3・命中+20（狙いを合わせて同じ敵へ）' },
-  love: { label: '恋人の連携技', tip: '2枚とも威力×1.25。打ったあと、2人とも身を固め（受ける傷−5）、互いの傷を少し癒やす' },
-  rival: { label: '好敵手の連携技', tip: '2枚とも威力×1.25、攻撃の札は打つ回数が1回増える（競い合う連撃）' },
-  senpai: { label: '先輩と後輩の連携技', tip: '先輩の札が道を開き（守り−4）、後輩の札が決める（威力×1.4・必殺+30）' },
+export const COMBO_KIND: Record<ComboKind, { label: string; short: string; tip: string }> = {
+  friend: { label: '息の合った連携技', short: '息の合った仲', tip: '2枚とも威力×1.3・命中+20（狙いを合わせて同じ敵へ）' },
+  love: { label: '恋人の連携技', short: '恋人', tip: '2枚とも威力×1.25。打ったあと、2人とも身を固め（受ける傷−5）、互いの傷を少し癒やす' },
+  rival: { label: '好敵手の連携技', short: '好敵手', tip: '2枚とも威力×1.25、攻撃の札は打つ回数が1回増える（競い合う連撃）' },
+  senpai: { label: '先輩と後輩の連携技', short: '先輩と後輩', tip: '先輩の札が道を開き（守り−4）、後輩の札が決める（威力×1.4・必殺+30）' },
 };
 /** 名前の前半（はじめの人の得意な技能） */
 export const COMBO_HEAD: Record<SkillId, string[]> = {

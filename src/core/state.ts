@@ -449,7 +449,7 @@ export type Pending =
   /** 戦技・心得を覚えた（12夜目：タップで進む演出） */
   | { type: 'art'; studentId: string; ids: string[] }
   /** 18夜目：技の熟練が満ちた（2つの進化先から選ぶ） */
-  | { type: 'evolve'; studentId: string; id: string }
+  | { type: 'evolve'; studentId: string; id: string; /** おまかせで選んだ道（結果だけ見せる） */ done?: import('../data/evolve').EvoBranch }
   /** 才能開花（10夜目：大きな演出） */
   | { type: 'bloom'; studentId: string; skill?: SkillId; gold?: boolean };
 
@@ -540,6 +540,8 @@ export type WeekendAction =
   | { kind: 'dinner'; grade: number };
 
 export interface Settings {
+  /** 18夜目：技の進化。'pick'＝自分で選ぶ（ふつう）、'auto'＝おまかせ（その子の性格に合う方を自動で選び、結果だけ見せる） */
+  evoMode?: 'pick' | 'auto';
   difficulty: Difficulty;
   mods: DifficultyMods;
   portrait: 'face' | 'dot';

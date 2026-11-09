@@ -108,7 +108,7 @@ export function enemyUnit(rng: Rng, uid: string, classId: string, level: number,
   if (level >= B.enemy.artLv && rng.chance(Math.min(B.enemy.artMax, B.enemy.artBase + (level - B.enemy.artLv) * B.enemy.artPerLv))) {
     const wt = u.weaponId ? WEAPONS[u.weaponId]?.type : undefined;
     const sk = wt === 'holy' ? 'faith' : wt;
-    const list = ART_LIST.filter((a) => a.kind === 'art' && !a.bloom && a.skill === sk && (a.rank === 'D' || (level >= 24 && a.rank === 'C') || (level >= 32 && a.rank === 'B')));
+    const list = ART_LIST.filter((a) => a.kind === 'art' && (!a.card || a.card.type === 'atk') && !a.bloom && a.skill === sk && (a.rank === 'D' || (level >= 24 && a.rank === 'C') || (level >= 32 && a.rank === 'B')));
     if (list.length) u.arts = [rng.pick(list).id];
   }
   return u;

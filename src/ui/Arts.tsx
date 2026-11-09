@@ -20,7 +20,7 @@ import { WEAPONS } from '../data/weapons';
 import { CLASSES } from '../data/classes';
 import { ABILITIES } from '../data/abilities';
 import type { AbilityDef, SkillId } from '../core/types';
-import { rankOf } from '../core/util';
+import { rankOf, MONTH_NAMES } from '../core/util';
 import type { Rank } from '../core/types';
 
 /** 覚えた瞬間（タップで進む） */
@@ -151,8 +151,8 @@ function ComboList({ s, st }: { s: GameState; st: Student }) {
         const o = s.students[partnerOf(c, st.id)];
         return (
           <div class={`art-tile combo${c.lost ? ' lost' : ''}`}>
-            <span class="row nowrap gap6">{o && <Portrait st={o} size={28} />}<b class="serif">{c.name}</b><span class="small muted">{o?.given}と・{COMBO_KIND[c.kind].label.replace('の連携技', '')}</span></span>
-            <span class="small">{c.lost ? `${s.students[c.lost.by]?.given ?? ''}が${c.lost.year}年${c.lost.month}月に戦死。もう使えない（使った${c.used}回）` : `${COMBO_KIND[c.kind].tip}・使った ${c.used}回`}</span>
+            <span class="row nowrap gap6">{o && <Portrait st={o} size={28} />}<b class="serif">{c.name}</b><span class="small muted">{o?.given}と・{COMBO_KIND[c.kind].short}</span></span>
+            <span class="small">{c.lost ? `${s.students[c.lost.by]?.given ?? ''}が${c.lost.year}年目${MONTH_NAMES[c.lost.month] ?? ''}に戦死。もう使えない（使った${c.used}回）` : `${COMBO_KIND[c.kind].tip}・使った ${c.used}回`}</span>
           </div>
         );
       })}
@@ -163,25 +163,26 @@ function ComboList({ s, st }: { s: GameState; st: Student }) {
 /**
  * 18夜目：技の進化を選ぶ（2択。選んだ瞬間はタップで進む演出）。処理待ち（戦いのあと）と個人ページの両方から
  */
-export function EvolveView({ s, studentId, id, onDone, later }: { s: GameState; studentId: string; id: string; onDone: () => void; later?: () => void }) {
+export function EvolveView({ s, studentId, id, onDone, later, done, inPending }: { s: GameState; studentId: string; id: string; onDone: () => void; later?: () => void; done?: EvoBranch; inPending?: boolean }) {
   const st = s.students[studentId];
-  const [pick, setPick] = useState<EvoBranch | null>(null);
+  const [pick, setPick] = useState<EvoBranch | null>(done ?? null);
   const [lit, setLit] = useState(false);
   useEffect(() => { if (!pick) return; const t = setTimeout(() => { setLit(true); sfx('pass'); }, 350); return () => clearTimeout(t); }, [pick]);
   const base = evoBase(id);
-  const path = st ? evoPath(st, id) : [];
+  // 選ぶ前の道（開いたときのもの。選んだあとも、おまかせで選んだあと〔done〕も、これで見せる）
+  const [path] = useState<EvoBranch[]>(() => { const p0 = st ? evoPath(st, id) : []; return done && p0[p0.length - 1] === done ? p0.slice(0, -1) : p0; });
   const opts = st && base ? evoOptions(id, path) : null;
   if (!st || !base || !opts || (!pick && !evoReady(st, id))) { onDone(); return null; }
   const baseName = ARTS[id]?.name ?? WEAPONS[id]?.name ?? '';
   const nowName = evoName(id, baseName, path);
   const like = EVO_TASTE[st.personality] ?? [];
   const fit = autoEvo(st, id);
-  const choose = (b: EvoBranch) => { sfx('ok'); setPick(b); act((g) => { const x = g.students[studentId]; if (x) chooseEvo(g, x, id, b); }); };
+  const choose = (b: EvoBranch) => { sfx('ok'); setPick(b); act((g) => { const x = g.students[studentId]; if (x) chooseEvo(g, x, id, b, !inPending); }); };
   if (pick) {
     const nn = evoName(id, baseName, [...path, pick]);
     return (
       <div class="dc-wrap stage3 evo-wrap" onClick={() => (lit ? onDone() : setLit(true))}>
-        <div class="dc-title">{st.given}の「{nowName}」が育った！</div>
+        <div class="dc-title">{st.given}の「{nowName}」が育った！{done ? '（おまかせ）' : ''}</div>
         <div class="row nowrap gap6" style={{ justifyContent: 'center', margin: '6px 0' }}><Portrait st={st} size={56} frame={countryColor(st.origin)} /></div>
         <div class={`lt-card evo-new${lit ? ' lit' : ''}`}>
           <span class="small muted">{EVO_BRANCH[pick].label}の道</span>
@@ -305,8 +306,8 @@ export function ArtBookBody({ s }: { s: GameState }) {
       <h4 class="serif" style={{ margin: '12px 0 4px' }}>連携技 <span class="small muted">（{combos.length}組）</span></h4>
       <div class="small muted">支援がB以上になった2人の技。戦死した子の技は、もう使えませんが、ここに残ります。</div>
       {combos.length ? combos.map((c) => (
-        <div class={`yb-combo${c.lost ? ' lost' : ''}`}><b class="serif">{c.name}</b>　{s.students[c.a]?.given ?? '？'} × {s.students[c.b]?.given ?? '？'}（{COMBO_KIND[c.kind].label.replace('の連携技', '')}）
-          <div class="small muted">{c.made.year}年{c.made.month}月にできた・使った {c.used}回{c.lost ? `・${s.students[c.lost.by]?.given ?? ''}が${c.lost.year}年${c.lost.month}月に戦死。もう使えない` : ''}</div></div>
+        <div class={`yb-combo${c.lost ? ' lost' : ''}`}><b class="serif">{c.name}</b>　{s.students[c.a]?.given ?? '？'} × {s.students[c.b]?.given ?? '？'}（{COMBO_KIND[c.kind].short}）
+          <div class="small muted">{c.made.year}年目{MONTH_NAMES[c.made.month] ?? ''}にできた・使った {c.used}回{c.lost ? `・${s.students[c.lost.by]?.given ?? ''}が${c.lost.year}年目${MONTH_NAMES[c.lost.month] ?? ''}に戦死。もう使えない` : ''}</div></div>
       )) : <div class="small muted">まだありません</div>}
       <h4 class="serif" style={{ margin: '12px 0 4px' }}>進化した技 <span class="small muted">（{[...evo.values()].reduce((a, l) => a + l.length, 0)}）</span></h4>
       {evo.size ? [...evo.entries()].map(([id, l]) => (

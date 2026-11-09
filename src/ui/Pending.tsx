@@ -75,7 +75,7 @@ export function PendingView() {
     case 'scene': return <Sheet title={p.title}><ScenePlayer key={p.title} s={s} lines={p.lines} onDone={done} /></Sheet>;
     case 'rankup': return <Sheet><RankUpPlayer key={s.pending.length} s={s} items={p.items} onDone={done} /></Sheet>;
     case 'art': return <Sheet><ArtLearnView key={`art${p.studentId}${p.ids[0]}`} s={s} p={p} onDone={done} /></Sheet>;
-    case 'evolve': return <Sheet><EvolveView key={`ev${p.studentId}${p.id}`} s={s} studentId={p.studentId} id={p.id} onDone={done} later={done} /></Sheet>;
+    case 'evolve': return <Sheet><EvolveView key={`ev${p.studentId}${p.id}`} s={s} studentId={p.studentId} id={p.id} onDone={done} later={p.done ? undefined : done} done={p.done} inPending /></Sheet>;
     case 'bloom': return <BloomView key={`bl${p.studentId}`} s={s} p={p} onDone={done} />;
     case 'discovery': return <Sheet><DiscoveryView key={`${p.studentId}${p.stage}${s.pending.length}`} s={s} p={p} onDone={done} /></Sheet>;
     case 'vassalOffer': return (

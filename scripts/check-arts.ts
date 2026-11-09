@@ -44,3 +44,25 @@ const g = newGame({ name: 'ヒナタ', background: 'knight', seed: 18001, start:
 autoYears(g, 3);
 planCheck(g, '新しいゲーム（3年）');
 for (const f of ['v16-day', 'v17-day', 'v17-cards', 'v17-result']) planCheck(deserialize(readFileSync(`tests/fixtures/${f}.json`, 'utf8')), `${f}（読みこみ後）`);
+
+// ---- 技の進化：すべての進化した名前が、ほかの技・スキル・進化した名前と重ならないか ----
+import { evoOptions, evoName } from '../src/core/evolve';
+import { WEAPONS } from '../src/data/weapons';
+const evoNames = new Map<string, string[]>();
+let evoCount = 0;
+const bases = [...ART_LIST.filter((a) => a.card).map((a) => ({ id: a.id, name: a.name })), ...Object.values(WEAPONS).filter((w) => w.spell).map((w) => ({ id: w.id, name: w.name }))];
+for (const x of bases) for (const b1 of evoOptions(x.id, []) ?? []) {
+  const n1 = evoName(x.id, x.name, [b1]); evoNames.set(n1, [...(evoNames.get(n1) ?? []), x.id]); evoCount++;
+  for (const b2 of evoOptions(x.id, [b1]) ?? []) { const n2 = evoName(x.id, x.name, [b1, b2]); evoNames.set(n2, [...(evoNames.get(n2) ?? []), x.id]); evoCount++; }
+}
+const evoDup = [...evoNames].filter(([n, v]) => v.length > 1 || names.has(n));
+console.log(`進化できる技 ${bases.length}個、進化した形 ${evoCount}通り、名前の重なり ${evoDup.length}件`);
+for (const [n, v] of evoDup.slice(0, 10)) console.log('  ', n, v.join(' / '));
+// ---- 連携技：長く遊んだゲームで、名前が重ならないか ----
+const lg = newGame({ name: 'ヒナタ', background: 'knight', seed: 18002, start: 'normal' });
+autoYears(lg, 12);
+const cn = Object.values(lg.combos ?? {}).map((c) => c.name);
+const kinds: Record<string, number> = {};
+for (const c of Object.values(lg.combos ?? {})) kinds[c.kind] = (kinds[c.kind] ?? 0) + 1;
+console.log(`連携技（12年遊んだゲーム）${cn.length}組、名前の重なり ${cn.length - new Set(cn).size}件、技の名前との重なり ${cn.filter((n) => names.has(n)).length}件、関係の種類 ${JSON.stringify(kinds)}`);
+console.log('  例：', cn.slice(0, 12).join('・'));

@@ -88,12 +88,13 @@ export function evoReady(st: Student, id: string): boolean {
   return need !== null && !!evoOptions(id, path) && masteryOf(st, id) >= need;
 }
 /** 進化を選ぶ（一度きり。選び直せない） */
-export function chooseEvo(s: GameState, st: Student, id: string, branch: EvoBranch): boolean {
+export function chooseEvo(s: GameState, st: Student, id: string, branch: EvoBranch, dropPending = true): boolean {
   const opts = evoOptions(id, evoPath(st, id));
   if (!opts || !opts.includes(branch) || !evoReady(st, id)) return false;
   (st.evo ??= {})[id] = [...evoPath(st, id), branch];
   (st.evoLog ??= []).push({ id, branch, year: s.year, month: s.month });
-  s.pending = s.pending.filter((p) => !(p.type === 'evolve' && p.studentId === st.id && p.id === id));
+  // 個人ページから選んだときは、積んであった知らせを片づける（知らせの画面から選んだときは、閉じるときに片づく）
+  if (dropPending) s.pending = s.pending.filter((p) => !(p.type === 'evolve' && p.studentId === st.id && p.id === id && !p.done));
   return true;
 }
 /** おまかせ：その子の性格に合う方 */
@@ -110,6 +111,8 @@ export function queueEvolves(s: GameState, st: Student, ids: string[]): void {
   for (const id of ids) {
     if (!evoReady(st, id)) continue;
     if (s.pending.some((p) => p.type === 'evolve' && p.studentId === st.id && p.id === id)) continue;
+    // 設定が「おまかせ」なら、その子の性格に合う方をすぐ選び、結果だけ見せる
+    if (s.settings?.evoMode === 'auto') { const br = autoEvo(st, id); if (br && chooseEvo(s, st, id, br)) s.pending.push({ type: 'evolve', studentId: st.id, id, done: br }); continue; }
     s.pending.push({ type: 'evolve', studentId: st.id, id });
   }
 }
