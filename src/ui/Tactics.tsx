@@ -54,6 +54,7 @@ export function TacticsView() {
   useEffect(() => {
     if (!s?.battle || started.current) return;
     started.current = true;
+    if (s.battle.nemesisId) sfx('nemesis');
     if (s.battle.fx.length && s.battle.turn === 1) { const fx = s.battle.fx; act((g) => { if (g.battle) g.battle.fx = []; }, false); setReplay({ view: clone(s.battle), queue: fx, i: 0 }); }
   }, []);
   // 演出を1つずつ
