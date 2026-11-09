@@ -37,6 +37,8 @@ export interface TUnit {
   revived?: boolean; cursed?: boolean;
   /** 仲間をかばった回数 */
   guarded?: number;
+  /** 討たれたが、深手を負って逃げのびた */
+  escapedWounded?: boolean;
   techs: TTech[];
   /** 盾（敵だけ） */
   sh: number; shMax: number;

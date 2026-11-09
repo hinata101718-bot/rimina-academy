@@ -429,7 +429,10 @@ export function yearlyOfficers(s: GameState, r: Rng): string[] {
   for (const [k, rv] of Object.entries(s.rivalries ?? {})) {
     const o = officerById(s, rv.oid);
     const st = s.students[rv.sid];
-    if (rv.stage === 0 && !rv.vow && (rv.settled || !o || o.status !== 'active' || !st || st.status !== 'enrolled')) delete s.rivalries![k];
+    // 19夜目：宿敵が覚えている子（負けた・傷つけられた・倒した相手）の因縁は、卒業しても残す
+    const remembered = !!o && (o.memory?.beatenBy.includes(rv.sid) || o.memory?.woundedBy.some((w) => w.id === rv.sid) || o.victims.some((v) => v.id === rv.sid));
+    const alive = !!st && (st.status === 'enrolled' || (st.status === 'graduated' && !!st.career?.alive));
+    if (rv.stage === 0 && !rv.vow && (rv.settled || !o || (o.status !== 'active' && !o.presumed) || !alive || (!remembered && st.status !== 'enrolled'))) delete s.rivalries![k];
   }
   // 新聞：この1年の敵将の動き（昇進・二つ名・因縁の決着など）
   for (const c of s.chronicle) if (c.year === s.year && OFFICER_MARK.test(c.text) && !report.includes(c.text)) report.push(c.text);

@@ -2188,3 +2188,4 @@ details.fold > summary::-webkit-details-marker { display: none; }
 .ledger { padding-bottom: 40px; }
 .tb-df .tb-mark, .tb-cf .tb-mark, .tb-sf .tb-mark { background: #3a1410; font-size: 44px; }
 .tb-u.teacher .tb-mark { color: #6b4a14; font-size: 18px; }
+.lb-h { font-family: var(--serif, serif); font-size: 15px; margin: 8px 4px 2px; }

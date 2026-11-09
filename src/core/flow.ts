@@ -12,14 +12,14 @@ const LESSON_NAME: Record<string, string> = Object.fromEntries(Object.values(LES
 import { Rng } from './rng';
 import { enrolled, addRep, chronicle, notify, enrollCohort, capacity, mail, available, addMoney } from './game';
 import { startMonthStudents, changeMotivation, autoMonthTargets } from './week';
-import { resolveLesson, advanceDay, recommendCard, todayCards, type DayOutcome } from './lessons';
+import { resolveLesson, advanceDay, recommendCard, recommendSocial, todayCards, type DayOutcome } from './lessons';
 import { rollQuests } from './quests';
 import { addRecent, getSupport, pruneArchive } from './support';
 import { createTactics, questSeed } from './tactics/setup';
 import { autoFinish } from './tactics/ai';
 import { applyTactics } from './tactics/after';
 import { ensureRosters, yearlyOfficers, pickOfficerForQuest, officerById } from './officers';
-import { bondOf, battleLines, scoutWeak, afterNemesisBattle } from './nemesis';
+import { bondOf, battleLines, scoutWeak, afterNemesisBattle, nemesisMonth } from './nemesis';
 import { fx } from './mentor';
 import { publishIssue } from './newspaper';
 import { rollSides, deferShows } from './discovery';
@@ -68,8 +68,49 @@ export function chooseLesson(s: GameState, idx: number, talkWith?: string): void
   s.pending.splice(from, 0, { type: 'lessonResult', lesson: res.lesson, day, faces: res.faces, tags: res.tags, rows: res.rows, events: res.events, growth: res.growth, lines: res.lines, talks: res.talks, others: res.others, xp: res.xp });
   deferShows(s, from);
   guideAfterDay(s, day, ended.weekEnded && s.week === 2);
-  if (ended.monthEnd) { freshQuests(s); if (s.quests.some((q) => q.tutorial)) tip(s, 'quest'); s.pending.push({ type: 'questBoard' }); }
+  if (ended.monthEnd) { freshQuests(s); nemesisMonth(s, r); if (s.quests.some((q) => q.tutorial)) tip(s, 'quest'); s.pending.push({ type: 'questBoard' }); }
   else todayCards(s);
+}
+
+/**
+ * 19夜目：1週を選ぶ。授業の札1枚（1週ぶんの伸び）と、交流の札1枚。結果は「今週の結果」として画面に出す。
+ * 4週目のあとは月末の依頼
+ */
+export function chooseWeek(s: GameState, li: number, si: number, talkWith?: string): void {
+  if (s.pending.length || s.battle || s.gameOver) return;
+  const r = rng(s);
+  const from = s.pending.length;
+  const day = todayCards(s);
+  const lc = day.cards[Math.max(0, Math.min(day.cards.length - 1, li))];
+  const sc = day.social?.[si] ?? null;
+  s.day = 1;
+  const res = resolveLesson(s, r, li, talkWith, { card: lc, mul: lc.id === 'rest' ? 1 : B.week.lessonMul });
+  if (sc) {
+    s.day = 2;
+    const res2 = resolveLesson(s, r, 0, talkWith, { card: sc });
+    res.lines.push(...res2.lines);
+    res.talks.push(...res2.talks);
+    res.events.push(...res2.events);
+    for (const g of res2.growth) if (!res.growth.some((x) => x.id === g.id)) res.growth.push(g);
+    res.xp += res2.xp;
+  }
+  s.lastPick = { lesson: lc.id, social: sc?.id ?? '' };
+  s.day = 5;
+  const ended = afterDay(s, r, res);
+  const socialName = sc ? LESSON_NAME[sc.id] ?? sc.id : '';
+  s.pending.splice(from, 0, { type: 'lessonResult', lesson: res.lesson, day: 1, faces: res.faces, tags: res.tags, rows: res.rows, events: res.events, growth: res.growth, lines: socialName ? [`今週：${LESSON_NAME[lc.id] ?? lc.id}・${socialName}`, ...res.lines] : res.lines, talks: res.talks, others: res.others, xp: res.xp });
+  deferShows(s, from);
+  checkTips(s);
+  if (ended.monthEnd) { freshQuests(s); nemesisMonth(s, r); if (s.quests.some((q) => q.tutorial)) tip(s, 'quest'); s.pending.push({ type: 'questBoard' }); }
+  else todayCards(s);
+}
+/** 「先週と同じ」：同じ札が今週もあれば、それを選ぶ（なければおすすめ） */
+export function sameAsLastWeek(s: GameState): void {
+  const day = todayCards(s);
+  const lp = s.lastPick;
+  const li = lp ? day.cards.findIndex((c) => c.id === lp.lesson) : -1;
+  const si = lp ? (day.social ?? []).findIndex((c) => c.id === lp.social) : -1;
+  chooseWeek(s, li >= 0 ? li : recommendCard(s), si >= 0 ? si : recommendSocial(s));
 }
 
 /** 14夜目：最初の1時間の案内（1日目の授業のあと・2日目の終わりの最初の面談・はじめて出たもの） */
@@ -95,40 +136,11 @@ function afterDay(s: GameState, r: Rng, res: DayOutcome): { weekEnded: boolean; 
   return ended;
 }
 
-/** 「今週はおまかせ」：先生のおすすめで金曜まで進める（結果は1つのまとめに） */
+/** 「今週はおまかせ」：先生のおすすめの札で1週進める */
 export function weekAuto(s: GameState): void {
   if (s.pending.length || s.battle || s.gameOver) return;
-  const r = rng(s);
-  const from = s.pending.length;
-  const lines: string[] = [];
-  const talks: TalkLog[] = [];
-  const growth: GrowthEntry[] = [];
-  const picked: string[] = [];
-  let ended = { weekEnded: false, monthEnd: false };
-  let guard = 0;
-  while (!ended.weekEnded && guard++ < 6) {
-    todayCards(s);
-    const res = resolveLesson(s, r, recommendCard(s));
-    picked.push(res.lesson);
-    ended = afterDay(s, r, res);
-    lines.push(...res.lines);
-    talks.push(...res.talks);
-    for (const g of res.growth) {
-      const old = growth.find((x) => x.id === g.id);
-      if (!old) { growth.push(g); continue; }
-      // 同じ子は1つにまとめる（最初の値と最後の値）
-      const skills = [...old.skills];
-      for (const k of g.skills) { const e = skills.find((x) => x.k === k.k); if (e) e.p1 = k.p1; else skills.push({ ...k }); }
-      Object.assign(old, { exp1: g.exp1, lv1: g.lv1, ups: [...old.ups, ...g.ups], skills, spells: [...old.spells, ...g.spells], train: [...(old.train ?? []), ...(g.train ?? [])] });
-    }
-  }
-  const names = picked.map((id) => LESSON_NAME[id] ?? id);
-  s.pending.splice(from, 0, { type: 'weekSummary', lines: [`今週の授業：${names.join('・')}`, ...lines], talks, growth });
-  deferShows(s, from);
-  if (tutorialMonth(s) && s.week === 2) { tip(s, 'lesson1'); const t = tutorialTalk(s); if (t) { s.pending.push({ type: 'talk', talk: t }); tip(s, 'interview'); } }
-  checkTips(s);
-  if (ended.monthEnd) { freshQuests(s); if (s.quests.some((q) => q.tutorial)) tip(s, 'quest'); s.pending.push({ type: 'questBoard' }); }
-  else todayCards(s);
+  todayCards(s);
+  chooseWeek(s, recommendCard(s), recommendSocial(s));
 }
 
 /** 「次の週へ」（6夜目までの呼び名。今は「今週はおまかせ」と同じ） */
@@ -166,7 +178,8 @@ export function noDeath(s: GameState, q?: Quest | null): boolean { return !!q?.t
 export function buildBattle(s: GameState, q: Quest, deploys: Deploy[]): TBattle {
   const o = officerForQuest(s, q);
   const ids = deploys.map((d) => d.studentId);
-  const nemesis = o && (q.nemesisId === o.id || bondOf(s, o) > 0 && o.meets.length > 0) ? o : null;
+  // 宿敵戦は、宿敵と結びついた依頼（依頼の先に宿敵・果たし状・勝手に向かった子）だけ。ほかの戦いでも、会ったことのある敵将は覚えている
+  const nemesis = o && q.nemesisId === o.id ? o : null;
   const r = new Rng({ rng: questSeed(s, q) ^ 0x1e5 });
   const lines = o ? battleLines(s, o, ids, r) : undefined;
   const b = createTactics(s, q, deploys, { officer: o, nemesisId: nemesis?.id ?? null, tutorial: q.tutorial, lines, extraShields: nemesis ? Math.min(2, Math.floor(bondOf(s, nemesis) / 4)) : 0 });

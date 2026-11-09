@@ -35,7 +35,7 @@ function QuestList({ s, onPick }: { s: GameState; onPick: (id: string) => void }
 
 function QuestCard({ s, q, rec, onClick }: { s: GameState; q: Quest; rec?: boolean; onClick?: () => void }) {
   const o = officerForQuest(s, q);
-  const nem = o && (q.nemesisId === o.id || (bondOf(s, o) > 0 && o.meets.length > 0));
+  const nem = !!o && q.nemesisId === o.id;
   return (
     <button class={`pcard tb-quest${nem ? ' nem' : ''}`} onClick={onClick}>
       <div class="row nowrap gap8">

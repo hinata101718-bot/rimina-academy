@@ -26,6 +26,8 @@ export const NEM = {
   levelPerMeet: 1, levelPerVictim: 1,
   /** 心が変わる見込み（負けて逃げたとき） */
   heartChange: 0.5,
+  /** 討ち取ったのに生きている見込み（ふつうの戦い・宿敵戦）。あとで蘇ることがある */
+  presumed: 0.2, presumedNem: 0.1,
 };
 
 function fill(t: string, v: Record<string, string>): string { return t.replace(/\{(\w+)\}/g, (m, k) => v[k] ?? m); }
@@ -45,6 +47,7 @@ export function bondOf(s: GameState, o: EnemyOfficer): number {
     if (rv.oid !== o.id || rv.settled) continue;
     const st = s.students[rv.sid];
     if (!st || (st.status !== 'enrolled' && !(st.status === 'graduated' && st.career?.alive))) continue;
+    if (rv.stage < 1 && !rv.vow && (st.status !== 'enrolled' || (!o.memory?.beatenBy.includes(rv.sid) && !o.memory?.woundedBy.some((w) => w.id === rv.sid) && !o.victims.some((v) => v.id === rv.sid)))) continue;
     n += 1 + rv.stage + (rv.vow ? 2 : 0);
   }
   if (o.memory?.beatenBy.length) n += 1;
@@ -52,7 +55,7 @@ export function bondOf(s: GameState, o: EnemyOfficer): number {
 }
 /** 学校と因縁のある宿敵（因縁の帳にのる人） */
 export function bondedOfficers(s: GameState): EnemyOfficer[] {
-  return officers(s).filter((o) => (o.status === 'active' || o.presumed) && o.meets.length > 0 && (bondOf(s, o) > 0 || o.meets.some((m) => m.year >= s.year - 3)))
+  return officers(s).filter((o) => o.status === 'active' && o.meets.length > 0 && bondOf(s, o) > 0)
     .sort((a, b) => bondOf(s, b) - bondOf(s, a) || b.meets.length - a.meets.length);
 }
 /** 因縁の帳にのる、今は死んだ・去った宿敵（終わった因縁） */
@@ -221,7 +224,8 @@ export function afterTactics(s: GameState, b: TBattle, r: Rng, lines: string[]):
   if (fell) {
     // 討ち取った（一度蘇った者は、本当に死ぬ。ほかはまれに生きている＝死んだと思われている）
     o.status = 'dead'; o.endYear = s.year; o.endNote = `「${b.title}」で討ち取られた`;
-    if (!o.revived && o.kind !== 'monster') o.presumed = 'dead';
+    // とどめを刺しても、まれに生きている（死体が見つからなかった など）。一度蘇った者は、本当に死ぬ
+    if (!o.revived && o.kind !== 'monster' && r.chance(b.nemesisId === o.id ? NEM.presumedNem : NEM.presumed)) o.presumed = 'dead';
     const t = `${FACTION_NAMES[o.faction]}の${fn}を討ち取った`;
     chronicle(s, t, 'school'); out.push({ icon: 'star', text: t });
     const ks = killer ? s.students[killer] : null;
@@ -237,7 +241,7 @@ export function afterTactics(s: GameState, b: TBattle, r: Rng, lines: string[]):
     if (ks) for (const rv of Object.values(s.rivalries ?? {})) if (rv.oid === o.id && rv.sid === ks.id && rv.vow) { (ks.recent ??= []).push({ type: 'ev_avenged', week: s.absWeek, detail: o.given }); moveMind(ks, 'grudge', -30); }
   } else {
     // 生きのびた：傷・屈辱・心の変化・覚えた相手
-    const hurt = bu.max > 0 && bu.hp / bu.max <= NEM.woundAt || (bu.brokenBy ?? []).length > 0;
+    const hurt = bu.max > 0 && bu.hp / bu.max <= NEM.woundAt || (bu.brokenBy ?? []).length > 0 || !!bu.escapedWounded;
     if (hurt && top) {
       const wtype = (bu.lastType ?? 'slash') as AtkType;
       const wt = r.pick(WOUNDS[wtype].text);
@@ -339,4 +343,72 @@ export function afterNemesisBattle(s: GameState, b: TBattle, report: { lines: st
     if (st && w && r.chance(0.5)) nemesisLetter(s, o, 'grudge', voice(`${st.given}。この${w.text}を見るたびに、お前の顔を思い出す。いつか必ず。—${officerName(o)}`, o), st.id);
   }
   void report;
+}
+
+// ---------- 宿敵戦のきっかけ（月末） ----------
+export const NEM_MONTH = {
+  /** 依頼の先に宿敵がいる見込み（因縁のある宿敵がいるとき） */
+  quest: 0.24,
+  /** 宿敵から挑んでくる（果たし状。断れない） */
+  challenge: 0.07,
+  /** 執念の燃えた教え子が、許しを待たずに向かう（執念がこれ以上で、仇討ちの誓いがある子） */
+  rush: 0.25, rushGrudge: 85,
+  /** うわさが届く */
+  rumor: 0.25,
+};
+const FACTION_FIELD: Record<string, string[]> = { kingdom: ['fort', 'plain'], empire: ['fort', 'snow'], alliance: ['ship', 'ruins'], bandit: ['woods', 'ruins', 'pass'], monster: ['woods'] };
+/** 宿敵ごとの戦場（はじめて宿敵戦になるときに決まる） */
+export function nemesisField(o: EnemyOfficer, r: Rng): string { return (o.field ??= r.pick(FACTION_FIELD[o.faction] ?? ['plain'])); }
+
+/** 月末の依頼に、宿敵を結びつける（依頼の先に宿敵／果たし状／勝手に向かった子）。再会の札を、依頼の前に出す */
+export function nemesisMonth(s: GameState, r: Rng): void {
+  if (s.quests.some((q) => q.tutorial || q.kind === 'exhibition' || q.kind === 'schoolDefense')) return;
+  const bonded = bondedOfficers(s).filter((o) => o.status === 'active' && o.kind !== 'monster' && !o.alumniId);
+  if (!bonded.length) return;
+  const enrolledIds = new Set(Object.values(s.students).filter((x) => x.status === 'enrolled').map((x) => x.id));
+  const mk = (o: EnemyOfficer, kind: 'quest' | 'challenge' | 'rush', rushBy?: string) => {
+    nemesisField(o, r);
+    let q = kind === 'quest' ? s.quests.filter((x) => x.real && !x.small && !x.nemesisId).sort((a, c) => c.danger - a.danger)[0] : undefined;
+    if (!q) {
+      q = { id: `q${s.nextId++}`, kind: 'border', title: '', client: kind === 'challenge' ? '果たし状' : '書き置き', clientCountry: null, enemyCountry: o.country, objective: 'boss', template: 'field', level: Math.max(1, o.level - 2), reward: 300 + o.level * 20, danger: 2, weather: 'clear', real: true };
+      s.quests.unshift(q);
+    }
+    q.nemesisId = o.id; q.nemesisKind = kind; q.objective = 'boss';
+    if (o.country) q.enemyCountry = o.country;
+    q.title = kind === 'challenge' ? `果たし状：${officerName(o)}` : kind === 'rush' ? `${s.students[rushBy!]?.given}を追って` : `${q.title}（${o.given}の影）`;
+    if (kind !== 'quest') q.mustGo = true;
+    if (rushBy) q.rushBy = rushBy;
+    const ids = Object.values(s.rivalries ?? {}).filter((rv) => rv.oid === o.id && enrolledIds.has(rv.sid)).map((rv) => rv.sid).slice(0, 3);
+    const lines: string[] = [];
+    if (kind === 'challenge') { const tgt = o.grudge && s.students[o.grudge] ? s.students[o.grudge].given : '学校の者'; lines.push(voice(`${tgt}へ。決着をつけたい。来なければ、学校ごと焼くまでだ。—${officerName(o)}`, o)); nemesisLetter(s, o, 'challenge', lines[0], o.grudge ?? undefined); }
+    else if (kind === 'rush') lines.push(`${s.students[rushBy!]?.given}の姿がない。机の上に書き置きがあった。「${o.given}を討ちに行きます。止めないでください」`);
+    else lines.push(`依頼の先に、${officerName(o)}がいる。`);
+    lines.push(...reunionLines(s, o));
+    if (o.lastMet) lines.push(`最後に会ったのは${whenText(s, o.lastMet.year, o.lastMet.month)}。`);
+    pushReunion(s, o, rushBy ? [rushBy, ...ids.filter((x) => x !== rushBy)] : ids, o.revived && o.reviveNote && !o.presumed ? 'revived' : 'reunion', lines);
+  };
+  // 勝手に向かう子
+  for (const rv of Object.values(s.rivalries ?? {})) {
+    const st = s.students[rv.sid];
+    const o = bonded.find((x) => x.id === rv.oid);
+    if (!o || !st || st.status !== 'enrolled' || !rv.vow || rv.settled || (st.mind?.grudge ?? 0) < NEM_MONTH.rushGrudge || st.injuredWeeks > 0) continue;
+    if (!r.chance(NEM_MONTH.rush)) continue;
+    mk(o, 'rush', st.id);
+    return;
+  }
+  const grudging = bonded.filter((o) => o.grudge && enrolledIds.has(o.grudge));
+  if (grudging.length && r.chance(NEM_MONTH.challenge)) { mk(r.pick(grudging), 'challenge'); return; }
+  if (r.chance(NEM_MONTH.quest)) mk(r.weighted(bonded, (o) => 1 + bondOf(s, o)), 'quest');
+  else if (r.chance(NEM_MONTH.rumor)) rumor(s, r, r.pick(bonded));
+}
+
+/** うわさ（手紙・新聞の種）。情報が少し増える */
+export function rumor(s: GameState, r: Rng, o: EnemyOfficer): void {
+  const t = r.pick([
+    `${officerName(o)}の姿を、国境の町で見たという者がいる。`,
+    `${officerName(o)}が${rankName(o)}として兵を集めているらしい。`,
+    o.grudge && s.students[o.grudge] ? `${officerName(o)}が「${s.students[o.grudge].given}」という名を口にしていたらしい。` : `${officerName(o)}が、学校のことを調べているらしい。`,
+  ]);
+  mail(s, '旅の行商人', `うわさ：${o.given}`, t, undefined, true);
+  if (r.chance(0.5)) addIntel(o);
 }

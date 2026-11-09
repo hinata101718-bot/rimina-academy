@@ -19,6 +19,16 @@ function bestFor(b: TBattle, u: TUnit, noDeath: boolean): Plan | null {
     }
   }
   if (u.potion && u.hp < u.max * 0.4) consider(30, () => usePotion(b, u.uid));
+  // 宿敵戦：深手の子は、宿敵の届かない場所へ下がる（命の危険を読んで避ける）
+  const nem = b.nemesisId ? foes(b).find((f) => f.nemesis && f.broken === 0) : null;
+  if (nem && !u.teacher && u.hp <= u.max * 0.55) {
+    const R = reach(b, u);
+    let safe: { x: number; y: number; d: number } | null = null;
+    for (const k of Object.keys(R)) { const [x, y] = k.split('-').map(Number); const d = Math.abs(nem.x - x) + Math.abs(nem.y - y); if (!safe || d > safe.d) safe = { x, y, d }; }
+    const reachN = nem.mov + nem.rmax;
+    const now = Math.abs(nem.x - u.x) + Math.abs(nem.y - u.y);
+    if (safe && now <= reachN) consider(safe.d > reachN ? 60 : 26, () => moveOnly(b, u.uid, safe!.x, safe!.y));
+  }
   for (const h of healsOf(u)) {
     for (const o of mine(b)) {
       if (o === u || o.hp >= o.max * 0.6) continue;
@@ -73,6 +83,9 @@ function scoreAttack(b: TBattle, u: TUnit, f: TUnit, t: string | null, spot: { x
   // 危ない場所に立つのはさける（命の危険がある宿敵戦では、とくに）
   const danger = threatAt(b, u, spot.x, spot.y);
   if (danger >= u.hp) sc -= b.nemesisId ? 40 : 15;
+  // 宿敵戦：宿敵の一撃で倒れる場所は「命の危険」。とても避ける
+  const nem = b.nemesisId ? foes(b).find((f) => f.nemesis && f.broken === 0) : null;
+  if (nem && !u.teacher) { const dd = Math.abs(nem.x - spot.x) + Math.abs(nem.y - spot.y); const hit = Math.max(1, nem.str + nem.might + (nem.rage ? TB.ragePow : 0) - u.def); if (dd <= nem.mov + nem.rmax && hit >= u.hp) sc -= 90; }
   if (u.teacher) sc -= 25 + (danger > 0 ? 30 : 0);
   u.x = ox; u.y = oy;
   return sc;

@@ -145,6 +145,8 @@ export const B = {
     sickDays: 5,                   // 体調を崩すと休む日数
     motivationDrop: 0.06,          // 疲れているとき、1日にやる気が下がる確率
   },
+  /** 19夜目：1週の過ごし方（授業の札1枚と交流の札1枚）。授業は1週ぶん（前の5日ぶんに近い伸び）。交流の札の数 */
+  week: { lessonCards: 4, socialCards: 3, lessonMul: 3.6, nemStudyPts: 30, mindCalm: 8, mindGrudge: -12, restrainGrudge: -18, restrainCalm: 8 },
   // ---- 先生の体力（7夜目の途中で方針変更：体力は先生だけ。生徒の体力・疲労・体調不良はなくした） ----
   teacher: {
     max: 100, ageFrom: 45, agePerYear: 1, minMax: 70, epidemic: 15, // 年をとると最大体力が少し下がる（45歳から1年に1、最低70）。疫病の年は−15
@@ -257,7 +259,7 @@ export const B = {
   /** 19夜目：全盛期と衰え（年齢）：伸び盛り〜27歳、28〜34歳は伸びが0.6倍、35〜44歳は0.3倍、45歳から伸びなくなり、毎年少しずつ衰える */
   prime: { peakEnd: 27, slowEnd: 34, slowMul: 0.6, stopAt: 44, lateMul: 0.3, declineAt: 45, declineChance: 0.15, declinePerYear: 0.02 },
   /** 19夜目：月末の出撃（教え子の人数）・出撃しない子の罠の傷 */
-  sortie: { members: 4, trapDmg: 6 },
+  sortie: { members: 4, trapDmg: 6, /** ふつうの戦いで討った名前のある将が、深手を負って逃げのびる見込み */ officerEscape: 0.65 },
   battle: {
     width: 8, height: 12,
     deployBase: 6, deployAt12: 8, deployAt20: 10,

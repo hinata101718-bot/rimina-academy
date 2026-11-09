@@ -166,7 +166,7 @@ export interface LessonCard {
   /** 相談したい子（面談のカード） */
   consult?: string[];
 }
-export interface LessonDay { key: number; cards: LessonCard[]; rain?: boolean }
+export interface LessonDay { key: number; cards: LessonCard[]; rain?: boolean; /** 19夜目：交流の札 */ social?: LessonCard[] }
 /** 授業の結果で伸びた子の1行 */
 export interface LessonRow { id: string; face: boolean; tag?: boolean; target?: boolean; skills: { k: SkillId; p0: number; p1: number }[]; train: { k: StatId; g0: number; g1: number; up: number }[] }
 export interface LessonEvent { kind: string; ids: string[]; lines: TalkLineLog[] }
@@ -658,6 +658,8 @@ export interface GameState {
   absWeek: number;
   /** 今日の授業カード（7夜目） */
   today?: LessonDay | null;
+  /** 19夜目：先週選んだ札（「先週と同じ」） */
+  lastPick?: { lesson: string; social: string } | null;
   /** 古いセーブの重点科目・週末の予定（最初の日のカードに出す。7夜目） */
   carry?: { skills: SkillId[]; social: string[] } | null;
   money: number;

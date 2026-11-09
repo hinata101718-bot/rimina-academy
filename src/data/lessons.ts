@@ -7,7 +7,7 @@ export const LESSON_GROUP_NAMES: Record<LessonGroup, string> = { weapon: '武器
 export const LESSON_GROUP_COLOR: Record<LessonGroup, string> = { weapon: '#3f6fb0', body: '#5f8a4a', mind: '#6a5a8e', social: '#c06a72', special: '#b0802a', rest: '#4f8796' };
 
 /** 交流・休講などの特別な効果 */
-export type LessonSpecial = 'tea' | 'dinner' | 'spar' | 'interview' | 'career' | 'rest' | 'field';
+export type LessonSpecial = 'tea' | 'dinner' | 'spar' | 'interview' | 'career' | 'rest' | 'field' | 'nemstudy' | 'mindtrain' | 'secret' | 'restrain' | 'betray' | 'enemyfriend' | 'avenged';
 
 export interface LessonDef {
   id: string;
@@ -77,6 +77,15 @@ export const LESSONS: LessonDef[] = [
   { id: 'interview', name: '面談', mark: '話', group: 'social', special: 'interview', stamina: 0, weight: 6, likes: ['timid', 'shy', 'serious'], extra: [{ label: '信頼', big: true }, { label: 'やる気' }], note: '顔の子から1人と話す' },
   { id: 'career', name: '進路指導', mark: '進', group: 'social', special: 'career', stamina: 0, weight: 3, extra: [{ label: '信頼', big: true }, { label: '進路' }], note: '3年生と進路の話をする' },
   // ---- 特別 ----
+  // ---- 19夜目：宿敵に向けた授業 ----
+  { id: 'nem_study', name: '弱点の研究', mark: '研', group: 'mind', special: 'nemstudy', exp: 1, stamina: -4, weight: 0, extra: [{ label: '弱点を突く技', big: true }, { label: '宿敵のこと' }], note: '宿敵の弱点に合う攻めを学ぶ' },
+  { id: 'mind_train', name: '心の鍛錬', mark: '心', group: 'mind', special: 'mindtrain', exp: 0.6, stamina: 2, weight: 0, extra: [{ label: '平静', big: true }, { label: '執念を鎮める' }], note: '恐れや怒りに飲まれない心を' },
+  // ---- 19夜目：交流の中の宿敵の場面（その子がいるときだけ出る） ----
+  { id: 'sc_secret', name: '打ち明け話', mark: '秘', group: 'social', special: 'secret', stamina: 0, weight: 0, extra: [{ label: '秘密と縁', big: true }], note: '隠していたことが明らかになる' },
+  { id: 'sc_restrain', name: '暴走を止める', mark: '止', group: 'social', special: 'restrain', stamina: -2, weight: 0, extra: [{ label: '執念を鎮める', big: true }, { label: '信頼' }], note: '燃えすぎた執念を鎮める' },
+  { id: 'sc_betray', name: '揺れる心', mark: '揺', group: 'social', special: 'betray', stamina: 0, weight: 0, extra: [{ label: '信頼', big: true }], note: '裏切りの兆しに気づく' },
+  { id: 'sc_enemyfriend', name: '敵国の友', mark: '友', group: 'social', special: 'enemyfriend', stamina: 0, weight: 0, extra: [{ label: '宿敵のこと', big: true }], note: '敵国にいる友とのつながり' },
+  { id: 'sc_avenged', name: '仇を討ったあと', mark: '空', group: 'social', special: 'avenged', stamina: 0, weight: 0, extra: [{ label: '心を支える', big: true }], note: '仇を討った子の空しさを支える' },
   { id: 'field', name: '野外演習', mark: '野', group: 'special', special: 'field', skills: {}, stats: { hp: 0.5 }, exp: 3, reveal: 2, stamina: -13, weight: 2, extra: [{ label: '経験値', big: true }, { label: '目標技能', big: true }, { label: '芽の発見' }], note: '雨の日だけの特別な演習' },
 ];
 export const REST: LessonDef = { id: 'rest', name: '休講', mark: '休', group: 'rest', special: 'rest', stamina: 25, weight: 0, extra: [{ label: '体力回復', big: true }] };

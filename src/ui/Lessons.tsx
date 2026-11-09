@@ -5,8 +5,8 @@ import type { SkillId, StatId } from '../core/types';
 import { LESSON_BY_ID, LESSON_GROUP_NAMES, LESSON_GROUP_COLOR, type LessonDef } from '../data/lessons';
 import { SKILL_NAMES, STAT_NAMES, PERSONALITIES } from '../data/people';
 import { B, SKILLS, RANK_POINTS } from '../data/balance';
-import { todayCards, DAY_NAMES, attends, recommendCard, teacherStamina, teacherMax, teacherSick, lessonCost } from '../core/lessons';
-import { chooseLesson, weekAuto } from '../core/flow';
+import { todayCards, DAY_NAMES, attends, recommendCard, recommendSocial, teacherStamina, teacherMax, teacherSick, lessonCost } from '../core/lessons';
+import { chooseWeek, weekAuto, sameAsLastWeek } from '../core/flow';
 import { skillUnlocked, bestTeacher, autoTargets } from '../core/week';
 import { viceOf, VICE_POLICY_NAMES, viceTargets } from '../core/instructor';
 import { enrolled } from '../core/game';
@@ -57,37 +57,50 @@ function targetHit(st: Student, l: LessonDef): boolean {
 
 /** 今日の授業（ホームの中ほど） */
 export function LessonBoard({ s }: { s: GameState }) {
+  // 19夜目：週のはじめに、授業の札を1枚と交流の札を1枚
   const [sel, setSel] = useState<number | null>(null);
+  const [soc, setSoc] = useState<number | null>(null);
   const [who, setWho] = useState<string | null>(null);
-  // 9夜目：説明は初めのうちだけ（あとは「？」で）
-  // 15夜目：説明はいつも「？」の中（管理人の案内と同じことを言わない）
   const [help, setHelp] = useState(false);
   const day = s.today && s.today.key === s.absWeek * 5 + ((s.day ?? 1) - 1) ? s.today : null;
   useEffect(() => { if (!day) act((g) => { todayCards(g); }); }, [day]);
-  useEffect(() => { setSel(null); setWho(null); }, [s.absWeek, s.day]);
+  useEffect(() => { setSel(null); setSoc(null); setWho(null); }, [s.absWeek]);
   if (!day) return null;
   const rec = recommendCard(s);
+  const recS = recommendSocial(s);
+  const social = day.social ?? [];
   const card = sel !== null ? day.cards[sel] : null;
+  const scard = soc !== null ? social[soc] : null;
   const l = card ? LESSON_BY_ID[card.id] : null;
-  const talkFaces = card && l?.special === 'interview' ? card.faces.map((id) => s.students[id]).filter(Boolean) : [];
-  const go = (talkWith?: string) => { if (sel === null) return; sfx('ok'); const i = sel; setSel(null); act((g) => chooseLesson(g, i, talkWith)); };
+  const sl = scard ? LESSON_BY_ID[scard.id] : null;
+  const talkFaces = scard && sl?.special === 'interview' ? scard.faces.map((id) => s.students[id]).filter(Boolean) : [];
+  const go = (talkWith?: string) => { if (sel === null) return; sfx('ok'); const i = sel, j = soc ?? recS; setSel(null); setSoc(null); act((g) => chooseWeek(g, i, j, talkWith)); };
   const whoSt = who ? s.students[who] : null;
+  const lp = s.lastPick;
+  const sameOk = !!lp && day.cards.some((c) => c.id === lp.lesson);
   return (
     <div class="lessonboard">
       <div class="lb-sheet">
       <div class="row between nowrap">
-        <h2 class="serif" style={{ margin: '2px 0 0' }}>今日の授業 <small class="muted">1つ選んでください</small></h2>
-        <span class="row nowrap gap4"><span class="lb-day">{DAY_NAMES[(s.day ?? 1) - 1]}曜日{day.rain ? '・雨' : ''}</span><button class={`lb-help${help ? ' on' : ''}`} aria-label="説明" onClick={() => { sfx('move'); setHelp(!help); }}>？</button></span>
+        <h2 class="serif" style={{ margin: '2px 0 0' }}>今週の授業と交流 <small class="muted">1枚ずつ</small></h2>
+        <span class="row nowrap gap4"><span class="lb-day">第{s.week}週{day.rain ? '・雨' : ''}</span><button class={`lb-help${help ? ' on' : ''}`} aria-label="説明" onClick={() => { sfx('move'); setHelp(!help); }}>？</button></span>
       </div>
-      {help && <div class="muted small">授業を1つ選んでください。みんな伸びますが、顔が見えている子はとくによく伸びます。顔は毎日変わり、得意な技能や夢、性格に合う授業に出てきやすいです。<span class="fmark t inline">目</span> の印の子は、今月の目標の授業なので、さらに伸びます。仲のよい子や恋人、ライバルが2人そろうと、友情タッグ✦です。授業をすると先生は疲れるので、ときどき休講にしましょう（先生の体力は、画面の上の札）。</div>}
+      {help && <div class="muted small">週のはじめに、授業の札を1枚と、交流の札を1枚選びます。授業は1週間ぶん、みんなが伸びます（顔の出ている子はとくに）。交流では、面談・お茶会のほか、宿敵や因縁にまつわる場面も起きます。1か月に4回選ぶと、月末に出撃です。</div>}
       <div class="lb-mini">
         <button class="lb-target" onClick={() => { sfx('move'); navigate({ tab: 'school', page: 'targets' }); }}><span class="fmark t inline">目</span> 今月の目標を見る ›</button>
       </div>
-      {teacherSick(s) && <div class="guide">{s.instructor.name}先生が寝込んでいます。今日の授業はお休みです。あと{s.instructor.sickDays}日で起きられます。</div>}
+      {teacherSick(s) && <div class="guide">{s.instructor.name}先生が寝込んでいます。今週の授業はお休みです。</div>}
       </div>
+      <h3 class="lb-h">授業</h3>
       <div class="lcards">
         {day.cards.map((c, i) => <LessonCardView s={s} c={c} on={sel === i} rec={i === rec} onPick={() => { sfx('move'); setSel(sel === i ? null : i); setWho(null); }} onFace={(id) => setWho(who === id ? null : id)} />)}
       </div>
+      {social.length > 0 && <>
+        <h3 class="lb-h">交流</h3>
+        <div class="lcards">
+          {social.map((c, i) => <LessonCardView s={s} c={c} on={soc === i} rec={i === recS} onPick={() => { sfx('move'); setSoc(soc === i ? null : i); setWho(null); }} onFace={(id) => setWho(who === id ? null : id)} />)}
+        </div>
+      </>}
       {whoSt && (
         <div class="whobox" onClick={() => setWho(null)}>
           <Portrait st={whoSt} size={36} frame={countryColor(whoSt.origin)} />
@@ -95,19 +108,22 @@ export function LessonBoard({ s }: { s: GameState }) {
           <button class="btn ghost small" onClick={(e) => { e.stopPropagation(); navigate({ tab: 'students', page: 'detail', id: whoSt.id }); }}>くわしく見る</button>
         </div>
       )}
-      <div style={{ height: 64 }} />
+      <div style={{ height: 110 }} />
       <div class="lessonbar">
         {teacherSick(s) ? (
-          <button class="btn primary block" onClick={() => { sfx('ok'); act((g) => chooseLesson(g, 0)); }}>今日は休む（先生が寝込み中）</button>
+          <button class="btn primary block" onClick={() => { sfx('ok'); act((g) => chooseWeek(g, 0, 0)); }}>今週は休む（先生が寝込み中）</button>
         ) : card && l ? (
           talkFaces.length > 1 ? (
             <div class="row nowrap gap6" style={{ width: '100%' }}>
-              <span class="small">誰と話しますか？</span>
-              {talkFaces.map((st) => <button class="btn primary small grow" onClick={() => go(st.id)}>{st.given}{card.consult?.includes(st.id) ? '（相談）' : ''}</button>)}
+              <span class="small">面談：誰と？</span>
+              {talkFaces.map((st) => <button class="btn primary small grow" onClick={() => go(st.id)}>{st.given}{scard?.consult?.includes(st.id) ? '（相談）' : ''}</button>)}
             </div>
-          ) : <button class="btn primary block" onClick={() => go()}>「{l.name}」にする <Icon name="next" size={18} /></button>
+          ) : <button class="btn primary block" onClick={() => go()}>「{l.name}」{sl ? `と「${sl.name}」` : '（交流はおすすめ）'}で1週間 <Icon name="next" size={18} /></button>
         ) : (
-          <button class="btn ghost block omakase" onClick={() => { sfx('ok'); act((g) => weekAuto(g)); }}>今週はおまかせ（{DAY_NAMES[(s.day ?? 1) - 1]}〜金曜をおすすめで）</button>
+          <div class="row nowrap gap6" style={{ width: '100%' }}>
+            {sameOk && <button class="btn small grow" onClick={() => { sfx('ok'); act((g) => sameAsLastWeek(g)); }}>先週と同じ</button>}
+            <button class="btn ghost small grow omakase" onClick={() => { sfx('ok'); act((g) => weekAuto(g)); }}>今週はおまかせ</button>
+          </div>
         )}
       </div>
     </div>

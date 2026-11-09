@@ -37,6 +37,11 @@ export function applyTactics(s: GameState, b: TBattle, r: Rng): TacticsOutcome {
   const dead: TacticsOutcome['dead'] = [];
   const injured: TacticsOutcome['injured'] = [];
   const expMul = (b.real ? 1 : B.battle.drillExpMul) * (q?.tutorial ? 1.6 : 1);
+  // ふつうの戦いで討ち取った名前のある将は、深手を負いながら逃げのびることがある（宿敵戦では討てば討てる）
+  {
+    const bu = b.units.find((u) => u.boss && u.officerId);
+    if (bu && !bu.alive && bu.down === 'dead' && b.nemesisId !== bu.officerId && r.chance(B.sortie.officerEscape)) { bu.down = 'fled'; bu.hp = 1; bu.escapedWounded = true; lines.push(`${bu.name}は深手を負ったが、兵に担がれて逃げのびた`); }
+  }
   startGrowthLog();
   const bossU = b.units.find((u) => u.boss);
   for (const u of b.units) {

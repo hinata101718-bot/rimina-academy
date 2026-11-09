@@ -143,7 +143,8 @@ export function calc(b: TBattle, a: TUnit, d: TUnit, techId?: string | null, opt
   const total = per * hits;
   const brk = !broken && shields > 0 && d.sh - shields <= 0 && d.hp - total > 0;
   const kill = total >= d.hp && !(d.nemesis && !d.clung && !broken);
-  const lethal = a.side === 'foe' && total >= d.hp && !!(b.nemesisId && (a.nemesis || a.boss)) && !d.teacher;
+  // 命の危険：宿敵のとどめ（すでに深手を負った子への、倒れる一撃）だけ
+  const lethal = a.side === 'foe' && total >= d.hp && d.hp <= d.max * TB.lethalHp && !!(b.nemesisId && (a.nemesis || a.boss)) && !d.teacher;
   return { per, hits, total, weak, resisted, broken, type, shields, brk, kill, lethal, perHit };
 }
 
@@ -286,15 +287,19 @@ function strike(b: TBattle, a: TUnit, d0: TUnit, techId: string | null, fx: TFx[
       log(b, `${d.name}の守りが崩れた！（ブレイク：次の番は動けず、受ける傷が2倍）`, !!d.boss);
       if (d.nemesis) say(b, d, 'break', fx);
     }
-    if (kill) down(b, a, d, fx, noDeath, c.lethal || rage);
+    if (kill) down(b, a, d, fx, noDeath, c.lethal);
   }
   if (c.resisted && d.nemesis) say(b, d, 'resist', fx);
   const head = `${a.name}の${tech ? `「${tech.name}」` : '攻撃'}！ ${d.name}に${c.total}${c.weak ? `（弱点・${ATK_NAME[c.type]}）` : ''}${c.resisted ? '（効かない）' : ''}`;
   log(b, head);
   // 宿敵：追いつめられると、大技の構え・逃げる
-  if (d.alive && d.nemesis) {
-    if (!d.rage && !d.fleeing && d.hp / d.max <= TB.rageAt && !b.said.includes(`${d.uid}:rageArmed`)) { d.rage = true; b.said.push(`${d.uid}:rageArmed`); say(b, d, 'cornered', fx); log(b, `${d.name}が大技の構えに入った`, true); }
-    if (!d.fleeing && d.hp / d.max <= TB.fleeAt && b.lines?.[`${d.uid}:canFlee`] !== 'no') { d.fleeing = true; d.rage = false; say(b, d, 'flee', fx); log(b, `${d.name}は退こうとしている！`, true); }
+  if (d.alive && d.nemesis && !d.rage && !d.fleeing && d.hp / d.max <= TB.rageAt && !b.said.includes(`${d.uid}:rageArmed`)) { d.rage = true; b.said.push(`${d.uid}:rageArmed`); say(b, d, 'cornered', fx); log(b, `${d.name}が大技の構えに入った`, true); }
+  // 名前のある将は、追いつめられると逃げる（忠義の厚い将は逃げない）
+  if (d.alive && d.boss && d.officerId && !d.fleeing && d.hp / d.max <= TB.fleeAt && b.lines?.[`${d.uid}:canFlee`] !== 'no') {
+    d.fleeing = true; d.rage = false; say(b, d, 'flee', fx);
+    // ブレイク中は動けないので、端まで逃げる（追いつけば討てる）。ブレイクしていなければ、その場で退く
+    if (d.broken > 0) log(b, `${d.name}は退こうとしている！（ブレイクが解ければ逃げる）`, true);
+    else { d.alive = false; d.down = 'fled'; fx.push({ k: 'flee', uid: d.uid }); log(b, `${d.name}は兵をまとめて退いた`, true); }
   }
 }
 
@@ -454,7 +459,7 @@ export function intents(b: TBattle): void {
     if (!best) continue;
     const can = canHit(b, f, best.m);
     const c = calc(b, f, best.m, null, { rage: f.rage });
-    f.aim = can ? { t: best.m.uid, dmg: c.total, lethal: c.lethal || (!!f.rage && c.total >= best.m.hp && !best.m.teacher && !!b.nemesisId), rage: f.rage } : { t: best.m.uid, dmg: 0, lethal: false, approach: true };
+    f.aim = can ? { t: best.m.uid, dmg: c.total, lethal: c.lethal, rage: f.rage } : { t: best.m.uid, dmg: 0, lethal: false, approach: true };
   }
 }
 export function canHit(b: TBattle, f: TUnit, m: TUnit): boolean {
@@ -482,7 +487,7 @@ export function endTurn(b: TBattle, opt: { noDeath?: boolean } = {}): TFx[] {
       let best: { x: number; y: number; sc: number } | null = null;
       for (const k of Object.keys(R)) { const [x, y] = k.split('-').map(Number); const sc = y * 10 + Math.abs(x - f.x); if (!best || sc < best.sc) best = { x, y, sc }; }
       if (best) { f.x = best.x; f.y = best.y; fx.push({ k: 'move', uid: f.uid, x: f.x, y: f.y }); }
-      if (f.y === 0) { f.edge = true; log(b, `${f.name}は端に着いた。次の敵の番で逃げ去る！`, true); }
+      if (f.y === 0) { f.alive = false; f.down = 'fled'; say(b, f, 'fled', fx); fx.push({ k: 'flee', uid: f.uid }); log(b, `${f.name}は逃げ去った`, true); checkEnd(b); }
       continue;
     }
     const aimed = f.aim && 't' in f.aim ? unit(b, f.aim.t) : null;

@@ -3,8 +3,8 @@ import type { GameState } from './state';
 import type { CountryId, Path } from './types';
 import { COUNTRIES } from '../data/people';
 import { enrolled } from './game';
-import { recommendCard, todayCards } from './lessons';
-import { chooseLesson, startSortie, finishCareers, admit, autoAdmitIds, rng } from './flow';
+import { recommendCard, recommendSocial, todayCards } from './lessons';
+import { chooseWeek, startSortie, finishCareers, admit, autoAdmitIds, rng } from './flow';
 import { autoExam } from './exam';
 import { autoRecommend, suitablePath, availableChoices as availableChoicesOf, type CareerChoice, type CareerPlan } from './career';
 import { activeAlumni } from './world';
@@ -115,7 +115,7 @@ export function autoDay(s: GameState): void {
   if (s.week === 1 && (s.day ?? 1) === 1) autoManage(s);
   if (s.pending.length || s.battle) return;
   todayCards(s);
-  chooseLesson(s, lessonPick ? lessonPick(s) : recommendCard(s));
+  chooseWeek(s, lessonPick ? lessonPick(s) : recommendCard(s), recommendSocial(s));
   opCount.lesson += 1;
   autoPending(s);
 }

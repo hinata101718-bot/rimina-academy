@@ -18,6 +18,8 @@ import { viceOf } from './instructor';
 import { fx, lessonXp, gainMentorXp } from './mentor';
 
 export const DAY_NAMES = ['月', '火', '水', '木', '金'];
+/** 19夜目：1週ぶんの授業の伸び（授業の札のとき）。resolveLesson の中だけ */
+let WMUL = 1;
 
 export function absDay(s: GameState): number { return s.absWeek * 5 + ((s.day ?? 1) - 1); }
 /** 授業を受けられる子（けがの子は休み）。7夜目：生徒の体力・体調不良はなくした */
@@ -102,9 +104,12 @@ export function rollDay(s: GameState, r: Rng): LessonDay {
   // 14夜目：最初の1日目は、武器と体の授業の札3枚だけ（休講なし。どれを選んでも伸びる）
   const first = firstLessonDay(s);
   if (first) picked.length = 0;
-  const nCards = first ? B.tutorial.firstCards : B.day.cards + fx(s, 'cards');
+  const nCards = first ? B.tutorial.firstCards : B.week.lessonCards + fx(s, 'cards');
+  // 19夜目：授業の札（武器・体・頭）と、交流の札は分ける
+  const socialPicked = picked.filter((l) => l.group === 'social');
+  for (const l of socialPicked) picked.splice(picked.indexOf(l), 1);
   while (picked.length < nCards && guard++ < 200) {
-    const cand = pool.filter((l) => !picked.includes(l) && l.special !== 'field' && (!first || ((l.group === 'weapon' || l.group === 'body') && !l.special)));
+    const cand = pool.filter((l) => !picked.includes(l) && l.special !== 'field' && l.group !== 'social' && l.weight > 0 && (!first || ((l.group === 'weapon' || l.group === 'body') && !l.special)));
     if (!cand.length) break;
     picked.push(r.weighted(cand, (l) => lessonWeight(s, l, list)));
   }
@@ -129,7 +134,25 @@ export function rollDay(s: GameState, r: Rng): LessonDay {
   const order = ['weapon', 'body', 'mind', 'social', 'special'];
   cards.sort((a, b) => order.indexOf(LESSON_BY_ID[a.id].group) - order.indexOf(LESSON_BY_ID[b.id].group));
   if (!first) cards.push({ id: 'rest', faces: [], tags: [] });
-  return { key, cards, rain: first ? false : rain };
+  // 交流の札：面談・お茶会・食事会・紅白戦・進路指導と、宿敵の場面
+  const social: LessonCard[] = [];
+  const nem = nemesisCards(s);
+  for (const n of nem.filter((x) => x.id.startsWith('sc_')).slice(0, 1)) social.push({ id: n.id, faces: n.faces, tags: [] });
+  for (const n of nem.filter((x) => !x.id.startsWith('sc_'))) if (cards.length < nCards + 2) cards.splice(cards.length - 1, 0, { id: n.id, faces: n.faces, tags: tagsOf(s, n.faces) });
+  const spool = pool.filter((l) => l.group === 'social' && l.weight > 0);
+  const mustTalk = needTalk.length > 0;
+  if (mustTalk) social.push({ id: 'interview', faces: needTalk.slice(0, 3).map((x) => x.id), tags: [], consult: needTalk.map((x) => x.id) });
+  let g2 = 0;
+  while (social.length < B.week.socialCards && g2++ < 50) {
+    const cand = spool.filter((l) => !social.some((c) => c.id === l.id));
+    if (!cand.length) break;
+    const l = r.weighted(cand, (x) => lessonWeight(s, x, list));
+    const pool2 = list.filter((st) => !social.some((c) => c.faces.includes(st.id)) && (l.special !== 'career' || st.grade === 3));
+    const n = l.special === 'tea' || l.special === 'interview' ? 3 : 2;
+    const faces = r.shuffle([...pool2]).slice(0, n).map((x) => x.id);
+    social.push({ id: l.id, faces, tags: tagsOf(s, faces), ...(l.special === 'interview' ? { consult: faces.filter((id) => s.consults.includes(id)) } : {}) });
+  }
+  return { key, cards, rain: first ? false : rain, social: first ? [] : social };
 }
 function pickIndex(r: Rng, ws: number[]): number { let x = r.next() * ws.reduce((a, b) => a + b, 0); for (let i = 0; i < ws.length; i++) { x -= ws[i]; if (x < 0) return i; } return ws.length - 1; }
 
@@ -174,7 +197,7 @@ function pointsFor(s: GameState, st: Student, k: SkillId, w: number, b: Boost): 
   const target = st.targets[0] === k ? D.targetMul : st.targets[1] === k ? D.target2Mul : 1;
   // 7夜目：ランクが高いほど伸びにくい（学校が育った後半に、在学中にSまで届きすぎないように）
   const high = Math.max(D.highMin, 1 - st.skills[k] / D.highDiv);
-  return D.skillPts * w * lessonMul(s, st, k) * faceMulOf(s, b) * target * tagMulOf(s, b) * high;
+  return D.skillPts * w * lessonMul(s, st, k) * faceMulOf(s, b) * target * tagMulOf(s, b) * high * WMUL;
 }
 
 /** 顔の子の倍率（先生の「名講義」「熱血指導」で上がる。8夜目） */
@@ -205,11 +228,15 @@ export interface DayOutcome { lesson: string; faces: string[]; tags: [string, st
  * 今日の授業を受ける。idx＝今日のカードの番号、talkWith＝面談で話す子（顔の子から）
  * 結果は返すだけ（画面に出すのは呼び出し側）
  */
-export function resolveLesson(s: GameState, r: Rng, idx: number, talkWith?: string): DayOutcome {
+export function resolveLesson(s: GameState, r: Rng, idx: number, talkWith?: string, opt: { card?: LessonCard; mul?: number } = {}): DayOutcome {
+  WMUL = opt.mul ?? 1;
+  try { return resolveLessonMain(s, r, idx, talkWith, opt.card); } finally { WMUL = 1; }
+}
+function resolveLessonMain(s: GameState, r: Rng, idx: number, talkWith?: string, card0?: LessonCard): DayOutcome {
   const day = todayCards(s);
   // 先生が寝込んでいる日は、自動で休講
   const sickRest = teacherSick(s);
-  const card = sickRest ? { id: 'rest', faces: [], tags: [] } : day.cards[Math.max(0, Math.min(day.cards.length - 1, idx))];
+  const card = sickRest ? { id: 'rest', faces: [], tags: [] } : card0 ?? day.cards[Math.max(0, Math.min(day.cards.length - 1, idx))];
   const l = LESSON_BY_ID[card.id] ?? REST;
   const D = B.day;
   const lines: string[] = [];
@@ -253,10 +280,10 @@ export function resolveLesson(s: GameState, r: Rng, idx: number, talkWith?: stri
     if (l.special === 'field') skillUp(st, st.targets[0], pointsFor(s, st, st.targets[0], D.field.skill, b));
     if (l.special === 'spar') for (const k of SKILLS) if (k !== 'gun' || s.world.gunUnlocked) skillUp(st, k, pointsFor(s, st, k, D.spar.skill, b));
     // 鍛錬ゲージ
-    for (const [k, w] of Object.entries(l.stats ?? {}) as [StatId, number][]) trainUp(st, k, D.trainPts * w * faceM * tagM * (camp ? B.lesson.campMul : 1) * B.motivationMul[st.motivation]);
+    for (const [k, w] of Object.entries(l.stats ?? {}) as [StatId, number][]) trainUp(st, k, D.trainPts * w * faceM * tagM * (camp ? B.lesson.campMul : 1) * B.motivationMul[st.motivation] * WMUL);
     // 経験値（授業の経験値。交流は紅白戦だけ）
     const expUnits = (l.exp ?? (l.skills ? 1 : 0)) * (l.special === 'spar' ? 1 + fx(s, 'sparExp') : 1);
-    if (expUnits > 0) gainExp(s, r, st, D.exp * expUnits * faceM * tagM * (camp ? B.lesson.campMul : 1) * expDamp(st.level));
+    if (expUnits > 0) gainExp(s, r, st, D.exp * expUnits * faceM * tagM * (camp ? B.lesson.campMul : 1) * expDamp(st.level) * WMUL);
     // 才能の判明
     const rev = ((l.reveal ?? (l.group === 'social' || l.group === 'rest' ? 0.4 : 1)) * D.reveal * faceM + (B.talent.libraryReveal[s.facilities.library ?? 0] + expBonusOf(s)) / 5) * (1 + fx(s, 'reveal'));
     revealTalent(s, st, rev, lines);
@@ -318,6 +345,8 @@ export function resolveLesson(s: GameState, r: Rng, idx: number, talkWith?: stri
     if (faces.length >= 2) { const [x, y] = faces; addRecent(s, x, 'ev_spar', '紅白戦', y.id); addRecent(s, y, 'ev_spar', '紅白戦', x.id); push(addSupport(s, r, x.id, y.id, D.spar.support)); }
   } else if (l.special === 'field') {
     lines.push('雨の中の野外演習。泥だらけになりながら、実戦の勘を磨いた');
+  } else if (l.special) {
+    nemesisLesson(s, r, l.special, faces, list, lines, talks);
   }
 
   // 練習中の出来事
@@ -445,10 +474,21 @@ export function cardScore(s: GameState, card: LessonCard, list: Student[] = enro
   if (l.special === 'tea') v = 6 + card.tags.length * 3 + card.faces.length * 2 + (tired ? 4 : 0);
   if (l.special === 'dinner') v = 4 + list.filter((x) => x.motivation <= 1).length * 4;
   if (l.special === 'career') v = 5 + (s.month >= 6 ? 6 : 0);
+  if (l.special === 'nemstudy') v = 9 + card.faces.length * 2;
+  if (l.special === 'mindtrain') v = 6 + card.faces.length * 3;
   // 先生が疲れているときは体力を使う授業を避ける
   if (l.stamina < -6 && tired) v *= 0.6;
   v += card.tags.length * 1.5;
   return v;
+}
+/** 19夜目：交流の札のおすすめ */
+export function recommendSocial(s: GameState): number {
+  const day = todayCards(s);
+  const list = enrolled(s).filter(attends);
+  const SC: Record<string, number> = { sc_restrain: 22, sc_avenged: 18, sc_betray: 16, sc_secret: 9, sc_enemyfriend: 9 };
+  let best = 0, bv = -Infinity;
+  (day.social ?? []).forEach((c, i) => { const v = SC[c.id] ?? cardScore(s, c, list); if (v > bv) { bv = v; best = i; } });
+  return best;
 }
 export function recommendCard(s: GameState): number {
   const day = todayCards(s);
@@ -456,4 +496,78 @@ export function recommendCard(s: GameState): number {
   const list = enrolled(s).filter(attends);
   day.cards.forEach((c, i) => { const v = cardScore(s, c, list); if (v > bv) { bv = v; best = i; } });
   return best;
+}
+
+// ---------- 19夜目：宿敵に向けた授業と、交流の中の宿敵の場面 ----------
+import { bondedOfficers, addIntel, moveMind, memoryOf } from './nemesis';
+import { ATK_NAME, TECHS } from '../data/tactics';
+import { officerName as offName, ensureRivalry } from './officers';
+
+/** その週に出せる、宿敵の場面の札（その子がいるときだけ） */
+export function nemesisCards(s: GameState): { id: string; faces: string[] }[] {
+  const list = enrolled(s).filter(attends);
+  const out: { id: string; faces: string[] }[] = [];
+  const bonded = bondedOfficers(s);
+  if (bonded.length && list.length) out.push({ id: 'nem_study', faces: list.filter((st) => Object.values(s.rivalries ?? {}).some((rv) => rv.sid === st.id && bonded.some((o) => o.id === rv.oid))).slice(0, 3).map((x) => x.id) });
+  const hot = list.filter((st) => (st.mind?.grudge ?? 0) >= 70 || (st.mind?.calm ?? 50) < 30);
+  if (hot.length) out.push({ id: 'mind_train', faces: hot.slice(0, 3).map((x) => x.id) });
+  const rage = list.filter((st) => (st.mind?.grudge ?? 0) >= 80);
+  if (rage.length) out.push({ id: 'sc_restrain', faces: [rage[0].id] });
+  const avenged = list.filter((st) => st.recent?.some((e) => e.type === 'ev_avenged'));
+  if (avenged.length) out.push({ id: 'sc_avenged', faces: [avenged[0].id] });
+  const shaky = list.filter((st) => st.trust < 35 && st.grade >= 2 && st.origin !== 'frontier');
+  if (shaky.length) out.push({ id: 'sc_betray', faces: [shaky[0].id] });
+  const secret = list.filter((st) => st.traits.length > st.knownTraits.length || (st.sides ?? []).length < 2);
+  if (secret.length) out.push({ id: 'sc_secret', faces: [secret[(s.absWeek * 7) % secret.length].id] });
+  const friend = list.filter((st) => Object.values(s.students).some((o) => o.status === 'graduated' && o.career?.alive && o.cohort === st.cohort - 1 && (s.officers ?? []).some((x) => x.alumniId === o.id && x.status === 'active')));
+  if (friend.length) out.push({ id: 'sc_enemyfriend', faces: [friend[0].id] });
+  return out;
+}
+
+function nemesisLesson(s: GameState, r: Rng, sp: string, faces: Student[], list: Student[], lines: string[], talks: TalkLog[]): void {
+  const W = B.week;
+  void talks;
+  if (sp === 'nemstudy') {
+    const o = bondedOfficers(s)[0];
+    if (!o) { lines.push('弱点の研究：まだ研究する相手がいない'); return; }
+    addIntel(o);
+    const weak = (o.knownWeak ?? []).filter((t) => (o.weak ?? []).includes(t));
+    const t = weak[0];
+    const tech = t ? TECHS.find((x) => x.type === t && !x.cls) : null;
+    for (const st of list) if (tech) { const k = tech.skill; st.skills[k] = Math.min(700, (st.skills[k] ?? 0) + W.nemStudyPts * (faces.includes(st) ? 2 : 1)); }
+    lines.push(`弱点の研究：${offName(o)}の戦い方を研究した${t ? `。弱点「${ATK_NAME[t]}」を突く技（${tech?.name ?? ''}）を覚えやすくなった` : '。まだ弱点は分からない'}`);
+    return;
+  }
+  if (sp === 'mindtrain') {
+    for (const st of list) { moveMind(st, 'calm', W.mindCalm * (faces.includes(st) ? 1.5 : 0.5)); if ((st.mind?.grudge ?? 0) > 85) moveMind(st, 'grudge', W.mindGrudge); }
+    lines.push(`心の鍛錬：静かに座り、心を整えた（平静↑${faces.length ? `・${faces.map((x) => x.given).join('・')}はとくに` : ''}）`);
+    return;
+  }
+  const st = faces[0];
+  if (!st) return;
+  if (sp === 'restrain') {
+    moveMind(st, 'grudge', W.restrainGrudge); moveMind(st, 'calm', W.restrainCalm); st.trust = Math.min(100, st.trust + 5);
+    lines.push(`${st.given}を呼びとめた。「今の君が行けば、死ぬだけだ」……${st.given}はうつむき、拳をほどいた（執念↓・平静↑・信頼↑）`);
+  } else if (sp === 'avenged') {
+    st.recent = (st.recent ?? []).filter((e) => e.type !== 'ev_avenged');
+    moveMind(st, 'calm', 10); moveMind(st, 'fight', 5); st.trust = Math.min(100, st.trust + 6);
+    lines.push(`仇を討った${st.given}は、何も言わずに空を見ていた。先生はとなりに座った。「……これで、よかったんでしょうか」（平静↑・信頼↑）`);
+  } else if (sp === 'betray') {
+    st.trust = Math.min(100, st.trust + 10);
+    (st as Student & { betraySign?: number }).betraySign = Math.max(0, ((st as Student & { betraySign?: number }).betraySign ?? 0) - 1);
+    lines.push(`${st.given}の様子がおかしい。故郷から手紙が来ているらしい。話を聞くと、少し表情がやわらいだ（信頼↑。敵に回りにくくなる）`);
+  } else if (sp === 'secret') {
+    const hidden = st.traits.find((t) => !st.knownTraits.includes(t));
+    if (hidden) { st.knownTraits.push(hidden); lines.push(`${st.given}が、ずっと隠していたことを打ち明けた（特徴が分かった）`); }
+    else {
+      // 生まれつきの縁：名簿の敵将と血のつながりが分かる
+      const kin = (s.officers ?? []).find((o) => o.status === 'active' && o.family && o.family === st.family);
+      if (kin) { const rv = ensureRivalry(s, st.id, kin.id); rv.stage = Math.max(1, rv.stage); rv.log.push({ year: s.year, month: s.month, text: '血のつながりが分かった' }); lines.push(`${st.given}が打ち明けた。「${offName(kin)}は……わたしの兄です」（宿敵との生まれつきの縁）`); }
+      else lines.push(`${st.given}と夜遅くまで話した。家のこと、夢のこと`);
+    }
+  } else if (sp === 'enemyfriend') {
+    const o = (s.officers ?? []).find((x) => x.status === 'active' && x.alumniId && s.students[x.alumniId]?.cohort === st.cohort - 1);
+    if (o) { addIntel(o, 2); const m = memoryOf(o); void m; lines.push(`${st.given}のもとに、敵国に帰った先輩の${s.students[o.alumniId!]?.given}から手紙が届いていた。今は${offName(o)}と名のっているらしい`); }
+  }
+  void r;
 }
