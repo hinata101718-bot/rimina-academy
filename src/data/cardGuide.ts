@@ -40,7 +40,7 @@ export const GUIDE_OFFER = {
 };
 
 /** 遊び方の手引き（戦いの画面の「？」・設定から）。fig＝図の種類 */
-export type ManualFig = 'ap' | 'intent' | 'rows' | 'cover' | 'strat' | 'trust' | 'auto';
+export type ManualFig = 'ap' | 'intent' | 'rows' | 'cover' | 'strat' | 'trust' | 'auto' | 'combo' | 'evolve';
 export const CARD_MANUAL: { title: string; fig: ManualFig; lines: string[] }[] = [
   { title: '行動力', fig: 'ap', lines: [
     '毎ターン手札を引き、行動力の分だけ札を出します。札の左上の数が、その札に使う行動力です。',
@@ -65,6 +65,14 @@ export const CARD_MANUAL: { title: string; fig: ManualFig; lines: string[] }[] =
   { title: '信頼', fig: 'trust', lines: [
     '信頼の低い子は、ときどき出した札のかわりに、自分の攻撃の札を使います。',
     '面談や授業で信頼を深めると、言われたとおりに動いてくれます。',
+  ] },
+  { title: '連携技', fig: 'combo', lines: [
+    '支援がB以上の2人には「連携技」があります。2人の札が手札にそろうと、縁が金色に光ります。',
+    '2人の札を続けて選んで出すと、2枚が合わさって発動します。恋人・好敵手・先輩と後輩で中身が違います。',
+  ] },
+  { title: '技を育てる', fig: 'evolve', lines: [
+    '戦技と魔法は、使うたびに熟練がたまります。満ちると、2つの進化先から1つを選べます。',
+    '進化は1つの技に2段まで。選んだ道は変えられません。同じ技でも、育て方でその子だけの技になります。',
   ] },
   { title: 'おまかせで札を出す', fig: 'auto', lines: [
     '迷ったら「おまかせで札を出す」。危ない子を先に守り、それから倒せる敵を攻めます。',

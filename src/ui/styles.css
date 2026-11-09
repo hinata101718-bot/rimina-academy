@@ -1960,3 +1960,45 @@ details.fold > summary::-webkit-details-marker { display: none; }
 .cb-play .cb-guide .cb-gsay { font-size: 14px; line-height: 1.5; }
 /* 18夜目：お知らせの窓（戦い方が新しくなりました）は、いちばん上に */
 .overlay.top { z-index: 200; align-items: center; }
+/* ---- 18夜目：連携技（金の縁・合わさる2枚・合体の演出） ---- */
+@keyframes cbGold { 0%, 100% { box-shadow: 0 0 0 2px #ffe39a, 0 0 8px 2px rgba(255, 227, 154, .55); } 50% { box-shadow: 0 0 0 2px #fff3c8, 0 0 16px 5px rgba(255, 227, 154, .9); } }
+.cb-play .cb-hand .cb-card.combo { border-color: #e8c45a; animation: cbGold 1.4s ease-in-out infinite; }
+.cb-play .cb-hand .cb-card.linked { border-color: #ffd34d; background: linear-gradient(#fff6dc, #f3e1b0); box-shadow: 0 0 0 3px #ffd34d, 0 0 18px 6px rgba(255, 211, 77, .9); animation: none; }
+.cb-link { position: absolute; right: 2px; top: 3px; font-size: 12px; line-height: 1.4; background: #c9a24f; color: #2a1a0a; border-radius: 8px; padding: 0 4px; font-weight: bold; z-index: 1; }
+.cb-play .cb-hand .cb-card.combo .cb-cface { display: none; }
+.cb-peek.combo { color: #ffe39a; font-weight: bold; }
+.cb-line.big.combo { color: #ffe39a; font-size: 18px; text-shadow: 0 0 8px rgba(255, 200, 90, .7); }
+.fx-combo { background: radial-gradient(ellipse at 50% 45%, rgba(90, 60, 10, .92), rgba(10, 6, 3, .95) 70%); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; }
+.fx-cbkind { font-size: 15px; color: #f3e7cf; border: 1px solid #c9a24f; border-radius: 12px; padding: 2px 12px; z-index: 1; }
+.fx-cbfaces { display: flex; align-items: center; gap: 14px; z-index: 1; }
+.fx-cbl { animation: cbInL .5s cubic-bezier(.2, 1.4, .4, 1) both; } .fx-cbr { animation: cbInR .5s cubic-bezier(.2, 1.4, .4, 1) both; }
+.fx-cbx { font-size: 30px; color: #e8c45a; animation: cbX .6s .35s both; }
+@keyframes cbInL { from { transform: translateX(-140px) scale(.7); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes cbInR { from { transform: translateX(140px) scale(.7); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes cbX { from { transform: scale(2.4) rotate(45deg); opacity: 0; } to { transform: none; opacity: 1; } }
+.fx-combo .fx-cbname { position: static; font-size: 34px; color: #ffe39a; letter-spacing: .08em; text-shadow: 0 0 14px rgba(255, 200, 90, .9); z-index: 1; animation: cbX .5s .5s both; }
+.fx-combo .fx-crit-say { position: static; z-index: 1; text-align: center; padding: 0 16px; }
+/* ---- 18夜目：熟練のゲージ・進化の2択・連携技の欄 ---- */
+.evo-gwrap { display: flex; flex-direction: column; gap: 2px; width: 100%; margin-top: 2px; }
+.evo-gl { color: #6a573f; }
+.evo-gauge { display: block; height: 8px; background: #d8c9a6; border-radius: 4px; overflow: hidden; }
+.evo-gauge i { display: block; height: 100%; background: linear-gradient(90deg, #d9a23a, #ffe39a); }
+.btn.evo-ready { min-height: 44px; margin-top: 4px; align-self: flex-start; background: #8f2a1a; color: #fff; border: 2px solid #e8c45a; display: inline-flex; align-items: center; }
+.art-tile.combo { border-left-color: #c9a24f; background: linear-gradient(90deg, rgba(255, 240, 190, .85), rgba(255, 255, 255, .5)); cursor: default; }
+.art-tile.combo.lost { filter: grayscale(.8); opacity: .75; }
+.evo-wrap { display: flex; flex-direction: column; gap: 6px; }
+.evo-base { display: flex; flex-direction: column; align-items: center; gap: 2px; margin: 4px auto; padding: 10px 18px; min-width: 200px; border-radius: 12px; background: #f6ecd6; color: #3a2a1a; border: 2px solid #b89a62; text-align: center; }
+.evo-base b { font-size: 20px; }
+.evo-arrow { text-align: center; color: #a47b2c; font-weight: bold; }
+.evo-opts { display: flex; gap: 8px; }
+.evo-opt { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 10px 8px; min-height: 170px; border-radius: 12px; background: #f6ecd4; color: #2a1a0a; border: 3px solid #c0392b; text-align: center; font: inherit; cursor: pointer; }
+.evo-opt.o1 { border-color: #3a6fb0; }
+.evo-lab { font-size: 13px; color: #fff; background: #8f2a1a; border-radius: 10px; padding: 1px 10px; }
+.evo-opt.o1 .evo-lab { background: #2a5a90; }
+.evo-nm { font-size: 19px; word-break: break-all; }
+.evo-fx { margin-top: auto; color: #4a3a22; }
+.lt-card.evo-new.lit { background: linear-gradient(#fff6dc, #f1dca2); }
+.yb-combo { padding: 6px 0; border-bottom: 1px solid rgba(120, 90, 40, .25); font-size: 14px; line-height: 1.5; }
+.yb-combo.lost { color: #8a7a62; }
+.tk-combo { margin: 10px 0 0; padding: 10px 12px; border-radius: 10px; background: linear-gradient(#fff6dc, #f1dca2); border: 2px solid #e8c45a; box-shadow: 0 0 16px rgba(240, 200, 90, .7); color: #3a2a1a; animation: abIn .4s both; }
+.tk-combo b { display: block; font-size: 18px; margin-bottom: 2px; }

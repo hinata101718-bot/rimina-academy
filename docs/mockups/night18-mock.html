@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<title>18夜目の見本</title>
+<!-- 18夜目の見本（画面を作る前の下書き）。dist のスタイルを借りて、作る画面の形を先に決める。撮影：node scripts/mock18.cjs -->
+<style>
+  body { margin: 0; background: #2a2018; font-family: "Hiragino Mincho ProN", "Noto Serif JP", serif; display: flex; gap: 18px; padding: 18px; flex-wrap: wrap; }
+  .phone { width: 390px; height: 844px; overflow: hidden; border-radius: 26px; border: 3px solid #0b0806; background: #efe3c6; position: relative; flex: none; box-shadow: 0 10px 30px rgba(0,0,0,.5); }
+  .cap { color: #f3e7cf; font-size: 15px; width: 390px; margin: 0 0 6px; }
+  .col { display: flex; flex-direction: column; }
+  .paper { padding: 14px 14px; color: #2a1a0a; font-size: 14px; line-height: 1.5; }
+  .h3 { font-size: 18px; font-weight: bold; margin: 0 0 6px; }
+  .sub { margin: 12px 0 4px; border-bottom: 1px dashed rgba(120,90,40,.4); font-size: 13px; font-weight: bold; padding-bottom: 2px; display: flex; justify-content: space-between; }
+  .tile { border: 1px solid rgba(120,90,40,.35); border-left: 4px solid #b4542f; background: rgba(255,255,255,.5); border-radius: 4px; padding: 6px 10px; margin: 4px 0; min-height: 44px; box-sizing: border-box; }
+  .tile.guard { border-left-color: #3a6fb0; } .tile.mind { border-left-color: #6a7a3a; } .tile.combo { border-left-color: #c9a24f; background: linear-gradient(90deg, rgba(255,240,190,.8), rgba(255,255,255,.5)); }
+  .tn { font-weight: bold; font-size: 15px; } .tk { font-size: 12px; color: #6a573f; } .td { font-size: 13px; }
+  .mark { font-size: 12px; border: 1px solid #8a6a3a; border-radius: 8px; padding: 0 6px; margin-left: 4px; color: #6a4a12; }
+  .gauge { height: 8px; background: #d8c9a6; border-radius: 4px; overflow: hidden; margin-top: 4px; }
+  .gauge i { display: block; height: 100%; background: linear-gradient(90deg, #d9a23a, #ffe39a); }
+  .gl { font-size: 12px; color: #6a573f; display: flex; justify-content: space-between; }
+  .ready { display: inline-block; margin-top: 4px; font-size: 13px; padding: 8px 12px; border-radius: 6px; background: #8f2a1a; color: #fff; border: 2px solid #e8c45a; min-height: 44px; box-sizing: border-box; }
+  .face { width: 30px; height: 30px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; color: #fff; font-size: 13px; font-weight: bold; border: 2px solid #e8dcc0; flex: none; }
+  .row { display: flex; align-items: center; gap: 6px; }
+  .dark { background: radial-gradient(ellipse at 50% 20%, #3b2a1c, #1c130c 75%); color: #f3e7cf; height: 100%; padding: 14px 12px; box-sizing: border-box; display: flex; flex-direction: column; gap: 8px; }
+  .evo-base { margin: 20px auto 6px; background: #f6ecd4; color: #2a1a0a; border: 2px solid #b89a62; border-radius: 12px; padding: 12px 20px; text-align: center; min-width: 210px; }
+  .evo-opts { display: flex; gap: 10px; }
+  .evo-opt { flex: 1; background: #f6ecd4; color: #2a1a0a; border: 3px solid #c0392b; border-radius: 12px; padding: 12px 10px; min-height: 200px; display: flex; flex-direction: column; gap: 6px; text-align: center; }
+  .evo-opt.b { border-color: #3a6fb0; }
+  .evo-opt .lab { display: inline-block; font-size: 13px; background: #8f2a1a; color: #fff; border-radius: 10px; padding: 1px 10px; align-self: center; }
+  .evo-opt.b .lab { background: #2a5a90; }
+  .evo-opt .nm { font-size: 22px; font-weight: bold; }
+  .arrow { text-align: center; font-size: 22px; color: #e8c45a; }
+  .btn { display: block; text-align: center; border-radius: 8px; padding: 12px; min-height: 44px; box-sizing: border-box; font-size: 16px; border: 1px solid #8a6a3a; background: #3a2a1c; color: #f3e7cf; }
+  .btn.go { background: linear-gradient(#c0452f, #8f2a1a); border: 2px solid #e8c45a; color: #fff; font-size: 17px; letter-spacing: .1em; }
+  .hand { display: flex; gap: 3px; height: 150px; padding-top: 14px; box-sizing: border-box; }
+  .card { flex: 1 1 0; min-width: 44px; height: 132px; background: #f6ecd4; color: #2a1a0a; border: 2px solid #c0392b; border-radius: 10px; padding: 26px 5px 5px; position: relative; font-size: 12px; box-sizing: border-box; }
+  .card.guard { border-color: #3a6fb0; }
+  .card .cost { position: absolute; left: 3px; top: 3px; width: 22px; height: 22px; border-radius: 50%; background: radial-gradient(circle at 35% 35%, #ffe7a0, #d9a23a); border: 2px solid #7a5a1a; font-weight: 900; display: flex; align-items: center; justify-content: center; box-sizing: border-box; }
+  .card b { display: block; font-size: 13px; }
+  .card.gold { border-color: #e8c45a; box-shadow: 0 0 0 2px #ffe39a, 0 0 14px 4px rgba(255,227,154,.8); }
+  .card.gold::after { content: '連携'; position: absolute; right: 3px; top: 4px; font-size: 12px; background: #c9a24f; color: #2a1a0a; border-radius: 8px; padding: 0 5px; font-weight: bold; }
+  .card.on { transform: translateY(-10px); }
+  .peek { font-size: 12px; min-height: 34px; color: #ffe39a; }
+  .foe { display: flex; justify-content: space-around; }
+  .foe div { text-align: center; font-size: 13px; }
+  .foe .ic { width: 64px; height: 64px; border: 3px solid #3a6fb0; border-radius: 10px; margin: 0 auto 4px; background: #241812; }
+  .intent { font-size: 13px; border: 1px solid #c9452f; border-radius: 8px; padding: 2px 6px; color: #ff9c86; }
+  .cut { position: absolute; inset: 0; background: rgba(10,6,3,.82); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; }
+  .cut .faces { display: flex; gap: 18px; align-items: center; }
+  .cut .big { width: 96px; height: 96px; font-size: 30px; border: 3px solid #e8c45a; box-shadow: 0 0 24px rgba(255,227,154,.8); }
+  .cut .title { font-size: 34px; color: #ffe39a; font-weight: bold; letter-spacing: .08em; text-shadow: 0 0 14px rgba(255,200,90,.9); }
+  .cut .kind { font-size: 15px; color: #f3e7cf; border: 1px solid #c9a24f; border-radius: 12px; padding: 2px 12px; }
+  .cut .x { font-size: 28px; color: #e8c45a; }
+  .note { font-size: 12px; color: #6a573f; }
+  .yb { border-bottom: 1px solid rgba(120,90,40,.3); padding: 6px 0; font-size: 14px; }
+  .yb.lost { color: #8a7a62; }
+</style>
+</head>
+<body>
+<div class="col">
+  <p class="cap">① 個人ページ「戦技と魔法・スキル」（熟練のゲージ・進化・連携技）</p>
+  <div class="phone"><div class="paper">
+    <div class="h3">戦技と魔法・スキル</div>
+    <div class="sub"><span>つけている戦技と魔法　4／5</span></div>
+    <div class="tile"><div class="row"><span class="tn">二段燕</span><span class="tk">（戦技・剣）◆ 攻め</span></div><div class="td">2回攻撃（1回は威力×0.88）・威力+2</div>
+      <div class="gl"><span>熟練 14／22（あと8で2段目）</span><span>燕返しから</span></div><div class="gauge"><i style="width:64%"></i></div></div>
+    <div class="tile"><div class="row"><span class="tn">居合い</span><span class="tk">（戦技・剣）</span></div><div class="td">必殺+25・命中+10</div>
+      <div class="gl"><span>熟練 8／8　満ちた！</span></div><div class="gauge"><i style="width:100%"></i></div>
+      <span class="ready">進化させる（2つから選ぶ）</span></div>
+    <div class="tile guard"><div class="row"><span class="tn">かばう</span><span class="tk">（戦技・重装）</span><span class="mark">札</span></div><div class="td">いちばん危ない仲間をかばう（受けるダメージ半分）</div>
+      <div class="gl"><span>熟練 3／8</span></div><div class="gauge"><i style="width:37%"></i></div></div>
+    <div class="sub"><span>連携技</span><span class="note">2人の札を続けて出す</span></div>
+    <div class="tile combo"><div class="row"><span class="face" style="background:#6a4a8a">イ</span><span class="tn">影縫い斬り</span><span class="tk">イヴと・好敵手</span></div><div class="td">2枚とも威力×1.25、攻撃は1回多く（競い合う連撃）・使った 3回</div></div>
+    <div class="tile combo"><div class="row"><span class="face" style="background:#a0523a">ロ</span><span class="tn">導きの穂先崩し</span><span class="tk">ロウと・先輩と後輩</span></div><div class="td">先輩が道を開き（守り−4）、後輩が決める（威力×1.4・必殺+30）</div></div>
+    <div class="sub"><span>つけているスキル　3／3</span></div>
+    <div class="tile mind"><div class="row"><span class="tn">踏みこみ</span><span class="mark">先に攻撃したとき</span></div><div class="td">威力+5</div></div>
+    <div class="tile mind"><div class="row"><span class="tn">連ね太刀</span><span class="mark">いつも</span></div><div class="td">同じターンに自分の札を2枚出すと、2枚目のあとに追い打ち</div></div>
+    <div class="tile mind"><div class="row"><span class="tn">不屈</span><span class="mark">仲間が倒れたとき</span></div><div class="td">威力+7</div></div>
+  </div></div>
+</div>
+<div class="col">
+  <p class="cap">② 進化の2択（タップで進む演出。選んだら一度きり）</p>
+  <div class="phone"><div class="dark">
+    <div style="text-align:center;font-size:18px;color:#ffe39a">ジークの「燕返し」の熟練が満ちた！</div>
+    <div class="row" style="justify-content:center"><span class="face" style="background:#2a5a90;width:56px;height:56px;font-size:20px">ジ</span></div>
+    <div class="evo-base"><div class="tk">いまの技</div><div style="font-size:22px;font-weight:bold">燕返し</div><div class="td">2回攻撃（1回は威力×0.7）</div></div>
+    <div class="arrow">▼ どちらに育てる？ ▼</div>
+    <div class="evo-opts">
+      <div class="evo-opt"><span class="lab">攻め</span><span class="nm">二段燕</span><span class="td">威力が上がる</span><span class="td" style="margin-top:auto">2回攻撃（1回は威力×0.88）・威力+2</span></div>
+      <div class="evo-opt b"><span class="lab">反撃</span><span class="nm">燕返し・守</span><span class="td">打ったあと身を固め、攻撃されたら反撃</span><span class="td" style="margin-top:auto">2回攻撃・自分の受ける傷−4・反撃</span></div>
+    </div>
+    <div class="note" style="color:#d8c49a;text-align:center">ジークらしいのは「攻め」（血の気が多い）。選んだ道は変えられません</div>
+    <div style="margin-top:auto" class="btn">あとで選ぶ（個人ページからも選べます）</div>
+  </div></div>
+</div>
+<div class="col">
+  <p class="cap">③ 札の戦い：連携技の2枚は縁が金色。続けて選ぶと「連携技」になる</p>
+  <div class="phone"><div class="dark">
+    <div class="row" style="justify-content:space-between"><b style="font-size:20px">ターン2 ― 札を出す</b><span class="mark" style="color:#ffe39a;border-color:#e8c45a">森・晴れ</span></div>
+    <div class="foe"><div><div class="ic"></div>盗賊A<br><span class="intent">斬る 12 → イヴ</span></div><div><div class="ic" style="border-color:#c0392b"></div>敵将ガロ<br><span class="intent">大振り 18（前列）</span></div><div><div class="ic"></div>盗賊B<br><span class="intent">射る 9 → ロウ</span></div></div>
+    <div style="flex:1"></div>
+    <div class="row" style="justify-content:space-between;font-size:12px;color:#d8c49a"><span>山札 30 ・ 捨て札 8</span><span>行動力 ●●○○ 2/4 残り</span></div>
+    <div class="peek">連携技「影縫い斬り」（イヴ→ジーク・行動力2）：好敵手の連携技。2枚とも威力×1.25、攻撃は1回多く</div>
+    <div class="hand">
+      <div class="card gold on"><span class="cost">1</span><b>影縫い</b>弓・イヴ<br><b>6</b></div>
+      <div class="card gold on"><span class="cost">1</span><b>二段燕</b>剣・ジーク<br><b>9×2</b></div>
+      <div class="card guard"><span class="cost">1</span><b>かばう</b>重装・ロウ<br>イヴをかばう</div>
+      <div class="card"><span class="cost">1</span><b>突く</b>槍・ミラ<br><b>8</b></div>
+      <div class="card"><span class="cost">2</span><b>流星の矢</b>弓・イヴ<br><b>14</b></div>
+    </div>
+    <div class="btn go">この2枚を出す（連携技）</div>
+    <div class="row"><div class="btn" style="flex:1">おまかせで札を出す</div><div class="btn">最後まで</div></div>
+  </div></div>
+</div>
+<div class="col">
+  <p class="cap">④ 合体の演出（結果の文の中で。タップで進む）</p>
+  <div class="phone"><div class="dark">
+    <div style="font-size:15px;line-height:1.7">
+      <div>イヴの影縫い！</div><div style="padding-left:24px">盗賊Aに 8のダメージ！</div>
+    </div>
+    <div class="cut">
+      <div class="kind">好敵手の連携技</div>
+      <div class="faces"><span class="face big" style="background:#6a4a8a">イ</span><span class="x">✕</span><span class="face big" style="background:#2a5a90">ジ</span></div>
+      <div class="title">影縫い斬り</div>
+      <div style="color:#d8c49a;font-size:14px">「遅れるなよ、イヴ」「そっちこそ」</div>
+    </div>
+  </div></div>
+</div>
+<div class="col">
+  <p class="cap">⑤ 年鑑・技の図鑑：連携技と進化した技（戦死した子の連携技も残る）</p>
+  <div class="phone"><div class="paper">
+    <div class="h3">技の図鑑 ― 連携技</div>
+    <div class="note">支援B以上になった2人の技。戦死した子の技は、もう使えませんが、ここに残ります。</div>
+    <div class="yb"><b>影縫い斬り</b>　イヴ × ジーク（好敵手）<br><span class="note">8年4月にできた・使った 5回</span></div>
+    <div class="yb"><b>比翼の光一閃</b>　セラ × カイ（恋人）<br><span class="note">9年6月にできた・使った 2回</span></div>
+    <div class="yb lost"><b>導きの穂先崩し</b>　ロウ × ミラ（先輩と後輩）<br><span class="note">ロウが10年9月に戦死。もう使えない（使った 7回）</span></div>
+    <div class="h3" style="margin-top:14px">進化した技</div>
+    <div class="yb"><b>燕返し</b> → 二段燕（ジーク）／燕返し・守（ハンナ）／真・二段燕（オルガ）</div>
+    <div class="yb"><b>影縫い</b> → 影縫い・冴（イヴ）／影の雨（ルカ）</div>
+    <div class="h3" style="margin-top:14px">評価の名場面</div>
+    <div class="yb">「3ターン目、イヴとの連携技『影縫い斬り』で敵将ガロを討ち取った」</div>
+    <div class="yb">「『燕返し』が『二段燕』に育った」</div>
+  </div></div>
+</div>
+</body>
+</html>

@@ -524,6 +524,8 @@ export interface TalkLog {
   year?: number; month?: number;
   /** 10夜目：もとの会話の id と、くり返してよい会話か（出来事のあと・引き止め） */
   def?: string; again?: boolean;
+  /** 18夜目：この支援会話で、2人の連携技ができた（会話のあとに発見の演出） */
+  combo?: { name: string; kind: import('../data/combos').ComboKind; text: string };
 }
 
 export interface WeekPlan {
@@ -669,6 +671,8 @@ export interface GameState {
   cardGuide?: 'pending' | 'done';
   /** 18夜目：札の戦いの案内（お知らせ）に一度でも答えた・案内を見た */
   cardGuideSeen?: boolean;
+  /** 18夜目：連携技（支援B以上の2人。組の鍵 → 記録。戦死で失われたものも残す） */
+  combos?: Record<string, import('./combo').ComboRec>;
   /** 勢力図を前に見たときのようす（13夜目） */
   mapSeen?: { at: number; o: Record<string, string> };
   /** 組織図を前に見たときのようす（9夜目：陣営→敵将id→階級・状態・二つ名・上の人） */

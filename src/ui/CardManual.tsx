@@ -79,6 +79,19 @@ function Fig({ k }: { k: ManualFig }) {
         <div class="mn-row"><MiniCard cost={1} name="かばう" fx="仲間をかばう" tone="guard" /><span class="mn-arrow">→</span><MiniCard cost={1} name="斬りつける" fx="9" /></div>
       </div>
     ),
+    combo: () => (
+      <div class="mn-col">
+        <div class="mn-row"><Face ch="イ" label="イヴ" /><span class="mn-arrow">✕</span><Face ch="ジ" label="ジーク" /></div>
+        <div class="mn-row"><MiniCard cost={1} name="影縫い" fx="連携" on /><MiniCard cost={1} name="燕返し" fx="連携" on /><span class="mn-arrow">→</span><span class="mn-tag ok">影縫い斬り</span></div>
+      </div>
+    ),
+    evolve: () => (
+      <div class="mn-col">
+        <div class="mn-row"><MiniCard cost={1} name="燕返し" fx="熟練 8/8" on /></div>
+        <div class="mn-arrow">↓</div>
+        <div class="mn-row"><span class="mn-tag ok">二段燕（攻め）</span><span class="mn-tag">燕返し・守（反撃）</span></div>
+      </div>
+    ),
     auto: () => (
       <div class="mn-col">
         <span class="mn-btn main">この2枚を出す</span>

@@ -1,4 +1,5 @@
 // オートプレイ（長期シミュレーション・テスト用）。画面なしで1年を進める
+import { autoEvo, chooseEvo } from './evolve';
 import { B } from '../data/balance';
 import { WEAPONS } from '../data/weapons';
 import type { SkillId } from './types';
@@ -251,6 +252,8 @@ export function autoPending(s: GameState): void {
     }
     if (p.type === 'successor') { autoSuccessor(s); continue; }
     if (p.type === 'ending') { autoEnding(s); continue; }
+    // 18夜目：技の進化は、その子の性格に合う方を選ぶ
+    if (p.type === 'evolve') { const st = s.students[p.studentId]; const br = st ? autoEvo(st, p.id) : null; if (!st || !br || !chooseEvo(s, st, p.id, br)) s.pending.shift(); opCount.evolve = (opCount.evolve ?? 0) + 1; continue; }
     s.pending.shift();
   }
 }
@@ -306,7 +309,7 @@ let gradeHook: ((s: GameState) => void) | null = null;
 /** シミュレーション用：学年の終わり（3月の第4週の月曜）に呼ぶ */
 export function setGradeHook(f: ((s: GameState) => void) | null): void { gradeHook = f; }
 /** シミュレーション用：画面の操作の回数の目安（授業カード1回＋結果を閉じる1回など） */
-export const opCount: { lesson: number; pending: number; battle: number; squads?: number; cards?: number; sq?: { w: number[]; l: number[]; dead: number[]; inj: number[] }; away?: { w: number; l: number; dead: number; good: number; calls: number }; escorted?: number } = { lesson: 0, pending: 0, battle: 0, squads: 0, cards: 0 };
+export const opCount: { lesson: number; pending: number; battle: number; squads?: number; cards?: number; sq?: { w: number[]; l: number[]; dead: number[]; inj: number[] }; away?: { w: number; l: number; dead: number; good: number; calls: number }; escorted?: number; evolve?: number; combo?: number } = { lesson: 0, pending: 0, battle: 0, squads: 0, cards: 0 };
 
 /** 1日ぶん自動で進める（7夜目：おすすめの授業カードを選ぶ） */
 export function autoDay(s: GameState): void {

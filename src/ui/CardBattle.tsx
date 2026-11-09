@@ -11,7 +11,7 @@ import type { GameState, Student } from '../core/state';
 import type { BattleState, Unit } from '../core/battle/types';
 import { battleCtx, finishBattle, moreEscorted, squadWatched } from '../core/flow';
 import { chooseAuto, playCardTurn, skipCards, type LeaderInfo } from '../core/battle/auto';
-import { cardPreview, intentText, autoPick, incoming, previewDeck, cardCosts, type Card, type CLine } from '../core/battle/cards';
+import { cardPreview, intentText, autoPick, incoming, previewDeck, cardCosts, comboGlow, comboFor, type Card, type CLine } from '../core/battle/cards';
 import { officerById } from '../core/officers';
 import { FACTION_COLOR } from '../data/officers';
 import { COUNTRY_SHORT, SKILL_NAMES } from '../data/people';
@@ -25,9 +25,10 @@ import { CARD_GUIDE, GUIDE_OFFER } from '../data/cardGuide';
 import { GuideSeal } from './Guide';
 import { GUIDE_NAME } from '../data/tutorial';
 import { CardManualSheet } from './CardManual';
+import { COMBO_KIND, COMBO_SAY } from '../data/combos';
 
 const SQUAD_LABEL = ['第一部隊', '第二部隊', '第三部隊'];
-const KIND_LABEL: Record<Card['kind'], string> = { art: '戦技', spell: '魔法', skill: 'スキル札', basic: '攻撃', strat: '策', item: '道具', bloom: '開花の技', legend: '伝説の武器' };
+const KIND_LABEL: Record<Card['kind'], string> = { art: '戦技', spell: '魔法', skill: 'スキル札', basic: '攻撃', strat: '策', item: '道具', bloom: '開花の技', legend: '伝説の武器', combo: '連携技' };
 /** 札の色：攻撃＝赤、回復＝緑、守り＝青、強め＝金、策＝茶 */
 function cardTone(c: Pick<Card, 'kind' | 'fx'>): string {
   if (c.kind === 'strat') return 'strat';
@@ -244,6 +245,11 @@ export function CardBattleView() {
     const v: Record<string, string> = { foe: nameOf(g.foe), ward: nameOf(g.ward), coverBy: nameOf(g.coverBy), attacker: nameOf(g.attacker), cover: cv?.name ?? 'かばう', atk: ak?.name ?? '攻撃', dmg: String(cs.intents.find((it) => it.uid === g.foe)?.dmg ?? ''), left: String(cs.ap - (cv?.fx.cost ?? 1)) };
     return x.replace(/\{(\w+)\}/g, (m, k) => v[k] ?? m);
   };
+  // 18夜目：連携技。手札に2人の札がそろうと金の縁、続けて選ぶと「連携技」になる
+  const golds = comboGlow(s, b);
+  const linked = new Set<string>();
+  let comboNow: [string, string] | null = null;
+  for (let i = 0; i + 1 < sel.length; i++) if (comboFor(s, b, cs.cards[sel[i]], cs.cards[sel[i + 1]])) { linked.add(sel[i]); linked.add(sel[i + 1]); comboNow = [sel[i], sel[i + 1]]; i++; }
   const gd = stage && stage !== 'after' ? CARD_GUIDE[stage] : null;
   const bubble = gd && (
     <GuideBubble head={gd.head} text={fill(gd.text)}
@@ -279,12 +285,12 @@ export function CardBattleView() {
         <span>山札 {cs.deck.length} ・ 捨て札 {cs.discard.length}</span>
         <span class="row nowrap gap6">行動力 {Array.from({ length: cs.ap }).map((_, i) => <i class={`cb-ap${i < left ? ' on' : ''}`} />)} {left}/{cs.ap} 残り</span>
       </div>
-      <div class="cb-peek small">{peekText(s, b, ctx, peek && hand.includes(peek) ? peek : sel[sel.length - 1])}</div>
+      <div class={`cb-peek small${comboNow ? ' combo' : ''}`}>{comboNow ? comboPeek(s, b, comboNow) : peekText(s, b, ctx, peek && hand.includes(peek) ? peek : sel[sel.length - 1])}</div>
       <div class={`cb-hand n${Math.min(hand.length, 9)}`}>
-        {hand.map((id, i) => <HandCard s={s} b={b} id={id} order={sel.indexOf(id)} disabled={guiding ? !allowed(id) && !sel.includes(id) : !sel.includes(id) && cost(id) > left} glow={guiding && allowed(id) && !sel.includes(id)} onTap={() => { setPeek(id); toggle(id); }} idx={i} n={hand.length} ctx={ctx} />)}
+        {hand.map((id, i) => <HandCard s={s} b={b} id={id} order={sel.indexOf(id)} disabled={guiding ? !allowed(id) && !sel.includes(id) : !sel.includes(id) && cost(id) > left} glow={guiding && allowed(id) && !sel.includes(id)} gold={!guiding && golds.has(id)} linked={linked.has(id)} onTap={() => { setPeek(id); toggle(id); }} idx={i} n={hand.length} ctx={ctx} />)}
       </div>
       <div class="cb-btns">
-        <button class={`btn primary block cb-go${stage === 'play' ? ' gglow' : ''}`} disabled={!sel.length || (guiding && stage !== 'play')} onClick={() => play(sel, cs.target)}>{sel.length ? `この${sel.length}枚を出す` : '札を選んでください'}</button>
+        <button class={`btn primary block cb-go${stage === 'play' ? ' gglow' : ''}`} disabled={!sel.length || (guiding && stage !== 'play')} onClick={() => play(sel, cs.target)}>{sel.length ? `この${sel.length}枚を出す${linked.size ? '（連携技）' : ''}` : '札を選んでください'}</button>
         <div class="row nowrap gap6">
           <button class="btn block" disabled={guiding} onClick={() => { const p = autoPick(s, b, ctx); play(p.ids, cs.target ?? p.target); }}>おまかせで札を出す</button>
           <button class="btn ghost" disabled={guiding} onClick={() => { if (!confirm('残りのターンを、おまかせで最後まで進めます。よろしいですか？')) return; sfx('ok'); act((g) => { const b0 = g.battle; skipCards(g, battleCtx(g), undefined, undefined, false); if (g.battle === b0 && g.battle?.auto) g.battle.auto.shown = Math.max(0, g.battle.auto.scenes.length - 1); }); setDoneAck(true); }}>最後まで</button>
@@ -358,7 +364,7 @@ function FoeRow({ s, b, nameOf, leader, leaderColor, onTarget, hideIntent, glow 
 }
 
 /** 手札の1枚：行動力・使う子の顔・名前・種類・効き目の数・使う子 */
-function HandCard({ s, b, id, order, disabled, onTap, idx, n, ctx, glow }: { s: GameState; b: BattleState; id: string; order: number; disabled: boolean; onTap: () => void; idx: number; n: number; ctx: ReturnType<typeof battleCtx>; glow?: boolean }) {
+function HandCard({ s, b, id, order, disabled, onTap, idx, n, ctx, glow, gold, linked }: { s: GameState; b: BattleState; id: string; order: number; disabled: boolean; onTap: () => void; idx: number; n: number; ctx: ReturnType<typeof battleCtx>; glow?: boolean; gold?: boolean; linked?: boolean }) {
   const cs = b.auto!.cards!;
   const c = cs.cards[id];
   const u = b.units.find((x) => x.uid === c.owner);
@@ -367,8 +373,9 @@ function HandCard({ s, b, id, order, disabled, onTap, idx, n, ctx, glow }: { s: 
   // 18夜目：手札は必ず1行。札の幅は画面の幅から決める（傾けない）
   void idx; void n;
   return (
-    <button class={`cb-card ${cardTone(c)}${order >= 0 ? ' on' : ''}${disabled ? ' off' : ''}${glow ? ' gglow' : ''}`} onClick={onTap} aria-label={`${c.name}（${c.kind === 'strat' ? '先生' : st?.given ?? ''}）`}>
+    <button class={`cb-card ${cardTone(c)}${order >= 0 ? ' on' : ''}${disabled ? ' off' : ''}${glow ? ' gglow' : ''}${gold ? ' combo' : ''}${linked ? ' linked' : ''}`} onClick={onTap} aria-label={`${c.name}（${c.kind === 'strat' ? '先生' : st?.given ?? ''}）${gold ? '・連携技の札' : ''}`}>
       <span class="cb-cost">{costShown(s, b, id)}</span>
+      {gold && order < 0 && <span class="cb-link">連携</span>}
       {order >= 0 && <span class="cb-order">{order + 1}</span>}
       <span class="cb-cface">{c.kind === 'strat' ? <span class="cb-strat serif">策</span> : st ? <Portrait st={st} size={26} /> : null}</span>
       <b class="cb-cname serif">{c.name}</b>
@@ -379,6 +386,15 @@ function HandCard({ s, b, id, order, disabled, onTap, idx, n, ctx, glow }: { s: 
   );
 }
 
+/** 18夜目：続けて選んだ2枚が連携技になるときの説明 */
+function comboPeek(s: GameState, b: BattleState, ids: [string, string]): string {
+  const cs = b.auto!.cards!;
+  const x = cs.cards[ids[0]], y = cs.cards[ids[1]];
+  const cb = comboFor(s, b, x, y);
+  if (!cb) return '';
+  const n = (c: Card) => b.units.find((u) => u.uid === c.owner)?.name ?? '';
+  return `連携技「${cb.name}」になります（${n(x)}と${n(y)}・行動力${cardCosts(s, b, ids).reduce((a, v) => a + v, 0)}）：${COMBO_KIND[cb.kind].label}。${COMBO_KIND[cb.kind].tip}`;
+}
 /** 18夜目：その札1枚の行動力（先駆けの詠唱で1少ないことがある） */
 function costShown(s: GameState, b: BattleState, id: string): number { return cardCosts(s, b, [id])[0] ?? 1; }
 /** 18夜目：押した札の全文（手札の上の帯） */
@@ -428,6 +444,13 @@ function fxOf(s: GameState, b: BattleState, l: CLine, level: FxLevel): FxShow | 
     const dmg = l.n ?? 0;
     return { k: 'crit', a: l.a, d: l.d ?? '', dmg, say: say[(l.text.length + (st?.given.length ?? 0)) % say.length] };
   }
+  if (l.fx === 'combo' && l.a && l.d) {
+    const sa = b.units.find((u) => u.uid === l.a)?.studentId, sb = b.units.find((u) => u.uid === l.d)?.studentId;
+    const cb = sa && sb ? s.combos?.[[sa, sb].sort().join('|')] : null;
+    const kind = cb?.kind ?? 'friend';
+    const says = COMBO_SAY[kind];
+    return { k: 'combo', a: l.a, d: l.d, name: l.card ?? '', label: COMBO_KIND[kind].label, say: says[(l.text.length + (cb?.used ?? 0)) % says.length] };
+  }
   if ((l.fx === 'bloom' || l.fx === 'legend') && l.a) return { k: 'art', a: l.a, title: l.fx === 'bloom' ? '開花の技' : '伝説の武器', name: l.card ?? '' };
   if (l.fx === 'kill' && l.d) return { k: 'kill', a: l.a ?? '', d: l.d };
   if (l.fx === 'fall' && l.d) { const du = b.units.find((u) => u.uid === l.d); return { k: 'fall', d: l.d, outcome: b.fallen.find((f) => f.studentId === du?.studentId)?.outcome ?? 'out', key: 'none' }; }
@@ -447,7 +470,7 @@ export function DeckPreview({ s, b }: { s: GameState; b: BattleState }) {
         <b>山札を見る</b><span class="row nowrap gap6"><span class="cb-chip">{total}枚</span>{fresh.length > 0 && <span class="cb-new">✦新 {fresh.length}</span>}{open ? '▲' : '▼'}</span>
       </button>
       {open && <div class="cb-deckbody">
-        <div class="small muted">授業で覚えた<b>戦技・魔法</b>と、先生の<b>策</b>が札になります。出撃する子の札だけが山札に入ります。<HelpTip text="つけている戦技と魔法・スキル（個人ページの技能タブ）が札になります。足りない子は、ふつうの攻撃の札で埋めます。技能のランクが上がると「＋」になり、強くなります。" /></div>
+        <div class="small muted">授業で覚えた<b>戦技・魔法</b>と、先生の<b>策</b>が札になります。出撃する子の札だけが山札に入ります。<HelpTip text="つけている戦技と魔法・スキル（個人ページの技能タブ）が札になります。足りない子は、ふつうの攻撃の札で埋めます。戦技と魔法は使うたびに熟練がたまり、満ちると2つの進化先から選んで育てられます。" /></div>
         {deck.map((d) => {
           const u = b.units.find((x) => x.uid === d.owner);
           const st: Student | null = u?.studentId ? s.students[u.studentId] : null;
@@ -460,6 +483,7 @@ export function DeckPreview({ s, b }: { s: GameState; b: BattleState }) {
           );
         })}
         {fresh.length > 0 && <div class="cb-box small">✦ 最近の授業で覚えた札が、山札に入りました（{fresh.map((x) => x.c.name).join('・')}）。</div>}
+        {(() => { const ids = b.units.filter((u) => u.side === 'player' && u.studentId).map((u) => u.studentId!); const cbs = Object.values(s.combos ?? {}).filter((c) => !c.lost && ids.includes(c.a) && ids.includes(c.b)); return cbs.length ? <div class="cb-box small">連携技：{cbs.map((c) => `「${c.name}」（${s.students[c.a]?.given}と${s.students[c.b]?.given}）`).join('・')}。2人の札を続けて出すと発動します。</div> : null; })()}
         <div class="small muted">戦死した子の札は、山札から消えます。</div>
       </div>}
     </div>

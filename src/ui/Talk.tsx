@@ -50,6 +50,8 @@ export function TalkPlayer({ s, t, onDone, onChoice }: { s: GameState; t: TalkLo
   const [i, setI] = useState(0);
   const [shown, setShown] = useState(0);
   const [all, setAll] = useState(false);
+  /** 18夜目：会話のあとに、2人の連携技ができた発見の演出 */
+  const [found, setFound] = useState(false);
   const timer = useRef<ReturnType<typeof setInterval> | null>(null);
   const line = lines[Math.min(i, lines.length - 1)];
   const full = line?.text ?? '';
@@ -75,14 +77,30 @@ export function TalkPlayer({ s, t, onDone, onChoice }: { s: GameState; t: TalkLo
     if (typing) { if (timer.current) clearInterval(timer.current); timer.current = null; setShown(full.length); return; }
     if (atChoice) return;
     if (i + 1 < lines.length) { setI(i + 1); return; }
+    if (t.combo && !found) { sfx('pass'); setFound(true); return; }
     sfx('ok'); onDone();
   };
+  const comboBox = t.combo && <div class="tk-combo" role="status"><span class="small">発見</span><b class="serif">連携技「{t.combo.name}」</b><span class="small">{t.combo.text}</span></div>;
+  if (found) {
+    return (
+      <div class="tplayer" onClick={() => { sfx('ok'); onDone(); }}>
+        <div class="muted small">{talkHeading(s, t)}</div>
+        <div class="tstage">
+          <div class="tface on"><SpeakerFace s={s} id={t.a} size={88} /><div class="small">{speakerName(s, t.a)}</div></div>
+          <div class="tface on"><SpeakerFace s={s} id={t.b} size={88} /><div class="small">{speakerName(s, t.b)}</div></div>
+        </div>
+        {comboBox}
+        <button class="btn primary block" style={{ marginTop: 10 }} onClick={(e) => { e.stopPropagation(); sfx('ok'); onDone(); }}>閉じる</button>
+      </div>
+    );
+  }
 
   if (all) {
     return (
       <div>
         <TalkView s={s} t={{ ...t, chosen }} />
-        <button class="btn primary block" onClick={() => { sfx('ok'); onDone(); }}>閉じる</button>
+        {comboBox}
+        <button class="btn primary block" style={t.combo ? { marginTop: 10 } : undefined} onClick={() => { sfx('ok'); onDone(); }}>閉じる</button>
       </div>
     );
   }
@@ -108,7 +126,7 @@ export function TalkPlayer({ s, t, onDone, onChoice }: { s: GameState; t: TalkLo
       <div class="row" style={{ marginTop: 8 }} onClick={(e) => e.stopPropagation()}>
         <span class="muted small grow">{i + 1}／{lines.length + (t.choice && chosen === undefined ? t.choice.options[0].lines.length : 0)}　タップすると進みます</span>
         <button class="btn ghost small" onClick={() => setAll(true)}>すべて表示</button>
-        <button class="btn ghost small" onClick={() => { sfx('cancel'); if (t.choice && chosen === undefined) { setChosen(0); onChoice?.(0); } onDone(); }}>スキップ</button>
+        <button class="btn ghost small" onClick={() => { sfx('cancel'); if (t.choice && chosen === undefined) { setChosen(0); onChoice?.(0); } if (t.combo && !found) { setFound(true); return; } onDone(); }}>スキップ</button>
       </div>
     </div>
   );

@@ -1,3 +1,5 @@
+import { evoName, EVO_BRANCH } from '../core/evolve';
+import { ARTS } from '../data/arts';
 import { Badge } from './Results';
 import { BADGES } from '../data/evaluation';
 import { useState } from 'preact/hooks';
@@ -261,6 +263,8 @@ function HonorCard({ st }: { st: Student }) {
     <div class="card">
       <h3>これまでの評価と称号</h3>
       {honors.length ? <div class="ev-badges">{honors.map(([k, n]) => <span class="row nowrap gap4"><Badge id={k} />{n > 1 && <small class="muted">×{n}</small>}</span>)}</div> : <div class="muted small">まだありません。出撃すると、戦いのあとに称号がつきます</div>}
+      {(st.evoLog ?? []).length > 0 && <><h4 class="serif" style={{ margin: '10px 0 2px' }}>育てた技 <span class="small muted">（この子だけの技）</span></h4>
+        <ul class="list">{[...(st.evoLog ?? [])].reverse().slice(0, 8).map((e) => { const path = (st.evo?.[e.id] ?? []); const k = path.indexOf(e.branch); const base = ARTS[e.id]?.name ?? WEAPONS[e.id]?.name ?? ''; return <li class="small">{e.year}年目 {MONTH_NAMES[e.month]}　「{evoName(e.id, base, path.slice(0, Math.max(0, k)))}」→「{evoName(e.id, base, path.slice(0, k + 1))}」（{EVO_BRANCH[e.branch].label}）</li>; })}</ul></>}
       {(st.evalLog ?? []).length > 0 && <ul class="list" style={{ marginTop: 6 }}>{[...(st.evalLog ?? [])].reverse().slice(0, 8).map((e) => <li class="small">{e.year}年目 {MONTH_NAMES[e.month]}「{e.title}」<span class={`ev-grade g${e.grade}`}>{e.grade}</span> {e.badges.filter((x) => x !== 'quiet').map((x) => BADGES[x]?.name).join('・')}{e.scene ? <div class="muted">{e.scene}</div> : null}</li>)}</ul>}
     </div>
   );

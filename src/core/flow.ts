@@ -1,4 +1,6 @@
 // ゲームの流れ：週→月末の戦闘→月の終わり→年度末→入学試験
+import { gainMastery } from './evolve';
+import { loseCombos } from './combo';
 import { B } from '../data/balance';
 import { BACKGROUNDS, COUNTRIES, COUNTRY_SHORT, COUNTRY_NAMES, SKILL_NAMES } from '../data/people';
 import { WEAPONS } from '../data/weapons';
@@ -331,7 +333,7 @@ export function finishBattle(s: GameState): void {
     if (st.status === 'graduated') {
       const f = b.fallen.find((x) => x.studentId === st.id);
       if (f && st.career) {
-        if (f.outcome === 'dead') { st.career.alive = false; st.diedYear = s.year; st.deathNote = '戦場で戦死'; chronicle(s, `卒業生の${st.given}が戦場で倒れた`, 'student'); lines.push(`卒業生の${st.given}が戦死した……`); }
+        if (f.outcome === 'dead') { st.career.alive = false; st.diedYear = s.year; loseCombos(s, st.id); st.deathNote = '戦場で戦死'; chronicle(s, `卒業生の${st.given}が戦場で倒れた`, 'student'); lines.push(`卒業生の${st.given}が戦死した……`); }
         else { st.career.injuredYears = 1; lines.push(`卒業生の${st.given}は重傷を負った`); }
         if (u.persuadable && st.career.country) { s.world.friendship[st.career.country] = Math.max(-50, s.world.friendship[st.career.country] - 10); }
       }
@@ -439,6 +441,8 @@ export function finishBattle(s: GameState): void {
   const captain = b.auto?.plan?.captain;
   if (captain && s.students[captain]?.status === 'enrolled') addCommand(s.students[captain], STRAT.captainGain);
   for (const id of evalIds) if (s.students[id]) checkBloom(s, s.students[id]);
+  // 18夜目：出した札の熟練。満ちた技は、進化の知らせ
+  gainMastery(s, b, evalIds);
   const evals = evaluateBattle(s, b, q, evalIds, auto.mvp ?? null, rivalsBefore, battlesBefore);
   // 個人ページの記録：称号の数・最近の評価・重傷の回数
   for (const e of evals) {
@@ -535,6 +539,7 @@ function warAfterScene(s: GameState, r: Rng, st: Student, kind: 'dead' | 'injure
 
 export function killStudent(s: GameState, st: Student, note: string): void {
   st.status = 'dead'; st.diedYear = s.year; st.deathNote = note;
+  loseCombos(s, st.id); // 18夜目：連携技は年鑑に残る（もう使えない）
   s.stats.deaths += 1;
   addRep(s, B.reputation.deathInSchool);
   chronicle(s, `${st.given}が${note}`, 'student');

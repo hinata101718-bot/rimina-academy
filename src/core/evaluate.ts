@@ -182,6 +182,14 @@ function sceneLine(s: GameState, b: BattleState, logs: BLog[], uid: string, t: T
   for (const p of b.auto?.cards?.played ?? []) {
     if (p.owner !== uid) continue;
     const d = p.tgt ? unitLabel(s, b, p.tgt) : '';
+    // 18夜目：連携技は、ほかの札より目立つ名場面
+    if (p.combo) {
+      const pn = p.partner ? unitLabel(s, b, p.partner) : '';
+      if (p.kill && L && p.tgt === L.uid) put(120, fill(SCENE_TEXT.comboLeader, { t: p.turn, c: p.combo, d, p: pn }));
+      else if (p.kill && d) put(95, fill(SCENE_TEXT.comboKill, { t: p.turn, c: p.combo, d, p: pn }));
+      else put(66, fill(SCENE_TEXT.comboHit, { t: p.turn, c: p.combo, p: pn }));
+      continue;
+    }
     if (p.kill && L && p.tgt === L.uid) put(110, fill(SCENE_TEXT.cardLeader, { t: p.turn, c: p.name, d }));
     else if (p.kill && d) put(55 + (p.crit ? 30 : 0), fill(SCENE_TEXT.cardKill, { t: p.turn, c: p.name, d }));
     else if (p.crit) put(62 + (p.dmg ?? 0), fill(SCENE_TEXT.cardCrit, { t: p.turn, c: p.name, dmg: p.dmg ?? 0 }));

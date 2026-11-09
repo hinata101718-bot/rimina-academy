@@ -1,4 +1,5 @@
 // 卒業生の毎年のシミュレーション
+import { loseCombos } from './combo';
 import type { SkillId } from './types';
 import { ARM_SKILLS } from '../data/balance';
 import { regionMul } from './regions';
@@ -110,7 +111,7 @@ export function simulateAlumni(s: GameState, rng: Rng): AlumniNews[] {
       death *= s.settings.mods.death;
     }
     if (rng.chance(death)) {
-      c.alive = false; st.diedYear = s.year;
+      c.alive = false; st.diedYear = s.year; loseCombos(s, st.id);
       st.deathNote = c.country ? `${COUNTRY_SHORT[c.country]}の戦場で戦死` : '戦場で戦死';
       big(st, `が戦死した`);
       chronicle(s, `卒業生の${st.given}が戦死`, 'student');

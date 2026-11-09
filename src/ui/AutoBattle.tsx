@@ -346,7 +346,9 @@ export type FxShow =
   | { k: 'fall'; d: string; outcome: 'dead' | 'injured' | 'out'; key?: string }
   | { k: 'duel'; a: string; title: string; say: string }
   /** 16夜目：開花の技・伝説の武器の札 */
-  | { k: 'art'; a: string; title: string; name: string };
+  | { k: 'art'; a: string; title: string; name: string }
+  /** 18夜目：連携技（2人の顔が寄って合わさる） */
+  | { k: 'combo'; a: string; d: string; name: string; label: string; say: [string, string] };
 
 /** この攻撃で出す見せ場：必殺（生徒・敵将）、敵将・名のある敵の撃破、生徒が倒れた */
 export function BigFace({ s, b, uid, size, leader, leaderColor, gray }: { s: GameState; b: BattleState; uid: string; size: number; leader: LeaderInfo | null; leaderColor: string; gray?: boolean }) {
@@ -369,6 +371,18 @@ export function FxOverlay({ s, b, fx, level, leader, leaderColor, nameOf, onTap 
         <div class="fx-stratband"><span class="fx-stratmark serif">策</span><b class="serif">{m ? m[1] : '策'}</b></div>
         <div class="fx-stratsay">{m ? m[2] : fx.text}</div>
         <div class="fx-skip">タップで次へ</div>
+      </div>
+    );
+  }
+  if (fx.k === 'combo') {
+    return (
+      <div class={`fx-over fx-combo${level === 'big' ? ' big' : ''}`} onClick={tap}>
+        <div class="fx-lines" />
+        <div class="fx-cbkind">{fx.label}</div>
+        <div class="fx-cbfaces"><span class="fx-cbl"><BigFace s={s} b={b} uid={fx.a} size={120} leader={leader} leaderColor={leaderColor} /></span><span class="fx-cbx">✕</span><span class="fx-cbr"><BigFace s={s} b={b} uid={fx.d} size={120} leader={leader} leaderColor={leaderColor} /></span></div>
+        <div class="fx-crit-title fx-cbname">{fx.name}</div>
+        <div class="fx-crit-say">{nameOf(fx.a)}「{fx.say[0]}」　{nameOf(fx.d)}「{fx.say[1]}」</div>
+        <div class="fx-skip">タップで早送り</div>
       </div>
     );
   }

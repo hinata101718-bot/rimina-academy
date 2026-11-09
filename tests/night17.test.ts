@@ -117,7 +117,7 @@ describe('最初の札の戦いは案内つき', () => {
   });
   it('案内の文：差しこむ名前の印がそろっている。手引きは7つ、どれも短い', () => {
     for (const k of ['intent', 'cover', 'atk', 'play', 'after'] as const) expect(CARD_GUIDE[k].text.length).toBeLessThan(140);
-    expect(CARD_MANUAL.map((p) => p.title)).toEqual(['行動力', '敵の予告', '前列と後列', 'かばう', '策の札と地形', '信頼', 'おまかせで札を出す']);
+    expect(CARD_MANUAL.map((p) => p.title)).toEqual(['行動力', '敵の予告', '前列と後列', 'かばう', '策の札と地形', '信頼', '連携技', '技を育てる', 'おまかせで札を出す']);
     for (const p of CARD_MANUAL) { expect(p.lines.length).toBeLessThanOrEqual(2); for (const l of p.lines) expect(l.length).toBeLessThan(70); }
   });
 });

@@ -5,5 +5,5 @@ export default defineConfig({
   base: '/rimina-academy/',
   plugins: [preact()],
   build: { outDir: 'dist', target: 'es2020', chunkSizeWarningLimit: 1200 },
-  test: { environment: 'node', include: ['tests/**/*.test.ts'], testTimeout: 30000 }, // 会話の全組み合わせのテストは重いので長めに
+  test: { environment: 'node', include: ['tests/**/*.test.ts'], setupFiles: ['tests/setup.ts'], testTimeout: 30000 }, // 会話の全組み合わせのテストは重いので長めに
 } as any);

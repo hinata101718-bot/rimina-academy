@@ -5,6 +5,7 @@ import type { GameState } from './state';
 import { defaultSettings, mailImportant } from './game';
 import { ARTS, ART_SLOTS } from '../data/arts';
 import { migrateArtPlan, migrateArts18 } from './arts';
+import { migrateCombos } from './combo';
 import { restartBattleAsCards } from './flow';
 import { isCardMode } from './battle/auto';
 import { WEAPONS } from '../data/weapons';
@@ -490,13 +491,18 @@ function migrateTo18(s: GameState): void {
   for (const st of [...Object.values(s.students ?? {}), ...(s.applicants ?? [])]) swapped += migrateArts18(st);
   // ⓪ 札の戦いの案内：まだ一度も答えていなければ、次の戦いで出す（17夜目の版では出ないことがあった）
   if (!s.cardGuideSeen) s.cardGuide = 'pending';
+  // ③ 連携技：もう支援B以上の組に作る
+  const combos = migrateCombos(s);
   s.pending ??= [];
-  s.pending.push({ type: 'event', title: '18夜目の新しいこと', lines: night18Lines(swapped) });
+  s.pending.push({ type: 'event', title: '18夜目の新しいこと', lines: night18Lines(swapped, combos) });
 }
-export function night18Lines(swapped: number): string[] {
+export function night18Lines(swapped: number, combos = 0): string[] {
   return [
+    `支援がB以上になった2人に「連携技」ができます。同じターンに2人の札を続けて出すと、2枚が合わさって発動します（手札に2人の札がそろうと、札の縁が金色に光ります）。${combos ? `今の学校では、もう${combos}組にできています。` : ''}`,
+    '戦技と魔法は、使うたびに「熟練」がたまり、満ちると2つの進化先から1つを選べます（1つの技につき2段まで）。技能のランクが上がったときの「＋」はなくし、熟練に入れました。',
     `スキルを少なく、強く、違うものにしました。つけられるスキルは3つです（兵種のスキルは別）。同じ効き目のスキルが1人に重ならないようにし、重なっていたスキルは同じ節目の別のスキルに入れ替えました${swapped ? `（${swapped}個）` : ''}。`,
     '「かばう」「鉄壁の構え」など、札になるものは「戦技と魔法」の欄に移りました。',
+    '札を出す画面の手札は、いつも1行に並び、ボタンにかぶらないようにしました。押した札の説明は、手札の上に全部出ます。「戦い方が新しくなりました」の案内は、まだ答えていなければ次の戦いで出ます。',
   ];
 }
 export const NIGHT16_LINES = [

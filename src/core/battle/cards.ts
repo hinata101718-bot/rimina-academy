@@ -4,6 +4,8 @@
 import { B } from '../../data/balance';
 import { ARTS, type CardFx, type ArtDef, type PerkId, type SkillCond } from '../../data/arts';
 import { MAP_TAGS } from '../../data/stratagems';
+import { COMBO } from '../../data/combos';
+import { comboOf, type ComboRec } from '../combo';
 import { WEAPONS } from '../../data/weapons';
 import { CLASSES } from '../../data/classes';
 import { STRATS, type StratId } from '../../data/stratagems';
@@ -14,7 +16,8 @@ import type { GameState, Quest, Student } from '../state';
 import type { BattleState, Unit } from './types';
 import { finish, type BattleCtx } from './engine';
 import { Rng } from '../rng';
-import { loadoutOf, artPlus } from '../arts';
+import { loadoutOf } from '../arts';
+import { evoPath, evoName, evoFx } from '../evolve';
 import { armoryItem } from '../loot';
 import { abilitiesOf, healAmount, staffsOf, weaponOf } from './calc';
 import { stratOdds, fireStrat } from '../stratagems';
@@ -23,9 +26,9 @@ import { clamp } from '../util';
 import type { CardGuide } from './cardGuide';
 
 /** シミュレーション用の数え（戦い・ターン・勝ち・時間切れ） */
-export const cardStats = { battles: 0, turns: 0, wins: 0, timeouts: 0, timeoutWins: 0 };
+export const cardStats: { battles: number; turns: number; wins: number; timeouts: number; timeoutWins: number; combos?: number } = { battles: 0, turns: 0, wins: 0, timeouts: 0, timeoutWins: 0 };
 // ---------- 型 ----------
-export type CardKind = 'art' | 'spell' | 'skill' | 'basic' | 'strat' | 'item' | 'bloom' | 'legend';
+export type CardKind = 'art' | 'spell' | 'skill' | 'basic' | 'strat' | 'item' | 'bloom' | 'legend' | 'combo';
 export interface Card {
   id: string; kind: CardKind; name: string; fx: CardFx;
   /** 使う子の uid（策は 'teacher'） */
@@ -37,8 +40,8 @@ export interface Card {
   fresh?: boolean;
   /** 技能（札の色分け） */
   skill?: SkillId | 'staff';
-  /** 18夜目：連携技の相手（uid）と、相手の札のもとの id */
-  partner?: string; src2?: string;
+  /** 18夜目：連携技の相手（uid）と、相手の札のもとの id。連携技の札は、合わさった2枚の id */
+  partner?: string; src2?: string; parts?: string[];
 }
 /** 敵の次の行動（予告） */
 export interface Intent {
@@ -54,7 +57,7 @@ export interface Intent {
 export interface CLine {
   text: string; cls: string;
   /** 見せ場の大きな演出 */
-  fx?: 'crit' | 'bloom' | 'legend' | 'kill' | 'fall' | 'strat';
+  fx?: 'crit' | 'bloom' | 'legend' | 'kill' | 'fall' | 'strat' | 'combo';
   a?: string; d?: string;
   /** 会心の一撃の数・札の名前（演出用） */
   n?: number; card?: string;
@@ -82,7 +85,7 @@ export interface CardState {
   /** 18夜目：1戦に1回のスキルを使った（「uid:スキルid」） */
   once?: string[];
   turns: TurnRec[];
-  played: { turn: number; card: string; owner: string; name: string; kind: CardKind; kill?: boolean; crit?: boolean; dmg?: number; cover?: string; heal?: number; disobey?: boolean; tgt?: string }[];
+  played: { turn: number; card: string; owner: string; name: string; kind: CardKind; kill?: boolean; crit?: boolean; dmg?: number; cover?: string; heal?: number; disobey?: boolean; tgt?: string; combo?: string; partner?: string }[];
   /** 'play'＝札を選ぶ、'result'＝結果を見る、'done'＝決着 */
   phase: 'play' | 'result' | 'done';
   /** 狙う敵（手で決めたとき） */
@@ -114,14 +117,17 @@ export function studentCards(s: GameState, st: Student, u: Unit, fresh: Set<stri
       if (!a.card) continue;
       if (a.card.type === 'atk' && a.weapons && (!wt || !a.weapons.includes(wt))) continue;
       if (a.card.type === 'atk' && !w && !u.weapons.some((x) => WEAPONS[x] && WEAPONS[x].type !== 'staff')) continue;
-      const plus = artPlus(st, a);
-      out.push({ kind: a.bloom ? 'bloom' : a.kind === 'mind' ? 'skill' : 'art', name: a.name + (plus ? '＋' : ''), fx: plusFx(a.card, plus), owner: u.uid, src: a.id, plus, fresh: fresh.has(a.id), skill: a.skill });
+      // 18夜目：熟練で進化した技は、進化した名前と効き目（16夜目の「＋」はなくし、熟練に入れた）
+      const path = evoPath(st, a.id);
+      out.push({ kind: a.bloom ? 'bloom' : a.kind === 'mind' ? 'skill' : 'art', name: evoName(a.id, a.name, path), fx: evoFx(a.card, path), owner: u.uid, src: a.id, plus: path.length > 0, fresh: fresh.has(a.id), skill: a.skill });
       continue;
     }
     const sp = WEAPONS[id];
     if (!sp?.spell || !u.weapons.includes(id)) continue;
-    if (sp.type === 'staff') out.push({ kind: 'spell', name: sp.name, fx: { type: 'heal', heal: healAmount(u, sp), all: false }, owner: u.uid, src: id, fresh: fresh.has(id), skill: 'staff' });
-    else out.push({ kind: 'spell', name: sp.name, fx: { type: 'atk' }, owner: u.uid, src: id, fresh: fresh.has(id), skill: skillOfWeapon(sp) });
+    const path = evoPath(st, id);
+    const nm = evoName(id, sp.name, path);
+    if (sp.type === 'staff') out.push({ kind: 'spell', name: nm, fx: evoFx({ type: 'heal', heal: healAmount(u, sp), all: false }, path), owner: u.uid, src: id, plus: path.length > 0, fresh: fresh.has(id), skill: 'staff' });
+    else out.push({ kind: 'spell', name: nm, fx: evoFx({ type: 'atk' }, path), owner: u.uid, src: id, plus: path.length > 0, fresh: fresh.has(id), skill: skillOfWeapon(sp) });
   }
   // 伝説の武器の札（14夜目の専用のスキル）
   const item = armoryItem(s, u.armoryUid ?? null);
@@ -137,17 +143,6 @@ export function studentCards(s: GameState, st: Student, u: Unit, fresh: Set<stri
     else out.push({ kind: 'basic', name: BASIC.none, fx: { type: 'atk' }, owner: u.uid, src: 'basic' });
   }
   return out.slice(0, C().perMax);
-}
-function plusFx(f: CardFx, plus: boolean): CardFx {
-  if (!plus) return f;
-  const m = B.cards ? 1.25 : 1;
-  const g: CardFx = { ...f };
-  if (g.type === 'atk') g.mul = Math.round((g.mul ?? 1) * m * 100) / 100;
-  if (g.heal) g.heal = Math.round(g.heal * m);
-  if (g.wall) g.wall += 1;
-  if (g.self) g.self += 1;
-  if (g.team) g.team = { dmg: g.team.dmg ? g.team.dmg + 1 : g.team.dmg, hit: g.team.hit, crit: g.team.crit };
-  return g;
 }
 /** 先生の策の札 */
 export function stratCards(ids: StratId[]): Omit<Card, 'id'>[] {
@@ -553,11 +548,24 @@ export function resolveTurn(s: GameState, b: BattleState, ctx: BattleCtx, ids: s
   const play: Card[] = [];
   const cut = new Set<string>();
   for (const id of ids) { const c = cs.cards[id]; if (!c || !cs.hand.includes(id) || !usable(b, c)) continue; const cost = costOf(s, b, c, cut); if (cost > ap) continue; ap -= cost; play.push(c); }
-  // 強め・守りの札を先に（あとの攻撃に効く）
-  const order = [...play.filter((c) => c.fx.type === 'buff' && c.kind !== 'strat'), ...play.filter((c) => c.kind === 'strat'), ...play.filter((c) => c.fx.type === 'guard'), ...play.filter((c) => c.fx.type === 'atk' || c.fx.type === 'heal')];
+  // 18夜目：連携技。連携技のある2人の札を続けて出すと、2枚が合わさる
+  const merged = mergeCombos(s, b, play);
+  // 強め・守りの札を先に（あとの攻撃に効く）。連携技は攻撃の札と同じ順
+  const order = [...merged.filter((c) => c.fx.type === 'buff' && c.kind !== 'strat' && c.kind !== 'combo'), ...merged.filter((c) => c.kind === 'strat'), ...merged.filter((c) => c.fx.type === 'guard' && c.kind !== 'combo'), ...merged.filter((c) => c.kind === 'combo' || c.fx.type === 'atk' || c.fx.type === 'heal')];
   const owners = new Set<string>();
   for (const c of order) {
     if (b.phase === 'done') break;
+    if (c.kind === 'combo') {
+      const parts = (c.parts ?? []).map((id) => cs.cards[id]).filter(Boolean);
+      rec.played.push(...parts.map((x) => x.id));
+      for (const x of parts) owners.add(x.owner);
+      b.rng = r.h.rng;
+      playCombo(s, b, ctx, c, parts, lines, opt);
+      r.h.rng = b.rng;
+      stepForward(b, lines);
+      checkCardsEnd(s, b);
+      continue;
+    }
     rec.played.push(c.id);
     if (c.owner !== 'teacher') owners.add(c.owner);
     b.rng = r.h.rng;
@@ -621,21 +629,21 @@ function stepForward(b: BattleState, lines: CLine[]): void {
 }
 
 /** 1枚の札 */
-function playOne(s: GameState, b: BattleState, ctx: BattleCtx, c0: Card, lines: CLine[], opt: TurnOpts): void {
+function playOne(s: GameState, b: BattleState, ctx: BattleCtx, c0: Card, lines: CLine[], opt: TurnOpts, combo?: { name: string; partner: string }): void {
   const cs = b.auto!.cards!;
   const r = rngOf(b);
   let c = c0;
-  const rec: CardState['played'][number] = { turn: cs.turn, card: c.id, owner: c.owner, name: c.name, kind: c.kind };
+  const rec: CardState['played'][number] = { turn: cs.turn, card: c.id, owner: c.owner, name: c.name, kind: c.kind, combo: combo?.name, partner: combo?.partner };
   cs.played.push(rec);
   if (c.kind === 'strat') { b.rng = r.h.rng; playStrat(s, b, c, lines); return; }
   const u = b.units.find((x) => x.uid === c.owner)!;
   const st = u.studentId ? s.students[u.studentId] : null;
   // 信頼が低い子は、ときどき自分の判断で動く（たいていは悪くない動き）
   // 17夜目：案内の1ターン目は、言われたとおりに動く
-  if (st && C().obeyAt > st.trust && c.kind !== 'item' && !cs.guide) {
+  if (st && C().obeyAt > st.trust && c.kind !== 'item' && !cs.guide && !combo) {
     const p = Math.min(C().disobeyMax, (C().obeyAt - st.trust) * C().disobeyPer);
     if (r.next() * 100 < p) {
-      const own = Object.values(cs.cards).filter((x) => x.owner === u.uid && x.id !== c.id && x.fx.type === 'atk' && (x.fx.cost ?? 1) <= (c.fx.cost ?? 1));
+      const own = Object.values(cs.cards).filter((x) => x.owner === u.uid && x.id !== c.id && x.kind !== 'combo' && x.fx.type === 'atk' && (x.fx.cost ?? 1) <= (c.fx.cost ?? 1));
       const alt: Card = own.length ? r.pick(own) : { id: 'own', kind: 'basic', name: BASIC[weaponOf(u)?.type ?? 'none'] ?? BASIC.none, fx: { type: 'atk' }, owner: u.uid, src: 'basic' };
       lines.push({ cls: 'narr', text: `${u.name}は${c.name}ではなく、自分の判断で${alt.name}を放った` });
       rec.disobey = true; rec.name = alt.name;
@@ -679,6 +687,8 @@ function playOne(s: GameState, b: BattleState, ctx: BattleCtx, c0: Card, lines: 
     }
     if (w) u.usedWeapon[w.id] = (u.usedWeapon[w.id] ?? 0) + C().usePerCard;
     if (f.self) { cs.t.self[u.uid] = (cs.t.self[u.uid] ?? 0) + f.self; }
+    // 18夜目：反撃の進化（「〜・守」）は、打ったあと反撃の構え
+    if (f.counter) cs.t.counter[u.uid] = Math.max(cs.t.counter[u.uid] ?? 0, f.counter);
     return;
   }
   if (f.type === 'heal') {
@@ -696,6 +706,8 @@ function playOne(s: GameState, b: BattleState, ctx: BattleCtx, c0: Card, lines: 
     }
     rec.heal = tot;
     if (!tot) lines.push({ cls: 'narr', text: '傷ついた仲間は、まだいなかった' });
+    // 18夜目：守りの進化をした回復（「〜・盾」）は、このターンの受ける傷も減らす
+    if (f.wall) { cs.t.wall += f.wall; lines.push({ cls: 'guard', text: `みんなの受ける傷が${f.wall}減る` }); }
     if (self) u.item = null;
     else { const sp = WEAPONS[c.src]; if (sp) u.usedWeapon[sp.id] = (u.usedWeapon[sp.id] ?? 0) + C().usePerCard; }
     u.expGain += B.battle.exp.heal;
@@ -721,6 +733,89 @@ function playOne(s: GameState, b: BattleState, ctx: BattleCtx, c0: Card, lines: 
   if (f.draw) { cs.next.draw += f.draw; parts.push(`次のターン、札を${f.draw}枚多く引く`); }
   lines.push({ cls: 'guard', text: `${u.name}の${c.name}！　${parts.join('。')}`, a: u.uid });
   u.expGain += B.battle.exp.hit / 2;
+}
+
+// ---------- 連携技（18夜目） ----------
+/** 札の持ち主の生徒の id */
+function stOf(b: BattleState, c: Card | undefined): string | undefined {
+  if (!c || c.owner === 'teacher' || c.kind === 'item' || c.kind === 'strat') return undefined;
+  return b.units.find((u) => u.uid === c.owner)?.studentId;
+}
+/** 2枚が連携技になるか（違う2人で、その2人に連携技がある） */
+export function comboFor(s: GameState, b: BattleState, x: Card | undefined, y: Card | undefined): ComboRec | null {
+  const a = stOf(b, x), c = stOf(b, y);
+  if (!a || !c || a === c || x!.kind === 'combo' || y!.kind === 'combo') return null;
+  return comboOf(s, a, c);
+}
+/** 手札のうち、連携技の相手の札も手札にある札（縁が金色に光る） */
+export function comboGlow(s: GameState, b: BattleState): Set<string> {
+  const cs = b.auto!.cards!;
+  const out = new Set<string>();
+  const hand = cs.hand.filter((id) => usable(b, cs.cards[id]));
+  for (let i = 0; i < hand.length; i++) for (let j = i + 1; j < hand.length; j++) if (comboFor(s, b, cs.cards[hand[i]], cs.cards[hand[j]])) { out.add(hand[i]); out.add(hand[j]); }
+  return out;
+}
+/** 選んだ順に見て、続けて出した連携技の2人の札を1枚にまとめる */
+function mergeCombos(s: GameState, b: BattleState, play: Card[]): Card[] {
+  const cs = b.auto!.cards!;
+  const out: Card[] = [];
+  for (let i = 0; i < play.length; i++) {
+    const x = play[i], y = play[i + 1];
+    const cb = y ? comboFor(s, b, x, y) : null;
+    if (!cb || !y) { out.push(x); continue; }
+    const id = `combo${Object.keys(cs.cards).length}`;
+    const atk = x.fx.type === 'atk' || y.fx.type === 'atk';
+    const cc: Card = { id, kind: 'combo', name: cb.name, fx: { type: atk ? 'atk' : x.fx.type, cost: (x.fx.cost ?? 1) + (y.fx.cost ?? 1) }, owner: x.owner, partner: y.owner, src: x.src, src2: y.src, parts: [x.id, y.id] };
+    cs.cards[id] = cc;
+    out.push(cc);
+    i++;
+  }
+  return out;
+}
+/** 連携技を打つ：関係の種類で中身が変わる。2枚をそれぞれ強めて、同じ敵へ続けて */
+function playCombo(s: GameState, b: BattleState, ctx: BattleCtx, cc: Card, parts: Card[], lines: CLine[], opt: TurnOpts): void {
+  const cs = b.auto!.cards!;
+  const sa = stOf(b, parts[0]), sb = stOf(b, parts[1]);
+  const cb = sa && sb ? comboOf(s, sa, sb) : null;
+  if (!cb || parts.length < 2) { for (const p of parts) playOne(s, b, ctx, p, lines, opt); return; }
+  // 先輩と後輩は、先輩の札が先
+  let [x, y] = parts;
+  if (cb.kind === 'senpai' && stOf(b, y) === cb.senior) [x, y] = [y, x];
+  const ua = b.units.find((u) => u.uid === x.owner)!, ub = b.units.find((u) => u.uid === y.owner)!;
+  lines.push({ cls: 'big combo', text: `連携技「${cb.name}」！　${ua.name}と${ub.name}`, fx: 'combo', a: ua.uid, d: ub.uid, card: cb.name });
+  cb.used = (cb.used ?? 0) + 1;
+  cardStats.combos = (cardStats.combos ?? 0) + 1;
+  const K = COMBO;
+  const boost = (c: Card, mul: number, more: Partial<CardFx> = {}): Card => {
+    const f = { ...c.fx };
+    if (f.type === 'atk') f.mul = Math.round((f.mul ?? 1) * mul * 100) / 100;
+    if (f.type === 'heal' && f.heal) f.heal = Math.round(f.heal * mul);
+    if (f.type === 'guard') { if (f.wall) f.wall += 2; if (f.self) f.self += 2; }
+    if (f.type === 'buff' && f.team) f.team = { ...f.team, dmg: (f.team.dmg ?? 0) + 2 };
+    return { ...c, fx: { ...f, ...(f.type === 'atk' ? more : {}) } };
+  };
+  // 狙いを合わせる（はじめの札の相手へ）
+  const t0 = defaultTarget(b);
+  const keep = cs.target;
+  if (t0) cs.target = t0.uid;
+  const tag = (p: Card) => ({ name: cb.name, partner: p === x ? y.owner : x.owner });
+  if (cb.kind === 'friend') {
+    for (const p of [x, y]) if (b.phase !== 'done') playOne(s, b, ctx, boost(p, K.friendMul, { hit: (p.fx.hit ?? 0) + K.friendHit }), lines, opt, tag(p));
+  } else if (cb.kind === 'rival') {
+    for (const p of [x, y]) if (b.phase !== 'done') playOne(s, b, ctx, boost(p, K.rivalMul, { hits: (p.fx.hits ?? 1) + 1 }), lines, opt, tag(p));
+  } else if (cb.kind === 'senpai') {
+    if (b.phase !== 'done') playOne(s, b, ctx, boost(x, K.seniorMul), lines, opt, tag(x));
+    const tt = cs.target ? b.units.find((u) => u.uid === cs.target) : null;
+    if (tt && alive(tt)) { const d = (cs.deb[tt.uid] ??= { avo: 0, atk: 0, def: 0 }); d.def += K.senpaiDef; lines.push({ cls: 'narr', text: `${ua.name}が道を開いた。${tt.name}の守りが下がった` }); }
+    if (b.phase !== 'done') playOne(s, b, ctx, boost(y, K.juniorMul, { crit: (y.fx.crit ?? 0) + K.juniorCrit }), lines, opt, tag(y));
+  } else {
+    for (const p of [x, y]) if (b.phase !== 'done') playOne(s, b, ctx, boost(p, K.loveMul), lines, opt, tag(p));
+    for (const u of [ua, ub]) if (alive(u)) { cs.t.self[u.uid] = (cs.t.self[u.uid] ?? 0) + K.loveSelf; u.hp = Math.min(u.maxHp, u.hp + Math.round(u.maxHp * K.loveHealPct)); }
+    lines.push({ cls: 'guard', text: `${ua.name}と${ub.name}は背中を合わせ、互いを守った（受ける傷−${K.loveSelf}）` });
+  }
+  cs.target = keep;
+  // 連携技は、2人の支援も少し深まる
+  if (ua.studentId && ub.studentId) { const k = [ua.studentId, ub.studentId].sort().join('|'); b.adjacencyPairs[k] = (b.adjacencyPairs[k] ?? 0) + 1; }
 }
 
 /** 策の札（9夜目の策をそのまま切る。成功の見込みは地形・天候・策を立てる子しだい） */
@@ -984,6 +1079,8 @@ export function afterChoice(s: GameState, b: BattleState): void {
 }
 
 // ---------- おまかせ（オートプレイ） ----------
+/** シミュレーション用：おまかせが連携技を出した数 */
+export const opCombo = { n: 0 };
 export type CardPolicy = 'balanced' | 'safe' | 'bold';
 /**
  * おまかせで出す札を選ぶ。危ない子（予告の傷で倒れそうな子）がいれば守り・回復を先に、
@@ -1031,6 +1128,21 @@ export function autoPick(s: GameState, b: BattleState, ctx: BattleCtx | null, po
         if (take(c.id)) hp -= atkValue(c, e);
       }
     }
+  }
+  // 18夜目：連携技（2人の札を続けて出す）。攻撃の札を含む組のうち、いちばん威力の大きい組を
+  const tc = target ? units(target) : defaultTarget(b);
+  if (ap >= 2 && tc) {
+    let best: [Card, Card] | null = null, bv = 0;
+    const fr = cards.filter(free).filter((c) => c.kind !== 'strat' && c.kind !== 'item');
+    for (let i = 0; i < fr.length; i++) for (let j = 0; j < fr.length; j++) {
+      const x = fr[i], y = fr[j];
+      if (i === j || !comboFor(s, b, x, y) || (x.fx.type !== 'atk' && y.fx.type !== 'atk')) continue;
+      if ((x.fx.cost ?? 1) + (y.fx.cost ?? 1) > ap) continue;
+      const v = (x.fx.type === 'atk' ? atkValue(x, tc) : 4) + (y.fx.type === 'atk' ? atkValue(y, tc) : 4);
+      if (v > bv) { bv = v; best = [x, y]; }
+    }
+    const ap0 = ap;
+    if (best && take(best[0].id)) { if (!take(best[1].id)) { picked.pop(); ap = ap0; } else opCombo.n++; }
   }
   // 2：大きな見こみの攻撃から（倒しきれるもの・敵将）。守り重視なら、残りの守り札も
   const tu = target ? units(target) : defaultTarget(b);

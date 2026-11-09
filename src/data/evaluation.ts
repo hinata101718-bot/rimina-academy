@@ -49,6 +49,10 @@ export const SCENE_TEXT = {
   duel: '敵将{d}との一騎打ちに勝った',
   // 16夜目：札の戦い（名場面は出した札から）
   cardLeader: '{t}ターン目、「{c}」で敵将{d}を討ち取った',
+  // 18夜目：連携技の名場面
+  comboLeader: '{t}ターン目、{p}との連携技「{c}」で敵将{d}を討ち取った',
+  comboKill: '{t}ターン目、{p}との連携技「{c}」で{d}を倒した',
+  comboHit: '{t}ターン目、{p}との連携技「{c}」を放った',
   cardKill: '{t}ターン目、「{c}」で{d}を倒した',
   cardCrit: '{t}ターン目、「{c}」が会心の一撃に（{dmg}）',
   cardCover: '{t}ターン目、「{c}」で{d}をかばった',
