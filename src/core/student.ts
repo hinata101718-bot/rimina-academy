@@ -159,7 +159,7 @@ export function generateStudent(s: GameState, rng: Rng, opt: GenOptions = {}): S
   assignBud(st, rng);
   st.mind = rollMind(rng, personality);
   // 19夜目：入学のときに初級の兵種（いちばん育った技能から）
-  st.classId = entryClassFor(st.skills);
+  st.classId = entryClassFor(st.skills, st.stats);
   learnTechs(null, st, false);
   st.birthday = birthdayFor(st.id + st.given);
   return st;

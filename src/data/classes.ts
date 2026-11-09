@@ -218,13 +218,15 @@ export const TIER_NAMES = ['見習い', '初級', '中級', '上級', '最上級
 export const ENTRY_CLASSES = CLASS_LIST.filter((c) => c.tier === 1 && !c.hidden).map((c) => c.id);
 
 /** 入学のときの兵種：いちばん育った技能・夢から */
-export function entryClassFor(skills: Partial<Record<SkillId, number>>): string {
+export function entryClassFor(skills: Partial<Record<SkillId, number>>, stats?: Partial<Stats>): string {
   const sc = (k: SkillId) => skills[k] ?? 0;
   const cand: [string, number][] = [
     ['swordsman', sc('sword')], ['lancer', sc('lance')], ['fighter', sc('axe') + sc('heavy') * 0.3], ['archer', sc('bow') + sc('gun')],
     ['mage', sc('magic')], ['cleric', sc('faith')], ['thief', sc('sword') * 0.6 + sc('tactics') * 0.6], ['cavalier', sc('riding') + sc('flying') * 0.5 + sc('lance') * 0.3],
   ];
   cand.sort((a, b) => b[1] - a[1]);
+  // 20夜目：剣が得意で、力より速さのある子は密偵に（密偵の系統の子が学校にいなくならないように）
+  if (cand[0][0] === 'swordsman' && stats && (stats.spd ?? 0) > (stats.str ?? 0)) return 'thief';
   return cand[0][1] > 0 ? cand[0][0] : 'swordsman';
 }
 

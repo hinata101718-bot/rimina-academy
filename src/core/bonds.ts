@@ -169,14 +169,14 @@ export function sendSpy(s: GameState, sid: string, oid: string, r: Rng): SpyResu
   return { ok: false, caught: false, lines };
 }
 
-/** おまかせ：月に1回、因縁のいちばん深い宿敵に、いちばん向いている子を送る（密偵の系統の子がいるときだけ） */
+/** おまかせ：月に1回（半分くらいの月）、分かっていることのいちばん少ない宿敵に、いちばん向いている子を送る（見つからない見込みが65%以上のときだけ） */
 export function autoSpy(s: GameState, r: Rng): void {
   if (!spyReady(s)) return;
   const ts = spyTargets(s);
-  const c = spyCandidates(s).find((x) => (CLASSES[x.classId] as { line?: string } | undefined)?.line === 'dagger');
+  const c = spyCandidates(s)[0];
   if (!ts.length || !c || !r.chance(A().autoSpy)) return;
   const o = ts.sort((a, b) => intelOf(a) - intelOf(b))[0];
-  if (spyChance(s, c, o) < 55) return;
+  if (spyChance(s, c, o) < 65) return;
   sendSpy(s, c.id, o.id, r);
 }
 
