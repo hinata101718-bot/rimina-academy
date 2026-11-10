@@ -1,7 +1,7 @@
 // バランス値。ゲームの数値はすべてここに集める（設計書の「ふつう」が初期値）。
 import type { Rank, SkillId, StatId } from '../core/types';
 
-export const SAVE_VERSION = 21;
+export const SAVE_VERSION = 22;
 
 /** 20夜目④：宿敵が味方になる・好敵手・密偵 */
 export const BONDS = {
@@ -58,7 +58,7 @@ export const SKILLS: SkillId[] = ['sword', 'lance', 'axe', 'bow', 'magic', 'fait
 export const ARM_SKILLS: SkillId[] = ['sword', 'lance', 'axe', 'bow', 'magic', 'faith', 'riding', 'heavy', 'flying', 'gun'];
 /** 采配の技能（10夜目） */
 export const LEAD_SKILLS: SkillId[] = ['tactics', 'command'];
-export const STATS: StatId[] = ['hp', 'str', 'mag', 'skl', 'spd', 'def'];
+export const STATS: StatId[] = ['hp', 'str', 'mag', 'skl', 'spd', 'def', 'res'];
 
 export const B = {
   /** 20夜目④ */
@@ -135,10 +135,13 @@ export const B = {
     olderAge: [23, 26] as [number, number],
     hpStart: [18, 26] as [number, number],
     statStart: [2, 8] as [number, number],
+    /** 22夜目：魔防のはじめの値（ほかより少し低め） */
+    resStart: [1, 6] as [number, number],
     growthBase: [7, 30] as [number, number], // 9夜目まで（古いセーブの変換の目安）
     /** 10夜目：本人の成長率（風花雪月くらいの基準）。得意な能力50〜65・ふつう30〜45・苦手20〜30、HP40〜65。全能力の合計330〜420 */
     growthHigh: [50, 65] as [number, number], growthMid: [30, 40] as [number, number], growthLow: [20, 30] as [number, number], growthHp: [40, 65] as [number, number],
-    growthTotal: [330, 420] as [number, number],
+    /** 22夜目：魔防を足したので、合計を少し上げた（前は330〜420） */
+    growthTotal: [360, 455] as [number, number],
     hpGrowthBonus: 10,
     growthQuality: 4,           // 評判が高いほど成長率の高い子が来る（7夜目：8→4）          // HPの成長率は少し高め
     // 10夜目：成長率を上げたので、上限も上げる（30のままだと3年生の4分の3が頭打ちになった）

@@ -113,15 +113,15 @@ export const TALENTS: Record<string, TalentDef> = {
   genius_lance: genius('lance', '槍', { str: 15, def: 15 }),
   genius_axe: genius('axe', '斧', { str: 15, hp: 15 }),
   genius_bow: genius('bow', '弓', { skl: 15, spd: 15 }),
-  genius_magic: genius('magic', '魔道', { mag: 15, def: 15 }),
-  genius_faith: genius('faith', '信仰', { mag: 15, def: 15 }),
+  genius_magic: genius('magic', '魔道', { mag: 15, res: 15 }),
+  genius_faith: genius('faith', '信仰', { mag: 15, res: 15 }),
   genius_riding: genius('riding', '騎乗', { spd: 15, def: 15 }),
   genius_heavy: genius('heavy', '重装', { def: 15, hp: 15 }),
-  genius_flying: genius('flying', '飛行', { spd: 15, def: 15 }),
+  genius_flying: genius('flying', '飛行', { spd: 15, res: 15 }),
   /** 9夜目：策を立てるのがうまい（策の成功率+、軍略がたまりやすい） */
   strategist: { id: 'strategist', name: '軍師の才', hint1: '物事の先を読むのがうまい気がする', hint2: '戦の駆け引きに向いているかもしれない', stats: { skl: 10}, weight: 6 },
   leader: { id: 'leader', name: '隠れた統率者', hint1: '人を惹きつけるところがある気がする', hint2: '人の上に立つ才能があるかもしれない', stats: {}, weight: 8 },
-  hero: { id: 'hero', name: '英雄の器', hint1: '何をやらせても伸びる気がする', hint2: 'とてつもない器かもしれない', hero: true, stats: { hp: 10, str: 10, mag: 10, skl: 10, spd: 10, def: 10}, weight: 0 },
+  hero: { id: 'hero', name: '英雄の器', hint1: '何をやらせても伸びる気がする', hint2: 'とてつもない器かもしれない', hero: true, stats: { hp: 10, str: 10, mag: 10, skl: 10, spd: 10, def: 10, res: 10 }, weight: 0 },
 };
 
 export interface BackgroundDef {
@@ -152,7 +152,7 @@ export const SKILL_NAMES: Record<SkillId, string> = {
   riding: '騎乗', heavy: '重装', flying: '飛行', gun: '銃', tactics: '軍略', command: '統率',
 };
 export const STAT_NAMES: Record<StatId, string> = {
-  hp: '体力', str: '力', mag: '魔力', skl: '技', spd: '速さ', def: '守り',
+  hp: '体力', str: '力', mag: '魔力', skl: '技', spd: '速さ', def: '守り', res: '魔防',
 };
 /** 19夜目：心の3つ */
 export const MIND_NAMES: Record<keyof import('../core/types').Mind, string> = { fight: '闘志', calm: '平静', grudge: '執念' };

@@ -58,12 +58,12 @@ export const TRAITS_C: Record<string, TraitDef> = {
   tri: { id: 'tri', name: '三つの理', desc: '炎・雷・氷を使い分ける' },
   splash: { id: 'splash', name: '広がる魔法', desc: '魔法が、当てた敵の隣の敵にも半分当たる' },
   layer: { id: 'layer', name: '理の重ね', desc: '魔法を、2つの種類で同時に撃つ（2つの弱点を同時に突ける）' },
-  curse: { id: 'curse', name: '呪縛', desc: '闇を当てた敵の守り−2。宿敵の執念（一度持ちこたえる力）を削る' },
+  curse: { id: 'curse', name: '呪縛', desc: '闇を当てた敵の守りと魔防−2。宿敵の執念（一度持ちこたえる力）を削る' },
   hex: { id: 'hex', name: '刻印', desc: '呪った敵は、隠れた弱点が1つ見える' },
-  cursearea: { id: 'cursearea', name: '呪王の気', desc: '自分の番のはじめに、まわり2マスの敵すべての守りを下げる' },
+  cursearea: { id: 'cursearea', name: '呪王の気', desc: '自分の番のはじめに、まわり2マスの敵すべての守りと魔防を下げる' },
   raise: { id: 'raise', name: '起こす', desc: '倒れた敵兵を一度だけ起こし、味方として動かす' },
   raise2: { id: 'raise2', name: '冥府の門', desc: '倒れた敵兵を2人まで起こす' },
-  barrier: { id: 'barrier', name: '結界', desc: '戦いのはじめに、前に光の壁を立てる（敵は通れない）。隣の仲間の守り+2' },
+  barrier: { id: 'barrier', name: '結界', desc: '戦いのはじめに、前に光の壁を立てる（敵は通れない）。隣の仲間の魔防+2・守り+1' },
   seal: { id: 'seal', name: '封印', desc: '宿敵や敵将の大技（渾身の一撃）を、その戦いのあいだ封じる' },
   forbid: { id: 'forbid', name: '禁呪', desc: 'この子のいる戦で討った宿敵は、二度と蘇らない' },
   // ---- 癒し ----
@@ -90,7 +90,7 @@ export const TRAITS_C: Record<string, TraitDef> = {
   charge: { id: 'charge', name: '突撃', desc: '3マス以上走って当てると、傷+3' },
   paladin: { id: 'paladin', name: '主を守る', desc: '先生の隣にいると、先生への攻撃をかばう' },
   paladin2: { id: 'paladin2', name: '主の盾', desc: '先生の2マス以内なら、どこからでもかばう' },
-  push: { id: 'push', name: '押し込み', desc: '守り+2。突撃で当てた敵を1マス押し下げる' },
+  push: { id: 'push', name: '押し込み', desc: '守り+2（魔法には効かない）。突撃で当てた敵を1マス押し下げる' },
   trample: { id: 'trample', name: '蹂躙', desc: '突撃のとき、駆け抜けた線の敵すべてに半分の傷' },
   roar: { id: 'roar', name: '竜の咆哮', desc: '岩を飛び越える。攻撃したマスのまわりの敵をひるませる（盾−1）。射に弱い' },
   scales: { id: 'scales', name: '硬い鱗', desc: '守り+2。射に弱くなくなる' },
@@ -204,8 +204,31 @@ const list: Def[] = [
   { id: 'cursechild', name: '呪いの子', tier: 2, line: 'any', prereq: [], req: {}, move: 3, moveType: 'infantry', weapons: ['magic', 'sword'], atk: ['dark', 'slash'], traits: ['cursed', 'curse'], bonus: { mag: 4, str: 2 }, growth: { mag: 10 }, desc: '呪いで蘇った。闇を使い、光に弱い。', hidden: true, unlock: '呪いで蘇る' },
 ];
 
+/** 22夜目：魔防の向き（魔法・癒し・ペガサス系は高く、重装・斧は低い） */
+export type ResLevel = 'high' | 'mid' | 'low';
+const RES_HIGH = new Set(['magic', 'heal']);
+const RES_HIGH_ID = new Set(['spellblade', 'runeknight', 'runelord', 'pegasus_rider', 'falcon_knight', 'tenshou', 'firearcher', 'flamebow', 'gouka', 'cursechild']);
+const RES_LOW_ID = new Set(['greatknight', 'masterknight', 'dragoon', 'wyvernlord', 'dragonking', 'mercenary', 'brave', 'hero']);
+export function resLevelOf(d: { id: string; line: string; moveType: MoveType }): ResLevel {
+  if (RES_HIGH.has(d.line) || RES_HIGH_ID.has(d.id)) return 'high';
+  if (d.line === 'axe' || d.moveType === 'armor' || RES_LOW_ID.has(d.id)) return 'low';
+  return 'mid';
+}
+/** 魔防の上乗せと伸び（段階ごと：初級・中級・上級・最上級） */
+export const RES_BONUS: Record<ResLevel, number[]> = { high: [2, 3, 5, 6], mid: [0, 1, 2, 3], low: [-1, 0, 0, 1] };
+export const RES_GROWTH: Record<ResLevel, number[]> = { high: [10, 10, 15, 10], mid: [0, 5, 5, 5], low: [-5, -5, 0, 0] };
+function withRes(d: Def): { bonus: Partial<Stats>; growth: Partial<Stats> } {
+  const lv = resLevelOf(d);
+  const i = Math.max(0, d.tier - 1);
+  const bonus = { ...d.bonus }, growth = { ...d.growth };
+  if (bonus.res === undefined && RES_BONUS[lv][i]) bonus.res = RES_BONUS[lv][i];
+  if (growth.res === undefined && RES_GROWTH[lv][i]) growth.res = RES_GROWTH[lv][i];
+  return { bonus, growth };
+}
+
 function cls(d: Def): ClassDefX {
-  return { id: d.id, name: d.name, tier: d.tier, prereq: d.prereq, req: d.req, move: d.move, moveType: d.moveType, weapons: d.weapons, bonus: d.bonus, growth: d.growth, desc: d.desc, atk: d.atk, traits: d.traits, line: d.line, ...(d.hidden ? { hidden: true } : {}), ...(d.unlock ? { unlock: d.unlock } : {}), ...(d.deed ? { deed: d.deed, need: d.need ?? 1 } : {}) };
+  const rs = withRes(d);
+  return { id: d.id, name: d.name, tier: d.tier, prereq: d.prereq, req: d.req, move: d.move, moveType: d.moveType, weapons: d.weapons, bonus: rs.bonus, growth: rs.growth, desc: d.desc, atk: d.atk, traits: d.traits, line: d.line, ...(d.hidden ? { hidden: true } : {}), ...(d.unlock ? { unlock: d.unlock } : {}), ...(d.deed ? { deed: d.deed, need: d.need ?? 1 } : {}) };
 }
 /** 入学のときの見習い（古いセーブ・名もない兵の受け皿。木の外） */
 const NOVICE: ClassDefX = { id: 'novice', name: '見習い', tier: 0, prereq: [], req: {}, move: 3, moveType: 'infantry', weapons: ['sword', 'lance', 'axe', 'bow', 'magic', 'staff'], bonus: {}, growth: {}, desc: 'まだ道を決めていない生徒。', atk: ['slash'], traits: [], line: 'none' };

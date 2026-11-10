@@ -1,6 +1,6 @@
 // 19夜目：新しい戦いを組み立てる（依頼・出撃する子・先生・敵将から）。DOMに依存しない
 import { TB, ENEMY_KINDS, ENEMY_MIX, ENEMY_BASE, BOSS_MUL, WTYPE_ATK, SPELL_MIGHT, FIELD_BY_ID, ATK_TYPES, ATK_NAME, MAGIC_TYPES, type AtkType } from '../../data/tactics';
-import { CLASSES, newClassId } from '../../data/classes';
+import { CLASSES, newClassId, resLevelOf } from '../../data/classes';
 import { WEAPONS } from '../../data/weapons';
 import { SKILLS } from '../../data/balance';
 import type { GameState, Student, Quest, EnemyOfficer } from '../state';
@@ -78,7 +78,7 @@ export function unitFromStudent(s: GameState, st: Student, uid: string, x: numbe
   const techs = battleTechs(st).map((t) => ({ id: t.id, left: t.uses }));
   const u: TUnit = {
     uid, side: 'me', name: st.given, studentId: st.id, classId: st.classId, x, y,
-    hp: e.hp, max: e.hp, str: e.str, mag: e.mag, skl: e.skl, spd: e.spd, def: e.def,
+    hp: e.hp, max: e.hp, str: e.str, mag: e.mag, skl: e.skl, spd: e.spd, def: e.def, res: Math.max(0, e.res),
     mov: c.move, rmin: atk.range[0], rmax: atk.range[1], type: atk.type, magic: !!atk.magic, might: w.might,
     techs, sh: 0, shMax: 0, weak: [], resist: [], known: [], broken: 0, acted: false, alive: true,
     armoryUid: armoryUid ?? null, bonus: { ...mindBonus(st, nemesisId, s), fight: st.mind?.fight ?? 50 }, kills: 0, dealt: 0, taken: 0, weakHits: 0, breaks: 0,
@@ -159,7 +159,7 @@ function teacherUnit(s: GameState, x: number, y: number, lv0 = 1): TUnit {
     uid: 'teacher', side: 'me', name: `${ins.name}先生`, teacher: true, studentId: st?.id, classId: 'novice', x, y,
     // 先生も、学校の強さに合わせて少しずつ戦い慣れていく（年をとると衰える）
     hp: Math.max(20, Math.max(e?.hp ?? 0, 28 + lv0) - decline * 2), max: Math.max(20, Math.max(e?.hp ?? 0, 28 + lv0) - decline * 2),
-    str: Math.max(4, Math.max(e?.str ?? 0, 8 + Math.floor(lv0 * 0.4)) - decline), mag: Math.max(4, Math.max(e?.mag ?? 0, 7 + Math.floor(lv0 * 0.4)) - decline), skl: 8 + Math.floor(lv0 * 0.3), spd: Math.max(3, Math.max(e?.spd ?? 0, 6 + Math.floor(lv0 * 0.35)) - decline), def: Math.max(3, Math.max(e?.def ?? 0, 7 + Math.floor(lv0 * 0.35)) - decline),
+    str: Math.max(4, Math.max(e?.str ?? 0, 8 + Math.floor(lv0 * 0.4)) - decline), mag: Math.max(4, Math.max(e?.mag ?? 0, 7 + Math.floor(lv0 * 0.4)) - decline), skl: 8 + Math.floor(lv0 * 0.3), spd: Math.max(3, Math.max(e?.spd ?? 0, 6 + Math.floor(lv0 * 0.35)) - decline), def: Math.max(3, Math.max(e?.def ?? 0, 7 + Math.floor(lv0 * 0.35)) - decline), res: Math.max(2, Math.max(e?.res ?? 0, 5 + Math.floor(lv0 * 0.3)) - decline),
     mov: 3, rmin: atk.range[0], rmax: atk.range[1], type: atk.type, magic: !!atk.magic, might: 5,
     techs: [], sh: 0, shMax: 0, weak: [], resist: [], known: [], broken: 0, acted: false, alive: true, kills: 0, dealt: 0, taken: 0, weakHits: 0, breaks: 0,
   };
@@ -235,7 +235,7 @@ export function createTactics(s: GameState, q: Quest, deploys: Deploy[], opt: Se
     b.units.push({
       uid: `e${i}`, side: 'foe', name: k.name, mark: k.mark, classId: k.classId, x, y,
       hp: baseStat('hp', lv, mul) + (k.hp ?? 0), max: baseStat('hp', lv, mul) + (k.hp ?? 0),
-      str: baseStat('str', lv, mul), mag: baseStat('mag', lv, mul), skl: baseStat('skl', lv, mul), spd: baseStat('spd', lv, mul) + (k.spd ?? 0), def: Math.max(0, baseStat('def', lv, mul) + (k.def ?? 0)),
+      str: baseStat('str', lv, mul), mag: baseStat('mag', lv, mul), skl: baseStat('skl', lv, mul), spd: baseStat('spd', lv, mul) + (k.spd ?? 0), def: Math.max(0, baseStat('def', lv, mul) + (k.def ?? 0)), res: Math.max(0, baseStat('res', lv, mul) + (k.res ?? 0)),
       mov: k.mov, rmin: k.range[0], rmax: k.range[1], type: k.type, magic: !!k.magic, might: 4 + Math.floor(lv / 8),
       techs: [], sh, shMax: sh, weak: [...k.weak], resist: [], known: opt.tutorial ? [...k.weak] : [k.weak[0]], broken: 0, acted: false, alive: true, kills: 0, dealt: 0, taken: 0, weakHits: 0, breaks: 0,
     });
@@ -297,7 +297,7 @@ function bossUnit(s: GameState, o: EnemyOfficer | null, kind: 'army' | 'bandit' 
     uid: 'boss', side: 'foe', name: o ? officerName(o) : kind === 'monster' ? '群れの頭' : '敵の隊長', officerId: o?.id, faceImage: o?.faceImage ?? null,
     studentId: o?.alumniId, classId: cid, x, y, boss: true, nemesis,
     hp: Math.round(baseStat('hp', lv, mul) * hpM), max: Math.round(baseStat('hp', lv, mul) * hpM),
-    str: Math.round(baseStat('str', lv, mul) * oM), mag: Math.round(baseStat('mag', lv, mul) * oM), skl: Math.round(baseStat('skl', lv, mul) * oM), spd: Math.round(baseStat('spd', lv, mul) * oM), def: Math.round(baseStat('def', lv, mul) * oM),
+    str: Math.round(baseStat('str', lv, mul) * oM), mag: Math.round(baseStat('mag', lv, mul) * oM), skl: Math.round(baseStat('skl', lv, mul) * oM), spd: Math.round(baseStat('spd', lv, mul) * oM), def: Math.round(baseStat('def', lv, mul) * oM), res: Math.round(baseStat('res', lv, mul) * oM * (TB.bossResMul[resLevelOf(c)] ?? 1)),
     mov: Math.min(4, c.move), rmin: atk.range[0], rmax: atk.range[1], type: atk.type, magic: !!atk.magic, might: 5 + Math.floor(lv / 6),
     techs: [], sh, shMax: sh, weak, resist, known: o?.knownWeak ? o.knownWeak.filter((t) => weak.includes(t)) : [], broken: 0, acted: false, alive: true,
     grudge: o?.grudge ?? undefined, revived: !!o?.revived, fledBefore: !!o?.meets.some((m) => m.result === 'fled'), kills: 0, dealt: 0, taken: 0, weakHits: 0, breaks: 0,

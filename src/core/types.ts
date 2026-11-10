@@ -12,8 +12,8 @@ export type PersonalityId =
 export type SkillId = 'sword' | 'lance' | 'axe' | 'bow' | 'magic' | 'faith' | 'riding' | 'heavy' | 'flying' | 'gun' | 'tactics' | 'command';
 export type Rank = 'E' | 'E+' | 'D' | 'D+' | 'C' | 'C+' | 'B' | 'B+' | 'A' | 'A+' | 'S';
 
-/** 19夜目：体の6つ（体力・力・魔力・技・速さ・守り）。幸運・魔防・魅力はなくした */
-export type StatId = 'hp' | 'str' | 'mag' | 'skl' | 'spd' | 'def';
+/** 19夜目：体の6つ（幸運・魅力はなくした）。22夜目：魔防を戻して7つ（守り＝斬・突・射・砕・打、魔防＝炎・雷・氷・光・闇を受けるとき） */
+export type StatId = 'hp' | 'str' | 'mag' | 'skl' | 'spd' | 'def' | 'res';
 /** 19夜目：心の3つ（0〜100）。闘志＝燃えると強い・高すぎると無茶、平静＝恐れや怒りに飲まれない、執念＝仇の前で力が出る */
 export interface Mind { fight: number; calm: number; grudge: number }
 /** 19夜目：教訓（戦いの経験から身につく力。出来事つき） */

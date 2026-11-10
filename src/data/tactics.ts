@@ -15,7 +15,10 @@ export const TB = {
   /** 森の守り+ */
   forestDef: 2,
   /** 魔法は守りをこの割合だけ受ける */
+  /** 22夜目：魔防のない古い戦いの記録だけ、守りのこの割合を魔防とみなす */
   magicDefRate: 0.6,
+  /** 宿敵・敵将の魔防：兵種の魔防の向きでの倍率 */
+  bossResMul: { high: 1.3, mid: 1, low: 0.7 } as Record<string, number>,
   /** 効かない種類は1/3 */
   resistDiv: 3,
   /** ブレイク中は受ける傷が2倍。動けないのは次の自分の番1回 */
@@ -134,17 +137,17 @@ export const FIELDS: FieldDef[] = [
 export const FIELD_BY_ID: Record<string, FieldDef> = Object.fromEntries(FIELDS.map((f) => [f.id, f]));
 
 /** 敵の兵の種類（雑兵）。弱点は2つ */
-export interface EnemyKind { id: string; mark: string; name: string; classId: string; type: AtkType; magic?: boolean; range: [number, number]; weak: AtkType[]; mov: number; hp?: number; def?: number; spd?: number }
+export interface EnemyKind { id: string; mark: string; name: string; classId: string; type: AtkType; magic?: boolean; range: [number, number]; weak: AtkType[]; mov: number; hp?: number; def?: number; spd?: number; /** 22夜目：魔防の上乗せ */ res?: number }
 export const ENEMY_KINDS: Record<string, EnemyKind> = {
   sword: { id: 'sword', mark: '剣', name: '剣兵', classId: 'swordsman', type: 'slash', range: [1, 1], weak: ['blunt', 'thrust'], mov: 3 },
   lance: { id: 'lance', mark: '槍', name: '槍兵', classId: 'lancer', type: 'thrust', range: [1, 1], weak: ['slash', 'fire'], mov: 3, def: 1 },
-  axe: { id: 'axe', mark: '斧', name: '斧兵', classId: 'fighter', type: 'crush', range: [1, 1], weak: ['shot', 'light'], mov: 3, hp: 3, spd: -1 },
+  axe: { id: 'axe', mark: '斧', name: '斧兵', classId: 'fighter', type: 'crush', range: [1, 1], weak: ['shot', 'light'], mov: 3, hp: 3, spd: -1, res: -1 },
   bow: { id: 'bow', mark: '弓', name: '弓兵', classId: 'archer', type: 'shot', range: [2, 3], weak: ['thrust', 'slash'], mov: 3, hp: -4, def: -1 },
-  mage: { id: 'mage', mark: '魔', name: '魔道兵', classId: 'mage', type: 'fire', magic: true, range: [1, 2], weak: ['shot', 'dark'], mov: 3, hp: -4, def: -2 },
+  mage: { id: 'mage', mark: '魔', name: '魔道兵', classId: 'mage', type: 'fire', magic: true, range: [1, 2], weak: ['shot', 'dark'], mov: 3, hp: -4, def: -2, res: 3 },
   cav: { id: 'cav', mark: '騎', name: '騎兵', classId: 'cavalier', type: 'thrust', range: [1, 1], weak: ['shot', 'thunder'], mov: 4, hp: 2 },
-  knight: { id: 'knight', mark: '鎧', name: '重装兵', classId: 'armor_knight', type: 'crush', range: [1, 1], weak: ['thunder', 'ice'], mov: 2, hp: 4, def: 4, spd: -3 },
-  brute: { id: 'brute', mark: '拳', name: '荒くれ', classId: 'brawler', type: 'blunt', range: [1, 1], weak: ['ice', 'thrust'], mov: 3, hp: 2 },
-  priestE: { id: 'priestE', mark: '祈', name: '従軍僧', classId: 'cleric', type: 'light', magic: true, range: [1, 2], weak: ['dark', 'slash'], mov: 3, hp: -4, def: -1 },
+  knight: { id: 'knight', mark: '鎧', name: '重装兵', classId: 'armor_knight', type: 'crush', range: [1, 1], weak: ['thunder', 'ice'], mov: 2, hp: 4, def: 4, spd: -3, res: -2 },
+  brute: { id: 'brute', mark: '拳', name: '荒くれ', classId: 'brawler', type: 'blunt', range: [1, 1], weak: ['ice', 'thrust'], mov: 3, hp: 2, res: -1 },
+  priestE: { id: 'priestE', mark: '祈', name: '従軍僧', classId: 'cleric', type: 'light', magic: true, range: [1, 2], weak: ['dark', 'slash'], mov: 3, hp: -4, def: -1, res: 3 },
   beast: { id: 'beast', mark: '獣', name: '魔獣', classId: 'beast', type: 'blunt', range: [1, 1], weak: ['fire', 'light'], mov: 4, hp: 4 },
 };
 export const ENEMY_MIX: Record<'army' | 'bandit' | 'monster', string[]> = {
@@ -152,8 +155,8 @@ export const ENEMY_MIX: Record<'army' | 'bandit' | 'monster', string[]> = {
   bandit: ['axe', 'sword', 'bow', 'axe', 'brute'],
   monster: ['beast', 'beast', 'beast'],
 };
-/** 敵の素の強さ（レベルから）：体力・力・魔力・技・速さ・守り */
-export const ENEMY_BASE = { hp: [17, 1.1], str: [6, 0.5], mag: [5, 0.45], skl: [3, 0.35], spd: [3, 0.36], def: [3, 0.33] } as Record<string, [number, number]>;
+/** 敵の素の強さ（レベルから）：体力・力・魔力・技・速さ・守り・魔防（22夜目。前は守りの6割で魔法を受けていた） */
+export const ENEMY_BASE = { hp: [17, 1.1], str: [6, 0.5], mag: [5, 0.45], skl: [3, 0.35], spd: [3, 0.36], def: [3, 0.33], res: [2, 0.21] } as Record<string, [number, number]>;
 /** 敵将・宿敵の強さの倍率（体力・ほか） */
 export const BOSS_MUL = { hp: 1.7, other: 1.15, nemesisHp: 2.2, nemesisOther: 1.1, perMeet: 0.03, /** 宿敵のレベルは、依頼のレベル＋この数まで */ lvCap: 5 };
 /** 兵種の武器の種類 → 攻撃の種類・届く距離 */

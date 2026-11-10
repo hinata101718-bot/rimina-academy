@@ -49,8 +49,8 @@ export const LESSONS: LessonDef[] = [
   { id: 'bow', name: '弓術', mark: '弓', group: 'weapon', skills: { bow: 1 }, stats: { skl: 0.5 }, stamina: -8, weight: 10, likes: ['calm', 'shy'] },
   { id: 'bow_far', name: '遠射', mark: '遠', group: 'weapon', skills: { bow: 1 }, stats: { skl: 0.5 }, stamina: -8, weight: 8, likes: ['calm', 'cynic'] },
   { id: 'magic', name: '魔道', mark: '魔', group: 'weapon', skills: { magic: 1 }, stats: { mag: 0.5 }, stamina: -7, weight: 10, likes: ['calm', 'cynic', 'shy'] },
-  { id: 'magic_theory', name: '魔道の理論', mark: '理', group: 'weapon', skills: { magic: 1 }, stats: { def: 0.5 }, reveal: 1.5, stamina: -5, weight: 7, likes: ['serious', 'shy', 'cynic'] },
-  { id: 'faith', name: '信仰', mark: '信', group: 'weapon', skills: { faith: 1 }, stats: { def: 0.5 }, stamina: -6, weight: 10, likes: ['gentle', 'timid'] },
+  { id: 'magic_theory', name: '魔道の理論', mark: '理', group: 'weapon', skills: { magic: 1 }, stats: { res: 0.5 }, reveal: 1.5, stamina: -5, weight: 7, likes: ['serious', 'shy', 'cynic'] },
+  { id: 'faith', name: '信仰', mark: '信', group: 'weapon', skills: { faith: 1 }, stats: { res: 0.5 }, stamina: -6, weight: 10, likes: ['gentle', 'timid'] },
   { id: 'prayer', name: '祈りの作法', mark: '祈', group: 'weapon', skills: { faith: 1 }, stats: { mag: 0.5 }, stamina: -5, weight: 7, likes: ['gentle', 'serious'] },
   { id: 'gun', name: '砲術', mark: '砲', group: 'weapon', skills: { gun: 1 }, stats: { skl: 0.5 }, stamina: -9, weight: 9, likes: ['competitive', 'cynic'], needGun: true },
   // ---- 体と馬6 ----
@@ -69,7 +69,7 @@ export const LESSONS: LessonDef[] = [
   { id: 'letters', name: '読み書き', mark: '書', group: 'mind', stats: { mag: 0.5 }, exp: 1, reveal: 2, stamina: -2, weight: 6, likes: ['gentle', 'shy'], extra: [{ label: '芽の発見' }] },
   { id: 'manners', name: '礼法', mark: '礼', group: 'mind', stats: {}, exp: 1, stamina: -3, weight: 6, likes: ['serious', 'calm'] },
   { id: 'diplomacy', name: '外交の作法', mark: '外', group: 'mind', stats: {}, exp: 1, stamina: -3, weight: 5, likes: ['cheerful', 'gentle'] },
-  { id: 'meditate', name: '瞑想', mark: '瞑', group: 'mind', stats: { def: 1}, exp: 0.8, reveal: 1, stamina: 3, weight: 6, likes: ['calm', 'gentle', 'timid'], extra: [{ label: '体力' }] },
+  { id: 'meditate', name: '瞑想', mark: '瞑', group: 'mind', stats: { res: 1 }, exp: 0.8, reveal: 1, stamina: 3, weight: 6, likes: ['calm', 'gentle', 'timid'], extra: [{ label: '体力' }] },
   // ---- 交流5 ----
   { id: 'tea', name: 'お茶会', mark: '茶', group: 'social', special: 'tea', stamina: 5, weight: 7, likes: ['gentle', 'cheerful', 'shy'], extra: [{ label: '支援', big: true }, { label: 'やる気' }], note: '顔の子どうしの支援が上がる' },
   { id: 'dinner', name: '食事会', mark: '食', group: 'social', special: 'dinner', stamina: 2, weight: 5, likes: ['cheerful', 'hot'], extra: [{ label: '全員のやる気', big: true }], note: '全員のやる気が上がる' },

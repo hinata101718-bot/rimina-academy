@@ -1,7 +1,7 @@
 // セーブデータの変換（バージョン番号つき）。DOMに依存しない
 // 19夜目：大改修。古いセーブ（1〜18夜目版）は、ここで一度に新しい形へ変換する（1つずつの古い変換はなくした）
 import { SAVE_VERSION, DIFFICULTY, STATS } from '../data/balance';
-import { newClassId } from '../data/classes';
+import { newClassId, CLASSES, resLevelOf } from '../data/classes';
 import type { GameState, Pending, Student } from './state';
 import { defaultSettings } from './game';
 import { Rng } from './rng';
@@ -37,6 +37,7 @@ export function migrate(s: GameState, from: number): GameState {
   if (from < 19) convertTo19(s, from);
   if (from < 20) convertTo20(s);
   if (from < 21) convertTo21(s);
+  if (from < 22) convertTo22(s);
   s.heirs ??= [];
   s.archive ??= {};
   s.notices ??= [];
@@ -57,6 +58,36 @@ export function convertTo20(s: GameState): void {
 export function convertTo21(s: GameState): void {
   if (s.instructor && s.instructor.thought === undefined && s.instructor.age >= 60) s.instructor.thought = true;
   for (const rv of Object.values(s.rivalries ?? {})) if (rv.heart && rv.heart.letters === undefined) rv.heart.letters = 0;
+}
+
+/** 22夜目：魔防を足す。守りはそのまま。魔防は、魔力と兵種の向きから分ける（魔法・癒しの子は高め、重装・斧の子は低め） */
+export function resFromOld(st: { stats: { mag?: number; def?: number; res?: number }; classId: string }): number {
+  const c = CLASSES[st.classId];
+  const lv = c && c.id !== 'novice' ? resLevelOf(c) : 'mid';
+  const base = (st.stats.mag ?? 3) * 0.45 + (st.stats.def ?? 3) * 0.25;
+  const adj = lv === 'high' ? 2 : lv === 'low' ? -1 : 0;
+  return Math.max(1, Math.round(base + adj));
+}
+export function resGrowthFromOld(g: { mag?: number; def?: number }, classId: string): number {
+  const c = CLASSES[classId];
+  const lv = c && c.id !== 'novice' ? resLevelOf(c) : 'mid';
+  const v = (g.mag ?? 35) * 0.5 + (g.def ?? 35) * 0.25 + (lv === 'high' ? 10 : lv === 'low' ? -5 : 0);
+  return Math.max(15, Math.min(65, Math.round(v / 5) * 5));
+}
+export function convertTo22(s: GameState): void {
+  for (const st of [...Object.values(s.students ?? {}), ...(s.applicants ?? [])]) {
+    if (!st?.stats) continue;
+    if (st.stats.res === undefined) st.stats.res = resFromOld(st);
+    if (st.growth && st.growth.res === undefined) st.growth.res = resGrowthFromOld(st.growth, st.classId);
+  }
+  // 途中の戦い：魔防がなければ、守りと兵種から（敵は兵種の向き）
+  const fix = (u: import('./tactics/types').TUnit) => {
+    if (u.res !== undefined) return;
+    const c = CLASSES[u.classId];
+    const lv = c && c.id !== 'novice' ? resLevelOf(c) : 'mid';
+    u.res = Math.max(0, Math.round(u.def * 0.5 + u.mag * 0.2) + (lv === 'high' ? 2 : lv === 'low' ? -1 : 0));
+  };
+  for (const u of s.battle?.units ?? []) fix(u);
 }
 
 /** 古い能力（9つ）→ 体の6つ：守りは守備と魔防から。幸運・魅力はなくす */

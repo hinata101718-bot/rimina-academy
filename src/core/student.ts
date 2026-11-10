@@ -109,7 +109,7 @@ export function generateStudent(s: GameState, rng: Rng, opt: GenOptions = {}): S
   const stats: Stats = emptyStats();
   for (const k of STATS) {
     const bonus = Math.round(q * 2);
-    stats[k] = k === 'hp' ? rng.int(...B.student.hpStart) + bonus : rng.int(B.student.statStart[0], B.student.statStart[1]) + (rng.chance(q) ? 1 : 0);
+    stats[k] = k === 'hp' ? rng.int(...B.student.hpStart) + bonus : k === 'res' ? rng.int(...B.student.resStart) + (rng.chance(q) ? 1 : 0) : rng.int(B.student.statStart[0], B.student.statStart[1]) + (rng.chance(q) ? 1 : 0);
   }
   // 10夜目：本人の成長率（風花雪月くらいの基準）。夢に合う能力ほど「得意な能力」になりやすい
   const growth = rollGrowth(rng, dreamDef.skills, q);
@@ -119,7 +119,7 @@ export function generateStudent(s: GameState, rng: Rng, opt: GenOptions = {}): S
   if (house === 'orphan') { growth.spd += 5; }
   if (origin === 'kingdom') growth.def += 5;
   if (origin === 'empire') growth.str += 5;
-  if (origin === 'alliance') growth.mag += 5;
+  if (origin === 'alliance') { growth.mag += 5; growth.res += 5; }
   // 8夜目：成長率は5%きざみ（ヒナタさん指定）
   for (const k of STATS) growth[k] = clamp(round5(growth[k]), k === 'hp' ? 35 : 15, 70);
   fitTotal(growth);
@@ -167,8 +167,8 @@ export function generateStudent(s: GameState, rng: Rng, opt: GenOptions = {}): S
 
 /** 本人の成長率を作る：得意な能力2〜3つ（50〜65）・苦手2つ（20〜30）・ほか（30〜45）、HP（40〜65） */
 const STAT_FOR_SKILL: Partial<Record<SkillId, (keyof Stats)[]>> = {
-  sword: ['str', 'spd'], lance: ['str', 'def'], axe: ['str', 'hp'], bow: ['skl', 'spd'], magic: ['mag', 'skl'], faith: ['mag', 'def'],
-  riding: ['spd', 'def'], heavy: ['def', 'hp'], flying: ['spd', 'skl'], gun: ['skl'], tactics: ['skl', 'mag'], command: ['def', 'hp'],
+  sword: ['str', 'spd'], lance: ['str', 'def'], axe: ['str', 'hp'], bow: ['skl', 'spd'], magic: ['mag', 'res'], faith: ['mag', 'res'],
+  riding: ['spd', 'def'], heavy: ['def', 'hp'], flying: ['spd', 'res'], gun: ['skl'], tactics: ['skl', 'mag'], command: ['def', 'hp'],
 };
 export function rollGrowth(rng: Rng, favor: SkillId[], q = 0): Stats {
   const g: Stats = emptyStats();
