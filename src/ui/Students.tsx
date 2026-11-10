@@ -2,7 +2,7 @@ import { cohortName } from '../core/game';
 import { Badge } from './Results';
 import { BADGES } from '../data/evaluation';
 import { useState } from 'preact/hooks';
-import { useStore, navigate, act } from './store';
+import { useStore, navigate, act, getRoute } from './store';
 import { enrolled, effectiveStats } from '../core/game';
 import { growthRates } from '../core/growth';
 import { nextClasses, classUnlocked, meetsReq, passRate, canTakeExam, takeExam } from '../core/exam';
@@ -131,7 +131,7 @@ function Detail({ s, st, exam, sub }: { s: GameState; st: Student; exam?: boolea
     <div>
       {examOpen && <ExamSheet s={s} st={st} onClose={() => setExamOpen(false)} />}
       {promo.length > 0 && <Sheet><RankUpPlayer s={s} items={promo} title="卒業生の昇進" onDone={markSeen} /></Sheet>}
-      <Back to={() => history.length && navigate(grad ? { tab: 'yearbook' } : { tab: 'students' })} />
+      <Back to={() => { const bk = getRoute().back; if (bk) navigate(bk); else if (history.length) navigate(grad ? { tab: 'yearbook' } : { tab: 'students' }); }} />
       <div class="pcard" style={{ ['--band' as string]: color }}>
         <div class="hero">
           <div class="hero-face"><Portrait st={st} size={96} frame={color} /><LvBadge lv={st.level} big /></div>

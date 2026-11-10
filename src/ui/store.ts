@@ -3,7 +3,7 @@ import { useEffect, useState } from 'preact/hooks';
 import type { GameState } from '../core/state';
 import { saveSlot } from './storage';
 
-export interface Route { tab: 'school' | 'students' | 'war' | 'yearbook' | 'settings'; page?: string; id?: string; /** 個人ページのタブ（9夜目） */ sub?: string }
+export interface Route { tab: 'school' | 'students' | 'war' | 'yearbook' | 'settings'; page?: string; id?: string; /** 個人ページのタブ（9夜目） */ sub?: string; /** 22夜目：戻るボタンで戻る先（目標技能の画面から個人ページへ など） */ back?: Route }
 
 let game: GameState | null = null;
 let route: Route = { tab: 'school' };

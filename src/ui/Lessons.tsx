@@ -3,11 +3,14 @@ import { useEffect, useState } from 'preact/hooks';
 import type { GameState, LessonCard, Student, LessonRow, LessonEvent, TalkLog, GrowthEntry } from '../core/state';
 import type { SkillId, StatId } from '../core/types';
 import { LESSON_BY_ID, LESSON_GROUP_NAMES, LESSON_GROUP_COLOR, type LessonDef } from '../data/lessons';
-import { SKILL_NAMES, STAT_NAMES, PERSONALITIES } from '../data/people';
+import { SKILL_NAMES, STAT_NAMES, PERSONALITIES, DREAMS } from '../data/people';
 import { B, SKILLS, RANK_POINTS } from '../data/balance';
 import { todayCards, DAY_NAMES, attends, recommendCard, recommendSocial, teacherStamina, teacherMax, teacherSick, lessonCost } from '../core/lessons';
 import { chooseWeek, weekAuto, sameAsLastWeek } from '../core/flow';
 import { skillUnlocked, bestTeacher, autoTargets } from '../core/week';
+import { recommendTargets, opensWith, topSkillsOf, topGrowthOf, aptMark } from '../core/targets';
+import { goodOf, badOf, budKnown, budName } from '../core/aptitude';
+import { CLASSES } from '../data/classes';
 import { viceOf, VICE_POLICY_NAMES, viceTargets } from '../core/instructor';
 import { enrolled } from '../core/game';
 import { rankOf, nextRankPoints } from '../core/util';
@@ -263,40 +266,64 @@ function PracticeEvent({ s, e, onNext }: { s: GameState; e: LessonEvent; onNext:
 }
 
 // ---------- 今月の目標技能 ----------
+// 22夜目⑥：1人ずつの札を「顔（左）＋名前・兵種・Lv（右）」に。得意・苦手・いまの技能・伸びやすい能力・芽・夢・開く兵種・先生のおすすめ
 export function TargetsPage({ s }: { s: GameState }) {
   const grades = [1, 2, 3].filter((g) => enrolled(s).some((x) => x.grade === g));
-  const skills = SKILLS.filter((k) => skillUnlocked(s, k));
   return (
     <div>
       <Back to={() => navigate({ tab: 'school' })} />
       <h2>今月の目標技能</h2>
-      <div class="muted small">生徒ごとに、今月いちばん伸ばしたい技能を2つ決めます。目標の授業では、その子がいつもよりよく伸びます。授業のカードの顔には「目」の印が出ます。<HelpTip text="1つ目の目標は伸びが1.3倍です。「自動」の子は、毎月の初めに決まります。担任のいる学年は、担任の方針で決まります。" /></div>
+      <div class="muted small">生徒ごとに、今月いちばん伸ばしたい技能を2つ決めます。目標の授業では、その子がいつもよりよく伸びます。迷ったら「おすすめにする」を押してください。<HelpTip text="1つ目の目標は伸びが1.3倍です。「自動」の子は、毎月の初めに決まります。担任のいる学年は、担任の方針で決まります。札を押すと、その子の個人ページが開きます。" /></div>
       {grades.map((g) => {
         const v = viceOf(s, g);
         return (
-          <div class="card">
+          <div class="card tg-card">
             <h3>{g}年生{v ? `（担任：${v.t.name}・${VICE_POLICY_NAMES[v.v.policy]}）` : ''}</h3>
-            {enrolled(s).filter((x) => x.grade === g).map((st) => (
-              <div class="tg-row">
-                <Portrait st={st} size={40} frame={countryColor(st.origin)} />
-                <div class="grow" style={{ minWidth: 0 }}>
-                  <b>{st.given}</b> <span class="small muted">Lv{st.level}</span>
-                  <div class="row nowrap gap4">
-                    {[0, 1].map((i) => (
-                      <select value={st.targets[i]} onChange={(e) => act((x) => { const y = x.students[st.id]; const t = [...y.targets] as [SkillId, SkillId]; t[i] = (e.target as HTMLSelectElement).value as SkillId; if (t[0] !== t[1]) { y.targets = t; y.targetsAuto = false; } })}>
-                        {skills.map((k) => <option value={k}>{i === 0 ? '目標' : '2番目'}：{SKILL_NAMES[k]} {rankOf(st.skills[k])}</option>)}
-                      </select>
-                    ))}
-                  </div>
-                </div>
-                <label class="small tg-auto"><input type="checkbox" checked={st.targetsAuto} onChange={(e) => act((x) => { const y = x.students[st.id]; y.targetsAuto = (e.target as HTMLInputElement).checked; if (y.targetsAuto) { const vv = viceOf(x, y.grade); y.targets = vv ? viceTargets(x, y, vv.v.policy, vv.st, autoTargets) : autoTargets(x, y); } })} />自動</label>
-              </div>
-            ))}
+            {enrolled(s).filter((x) => x.grade === g).map((st) => <TargetRow s={s} st={st} />)}
           </div>
         );
       })}
     </div>
   );
 }
+function TargetRow({ s, st }: { s: GameState; st: Student }) {
+  const skills = SKILLS.filter((k) => skillUnlocked(s, k));
+  const rec = recommendTargets(s, st);
+  const same = rec[0] === st.targets[0] && rec[1] === st.targets[1];
+  const good = goodOf(st).filter((k) => skillUnlocked(s, k));
+  const bad = badOf(st).filter((k) => skillUnlocked(s, k));
+  const dream = DREAMS.find((d) => d.id === st.dream);
+  const opens = opensWith(s, st, st.targets[0]);
+  const open = (e: Event) => { e.stopPropagation(); sfx('move'); navigate({ tab: 'students', page: 'detail', id: st.id, back: { tab: 'school', page: 'targets' } }); };
+  const setT = (i: number, k: SkillId) => act((x) => { const y = x.students[st.id]; const t = [...y.targets] as [SkillId, SkillId]; t[i] = k; if (t[0] === t[1]) t[1 - i] = y.targets[i]; y.targets = t; y.targetsAuto = false; });
+  return (
+    <div class="tg-row2">
+      <button class="tg-head" onClick={open} aria-label={`${st.given}の個人ページを開く`}>
+        <Portrait st={st} size={52} frame={countryColor(st.origin)} />
+        <span class="tg-who"><b class="tg-name">{st.given}</b><span class="small"><ClassNameText id={st.classId} />・Lv{st.level}</span><span class="small muted tg-dream">夢：{dream?.text ? dream.name : 'まだない'}</span></span>
+        <span class="tg-go">›</span>
+      </button>
+      <div class="tg-clues small">
+        <div>{good.length > 0 && <span class="tg-good">◎得意 {good.map((k) => SKILL_NAMES[k]).join('・')}</span>}{bad.length > 0 && <span class="tg-bad">×苦手 {bad.map((k) => SKILL_NAMES[k]).join('・')}</span>}{!good.length && !bad.length && <span class="muted">得意・苦手はまだ見えません</span>}</div>
+        <div>いま：{topSkillsOf(s, st).map((k) => `${SKILL_NAMES[k]}${rankOf(st.skills[k] ?? 0)}`).join('・')}　伸びやすい：{topGrowthOf(st).map((k) => STAT_NAMES[k]).join('・')}</div>
+        {budKnown(st) && <div class="tg-bud">芽：{budName(st)}</div>}
+        {opens.length > 0 && <div class="tg-open">{opens.slice(0, 2).map((o) => `${SKILL_NAMES[st.targets[0]]}を${o.rank}に → ${o.names.join('・')}の試験`).join('／')}</div>}
+      </div>
+      <div class="tg-sel">
+        {[0, 1].map((i) => (
+          <select value={st.targets[i]} aria-label={i === 0 ? '目標' : '2番目'} onChange={(e) => setT(i, (e.target as HTMLSelectElement).value as SkillId)}>
+            {skills.map((k) => <option value={k}>{i === 0 ? '目標' : '2番目'}：{SKILL_NAMES[k]} {rankOf(st.skills[k])}{aptMark(st, k) === '◎' ? ' ◎得意' : aptMark(st, k) === '×' ? ' ×苦手' : ''}{rec[i] === k ? ' ★おすすめ' : ''}</option>)}
+          </select>
+        ))}
+      </div>
+      <div class="tg-foot">
+        <span class="small">先生のおすすめ：<b>{SKILL_NAMES[rec[0]]}・{SKILL_NAMES[rec[1]]}</b></span>
+        <button class={`btn small${same ? '' : ' primary'}`} disabled={same} onClick={() => act((x) => { const y = x.students[st.id]; y.targets = [...rec] as [SkillId, SkillId]; y.targetsAuto = false; sfx('ok'); })}>{same ? 'おすすめどおり' : 'おすすめにする'}</button>
+        <label class="small tg-auto"><input type="checkbox" checked={st.targetsAuto} onChange={(e) => act((x) => { const y = x.students[st.id]; y.targetsAuto = (e.target as HTMLInputElement).checked; if (y.targetsAuto) { const vv = viceOf(x, y.grade); y.targets = vv ? viceTargets(x, y, vv.v.policy, vv.st, autoTargets) : autoTargets(x, y); } })} />自動</label>
+      </div>
+    </div>
+  );
+}
+function ClassNameText({ id }: { id: string }) { return <>{CLASSES[id]?.name ?? ''}</>; }
 
 export type { GrowthEntry };
