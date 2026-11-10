@@ -273,7 +273,7 @@ export function TargetsPage({ s }: { s: GameState }) {
     <div>
       <Back to={() => navigate({ tab: 'school' })} />
       <h2>今月の目標技能</h2>
-      <div class="muted small">生徒ごとに、今月いちばん伸ばしたい技能を2つ決めます。目標の授業では、その子がいつもよりよく伸びます。迷ったら「おすすめにする」を押してください。<HelpTip text="1つ目の目標は伸びが1.3倍です。「自動」の子は、毎月の初めに決まります。担任のいる学年は、担任の方針で決まります。札を押すと、その子の個人ページが開きます。" /></div>
+      <div class="muted small">生徒ごとに、今月いちばん伸ばしたい技能を2つ決めます。目標の授業では、その子がいつもよりよく伸びます。選ぶ一覧の◎は得意、×は苦手、★は先生のおすすめです。迷ったら「おすすめにする」を押してください。<HelpTip text="1つ目の目標は伸びが1.3倍です。「自動」の子は、毎月の初めに決まります。担任のいる学年は、担任の方針で決まります。札を押すと、その子の個人ページが開きます。" /></div>
       {grades.map((g) => {
         const v = viceOf(s, g);
         return (
@@ -312,12 +312,12 @@ function TargetRow({ s, st }: { s: GameState; st: Student }) {
       <div class="tg-sel">
         {[0, 1].map((i) => (
           <select value={st.targets[i]} aria-label={i === 0 ? '目標' : '2番目'} onChange={(e) => setT(i, (e.target as HTMLSelectElement).value as SkillId)}>
-            {skills.map((k) => <option value={k}>{i === 0 ? '目標' : '2番目'}：{SKILL_NAMES[k]} {rankOf(st.skills[k])}{aptMark(st, k) === '◎' ? ' ◎得意' : aptMark(st, k) === '×' ? ' ×苦手' : ''}{rec[i] === k ? ' ★おすすめ' : ''}</option>)}
+            {skills.map((k) => <option value={k}>{i === 0 ? '目標' : '2番'}：{SKILL_NAMES[k]}{rankOf(st.skills[k])}{aptMark(st, k)}{rec[i] === k ? '★' : ''}</option>)}
           </select>
         ))}
       </div>
+      <div class="small" style={{ marginTop: 4 }}>先生のおすすめ★：<b>{SKILL_NAMES[rec[0]]}・{SKILL_NAMES[rec[1]]}</b></div>
       <div class="tg-foot">
-        <span class="small">先生のおすすめ：<b>{SKILL_NAMES[rec[0]]}・{SKILL_NAMES[rec[1]]}</b></span>
         <button class={`btn small${same ? '' : ' primary'}`} disabled={same} onClick={() => act((x) => { const y = x.students[st.id]; y.targets = [...rec] as [SkillId, SkillId]; y.targetsAuto = false; sfx('ok'); })}>{same ? 'おすすめどおり' : 'おすすめにする'}</button>
         <label class="small tg-auto"><input type="checkbox" checked={st.targetsAuto} onChange={(e) => act((x) => { const y = x.students[st.id]; y.targetsAuto = (e.target as HTMLInputElement).checked; if (y.targetsAuto) { const vv = viceOf(x, y.grade); y.targets = vv ? viceTargets(x, y, vv.v.policy, vv.st, autoTargets) : autoTargets(x, y); } })} />自動</label>
       </div>

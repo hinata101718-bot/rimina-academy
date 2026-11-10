@@ -217,7 +217,7 @@ function ClassSheet({ s, c, known, onClose }: { s: GameState; c: ClassDef; known
         {(c as ClassDefX).unlock && <div class="small ruled"><b>{c.hidden ? '道が開く出来事' : 'なる条件の出来事'}</b>：{c.hidden && !known ? '？？？' : unlockText(c as ClassDefX, c.hidden ? 2 : deedReveal(s, c as ClassDefX, seenClasses(s)))}{c.tier === 4 && <div class="muted">卒業生のうち、この出来事を成し遂げた子だけがなれます。</div>}</div>}
         {known && c.tier >= 2 && holders(s, c.id).length > 0 && <div class="small ruled">なった子：{holders(s, c.id).slice(0, 8).join('・')}</div>}
         {(good.length > 0 || bloom.length > 0) && <div class="small ruled">{bloom.length > 0 && <div>開花で道が開けた子：<b>{bloom.join('・')}</b></div>}{good.length > 0 && <div>要る技能が得意な子：{good.slice(0, 8).join('・')}{good.length > 8 ? ' ほか' : ''}</div>}</div>}
-        <div class="small ruled">なる条件：{c.prereq.length ? `${TIER_NAMES[c.tier - 1]}の兵種から（おすすめの道は${c.prereq.map((p) => CLASSES[p].name).join('・')}）` : c.hidden ? '出来事で道が開く' : '入学したとき'}{Object.entries(c.req).length ? `・${Object.entries(c.req).map(([k, r]) => `${SKILL_NAMES[k as keyof typeof SKILL_NAMES]}${r as Rank}`).join('・')}` : ''}{c.tier >= 1 && !c.hidden ? `・Lv${c.tier === 4 ? B.alumni.tier4Level : B.exam.levelReq[c.tier]}以上` : ''}{c.tier === 4 ? '（卒業後）' : ''}</div>
+        <div class="small ruled">なる条件：{c.prereq.length ? `${TIER_NAMES[c.tier - 1]}の兵種から（おすすめの道は${c.prereq.map((p) => CLASSES[p].name).join('・')}）` : c.hidden ? '出来事で道が開く' : '入学したとき'}{Object.entries(c.req).length ? `・${Object.entries(c.req).map(([k, r]) => `${SKILL_NAMES[k as keyof typeof SKILL_NAMES]}${r as Rank}`).join('・')}` : ''}{c.tier >= 2 && !c.hidden ? `・Lv${c.tier === 4 ? B.alumni.tier4Level : B.exam.levelReq[c.tier]}以上` : ''}{c.tier === 4 ? '（卒業後）' : ''}</div>
       </div>
     </div>
   );

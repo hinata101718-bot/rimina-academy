@@ -2293,6 +2293,5 @@ body[data-light="day"] .desk-candle::before { display: none; }
 .tg-sel { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-top: 6px; }
 .tg-sel select { width: 100%; min-width: 0; min-height: 44px; font-size: 13px; }
 .tg-foot { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 8px; margin-top: 6px; }
-.tg-foot > .small:first-child { flex: 1 1 140px; }
-.tg-foot .btn { min-height: 44px; }
+.tg-foot .btn { min-height: 44px; flex: 1 1 auto; }
 .tg-foot .tg-auto { display: flex; align-items: center; gap: 4px; min-height: 44px; }

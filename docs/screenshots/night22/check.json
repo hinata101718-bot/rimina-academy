@@ -1,0 +1,172 @@
+[
+ {
+  "name": "01-detail-stats-360",
+  "over": false,
+  "small": 0,
+  "smallList": [],
+  "tiny": 0,
+  "errors": []
+ },
+ {
+  "name": "02-detail-renown-360",
+  "over": false,
+  "small": 0,
+  "smallList": [],
+  "tiny": 0,
+  "errors": []
+ },
+ {
+  "name": "03-detail-equip-360",
+  "over": false,
+  "small": 0,
+  "smallList": [],
+  "tiny": 0,
+  "errors": []
+ },
+ {
+  "name": "01-detail-stats-390",
+  "over": false,
+  "small": 0,
+  "smallList": [],
+  "tiny": 0,
+  "errors": []
+ },
+ {
+  "name": "02-detail-renown-390",
+  "over": false,
+  "small": 0,
+  "smallList": [],
+  "tiny": 0,
+  "errors": []
+ },
+ {
+  "name": "03-detail-equip-390",
+  "over": false,
+  "small": 0,
+  "smallList": [],
+  "tiny": 0,
+  "errors": []
+ },
+ {
+  "name": "04-equip-list-390",
+  "over": false,
+  "small": 0,
+  "smallList": [],
+  "tiny": 0,
+  "errors": []
+ },
+ {
+  "name": "01-detail-stats-430",
+  "over": false,
+  "small": 0,
+  "smallList": [],
+  "tiny": 0,
+  "errors": []
+ },
+ {
+  "name": "02-detail-renown-430",
+  "over": false,
+  "small": 0,
+  "smallList": [],
+  "tiny": 0,
+  "errors": []
+ },
+ {
+  "name": "03-detail-equip-430",
+  "over": false,
+  "small": 0,
+  "smallList": [],
+  "tiny": 0,
+  "errors": []
+ },
+ {
+  "name": "05-roster-weapon-390",
+  "over": false,
+  "small": 1,
+  "smallList": [
+   ":1年"
+  ],
+  "tiny": 0,
+  "errors": []
+ },
+ {
+  "name": "06-exam-options-390",
+  "over": false,
+  "small": 0,
+  "smallList": [],
+  "tiny": 0,
+  "errors": []
+ },
+ {
+  "name": "07-exam-options-bottom-390",
+  "over": false,
+  "small": 0,
+  "smallList": [],
+  "tiny": 0,
+  "errors": []
+ },
+ {
+  "name": "08-classbook-390",
+  "over": false,
+  "small": 0,
+  "smallList": [],
+  "tiny": 0,
+  "errors": []
+ },
+ {
+  "name": "09-classbook-tree-390",
+  "over": false,
+  "small": 0,
+  "smallList": [],
+  "tiny": 0,
+  "errors": []
+ },
+ {
+  "name": "10-targets-360",
+  "over": false,
+  "small": 0,
+  "smallList": [],
+  "tiny": 0,
+  "errors": []
+ },
+ {
+  "name": "11-targets-more-360",
+  "over": false,
+  "small": 0,
+  "smallList": [],
+  "tiny": 0,
+  "errors": []
+ },
+ {
+  "name": "10-targets-390",
+  "over": false,
+  "small": 0,
+  "smallList": [],
+  "tiny": 0,
+  "errors": []
+ },
+ {
+  "name": "11-targets-more-390",
+  "over": false,
+  "small": 0,
+  "smallList": [],
+  "tiny": 0,
+  "errors": []
+ },
+ {
+  "name": "12-targets-to-detail-390",
+  "over": false,
+  "small": 0,
+  "smallList": [],
+  "tiny": 0,
+  "errors": []
+ },
+ {
+  "name": "13-targets-back-390",
+  "over": false,
+  "small": 0,
+  "smallList": [],
+  "tiny": 0,
+  "errors": []
+ }
+]
