@@ -5,7 +5,7 @@ FE風の士官学校育成SRPG（スマホ縦画面のブラウザゲーム、Gi
 ## 正本
 - 何を作るか：`docs/new/kikaku.md`（19夜目から。古い `docs/design.md` と食い違うときは企画書が正しい）
 - 依頼者の意図（ヒアリング原文）：`docs/new/hearing.md`（新しい企画、問1〜問120。問78〜は兵種）・`docs/hearing.md`（はじめの企画）
-- 今回の作業：いちばん新しい `docs/nightN.md`（今は `docs/night25.md`：技を選ぶ・弓の届く距離・雑兵の動き。兵種の正本は `docs/new/classes.md`）
+- 今回の作業：いちばん新しい `docs/nightN.md`（今は `docs/night26.md`：生徒ごとに覚える技を変える。兵種の正本は `docs/new/classes.md`）
 - 遊んだ感想：`docs/feedback.md`
 - これまでの報告：`docs/reports/`
 
@@ -15,7 +15,7 @@ FE風の士官学校育成SRPG（スマホ縦画面のブラウザゲーム、Gi
 - 報告や画面の文言は、やさしい日本語で。専門用語を避ける
 
 ## 作業ルール
-- 段階ごとに `npm test` と `npm run build` を通してからコミット・プッシュ
+- 段階ごとに `npm test` と `npm run build` を通してからコミット・プッシュ。**プッシュ先は `main`**（作業用のブランチだけに入れない。main が公開されたものをヒナタさんが遊ぶ）
 - ゲームの計算は `src/core/`（DOM非依存・純粋・シード付き乱数）、画面は `src/ui/`、数値と文章は `src/data/`
 - 数値をコードに直接書かない。`src/data/balance.ts` などに集める（難易度の倍率もここ）
 - セーブデータの形式を変えるときは、バージョン番号を上げて読み込み時に変換する（既存のセーブを壊さない）
