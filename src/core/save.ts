@@ -39,6 +39,7 @@ export function migrate(s: GameState, from: number): GameState {
   if (from < 20) convertTo20(s);
   if (from < 21) convertTo21(s);
   if (from < 22) convertTo22(s);
+  if (from < 23) convertTo23(s);
   s.heirs ??= [];
   s.archive ??= {};
   s.notices ??= [];
@@ -92,6 +93,13 @@ export function convertTo22(s: GameState): void {
   for (const u of s.battle?.units ?? []) fix(u);
   // 先生の魅力（使っていなかった）ははずす
   if (s.instructor) delete (s.instructor as { cha?: number }).cha;
+}
+
+/** 23夜目：進軍（戦場を続ける）と出撃6人。途中の古い戦い（6×8の盤）は、その大きさのまま最後まで遊べる（1つの戦場として終わる） */
+export function convertTo23(s: GameState): void {
+  s.march = null;
+  // まだ選んでいない今月の依頼には、あとで戦場の数がつく（ensureStages）。戦っている依頼は1つの戦場のまま
+  if (s.battle) for (const q of s.quests ?? []) if (q.id === s.battle.questId) q.stages = 1;
 }
 
 /** 古い能力（9つ）→ 体の6つ：守りは守備と魔防から。幸運・魅力はなくす */

@@ -182,6 +182,10 @@ export interface TBattle {
   found?: { weaponId?: string; money?: number; by: string }[];
   /** 23夜目③：斥候の罠（置いたマス）と、置ける残りの数（uid→数）。踏んだ敵は傷を負って止まる */
   traps?: { x: number; y: number; by: string }[]; trapLeft?: Record<string, number>;
+  /** 23夜目⑦：進軍の何番目の戦場か（0から）・戦場の数・名前。最後の戦場でない敵将は、倒れても次の戦場へ退く */
+  march?: { idx: number; total: number; names: string[]; cleared?: number };
+  /** 23夜目⑦：近道・回り道（次の戦場の作り方） */
+  route?: 'short' | 'detour';
   /** 23夜目②：負けそうになり、おまかせが兵をまとめて退いた */
   retreated?: boolean;
   /** 21夜目：2手先を読むための、試しの計算中（保存しない） */

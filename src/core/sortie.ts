@@ -99,3 +99,56 @@ export function recommendQuest(s: GameState): Quest | null {
   const ok = s.quests.filter((q) => q.real && q.danger <= (lv > 8 ? 3 : 2));
   return ok.sort((a, b) => Number(!!b.nemesisId) - Number(!!a.nemesisId) || b.reward - a.reward)[0] ?? s.quests[0] ?? null;
 }
+
+// ---------------------------------------------------------------
+// 23夜目⑤：出撃の画面の手がかり（敵将の札・敵の顔ぶれ・教え子の相性の印）
+// ---------------------------------------------------------------
+import { CLASSES as CLS } from '../data/classes';
+import { WTYPE_ATK, type AtkType } from '../data/tactics';
+import { battleTechs } from './techs';
+import { buildBattle } from './flow';
+import { initMarch, ensureStages } from './march';
+import { effectiveStats } from './game';
+import type { EnemyOfficer } from './state';
+import type { Objective } from './tactics/types';
+
+/** 敵将の攻撃の種類（兵種から）と、魔法か */
+export function officerAttack(o: EnemyOfficer): { types: AtkType[]; magic: boolean } {
+  const c = CLS[o.classId] as (typeof CLS)[string] & { atk?: AtkType[] };
+  const w = WTYPE_ATK[c?.weapons?.[0] ?? 'lance'] ?? WTYPE_ATK.lance;
+  return { types: (c?.atk?.length ? c.atk : [w.type]).slice(0, 3), magic: !!w.magic };
+}
+/** 生徒が使える攻撃の種類（兵種と技から） */
+export function studentAttacks(st: Student): AtkType[] {
+  const c = CLS[st.classId] as (typeof CLS)[string] & { atk?: AtkType[] };
+  const out = new Set<AtkType>(c?.atk ?? []);
+  for (const t of battleTechs(st)) if (!t.heal) out.add(t.type);
+  return [...out];
+}
+export interface Lineup { field: string; objective: Objective; grunts: { name: string; n: number }[]; total: number; boss: string | null; shields: number }
+/** 1つ目の戦場の敵の顔ぶれ（出撃の前に見せる。教え子によらず同じ） */
+export function lineupFor(s: GameState, q: Quest, ids: string[]): Lineup | null {
+  const keepM = s.march, keepB = s.battle;
+  try {
+    ensureStages(s);
+    s.march = (q.stages ?? 1) > 1 ? initMarch(s, q, [], true, ({ rout: 'rout', boss: 'boss', defend: 'defend', escort: 'escape', seize: 'boss', rescue: 'rescue', escape: 'escape' } as Record<string, Objective>)[q.objective] ?? 'rout') : null;
+    const b = buildBattle(s, q, ids.map((id) => ({ studentId: id })));
+    const cnt = new Map<string, number>();
+    for (const u of b.units) if (u.side === 'foe' && !u.boss) cnt.set(u.name, (cnt.get(u.name) ?? 0) + 1);
+    const bu = b.units.find((u) => u.boss);
+    return { field: b.field, objective: b.objective, grunts: [...cnt.entries()].map(([name, n]) => ({ name, n })).sort((a, c) => c.n - a.n), total: b.units.filter((u) => u.side === 'foe').length, boss: bu?.name ?? null, shields: bu?.shMax ?? 0 };
+  } catch { return null; } finally { s.march = keepM; s.battle = keepB; }
+}
+/** 教え子の相性の印：弱点を突ける・狙われやすい・宿敵と因縁あり */
+export function affinityOf(s: GameState, st: Student, o: EnemyOfficer | null, team: Student[]): { weak: boolean; fragile: boolean; bond: boolean } {
+  if (!o) return { weak: false, fragile: false, bond: false };
+  const known = (o.knownWeak ?? []).filter((t) => (o.weak ?? []).includes(t as never)) as AtkType[];
+  const atk = studentAttacks(st);
+  const weak = known.some((t) => atk.includes(t));
+  const { magic } = officerAttack(o);
+  const e = effectiveStats(st);
+  const avg = team.length ? team.reduce((a, x) => a + (magic ? effectiveStats(x).res : effectiveStats(x).def), 0) / team.length : 0;
+  const fragile = (magic ? e.res : e.def) < avg * 0.8;
+  const rv = s.rivalries?.[`${st.id}|${o.id}`];
+  return { weak, fragile, bond: !!rv && !rv.settled && (rv.stage >= 1 || !!rv.vow || rv.battles > 0) };
+}

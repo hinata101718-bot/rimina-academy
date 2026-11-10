@@ -55,7 +55,8 @@ export function applyTactics(s: GameState, b: TBattle, r: Rng): TacticsOutcome {
   const evals: StudentEval[] = [];
   const dead: TacticsOutcome['dead'] = [];
   const injured: TacticsOutcome['injured'] = [];
-  const expMul = (b.real ? 1 : B.battle.drillExpMul) * (q?.tutorial ? 1.6 : 1);
+  // 23夜目⑦：進軍は戦場が多いぶん、1つの戦場の経験を下げる
+  const expMul = (b.real ? 1 : B.battle.drillExpMul) * (q?.tutorial ? 1.6 : 1) * (b.march ? B.march.expScale[Math.min(4, b.march.total - 1)] ?? 1 : 1);
   // ふつうの戦いで討ち取った名前のある将は、深手を負いながら逃げのびることがある（宿敵戦では討てば討てる）
   {
     const bu = b.units.find((u) => u.boss && u.officerId);
@@ -157,6 +158,11 @@ export function applyTactics(s: GameState, b: TBattle, r: Rng): TacticsOutcome {
         lines.push(`報酬 ${s.money - before}G、評判+${rep}`);
         if (!q.small) { seedHelp(s, q.clientCountry); lines.push(...questWorldEffect(s, q.clientCountry, q.enemyCountry, true)); }
         const rg = questRegionResult(s, q, true, r); if (rg) lines.push(rg);
+      } else if (b.march && (b.march.cleared ?? 0) > 0) {
+        // 23夜目⑦：2つ目より先の戦場で負けたときは、そこまでの戦果（報酬の一部）が残る
+        const part = Math.round((q.reward * B.march.partialReward * (b.march.cleared ?? 0)) / b.march.total / 10) * 10;
+        const before = s.money; addMoney(s, part);
+        lines.push(`依頼は果たせなかったが、${b.march.cleared}つの戦場を抜いた戦果が残った（報酬 ${s.money - before}G）`);
       } else { const lose = B.reputation.questLose; addRep(s, lose); lines.push(`依頼は失敗。評判${lose}`); const rg = questRegionResult(s, q, false, r); if (rg) lines.push(rg); }
     }
   }

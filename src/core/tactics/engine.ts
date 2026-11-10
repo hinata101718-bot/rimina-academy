@@ -25,29 +25,39 @@ const DIRS = [[1, 0], [-1, 0], [0, 1], [0, -1]] as const;
 /** 動ける範囲（仲間の上は通れるが止まれない。敵の上は通れない）。key→歩数
  *  20夜目：敵は結界の光の壁を通れない。槍聖（不動）の隣に入った敵は、そこで止まる */
 export function reach(b: TBattle, u: TUnit, mov = u.mov): Record<string, number> {
+  // 23夜目：盤が広くなったので、岩・扉・駒の場所を先に集めてから探す（同じ結果で速く）
+  const W = b.w, H = b.h;
+  const hard = new Set<string>([...b.rock, ...(b.doors ?? []), ...(b.gate ? [b.gate] : []), ...(b.chests ?? []).filter((c) => !c.opened).map((c) => key(c.x, c.y))]);
+  if (b.captive && !b.captive.freed) hard.add(key(b.captive.x, b.captive.y));
+  const rocks = new Set(b.rock);
+  const occ = new Map<string, TUnit>();
+  for (const o of b.units) if (o.alive) occ.set(key(o.x, o.y), o);
   const seen: Record<string, number> = { [key(u.x, u.y)]: 0 };
   const q: [number, number][] = [[u.x, u.y]];
-  const walls = u.side === 'foe' ? b.walls ?? [] : [];
+  const walls = new Set(u.side === 'foe' ? b.walls ?? [] : []);
   const holders = u.side === 'foe' ? b.units.filter((o) => o.side !== u.side && o.alive && !o.moved && T(o, 'unmoving')) : [];
   const stopAt = (x: number, y: number) => holders.some((o) => Math.abs(o.x - x) + Math.abs(o.y - y) === 1);
-  while (q.length) {
-    const [x, y] = q.shift()!;
+  const fly = flyer(u);
+  for (let qi = 0; qi < q.length; qi++) {
+    const [x, y] = q[qi];
     const d = seen[key(x, y)];
     if (d >= mov) continue;
-    if (d > 0 && stopAt(x, y)) continue;
+    if (d > 0 && holders.length && stopAt(x, y)) continue;
     for (const [dx, dy] of DIRS) {
-      const nx = x + dx, ny = y + dy, k = key(nx, ny);
+      const nx = x + dx, ny = y + dy;
+      if (nx < 0 || ny < 0 || nx >= W || ny >= H) continue;
+      const k = key(nx, ny);
       if (k in seen) continue;
-      if (blocked(b, nx, ny) && !(flyer(u) && nx >= 0 && ny >= 0 && nx < b.w && ny < b.h && b.rock.includes(k))) continue;
-      if (walls.includes(k)) continue;
-      const o = at(b, nx, ny);
+      if (hard.has(k) && !(fly && rocks.has(k))) continue;
+      if (walls.has(k)) continue;
+      const o = occ.get(k);
       if (o && o.side !== u.side) continue;
       seen[k] = d + 1;
       q.push([nx, ny]);
     }
   }
   // 仲間のいるマス・岩（飛兵が越えるだけ）には止まれない
-  for (const k of Object.keys(seen)) { const [x, y] = k.split('-').map(Number); const o = at(b, x, y); if ((o && o !== u) || b.rock.includes(k)) delete seen[k]; }
+  for (const k of Object.keys(seen)) { const o = occ.get(k); if ((o && o !== u) || rocks.has(k)) delete seen[k]; }
   return seen;
 }
 /** 22夜目⑦：表示用の通り道（いまの場所から (tx,ty) まで、マスを1つずつ。見つからなければ行き先だけ）。計算には使わない */
@@ -78,23 +88,35 @@ export function walkPath(b: TBattle, u: TUnit, tx: number, ty: number): { x: num
 }
 /** 道のり（敵が近づくときの目安） */
 export function pathDist(b: TBattle, u: TUnit, tx: number, ty: number): number {
+  return pathDists(b, u)[key(tx, ty)] ?? 99;
+}
+/** 23夜目：その駒から、盤のすべてのマスへの道のり（相手の駒のいるマスは行き先にだけなれる）。1回探せば、どの相手へも使える */
+export function pathDists(b: TBattle, u: TUnit): Record<string, number> {
+  const W = b.w, H = b.h;
+  const hard = new Set<string>([...b.rock, ...(b.doors ?? []), ...(b.gate ? [b.gate] : []), ...(b.chests ?? []).filter((c) => !c.opened).map((c) => key(c.x, c.y))]);
+  if (b.captive && !b.captive.freed) hard.add(key(b.captive.x, b.captive.y));
+  const walls = new Set(u.side === 'foe' ? b.walls ?? [] : []);
+  const occ = new Map<string, TUnit>();
+  for (const o of b.units) if (o.alive) occ.set(key(o.x, o.y), o);
   const seen: Record<string, number> = { [key(u.x, u.y)]: 0 };
   const q: [number, number][] = [[u.x, u.y]];
-  while (q.length) {
-    const [x, y] = q.shift()!;
-    const d = seen[key(x, y)];
-    if (x === tx && y === ty) return d;
+  for (let qi = 0; qi < q.length; qi++) {
+    const [x, y] = q[qi];
+    const k0 = key(x, y);
+    const d = seen[k0];
+    const o0 = occ.get(k0);
+    if (d > 0 && o0 && o0.side !== u.side) continue; // 相手の駒の先へは進めない
     for (const [dx, dy] of DIRS) {
-      const nx = x + dx, ny = y + dy, k = key(nx, ny);
-      if (blocked(b, nx, ny) || k in seen) continue;
-      if (u.side === 'foe' && b.walls?.includes(k)) continue;
-      const o = at(b, nx, ny);
-      if (o && o.side !== u.side && !(nx === tx && ny === ty)) continue;
+      const nx = x + dx, ny = y + dy;
+      if (nx < 0 || ny < 0 || nx >= W || ny >= H) continue;
+      const k = key(nx, ny);
+      if (hard.has(k) || k in seen) continue;
+      if (walls.has(k)) continue;
       seen[k] = d + 1;
       q.push([nx, ny]);
     }
   }
-  return 99;
+  return seen;
 }
 
 /** 届く距離。20夜目：斧と弓・弓と剣は、ふつうの攻撃の種類で変わる（近くは斧・剣、遠くは弓） */
@@ -279,8 +301,8 @@ export function threatAt(b: TBattle, me: TUnit, x: number, y: number): number {
 }
 
 /** いちばんいい場所：届くマスのうち、森＞危なくない＞動きが少ない */
-export function bestSpot(b: TBattle, u: TUnit, d: TUnit, techId: string | null): { x: number; y: number } | null {
-  const R = reach(b, u);
+export function bestSpot(b: TBattle, u: TUnit, d: TUnit, techId: string | null, R0?: Record<string, number>): { x: number; y: number } | null {
+  const R = R0 ? { ...R0 } : reach(b, u);
   const sh = shadowSpot(b, u, d);
   if (sh && !(key(sh.x, sh.y) in R)) R[key(sh.x, sh.y)] = 0;
   let best: { x: number; y: number; sc: number } | null = null;
@@ -532,6 +554,14 @@ function down(b: TBattle, a: TUnit, d: TUnit, fx: TFx[], noDeath: boolean, letha
     if (a.nemesis) say(b, a, 'kill', fx);
     log(b, d.down === 'dead' ? `${d.name}が倒れた……` : d.teacher ? `${d.name}が倒れた！` : `${d.name}は深手を負って退いた`, true);
   } else {
+    // 23夜目⑦：進軍の途中の戦場では、敵将は倒れずに次の戦場へ退く（傷を負ったまま待ち構える）
+    if (d.boss && d.officerId && b.march && b.march.idx < b.march.total - 1) {
+      d.down = 'fled'; d.hp = Math.max(1, d.hp);
+      fx.push({ k: 'flee', uid: d.uid });
+      log(b, `${d.name}は兵をまとめ、次の戦場へ退いた（傷を負ったまま、待ち構える）`, true);
+      b.scenes.push({ turn: b.turn, text: `${d.name}は次の戦場へ退いた`, big: true });
+      return;
+    }
     d.down = 'dead';
     if (d.nemesis) {
       say(b, d, 'fall', fx); log(b, `${d.name}を討ち取った！`, true);
@@ -839,8 +869,9 @@ export function intents(b: TBattle): void {
     const targets = mine(b);
     if (!targets.length) continue;
     let best: { m: TUnit; sc: number } | null = null;
+    const PD = f.rmax > 1 ? null : pathDists(b, f);
     for (const m of targets) {
-      const d = f.rmax > 1 ? Math.max(0, dist(f, m) - f.rmax) : pathDist(b, f, m.x, m.y);
+      const d = PD ? PD[key(m.x, m.y)] ?? 99 : Math.max(0, dist(f, m) - f.rmax);
       let sc = d * 100 + m.hp;
       if (T(m, 'forest') && isForest(b, m.x, m.y)) sc += 150; // 森歩き：森の中では狙われにくい
       if (m.raised) sc += 80;
@@ -1044,6 +1075,7 @@ export function retreat(b: TBattle): void {
   finish(b, 'lose', '勝ち目が薄い。先生の合図で、兵をまとめて退いた');
 }
 function finish(b: TBattle, r: 'win' | 'lose', text: string): void {
+  if (typeof process !== 'undefined' && process.env?.TB_DEBUG) console.log(`  [${b.title}] ${r} T${b.turn} ${text} me=${mine(b).length} foes=${foes(b).length}/${b.foes0}`);
   b.phase = 'done';
   b.result = r;
   b.undo = null;

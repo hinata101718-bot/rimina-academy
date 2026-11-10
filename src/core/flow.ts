@@ -6,7 +6,7 @@ import { WEAPONS } from '../data/weapons';
 import { ATK_NAME } from '../data/tactics';
 import type { CountryId, SkillId } from './types';
 import type { GameState, Quest, Student, GrowthEntry, TalkLog, SquadPlan, BattleReport, EnemyOfficer } from './state';
-import type { TBattle, Deploy } from './tactics/types';
+import type { TBattle, Deploy, Objective } from './tactics/types';
 import { LESSON_BY_ID } from '../data/lessons';
 import { specialInterview } from './interview';
 const LESSON_NAME: Record<string, string> = Object.fromEntries(Object.values(LESSON_BY_ID).map((l) => [l.id, l.name]));
@@ -17,6 +17,8 @@ import { resolveLesson, advanceDay, recommendCard, recommendSocial, todayCards, 
 import { rollQuests } from './quests';
 import { addRecent, getSupport, pruneArchive } from './support';
 import { createTactics, questSeed } from './tactics/setup';
+import { ensureStages, questStages, initMarch, officerHere, applyCarry, stageCleared, chooseBreak, autoBreak, mergeStages, type BreakChoice } from './march';
+import { deployFor } from './sortie';
 import { autoFinish } from './tactics/ai';
 import { applyTactics } from './tactics/after';
 import { ensureRosters, yearlyOfficers, pickOfficerForQuest, officerById, ensureRivalry } from './officers';
@@ -167,28 +169,47 @@ export function squadAway(_sq: SquadPlan, _idx: number): boolean { return false;
 export function moreEscorted(_s: GameState): boolean { return false; }
 export function squadWatched(_s: GameState, sq: SquadPlan, _idx: number): boolean { return !!sq.manual; }
 
-/** 戦いを始める。auto のときは最後まで自動で進めて結果へ */
+/** 戦いを始める。auto のときは最後まで自動で進めて結果へ。23夜目⑦：戦場が2つ以上の依頼は「進軍」 */
 export function startBattle(s: GameState, questId: string, deploys: Deploy[], auto = false): void {
   const q = s.quests.find((x) => x.id === questId);
   if (!q) return;
   s.pending = s.pending.filter((p) => p.type !== 'questBoard');
+  ensureStages(s);
+  s.march = questStages(q) > 1 && !q.tutorial && !q.opening ? initMarch(s, q, deploys, auto, battleObjective(q)) : null;
   s.battle = buildBattle(s, q, deploys);
   if (auto) { autoFinish(s.battle, { noDeath: noDeath(s, q) }); finishBattle(s); }
+}
+function battleObjective(q: Quest): Objective { return ({ rout: 'rout', boss: 'boss', defend: 'defend', escort: 'escape', seize: 'boss', rescue: 'rescue', escape: 'escape' } as Record<string, Objective>)[q.objective] ?? 'rout'; }
+/** 23夜目⑦：戦場と戦場のあいだで選んだあと、次の戦場を始める */
+export function nextStage(s: GameState, c: BreakChoice): string[] {
+  const m = s.march;
+  const q = m ? s.quests.find((x) => x.id === m.questId) : null;
+  if (!m || !q || !m.between) return [];
+  const lines = chooseBreak(s, m, c);
+  // 武器：付け替えを選んだときは、いまの装備で持ち直す。ほかは前の戦場のまま（新しく加わった子だけ自動）。薬は持ち越し
+  const plan = deployFor(s, m.deploy.map((d) => d.studentId));
+  m.deploy = plan.map((d) => { const was = m.deploy.find((x) => x.studentId === d.studentId); return { ...d, armoryUid: c.rest === 'equip' || !was?.armoryUid ? d.armoryUid : was.armoryUid, item: null }; });
+  s.battle = buildBattle(s, q, m.deploy);
+  if (m.auto) { autoFinish(s.battle, { noDeath: noDeath(s, q) }); finishBattle(s); }
+  return lines;
 }
 /** 死なない戦い（最初の戦い・「生徒が死なない」設定） */
 export function noDeath(s: GameState, q?: Quest | null): boolean { return !!q?.tutorial || !!s.settings.noDeath; }
 
-/** 戦いを組み立てる（依頼の敵将・宿敵の台詞・出撃しない子の支えまで） */
+/** 戦いを組み立てる（依頼の敵将・宿敵の台詞・出撃しない子の支えまで）。23夜目⑦：進軍の途中は、その戦場の勝ち方・形・持ち越し */
 export function buildBattle(s: GameState, q: Quest, deploys: Deploy[]): TBattle {
-  const o = officerForQuest(s, q);
+  const m = s.march && s.march.questId === q.id ? s.march : null;
+  const o0 = officerForQuest(s, q);
+  const o = !m || officerHere(m) ? o0 : null;
   const ids = deploys.map((d) => d.studentId);
   // 宿敵戦は、宿敵と結びついた依頼（依頼の先に宿敵・果たし状・勝手に向かった子）だけ。ほかの戦いでも、会ったことのある敵将は覚えている
   const nemesis = o && q.nemesisId === o.id ? o : null;
-  const r = new Rng({ rng: questSeed(s, q) ^ 0x1e5 });
+  const r = new Rng({ rng: (questSeed(s, q) ^ 0x1e5) + (m?.idx ?? 0) });
   const lines = o ? battleLines(s, o, ids, r) : undefined;
-  const b = createTactics(s, q, deploys, { officer: o, nemesisId: nemesis?.id ?? null, tutorial: q.tutorial, lines, extraShields: nemesis ? Math.min(2, Math.floor(bondOf(s, nemesis) / 4)) : 0 });
-  applySupportCrew(s, b, ids);
-  if (lines?.['boss:intro']) { const bu = b.units.find((u) => u.boss); if (bu) { b.fx = [{ k: 'say', by: bu.uid, text: lines['boss:intro'], tone: 'nemesis' }]; b.said.push('boss:intro'); b.log.push({ turn: 1, text: `${bu.name}「${lines['boss:intro']}」` }); if (nemesis) b.scenes.push({ turn: 1, text: `${bu.name}「${lines['boss:intro']}」`, big: true }); } }
+  const b = createTactics(s, q, deploys, { officer: o, nemesisId: nemesis?.id ?? null, tutorial: q.tutorial, lines, extraShields: nemesis ? Math.min(2, Math.floor(bondOf(s, nemesis) / 4)) : 0, ...(m ? { field: m.fields[m.idx], objective: m.objectives[m.idx], route: m.route, stageIdx: m.idx } : {}) });
+  if (!m || m.idx === 0) applySupportCrew(s, b, ids);
+  if (m) { b.title = `${q.title}：${m.names[m.idx]}`; applyCarry(s, b, m); }
+  if (lines?.['boss:intro']) { const bu = b.units.find((u) => u.boss); if (bu) { b.fx = [{ k: 'say', by: bu.uid, text: lines['boss:intro'], tone: 'nemesis' }]; b.said.push('boss:intro'); b.log.push({ turn: 1, text: `${bu.name}「${lines['boss:intro']}」` }); if (nemesis || m?.foe?.fled) b.scenes.push({ turn: 1, text: `${bu.name}「${lines['boss:intro']}」`, big: true }); } }
   return b;
 }
 
@@ -237,8 +258,24 @@ export function finishAuto(s: GameState): void {
 
 /** 戦闘の結果を学校に反映する */
 export function finishBattle(s: GameState): void {
-  const b = s.battle;
+  let b = s.battle;
   if (!b || b.phase !== 'done') return;
+  // 23夜目⑦：進軍の途中で勝った → 戦場と戦場のあいだへ。負けた・最後の戦場 → すべての戦場をまとめて結果に
+  const m = s.march;
+  if (m && m.questId === b.questId) {
+    const t = b.units.find((u) => u.teacher);
+    if (b.result === 'win' && m.idx < m.total - 1 && (!t || t.alive) && m.deploy.some((d) => b!.units.some((u) => u.studentId === d.studentId && u.alive && !u.teacher))) {
+      stageCleared(s, b, m);
+      s.battle = null;
+      if (m.auto) nextStage(s, autoBreak(s, m));
+      return;
+    }
+    b = mergeStages(m, b);
+    const mq = s.quests.find((x) => x.id === m.questId);
+    if (mq && m.total > 1) b.title = mq.title;
+    s.battle = b;
+    s.march = null;
+  }
   const r = rng(s);
   const pendFrom = s.pending.length;
   const q = s.quests.find((x) => x.id === b.questId);

@@ -68,9 +68,12 @@ function bestFor(b: TBattle, u: TUnit, noDeath: boolean): Plan | null {
       if (ok) consider(25 + (o.max - o.hp) + (o.teacher ? 20 : 0), () => heal(b, u.uid, o.uid, h));
     }
   }
+  const R0 = reach(b, u);
   for (const f of foes(b)) {
+    // 23夜目：届きそうにない敵は調べない（動ける歩数＋いちばん遠い届く距離より遠い）
+    if (Math.abs(f.x - u.x) + Math.abs(f.y - u.y) > u.mov + 6) continue;
     for (const t of attacksOf(u)) {
-      const spot = bestSpot(b, u, f, t);
+      const spot = bestSpot(b, u, f, t, R0);
       if (!spot) continue;
       const sc = scoreAttack(b, u, f, t, spot);
       consider(sc, () => attack(b, u.uid, f.uid, t, spot, { noDeath, keepUndo: true }));
@@ -123,13 +126,14 @@ function scoreAttack(b: TBattle, u: TUnit, f: TUnit, t: string | null, spot: { x
 }
 function bestAttackScore(b: TBattle, u: TUnit): number {
   let best = 0;
-  for (const f of foes(b)) for (const t of attacksOf(u)) { const sp = bestSpot(b, u, f, t); if (sp) best = Math.max(best, scoreAttack(b, u, f, t, sp)); }
+  const R0 = reach(b, u);
+  for (const f of foes(b)) { if (Math.abs(f.x - u.x) + Math.abs(f.y - u.y) > u.mov + 6) continue; for (const t of attacksOf(u)) { const sp = bestSpot(b, u, f, t, R0); if (sp) best = Math.max(best, scoreAttack(b, u, f, t, sp)); } }
   return best;
 }
 
 /** 23夜目②：負けそうか（先生が危ない、または深手の子が2人以上で勝ち目が薄い） */
 export function shouldRetreat(b: TBattle): boolean {
-  if (b.phase !== 'player' || b.tutorial) return false;
+  if (b.phase !== 'player' || b.tutorial || !b.real) return false;
   const R = B.sortie.retreat;
   const t = b.teacherUid ? unit(b, b.teacherUid) : null;
   const team = mine(b).filter((m) => !m.raised && !m.helper);
@@ -137,30 +141,17 @@ export function shouldRetreat(b: TBattle): boolean {
   if (!fl.length) return false;
   const foeHp = fl.reduce((a, f) => a + f.hp * (f.broken > 0 ? 0.5 : 1) + f.sh * 3, 0);
   const myHp = team.reduce((a, m) => a + m.hp, 0);
-  const slim = foeHp > myHp * R.odds;
-  if (t?.alive && t.hp <= t.max * R.teacherHp && (threatAt(b, t, t.x, t.y) >= t.hp || fl.some((f) => f.aim && 't' in f.aim && f.aim.t === t.uid)) && slim) return true;
+  // 先生が次の敵の番に倒れそうで、敵の残りが多い
+  if (t?.alive && t.hp <= t.max * R.teacherHp && threatAt(b, t, t.x, t.y) >= t.hp && foeHp > myHp * R.teacherOdds) return true;
+  // 深手の子が2人以上で、勝ち目が薄い
   const kids = b.units.filter((u) => u.side === 'me' && !u.teacher && !u.raised && !u.helper);
   const wounded = kids.filter((k) => !k.alive || k.hp <= k.max * R.woundedHp).length;
-  return wounded >= R.wounded && slim;
+  return wounded >= R.wounded && foeHp > myHp * R.odds;
 }
 
 /** 23夜目③：おまかせの罠：敵が次の番に通りそうなマス（多くの敵の届く・こちらに近い）へ置く */
 export function autoTraps(b: TBattle): void {
-  for (const u of mine(b)) {
-    const spots = trapSpots(b, u);
-    if (!spots.length) continue;
-    const Rs = foes(b).filter((f) => !f.fleeing).map((f) => reach(b, f));
-    let best: { x: number; y: number; sc: number } | null = null;
-    for (const c of spots) {
-      const k = key(c.x, c.y);
-      const n = Rs.filter((R) => k in R).length;
-      if (!n) continue;
-      const near = Math.min(...mine(b).map((m) => Math.abs(m.x - c.x) + Math.abs(m.y - c.y)));
-      const sc = n * 10 - near * 3;
-      if (!best || sc > best.sc) best = { ...c, sc };
-    }
-    if (best) placeTrap(b, u.uid, best.x, best.y);
-  }
+  for (const u of mine(b)) autoTrapsFor(b, u);
 }
 
 /** おまかせで1ターン（味方の番）を進める */
@@ -185,6 +176,27 @@ export function autoTurn(b: TBattle, opt: { noDeath?: boolean } = {}): void {
   b.undo = null;
   if (b.phase === 'player') { endTurn(b, opt); all.push(...b.fx); }
   b.fx = all;
+}
+
+/** 23夜目⑨：1人だけ、この番をおまかせで動かす（危なければ下がる・弱点を突く。考え方はおまかせと同じ） */
+export function autoOne(b: TBattle, uid: string, opt: { noDeath?: boolean } = {}): void {
+  const u = unit(b, uid);
+  if (!u || u.side !== 'me' || u.acted || !u.alive || b.phase !== 'player') return;
+  b.fx = [];
+  const all: TBattle['fx'] = [];
+  autoTrapsFor(b, u);
+  const p = bestFor(b, u, !!opt.noDeath);
+  if (p) { p.run(); all.push(...b.fx); }
+  if (!u.acted && b.phase === 'player') u.acted = true;
+  b.fx = all;
+}
+function autoTrapsFor(b: TBattle, u: TUnit): void {
+  const spots = trapSpots(b, u);
+  if (!spots.length) return;
+  const Rs = foes(b).filter((f) => !f.fleeing).map((f) => reach(b, f));
+  let best: { x: number; y: number; sc: number } | null = null;
+  for (const c of spots) { const k = key(c.x, c.y); const n = Rs.filter((R) => k in R).length; if (!n) continue; const near = Math.min(...mine(b).map((m) => Math.abs(m.x - c.x) + Math.abs(m.y - c.y))); const sc = n * 10 - near * 3; if (!best || sc > best.sc) best = { ...c, sc }; }
+  if (best) placeTrap(b, u.uid, best.x, best.y);
 }
 
 /** おまかせで最後まで */

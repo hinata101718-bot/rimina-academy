@@ -84,10 +84,14 @@ export function takenNames(s: GameState): Set<string> {
   for (const x of Object.values(s.students ?? {})) {
     if (x.status === 'enrolled') t.add(x.given);
     else if (x.status === 'graduated' && x.career && x.career.alive !== false && !x.career.retired) t.add(x.given);
+    // 戦死したと思われたが、捕らわれて生きている子（いつか戻ってくる）
+    else if (x.status === 'dead' && x.secretAlive) t.add(x.given);
   }
   for (const st of s.applicants ?? []) t.add(st.given);
   for (const o of officers(s)) if (o.status === 'active') t.add(o.given);
   if (s.instructor?.name) t.add(s.instructor.name.split('・')[0]);
+  // さらわれた先代の先生は、いつか敵として戻ってくる（名前はそのまま）
+  if (s.capturedTeacher && !s.capturedTeacher.done) t.add(s.capturedTeacher.name.split('・')[0]);
   for (const te of s.teachers ?? []) t.add(te.name.split('・')[0]);
   return t;
 }

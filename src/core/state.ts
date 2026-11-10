@@ -66,6 +66,8 @@ export interface Student {
   /** 19夜目：心の3つ（闘志・平静・執念）・教訓・二つ名・傷跡 */
   mind?: Mind;
   lessons?: Lesson[];
+  /** 23夜目⑤'：二つ名が変わった年・変わった数 */
+  epithetYear?: number; epithetCount?: number;
   epithet?: string;
   scars?: { year: number; text: string }[];
   /** 19夜目：使える技（技能のランクで覚える。技のid） */
@@ -319,6 +321,8 @@ export interface Quest {
   small?: boolean;
   /** 偵察を出した（6夜目）。scoutFree は斥候がいて出撃の人数が減らないとき */
   scouted?: boolean; scoutFree?: boolean;
+  /** 23夜目⑦：戦場の数（1〜5。古い依頼は1）と、戦場の名前 */
+  stages?: number; stageNames?: string[];
 }
 
 export interface Mail {
@@ -449,6 +453,9 @@ export interface EnemyOfficer {
   presumed?: 'dead' | 'fled' | null;
   /** 19夜目：二つ名のもとになった出来事 */
   epithetWhy?: string;
+  /** 23夜目⑤'：二つ名が変わった年・そのときの出来事の大きさ・変わった数 */
+  epithetYear?: number; epithetLevel?: number; epithetCount?: number; epithetNews?: number;
+  epithetLog?: { year: number; level: number; word: string }[];
   /** 19夜目：最後に会った年・月 */
   lastMet?: { year: number; month: number };
   /** 19夜目：治める領地（勢力図の地域 id） */
@@ -721,6 +728,8 @@ export interface GameState {
   pending: Pending[];
   quests: Quest[];
   battle: TBattle | null;
+  /** 23夜目⑦：進軍の途中（戦場と戦場のあいだ・終わった戦場） */
+  march?: import('./march').MarchState | null;
   applicants: Student[];
   world: WorldState;
   mail: Mail[];

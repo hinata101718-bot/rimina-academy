@@ -89,18 +89,22 @@ export const NEM_SAY: Record<string, Lines> = {
 };
 
 /** 傷（攻撃の種類ごと）：文と、二つ名の言葉 */
-export const WOUNDS: Record<AtkType, { text: string[]; ep: string[] }> = {
-  slash: { text: ['頬に走る刀傷', '額の深い切り傷', '左目を失う傷'], ep: ['刀傷の', '隻眼の'] },
-  thrust: { text: ['脇腹の突き傷', '肩を貫いた傷'], ep: ['穴あきの', '傷だらけの'] },
-  crush: { text: ['砕けた左の頬骨', '曲がったままの右腕'], ep: ['砕けた', '歪んだ'] },
-  blunt: { text: ['折れた鼻', '腫れの引かない左目'], ep: ['潰れ鼻の', '殴られ顔の'] },
-  ice: { text: ['凍えて動かない指', '霜焼けの残る頬'], ep: ['凍え指の', '霜の'] },
-  dark: { text: ['呪いの黒い痣', '影に蝕まれた腕'], ep: ['痣の', '呪われた'] },
-  shot: { text: ['肩に残る矢傷', '耳を射抜かれた跡'], ep: ['矢傷の', '片耳の'] },
-  fire: { text: ['顔半分の火傷', '焼けただれた腕'], ep: ['焼け顔の', '焦げた'] },
-  thunder: { text: ['腕に走る雷の痕', '白く変わった髪'], ep: ['白髪の', '雷痕の'] },
-  light: { text: ['光に焼かれた右目', '白く濁った片目'], ep: ['濁り目の', '隻眼の'] },
+/** 23夜目⑤'：傷の文ごとに、合う二つ名の言葉を1つ。big＝体に一生残る大きな傷（片目・腕など）だけが二つ名を変える */
+export interface WoundDef { text: string; ep?: string; big?: boolean }
+export const WOUNDS: Record<AtkType, WoundDef[]> = {
+  slash: [{ text: '頬に走る刀傷', ep: '刀傷の' }, { text: '額の深い切り傷', ep: '刀傷の' }, { text: '左目を失う傷', ep: '隻眼の', big: true }],
+  thrust: [{ text: '脇腹の突き傷', ep: '穴あきの' }, { text: '肩を貫いた傷', ep: '傷だらけの' }],
+  crush: [{ text: '砕けた左の頬骨', ep: '砕け頬の' }, { text: '曲がったままの右腕', ep: '歪み腕の', big: true }],
+  blunt: [{ text: '折れた鼻', ep: '潰れ鼻の' }, { text: '腫れの引かない左目', ep: '殴られ顔の' }],
+  ice: [{ text: '凍えて動かない指', ep: '凍え指の', big: true }, { text: '霜焼けの残る頬', ep: '霜の' }],
+  dark: [{ text: '呪いの黒い痣', ep: '痣の' }, { text: '影に蝕まれた腕', ep: '呪われた', big: true }],
+  shot: [{ text: '肩に残る矢傷', ep: '矢傷の' }, { text: '耳を射抜かれた跡', ep: '片耳の', big: true }],
+  fire: [{ text: '顔半分の火傷', ep: '焼け顔の', big: true }, { text: '焼けただれた腕', ep: '焦げ腕の' }],
+  thunder: [{ text: '腕に走る雷の痕', ep: '雷痕の' }, { text: '白く変わった髪', ep: '白髪の', big: true }],
+  light: [{ text: '光に焼かれた右目', ep: '隻眼の', big: true }, { text: '白く濁った片目', ep: '濁り目の', big: true }],
 };
+/** 23夜目⑤'：二つ名を変える出来事の大きさ（大きいほど、3年待たずに変わる）と、待つ年・一生の数 */
+export const EPITHET_RULE = { wait: 3, max: 3, level: { wound: 2, again: 2, rank: 2, fallen: 2, victim: 3, revived: 3, mad: 1, careful: 1 } as Record<string, number> };
 /** 二つ名の言葉の組み合わせ（出来事ごと） */
 export const EPITHET_WORDS = {
   /** 教え子を倒した（{v}＝倒した子） */

@@ -1,6 +1,6 @@
 // 19夜目：宿敵（ネメシス）の芯。覚えていること・再会までの変化・二つ名・情報・因縁の帳。DOMに依存しない
 import { heartBattleLines } from './hearts';
-import { NEM_SAY, WOUNDS, EPITHET_WORDS, STUDENT_EPITHET, HEART_TEXT, REUNION_TEXT } from '../data/nemesis';
+import { NEM_SAY, WOUNDS, EPITHET_RULE, EPITHET_WORDS, STUDENT_EPITHET, HEART_TEXT, REUNION_TEXT } from '../data/nemesis';
 import { ATK_NAME, ATK_TYPES, type AtkType } from '../data/tactics';
 import { CLASSES } from '../data/classes';
 import { FACTION_NAMES } from '../data/officers';
@@ -150,11 +150,17 @@ export function reunionLines(s: GameState, o: EnemyOfficer): string[] {
 }
 
 /** 二つ名を変える（言葉の組み合わせ） */
-export function setEpithet(s: GameState, o: EnemyOfficer, word: string, why: string): string | null {
+export function setEpithet(s: GameState, o: EnemyOfficer, word: string, why: string, kind = 'wound'): string | null {
   if (!word || o.epithet === word) return null;
+  // 23夜目⑤'：一度ついた二つ名は3年変えない（より大きな出来事のときだけ例外）。一生で3つまで
+  const lv = EPITHET_RULE.level[kind] ?? 1;
+  if ((o.epithetCount ?? 0) >= EPITHET_RULE.max) return null;
+  if (o.epithetYear !== undefined && s.year - o.epithetYear < EPITHET_RULE.wait && lv <= (o.epithetLevel ?? 0)) return null;
   const old = officerName(o);
   o.epithet = word;
   o.epithetWhy = why;
+  o.epithetYear = s.year; o.epithetLevel = lv; o.epithetCount = (o.epithetCount ?? 0) + 1;
+  (o.epithetLog ??= []).push({ year: s.year, level: lv, word });
   const t = `${FACTION_NAMES[o.faction]}の${old}は、「${officerName(o)}」と呼ばれるようになった（${why}）`;
   chronicle(s, t, 'world');
   return t;
@@ -169,7 +175,12 @@ function topHitter(s: GameState, u: TUnit): string | null {
 export function studentEpithet(s: GameState, st: Student, kind: keyof typeof STUDENT_EPITHET, n: string, r: Rng): string | null {
   const w = fill(r.pick(STUDENT_EPITHET[kind]), { n });
   if (st.epithet === w) return null;
+  // 23夜目⑤'：生徒の二つ名も、3年は変えない（宿敵を討つ・退ける大きな出来事は例外）。一生で3つまで
+  if ((st.epithetCount ?? 0) >= EPITHET_RULE.max) return null;
+  if (st.epithet && st.epithetYear !== undefined && s.year - st.epithetYear < EPITHET_RULE.wait && kind === 'breaker') return null;
+  if (st.epithet && st.epithetYear === s.year) return null;
   st.epithet = w;
+  st.epithetYear = s.year; st.epithetCount = (st.epithetCount ?? 0) + 1;
   const t = `${st.given}は「${w}${st.given}」と呼ばれるようになった`;
   chronicle(s, t, 'student');
   st.history.push({ year: s.year, text: t });
@@ -232,7 +243,7 @@ export function afterTactics(s: GameState, b: TBattle, r: Rng, lines: string[]):
     if (u.lastHitBy !== bu.uid) continue;
     const st = s.students[u.studentId];
     o.victims.push({ id: st.id, name: st.given, year: s.year, dead: u.down === 'dead' });
-    if (u.down === 'dead') { const ep = setEpithet(s, o, fill(r.pick(EPITHET_WORDS.victim), { v: st.given }), `${st.given}を討った`); if (ep) { lines.push(ep); out.push({ icon: 'skull', text: ep }); } }
+    if (u.down === 'dead') { const ep = setEpithet(s, o, fill(r.pick(EPITHET_WORDS.victim), { v: st.given }), `${st.given}を討った`, 'victim'); if (ep) { lines.push(ep); out.push({ icon: 'skull', text: ep }); } }
     o.level += NEM.levelPerVictim;
   }
   if (fell) {
@@ -258,13 +269,15 @@ export function afterTactics(s: GameState, b: TBattle, r: Rng, lines: string[]):
     const hurt = bu.max > 0 && bu.hp / bu.max <= NEM.woundAt || (bu.brokenBy ?? []).length > 0 || !!bu.escapedWounded;
     if (hurt && top) {
       const wtype = (bu.lastType ?? 'slash') as AtkType;
-      const wt = r.pick(WOUNDS[wtype].text);
+      const wd = r.pick(WOUNDS[wtype]);
+      const wt = wd.text;
       (o.wounds ??= []).push({ text: wt, year: s.year, by: top });
       m.woundedBy.push({ id: top, text: wt, year: s.year });
       o.scars = Math.min(4, (o.scars ?? 0) + 1);
       const tt = `${fn}は${s.students[top]?.given}に「${wt}」を負わされた`;
       lines.push(tt); out.push({ id: top, icon: 'flame', text: tt });
-      if ((o.wounds ?? []).length >= 2 || wt.includes('目')) { const ep = setEpithet(s, o, r.pick(WOUNDS[wtype].ep), wt); if (ep) { lines.push(ep); out.push({ icon: 'skull', text: ep }); } }
+      // 23夜目⑤'：二つ名が変わるのは、体に一生残る大きな傷だけ。言葉は傷の文に合わせる
+      if (wd.big && wd.ep) { const ep = setEpithet(s, o, wd.ep, wt, 'wound'); if (ep) { lines.push(ep); out.push({ icon: 'skull', text: ep }); } }
     }
     if (b.result === 'win' && top) {
       if (!m.beatenBy.includes(top)) m.beatenBy.push(top);
@@ -280,7 +293,7 @@ export function afterTactics(s: GameState, b: TBattle, r: Rng, lines: string[]):
         if (ot) { lines.push(ot); out.push({ id: top, icon: 'flame', text: ot }); }
       }
       if (r.chance(NEM.heartChange)) { o.heart = r.pick(m.shame.length >= 2 ? ['mad', 'careful'] as const : ['careful', 'steady', 'mad'] as const); }
-      if (o.meets.length >= 3 && r.chance(0.5)) { const ep = setEpithet(s, o, EPITHET_WORDS.again[Math.min(EPITHET_WORDS.again.length - 1, o.meets.length - 2)] ?? '不死身の', `${o.meets.length}度目の再会を生きのびた`); if (ep) { lines.push(ep); } }
+      if (o.meets.length >= 3 && r.chance(0.5)) { const ep = setEpithet(s, o, EPITHET_WORDS.again[Math.min(EPITHET_WORDS.again.length - 1, o.meets.length - 2)] ?? '不死身の', `${o.meets.length}度目の再会を生きのびた`, 'again'); if (ep) { lines.push(ep); } }
       o.level += NEM.levelPerMeet;
     } else if (b.result === 'lose') {
       o.level += NEM.levelPerMeet;

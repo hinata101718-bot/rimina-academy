@@ -5,6 +5,7 @@ import { takenNames } from '../src/core/officers';
 import { NAMES } from '../src/data/names';
 import { nameTag } from '../src/core/student';
 import type { GameState } from '../src/core/state';
+import { WOUNDS } from '../src/data/nemesis';
 
 /** 同じ時期にいる人の下の名前を、重なりも数えて並べる */
 function sameTimeNames(s: GameState): string[] {
@@ -35,12 +36,6 @@ describe('23夜目①：同じ時期に名前がかぶらない', () => {
       expect(takenNames(s).has(s.instructor.name.split('・')[0])).toBe(true);
     }
   });
-  it('40年回して、同じ時期に同じ下の名前が2人いない', () => {
-    const s = newGame({ name: 'テスト', background: 'merc', seed: 77 });
-    const found: string[] = [];
-    autoYears(s, 40, (g: GameState) => { const d = dups(sameTimeNames(g)); if (d.length) found.push(`${g.year}:${d.join(',')}`); });
-    expect(found).toEqual([]);
-  }, 120000);
   it('前からのセーブで同じ名前の子がいるときは、姓の頭を添える', () => {
     const s = newGame({ name: 'テスト', background: 'knight', seed: 5 });
     const [a, b] = Object.values(s.students).filter((x) => x.family);
@@ -163,5 +158,184 @@ describe('23夜目④：同じ段階の兵種へ', () => {
     const st2 = enrolled(s)[1];
     st2.classId = 'archer'; st2.apt = { good: ['bow'], bad: [] } as never;
     expect(autoSideChange(s, st2)).toBeNull();
+  });
+});
+
+describe("23夜目①⑤'：40年回して（名前のかぶり・二つ名）", () => {
+  it('同じ時期に同じ下の名前が2人いない。3年以内に二つ名が2回変わらない（より大きな出来事は別）・傷と二つ名が合う・一生で3つまで', () => {
+    const s = newGame({ name: 'テスト', background: 'merc', seed: 77 });
+    const found: string[] = [];
+    autoYears(s, 40, (g: GameState) => { const d = dups(sameTimeNames(g)); if (d.length) found.push(`${g.year}:${d.join(',')}`); });
+    expect(found).toEqual([]);
+    const woundEp = new Map<string, string>();
+    for (const list of Object.values(WOUNDS)) for (const w of list) if (w.ep) woundEp.set(w.text, w.ep);
+    let changes = 0;
+    for (const o of s.officers ?? []) {
+      const log = o.epithetLog ?? [];
+      changes += log.length;
+      expect(log.length).toBeLessThanOrEqual(3);
+      for (let i = 1; i < log.length; i++) if (log[i].year - log[i - 1].year < 3) expect(log[i].level).toBeGreaterThan(log[i - 1].level);
+      if (o.epithetWhy && woundEp.has(o.epithetWhy)) expect(o.epithet).toBe(woundEp.get(o.epithetWhy));
+    }
+    expect(changes).toBeGreaterThan(0);
+  }, 900000);
+});
+
+import { buildBattle, finishBattle, startBattle, nextStage } from '../src/core/flow';
+import { recommendSquad, recommendDeploy } from '../src/core/sortie';
+import { ensureStages, questStages } from '../src/core/march';
+import { autoFinish, autoOne } from '../src/core/tactics/ai';
+import { checkEnd, foes, mine, attack } from '../src/core/tactics/engine';
+import { B as BAL } from '../src/data/balance';
+import { MARCH_TEXT } from '../src/data/march';
+import { chooseWeek } from '../src/core/flow';
+import { recommendCard, recommendSocial, todayCards } from '../src/core/lessons';
+import { autoPending } from '../src/core/autoplay';
+import type { Quest } from '../src/core/state';
+
+/** 月末の依頼が出るところまで進める（最初の案内の月は飛ばす） */
+function toBoard(seed: number): GameState {
+  const s = newGame({ name: 'テスト', background: 'knight', seed });
+  let k = 0;
+  while (k++ < 200) {
+    autoPending(s);
+    if (s.year >= 1 && s.month >= 1 && s.quests.some((q) => q.real && !q.tutorial && !q.small)) break;
+    todayCards(s); chooseWeek(s, recommendCard(s), recommendSocial(s));
+    if (s.battle) { autoFinish(s.battle); finishBattle(s); }
+  }
+  s.pending = [];
+  return s;
+}
+function winNow(b: TBattle): void { for (const f of foes(b)) { f.alive = false; f.down = 'dead'; } checkEnd(b); }
+
+describe('23夜目⑥：盤は8×10・出撃は6人＋先生', () => {
+  it('ふつうの依頼の盤は8×10で、教え子6人と先生。敵は8〜12人', () => {
+    const s = toBoard(21);
+    const q = s.quests.find((x) => x.real && !x.small)!;
+    q.stages = 1;
+    const ids = recommendDeploy(s, q);
+    expect(ids.length).toBe(Math.min(6, enrolled(s).length));
+    const b = buildBattle(s, q, recommendSquad(s, q).deploy);
+    expect([b.w, b.h]).toEqual([8, 10]);
+    expect(b.units.filter((u) => u.side === 'me' && !u.teacher && !u.helper).length).toBe(ids.length);
+    const n = b.units.filter((u) => u.side === 'foe').length;
+    expect(n).toBeGreaterThanOrEqual(8);
+    expect(n).toBeLessThanOrEqual(12);
+    for (const u of b.units) { expect(u.x).toBeLessThan(8); expect(u.y).toBeLessThan(10); }
+  });
+});
+
+describe('23夜目⑦：進軍', () => {
+  it('依頼に戦場の数がつく（1〜5）。大きめの依頼は報酬が多い', () => {
+    let big = 0, two = 0, all = 0;
+    for (let seed = 1; seed <= 12; seed++) {
+      const s = toBoard(seed);
+      ensureStages(s);
+      for (const q of s.quests) { const n = questStages(q); expect(n).toBeGreaterThanOrEqual(1); expect(n).toBeLessThanOrEqual(5); if (!q.real || q.small) expect(n).toBe(1); all++; if (n >= 3) big++; if (n === 2) two++; if (n > 1) expect(q.stageNames?.length).toBe(n); }
+    }
+    expect(two).toBeGreaterThan(0);
+    expect(big).toBeLessThan(all / 2);
+  });
+  it('自分で戦う進軍：勝つと戦場と戦場のあいだ → 体力は持ち越して少し戻り、技の回数は全部戻る → 最後に結果は1つ', () => {
+    const s = toBoard(22);
+    const q = s.quests.find((x) => x.real && !x.small)! as Quest;
+    q.stages = 3; q.stageNames = ['前哨', '城門', '本陣'];
+    startBattle(s, q.id, recommendSquad(s, q).deploy, false);
+    const b0 = s.battle!;
+    expect(b0.march).toMatchObject({ idx: 0, total: 3 });
+    const kid = b0.units.find((u) => u.side === 'me' && !u.teacher && u.techs.length)! ?? b0.units.find((u) => u.side === 'me' && !u.teacher)!;
+    kid.hp = Math.max(1, Math.floor(kid.max * 0.3));
+    for (const tt of kid.techs) tt.left = 0;
+    const hp0 = kid.hp;
+    winNow(b0);
+    finishBattle(s);
+    expect(s.battle).toBeNull();
+    expect(s.march?.between).toBe(true);
+    const c = s.march!.carry[kid.studentId!];
+    expect(c.hp).toBe(Math.min(kid.max, Math.round(hp0 + kid.max * BAL.march.carryHeal)));
+    nextStage(s, { rest: 'heal', route: 'detour' });
+    const b1 = s.battle!;
+    expect(b1.march?.idx).toBe(1);
+    const k1 = b1.units.find((u) => u.studentId === kid.studentId)!;
+    expect(k1.hp).toBe(Math.min(k1.max, Math.round(c.hp + 0) ));
+    for (const tt of k1.techs) expect(tt.left).toBeGreaterThan(0);
+    expect(b1.chests?.length).toBeGreaterThan(0);
+    winNow(b1);
+    finishBattle(s);
+    nextStage(s, { rest: 'scout', route: 'short' });
+    const b2 = s.battle!;
+    expect(b2.march?.idx).toBe(2);
+    winNow(b2);
+    finishBattle(s);
+    expect(s.march).toBeNull();
+    const res = s.pending.filter((p) => p.type === 'battleResult');
+    expect(res.length).toBe(1);
+    expect((res[0] as { title: string }).title).toBe(q.title);
+  });
+  it('2つ目より先で負けたら、そこまでの戦果（報酬の一部）が残る', () => {
+    const s = toBoard(23);
+    const q = s.quests.find((x) => x.real && !x.small)!;
+    q.stages = 2; q.stageNames = ['前哨', '本陣'];
+    startBattle(s, q.id, recommendSquad(s, q).deploy, false);
+    winNow(s.battle!); finishBattle(s);
+    nextStage(s, { rest: 'heal', route: 'short' });
+    const b = s.battle!;
+    const t = b.units.find((u) => u.teacher)!; t.alive = false; t.down = 'out'; checkEnd(b);
+    finishBattle(s);
+    const res = s.pending.find((p) => p.type === 'battleResult') as unknown as { lines: string[] };
+    expect(res.lines.some((l) => l.includes('戦果'))).toBe(true);
+  });
+  it('最後でない戦場の敵将は、倒しても次の戦場へ退き、傷を負ったまま待ち構える（逃げたことに触れる口上）', () => {
+    for (let seed = 30; seed < 40; seed++) {
+      const s = toBoard(seed);
+      const q = s.quests.find((x) => x.real && !x.small);
+      if (!q) continue;
+      q.stages = 2; q.stageNames = ['前哨', '本陣'];
+      startBattle(s, q.id, recommendSquad(s, q).deploy, false);
+      const b = s.battle!;
+      const bu = b.units.find((u) => u.boss && u.officerId);
+      if (!bu) { s.battle = null; s.march = null; continue; }
+      const kid = mine(b).find((u) => !u.teacher)!;
+      bu.hp = 1; bu.sh = 0; bu.broken = 2;
+      // ふつうの攻撃で倒す
+      kid.x = bu.x; kid.y = bu.y + 1;
+      attack(b, kid.uid, bu.uid, null, { x: kid.x, y: kid.y });
+      expect(bu.down).toBe('fled');
+      if (b.phase !== 'done') winNow(b);
+      finishBattle(s);
+      expect(s.march?.foe?.fled).toBe(true);
+      nextStage(s, { rest: 'scout', route: 'short' });
+      const b2 = s.battle!;
+      const bu2 = b2.units.find((u) => u.boss)!;
+      expect(bu2.officerId).toBe(bu.officerId);
+      expect(bu2.hp).toBeLessThan(bu2.max);
+      if (b2.lines?.['boss:intro']) expect(MARCH_TEXT.regroup).toContain(b2.lines['boss:intro']);
+      return;
+    }
+    throw new Error('敵将のいる依頼が見つからない');
+  });
+  it('おまかせの進軍は、小休止と道もおまかせで選んで最後まで進む', () => {
+    const s = toBoard(24);
+    const q = s.quests.find((x) => x.real && !x.small)!;
+    q.stages = 4; q.stageNames = ['a', 'b', 'c', 'd'];
+    startBattle(s, q.id, recommendSquad(s, q).deploy, true);
+    expect(s.battle).toBeNull();
+    expect(s.march).toBeNull();
+    expect(s.pending.some((p) => p.type === 'battleResult')).toBe(true);
+  });
+});
+
+describe('23夜目⑨：1人ずつおまかせ', () => {
+  it('その子だけが動き、番は終わらない', () => {
+    const s = toBoard(25);
+    const q = s.quests.find((x) => x.real && !x.small)!;
+    q.stages = 1;
+    s.battle = buildBattle(s, q, recommendSquad(s, q).deploy);
+    const b = s.battle;
+    const kid = mine(b).find((u) => !u.teacher)!;
+    autoOne(b, kid.uid);
+    expect(kid.acted).toBe(true);
+    expect(b.phase).toBe('player');
+    expect(mine(b).filter((u) => !u.acted).length).toBeGreaterThan(0);
   });
 });

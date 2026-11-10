@@ -87,7 +87,8 @@ function orgChanges(s: GameState, extraLines: string[]): NonNullable<NewsPaper['
     if (was.st === 'active' && (o.status === 'retired' || o.status === 'defeated')) { out.push({ tag: ORG_TAGS.retire, name, text: `（${who}）、${o.endNote ?? '戦場を去る'}`, officerId: o.id }); continue; }
     if (o.status !== 'active') continue;
     if (o.rank < was.rk) out.push({ tag: ORG_TAGS.promote, name, text: `${rankName({ ...o, rank: was.rk })}→${rankName(o)}。${factionName(o.faction)}の要に`, officerId: o.id });
-    if (o.epithet && o.epithet !== was.ep) out.push({ tag: ORG_TAGS.epithet, name: `${o.given}`, text: `${factionName(o.faction)}の${o.given}、「${o.epithet}${o.given}」と呼ばれはじめる`, officerId: o.id });
+    // 23夜目⑤'：二つ名が変わった話は、1年に1人1回まで
+    if (o.epithet && o.epithet !== was.ep && o.epithetNews !== s.year) { o.epithetNews = s.year; out.push({ tag: ORG_TAGS.epithet, name: `${o.given}`, text: `${factionName(o.faction)}の${o.given}、「${o.epithet}${o.given}」と呼ばれはじめる`, officerId: o.id }); }
   }
   for (const l of extraLines) {
     if (/権力争い|跡目|座を/.test(l) && out.length < 8) out.push({ tag: ORG_TAGS.strife, text: l });

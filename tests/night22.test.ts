@@ -54,7 +54,7 @@ describe('22夜目①：魔防', () => {
     const before = Object.fromEntries(Object.values(raw.state.students as Record<string, Student>).map((x) => [x.id, x.stats.def]));
     const s = deserialize(JSON.stringify(raw));
     expect(s.version).toBe(SAVE_VERSION);
-    expect(SAVE_VERSION).toBe(22);
+    expect(SAVE_VERSION).toBeGreaterThanOrEqual(22);
     expect(s.instructor.cha).toBeUndefined();
     for (const st of Object.values(s.students)) {
       expect(st.stats.res).toBeGreaterThanOrEqual(1);

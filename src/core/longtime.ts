@@ -47,7 +47,7 @@ export function yearlyLong(s: GameState, r: Rng, report: string[]): void {
       if (bondedNow && o.heart !== 'mad' && r.chance(0.5)) { makeAlly(s, o, 'betrayed', report); continue; }
       const from = FACTION_NAMES[o.faction];
       o.faction = 'bandit'; o.kind = 'bandit'; o.country = null; o.rank = 2; o.heart = 'fallen';
-      const ep = setEpithet(s, o, r.pick(EPITHET_WORDS.fallen), `${from}を追われた`);
+      const ep = setEpithet(s, o, r.pick(EPITHET_WORDS.fallen), `${from}を追われた`, 'fallen');
       const t = `${officerName(o)}は、学校に負け続けた責めを負い、${from}を追われた。盗賊に身を落としても、執念は消えていない`;
       chronicle(s, t, 'world'); report.push(t); if (ep) report.push(ep);
     }
@@ -80,7 +80,7 @@ export function revive(s: GameState, r: Rng, o: EnemyOfficer, why: string, curse
   o.status = 'active'; o.presumed = null; o.revived = (o.revived ?? 0) + 1; o.reviveNote = why; o.endNote = undefined;
   (o.wounds ??= []).push({ text: curse ? '死の淵から戻った痕' : 'あのときの致命傷の痕', year: s.year });
   if (curse) { o.heart = 'mad'; o.cursed = true; }
-  setEpithet(s, o, r.pick(EPITHET_WORDS.revived), curse ? '呪いで蘇った' : '死んだはずが生きていた');
+  setEpithet(s, o, r.pick(EPITHET_WORDS.revived), curse ? '呪いで蘇った' : '死んだはずが生きていた', 'revived');
   s.nextNemesis = o.id;
   const t = `死んだはずの${officerName(o)}が生きていた。${why}`;
   chronicle(s, t, 'world'); report.push(t);

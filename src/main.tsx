@@ -6,8 +6,8 @@ import { loadFaceManifest } from './ui/Portrait';
 
 // 19夜目：画面の確かめ用（?debug のときだけ。遊ぶ人には関係ない）
 if (/debug/.test(location.search)) {
-  void Promise.all([import('./ui/store'), import('./core/game'), import('./core/flow'), import('./core/autoplay'), import('./core/sortie'), import('./core/rng'), import('./core/nemesis'), import('./core/bonds'), import('./core/alumni'), import('./core/hearts'), import('./core/tactics/setup'), import('./core/tactics/engine'), import('./core/instructor')]).then(([store, game, flow, auto, sortie, rng, nemesis, bonds, alumni, hearts, tsetup, tengine, instructor]) => {
-    (window as unknown as Record<string, unknown>).__rimina = { store, game, flow, auto, sortie, rng, nemesis, bonds, alumni, hearts, tsetup, tengine, instructor };
+  void Promise.all([import('./ui/store'), import('./core/game'), import('./core/flow'), import('./core/autoplay'), import('./core/sortie'), import('./core/rng'), import('./core/nemesis'), import('./core/bonds'), import('./core/alumni'), import('./core/hearts'), import('./core/tactics/setup'), import('./core/tactics/engine'), import('./core/instructor'), import('./core/march'), import('./core/exam')]).then(([store, game, flow, auto, sortie, rng, nemesis, bonds, alumni, hearts, tsetup, tengine, instructor, march, exam]) => {
+    (window as unknown as Record<string, unknown>).__rimina = { store, game, flow, auto, sortie, rng, nemesis, bonds, alumni, hearts, tsetup, tengine, instructor, march, exam };
   });
 }
 

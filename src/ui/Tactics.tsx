@@ -12,13 +12,14 @@ import type { GameState } from '../core/state';
 import type { TBattle, TUnit, TFx } from '../core/tactics/types';
 import { reach, attackable, healable, attacksOf, healsOf, bestSpot, calc, unit, foes, mine, key, attack, heal, moveOnly, wait, usePotion, command, insight, insightTargets, endTurn, undoLast, techOf, boss as bossOf, isForest, swapTargets, swapFoeTargets, swapUnits, openables, openAt, ignitables, ignite, T as hasTrait, walkPath, trapSpots, placeTrap } from '../core/tactics/engine';
 import { Icon } from './icons';
-import { autoTurn } from '../core/tactics/ai';
+import { autoTurn, autoOne } from '../core/tactics/ai';
 import { finishBattle, finishAuto, noDeath } from '../core/flow';
 import { ATK_NAME, TB, FIELD_BY_ID } from '../data/tactics';
 import { TEACHER_RANK } from '../data/balance';
 import { CLASSES } from '../data/classes';
 import { officerById } from '../core/officers';
 import { AtkMark, AtkLegend } from './atk';
+import { MarchMap } from './March';
 import type { AtkType } from '../data/tactics';
 
 /** 22夜目⑧：その子が使える攻撃の種類（ふつうの攻撃と技） */
@@ -54,19 +55,46 @@ function UnitFace({ u }: { u: TUnit }) {
 
 interface Pop { id: number; x: number; y: number; text: string; cls: string }
 /** 22夜目⑦：演出の列。敵の番は1人ずつ「枠が乗る（focus）→ 歩く → 攻撃 → 間（gap）」 */
-type QFx = (TFx | { k: 'focus'; uid: string } | { k: 'gap' }) & { foe?: boolean };
+type QFx = (TFx | { k: 'focus'; uid: string } | { k: 'gap' } | { k: 'gmove'; moves: { uid: string; x: number; y: number }[] }) & { foe?: boolean };
 function actorOf(f: TFx): string | null { return f.k === 'move' || f.k === 'flee' ? f.uid : f.k === 'hit' || f.k === 'heal' ? f.a : f.k === 'say' || f.k === 'cutin' ? f.by : null; }
+/** 23夜目⑧：敵の番は、雑兵はまとめて同時に歩き（そのあと順に攻撃）、敵将と宿敵は1人ずつ枠が乗って歩く */
 function stage(view: TBattle, fx: TFx[]): QFx[] {
   const out: QFx[] = [];
   let foe = view.phase === 'enemy';
-  let last: string | null = null;
+  let seg: TFx[] = [];
+  const leader = (uid: string | null) => { const u = uid ? view.units.find((x) => x.uid === uid) : null; return !!u && u.side === 'foe' && (!!u.boss || !!u.nemesis); };
+  const grunt = (uid: string | null) => { const u = uid ? view.units.find((x) => x.uid === uid) : null; return !!u && u.side === 'foe' && !u.boss && !u.nemesis; };
+  const flush = () => {
+    if (!seg.length) return;
+    if (!foe) { out.push(...seg.map((f) => ({ ...f, foe }))); seg = []; return; }
+    let last: string | null = null;
+    let block: TFx[] = [];
+    const flushBlock = () => {
+      if (!block.length) return;
+      const moves = block.filter((f) => f.k === 'move' && grunt(f.uid)) as Extract<TFx, { k: 'move' }>[];
+      if (moves.length) { if (last) out.push({ k: 'gap', foe }); out.push({ k: 'gmove', moves: moves.map((m) => ({ uid: m.uid, x: m.x, y: m.y })), foe }); last = 'grunts'; }
+      for (const f of block) if (!(f.k === 'move' && grunt(f.uid))) out.push({ ...f, foe });
+      block = [];
+    };
+    for (const f of seg) {
+      const a = actorOf(f);
+      if (leader(a) && (f.k === 'move' || f.k === 'hit' || f.k === 'heal')) {
+        flushBlock();
+        if (a !== last) { if (last) out.push({ k: 'gap', foe }); out.push({ k: 'focus', uid: a!, foe }); last = a; }
+        out.push({ ...f, foe });
+        continue;
+      }
+      if (leader(a)) { flushBlock(); out.push({ ...f, foe }); continue; }
+      block.push(f);
+    }
+    flushBlock();
+    seg = [];
+  };
   for (const f of fx) {
-    if (f.k === 'phase') { foe = f.side === 'foe'; last = null; out.push({ ...f, foe }); continue; }
-    const a = actorOf(f);
-    const u = a ? view.units.find((x) => x.uid === a) : null;
-    if (foe && u && u.side === 'foe' && a !== last && (f.k === 'move' || f.k === 'hit' || f.k === 'heal')) { if (last) out.push({ k: 'gap', foe }); out.push({ k: 'focus', uid: a!, foe }); last = a; }
-    out.push({ ...f, foe });
+    if (f.k === 'phase') { flush(); foe = f.side === 'foe'; out.push({ ...f, foe }); continue; }
+    seg.push(f);
   }
+  flush();
   return out;
 }
 const VERB: Record<string, string> = { slash: '斬った', thrust: '突いた', shot: '射た', crush: '砕いた', blunt: '打ちすえた', fire: '炎で焼いた', thunder: '雷を落とした', ice: '凍らせた', light: '光で撃った', dark: '闇で呑んだ' };
@@ -94,6 +122,8 @@ export function TacticsView() {
   const foeLogRef = useRef<string[]>([]);
   const movedRef = useRef<Record<string, string>>({});
   const rushRef = useRef(false);
+  const pressRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const longRef = useRef(false);
   const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
   const [pops, setPops] = useState<Pop[]>([]);
   const [over, setOver] = useState<Over | null>(null);
@@ -141,7 +171,7 @@ export function TacticsView() {
         ms = (path.length * step * 1000 + 80) / M;
       }
     }
-    else if (f.k === 'phase') { setFocus(null); setOver({ kind: 'phase', title: f.side === 'foe' ? '敵の番' : `ターン${f.turn}`, sub: f.side === 'foe' ? '敵が1人ずつ動きます（画面をタップで早送り）' : 'こちらの番' }); ms = 650; }
+    else if (f.k === 'phase') { setFocus(null); setOver({ kind: 'phase', title: f.side === 'foe' ? '敵の番' : `ターン${f.turn}`, sub: f.side === 'foe' ? '兵はまとめて、敵将は1人ずつ動きます（画面をタップで早送り）' : 'こちらの番' }); ms = 650; }
     else if (f.k === 'cutin') { const a = U(f.by); setOver({ kind: 'cutin', a, title: f.title, sub: f.sub, tap: tapSay }); sfx('cutin'); ms = 950; hold = tapSay; }
     else if (f.k === 'say') { const a = U(f.by); setOver({ kind: 'say', a, text: f.text, tap: tapSay }); if (a?.nemesis) sfx('nemesis'); ms = 1500; hold = tapSay; }
     else if (f.k === 'reveal') { const d = U(f.d); if (d && !d.known.includes(f.type)) d.known.push(f.type); if (d) addPop(d, `弱点：${ATK_NAME[f.type]}`, 'sh'); sfx('weak'); ms = 700; }
@@ -165,7 +195,8 @@ export function TacticsView() {
       }
       sfx(f.brk ? 'break' : f.shield ? 'shield' : f.weak ? 'weak' : f.kill ? 'kill' : 'hit');
       const tags = [f.weak ? '弱点！' : '', f.shield ? '盾 −1' : '', f.brk ? 'ブレイク！' : '', f.resisted ? '効かない' : '', f.kill ? (d?.side === 'me' ? '倒れた' : '倒した！') : ''].filter(Boolean);
-      if (duelMode !== 'off' && a && d) { setOver({ kind: 'duel', a, d, dmg: f.dmg, tags, title: f.tech }); ms = duelMode === 'full' ? 900 : 520; }
+      const quick = !!f.foe && !!a && a.side === 'foe' && !a.boss && !a.nemesis;
+      if (duelMode !== 'off' && a && d) { setOver({ kind: 'duel', a, d, dmg: f.dmg, tags, title: f.tech }); ms = duelMode === 'full' ? 900 : quick ? 380 : 520; }
       else ms = 420;
       if (f.brk) { later(() => setOver({ kind: 'break', d, title: 'ブレイク！', sub: '次の番は動けず、受ける傷が2倍' }), ms * M); ms += 1000; }
     }
@@ -216,7 +247,17 @@ export function TacticsView() {
     setSel(null); setTgt(null); setMode('none');
     if (fx.length) setReplay({ view: before, queue: fx, i: 0 });
   }
+  /** 23夜目⑨：駒を長押し → その子だけ「この番はおまかせ」 */
+  function pressStart(x: number, y: number) {
+    pressEnd();
+    if (busy || b!.phase !== 'player') return;
+    const u = b!.units.find((o) => o.alive && o.x === x && o.y === y && o.side === 'me' && !o.acted && !o.teacher);
+    if (!u) return;
+    pressRef.current = setTimeout(() => { pressRef.current = null; longRef.current = true; sfx('ok'); run((g) => autoOne(g.battle!, u.uid, { noDeath: nd })); }, 550);
+  }
+  function pressEnd() { if (pressRef.current) { clearTimeout(pressRef.current); pressRef.current = null; } }
   function tapCell(x: number, y: number) {
+    if (longRef.current) { longRef.current = false; return; }
     if (busy) { rushRef.current = true; return; }
     if (b!.phase !== 'player') return;
     const u = view.units.find((o) => o.alive && o.x === x && o.y === y) ?? null;
@@ -267,9 +308,10 @@ export function TacticsView() {
         <div class="tb-title">{b.title}<small>{field?.name}{b.nemesisId ? '・宿敵戦' : ''}</small></div>
         <span class="tb-pill">ターン{view.turn}{b.holdTurns ? `／${b.holdTurns}` : ''}</span>
       </div>
+      {b.march && b.march.total > 1 && <MarchMap names={b.march.names} idx={b.march.idx} small />}
       <div class="tb-obj">勝ち方：{OBJ_TEXT[b.objective]}{b.objective === 'defend' ? `（${b.holdTurns}ターン）` : ''}　先生が倒れると負け</div>
       {bs && <BossCard u={bs} />}
-      <div class={`tb-board${shake && view.units.find((u) => u.uid === shake)?.boss ? ' bshake' : ''}`}>
+      <div class={`tb-board${b.w >= 8 ? ' w8' : ''}${shake && view.units.find((u) => u.uid === shake)?.boss ? ' bshake' : ''}`} style={{ gridTemplateColumns: `repeat(${b.w}, 1fr)`, gridTemplateRows: `repeat(${b.h}, 1fr)`, aspectRatio: `${b.w} / ${b.h}` }}>
         {Array.from({ length: b.h }, (_, y) => Array.from({ length: b.w }, (_, x) => {
           const k = key(x, y);
           const rock = b.rock.includes(k), forest = isForest(b, x, y);
@@ -289,7 +331,7 @@ export function TacticsView() {
           if (!busy && tgtU && cards[0]?.spot && cards[0].spot.x === x && cards[0].spot.y === y) cls += ' spot';
           if (b.captive && !b.captive.freed && b.captive.x === x && b.captive.y === y) cls += ' captive';
           if (b.objective === 'escape' && y === (b.exitRow ?? 0)) cls += ' exit';
-          return <button class={cls} aria-label={`${x + 1}列${y + 1}行${u ? ` ${u.name}` : ''}${chest && !chest.opened ? ' 宝箱' : ''}${door ? ' 扉' : ''}${gate ? ' 木の門' : ''}`} onClick={() => tapCell(x, y)}>{b.captive && !b.captive.freed && b.captive.x === x && b.captive.y === y ? <span class="tb-captive">救</span> : chest && !chest.opened ? <span class="tb-obj-ic"><Icon name="chest" size={22} /></span> : door ? <span class="tb-obj-ic"><Icon name="door" size={22} /></span> : gate ? <span class="tb-obj-ic gate">門</span> : trapHere ? <span class="tb-obj-ic trapic">罠</span> : null}</button>;
+          return <button class={cls} onPointerDown={() => pressStart(x, y)} onPointerUp={pressEnd} onPointerLeave={pressEnd} onPointerCancel={pressEnd} onContextMenu={(e) => e.preventDefault()} aria-label={`${x + 1}列${y + 1}行${u ? ` ${u.name}` : ''}${chest && !chest.opened ? ' 宝箱' : ''}${door ? ' 扉' : ''}${gate ? ' 木の門' : ''}`} onClick={() => tapCell(x, y)}>{b.captive && !b.captive.freed && b.captive.x === x && b.captive.y === y ? <span class="tb-captive">救</span> : chest && !chest.opened ? <span class="tb-obj-ic"><Icon name="chest" size={22} /></span> : door ? <span class="tb-obj-ic"><Icon name="door" size={22} /></span> : gate ? <span class="tb-obj-ic gate">門</span> : trapHere ? <span class="tb-obj-ic trapic">罠</span> : null}</button>;
         }))}
         <div class="tb-layer">
           {view.units.filter((u) => u.alive).map((u) => {
@@ -303,7 +345,7 @@ export function TacticsView() {
                 {!busy && selU && u.side === 'foe' && atkable.some((f) => f.uid === u.uid) && weakFor(selU, u) === 'gold' && <div class="tb-goldtag">弱点</div>}
                 <div class="tb-marks">{u.side === 'foe'
                   ? [...u.weak.slice(0, 2).map((w) => (u.known.includes(w) && !u.resist.includes(w) ? <AtkMark small t={w} state="weak" /> : u.resist.includes(w) ? null : <AtkMark small state="q" />)), ...u.resist.slice(0, 1).map((r) => <AtkMark small t={r} state="no" />)]
-                  : u.teacher ? null : typesOf(u).slice(0, 3).map((t) => <AtkMark small t={t} />)}</div>
+                  : u.teacher ? null : typesOf(u).slice(0, b.w >= 8 ? 2 : 3).map((t) => <AtkMark small t={t} />)}</div>
                 {u.side === 'foe' && u.shMax > 0 && <div class="tb-ss">{u.broken > 0 ? <span class="tb-brk">崩</span> : Array.from({ length: u.sh }, () => <span class="sh" />)}</div>}
                 {aim && <div class={`tb-inc${aim.lethal ? ' lethal' : ''}`}>{aim.lethal ? '命' : ''}−{aim.dmg}</div>}
                 {aim2Map[u.uid] && !busy && <div class="tb-inc2">次の次−{aim2Map[u.uid]}</div>}
@@ -362,20 +404,21 @@ export function TacticsView() {
               {selU.teacher && insightTargets(b).length > 0 && <button class="btn small accent grow" onClick={() => { setMode('insight'); setSel(null); setMsg('見極め：弱点を見たい敵（光っている敵）をタップ'); }}>見極め</button>}
               {canTrap && <button class="btn small accent grow" onClick={() => { setMode('trap'); setMsg(<span>罠：置くマス（光っているマス）をタップ。敵が通ると傷を負い、そこで止まる（のこり{b.trapLeft?.[selU.uid] ?? 0}）</span>); }}>罠</button>}
               {igns.length > 0 && <button class="btn small accent grow" onClick={() => { setMode('ignite'); setMsg(<span>火矢：燃やすマス（光っている森{igns.some((o) => o.gate) ? '・木の門' : ''}）をタップ。燃える森は、通る者が傷を負う</span>); }}>火矢</button>}
+              {!selU.teacher && <button class="btn small ghost grow" onClick={() => run((g) => autoOne(g.battle!, selU.uid, { noDeath: nd }))}>この子はおまかせ</button>}
               <button class="btn small ghost grow" onClick={() => setSel(null)}>選びなおす</button>
             </div>
           </>
         ) : (
           <>
-            <div class="tb-msg">{msg ?? (mode !== 'none' ? '' : <span>教え子をタップ。赤い数字は、敵が次に狙う相手と傷の大きさ。</span>)}</div>
+            <div class="tb-msg">{msg ?? (mode !== 'none' ? '' : <span>教え子をタップ。赤い数字は、敵が次に狙う相手と傷の大きさ。駒を長押しすると、その子だけ「この番はおまかせ」。</span>)}</div>
             <div class="tb-acts">
               <button class="btn primary grow" onClick={() => { sfx('ok'); run((g) => endTurn(g.battle!, { noDeath: nd })); }}>ターンを終える{left ? `（あと${left}人）` : ''}</button>
               <button class="btn small ghost" disabled={!b.undo} onClick={() => { sfx('cancel'); act((g) => { undoLast(g.battle!); }); setSel(null); setTgt(null); }}>ひとつ戻す</button>
             </div>
             {lastFoe.length > 0 && <div class="tb-acts"><button class="btn small ghost grow" onClick={() => { sfx('move'); setReview(lastFoe); }}>敵の番のふりかえり（{lastFoe.length}）</button></div>}
             <div class="tb-acts">
-              <button class="btn small ghost grow" onClick={() => run((g) => autoTurn(g.battle!, { noDeath: nd }))}>このターンはおまかせ</button>
-              <button class="btn small ghost grow" onClick={() => { if (confirm('最後までおまかせで進めますか？（同じ計算で自動に進み、名場面は残ります）')) act((g) => finishAuto(g)); }}>最後までおまかせ</button>
+              <button class="btn small ghost grow" onClick={() => run((g) => autoTurn(g.battle!, { noDeath: nd }))}>残りをおまかせ{left ? `（${left}人）` : ''}</button>
+              <button class="btn small ghost grow" onClick={() => { if (confirm(b.march && b.march.total > 1 ? 'この戦場を最後までおまかせで進めますか？（次の戦場の前で止まります）' : '最後までおまかせで進めますか？（同じ計算で自動に進み、名場面は残ります）')) act((g) => finishAuto(g)); }}>全員おまかせ{b.march && b.march.total > 1 ? '（この戦場）' : '（最後まで）'}</button>
             </div>
           </>
         )}
@@ -463,11 +506,13 @@ function ReviewSheet({ lines, onClose }: { lines: string[]; onClose: () => void 
 
 function EndPanel({ b }: { b: TBattle }) {
   const last = [...b.log].reverse().find((l) => l.big);
+  const more = b.result === 'win' && b.march && b.march.idx < b.march.total - 1 && b.units.some((u) => u.teacher && u.alive);
   return (
     <div class="tb-end">
-      <div class={`tb-verdict ${b.result}`}>{b.result === 'win' ? '勝利' : '敗北'}</div>
+      <div class={`tb-verdict ${b.result}`}>{b.result === 'win' ? (more ? 'この戦場を抜いた' : '勝利') : '敗北'}</div>
       <div class="tb-msg">{last?.text}</div>
-      <button class="btn primary block" onClick={() => { sfx('ok'); act((g) => finishBattle(g)); }}>結果を見る</button>
+      {b.march && b.march.total > 1 && b.result !== 'win' && b.march.idx > 0 && <div class="tb-msg small">{b.march.idx}つの戦場を抜いた戦果は残ります</div>}
+      <button class="btn primary block" onClick={() => { sfx('ok'); act((g) => finishBattle(g)); }}>{more ? `次へ（${b.march!.names[b.march!.idx + 1]}の前に、小休止）` : '結果を見る'}</button>
     </div>
   );
 }

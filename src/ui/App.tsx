@@ -15,6 +15,7 @@ import { YearbookTab } from './Yearbook';
 import { SettingsTab } from './Settings';
 import { PendingView } from './Pending';
 import { TacticsView } from './Tactics';
+import { MarchBreak } from './March';
 import { money, stageOf } from './common';
 import { STAGE_NAMES } from '../core/world';
 import { sfx, unlockAudio, playBgm } from './sound';
@@ -59,7 +60,8 @@ export function App() {
   if (!s) return <Title />;
   // 19夜目：新しく始めたときは、着任の道中の戦いから
   if (s.openingPending && !s.battle) { setTimeout(() => act((g) => startOpeningBattle(g)), 0); return null; }
-  if (s.battle) return <TacticsView key={`${s.battle.questId}${s.year}${s.month}`} />;
+  if (s.battle) return <TacticsView key={`${s.battle.questId}${s.year}${s.month}:${s.battle.march?.idx ?? 0}`} />;
+  if (s.march?.between) return <MarchBreak s={s} m={s.march} />;
   const unread = importantUnread(s).length;
   const stamina = Math.round(teacherStamina(s));
   // 8夜目：机の世界。ホームと机の上の頁は木の上に、ほかの画面は紙の頁（名簿＝綴じた名簿、個人ページ＝機密の書類、戦況＝作戦書）

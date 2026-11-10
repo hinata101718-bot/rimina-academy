@@ -1,0 +1,224 @@
+[
+ {
+  "name": "01-roster-390",
+  "over": false,
+  "small": 1,
+  "smallList": [
+   ":1年"
+  ],
+  "tiny": 0,
+  "cell": null,
+  "overlap": 0,
+  "errors": []
+ },
+ {
+  "name": "02-applicants-390",
+  "over": false,
+  "small": 0,
+  "smallList": [],
+  "tiny": 0,
+  "cell": null,
+  "overlap": 0,
+  "errors": []
+ },
+ {
+  "name": "03-detail-side-btn-390",
+  "over": false,
+  "small": 0,
+  "smallList": [],
+  "tiny": 0,
+  "cell": null,
+  "overlap": 0,
+  "errors": []
+ },
+ {
+  "name": "04-side-sheet-390",
+  "over": false,
+  "small": 0,
+  "smallList": [],
+  "tiny": 0,
+  "cell": null,
+  "overlap": 0,
+  "errors": []
+ },
+ {
+  "name": "05-exam-same-tier-390",
+  "over": false,
+  "small": 0,
+  "smallList": [],
+  "tiny": 0,
+  "cell": null,
+  "overlap": 0,
+  "errors": []
+ },
+ {
+  "name": "06-quest-board-390",
+  "over": false,
+  "small": 0,
+  "smallList": [],
+  "tiny": 0,
+  "cell": null,
+  "overlap": 0,
+  "errors": []
+ },
+ {
+  "name": "07-sortie-foe-390",
+  "over": false,
+  "small": 0,
+  "smallList": [],
+  "tiny": 0,
+  "cell": null,
+  "overlap": 0,
+  "errors": []
+ },
+ {
+  "name": "08-sortie-members-390",
+  "over": false,
+  "small": 0,
+  "smallList": [],
+  "tiny": 0,
+  "cell": null,
+  "overlap": 0,
+  "errors": []
+ },
+ {
+  "name": "09-board-390",
+  "over": false,
+  "small": 0,
+  "smallList": [],
+  "tiny": 0,
+  "cell": 45,
+  "overlap": 0,
+  "errors": []
+ },
+ {
+  "name": "10-trap-place-390",
+  "over": false,
+  "small": 0,
+  "smallList": [],
+  "tiny": 0,
+  "cell": 45,
+  "overlap": 0,
+  "errors": []
+ },
+ {
+  "name": "11-stage-clear-390",
+  "over": false,
+  "small": 0,
+  "smallList": [],
+  "tiny": 0,
+  "cell": 45,
+  "overlap": 0,
+  "errors": []
+ },
+ {
+  "name": "12-march-break-390",
+  "over": false,
+  "small": 0,
+  "smallList": [],
+  "tiny": 0,
+  "cell": null,
+  "overlap": 0,
+  "errors": []
+ },
+ {
+  "name": "13-march-route-390",
+  "over": false,
+  "small": 0,
+  "smallList": [],
+  "tiny": 0,
+  "cell": null,
+  "overlap": 0,
+  "errors": []
+ },
+ {
+  "name": "14-regroup-say-390",
+  "over": false,
+  "small": 0,
+  "smallList": [],
+  "tiny": 0,
+  "cell": 45,
+  "overlap": 0,
+  "errors": []
+ },
+ {
+  "name": "15-march-map-390",
+  "over": false,
+  "small": 0,
+  "smallList": [],
+  "tiny": 0,
+  "cell": 45,
+  "overlap": 0,
+  "errors": []
+ },
+ {
+  "name": "16-foe-group-walk-390",
+  "over": false,
+  "small": 0,
+  "smallList": [],
+  "tiny": 0,
+  "cell": 45,
+  "overlap": 0,
+  "errors": []
+ },
+ {
+  "name": "07-sortie-foe-360",
+  "over": false,
+  "small": 0,
+  "smallList": [],
+  "tiny": 0,
+  "cell": null,
+  "overlap": 0,
+  "errors": []
+ },
+ {
+  "name": "08-sortie-members-360",
+  "over": false,
+  "small": 0,
+  "smallList": [],
+  "tiny": 0,
+  "cell": null,
+  "overlap": 0,
+  "errors": []
+ },
+ {
+  "name": "09-board-360",
+  "over": false,
+  "small": 0,
+  "smallList": [],
+  "tiny": 0,
+  "cell": 41,
+  "overlap": 0,
+  "errors": []
+ },
+ {
+  "name": "07-sortie-foe-430",
+  "over": false,
+  "small": 0,
+  "smallList": [],
+  "tiny": 0,
+  "cell": null,
+  "overlap": 0,
+  "errors": []
+ },
+ {
+  "name": "08-sortie-members-430",
+  "over": false,
+  "small": 0,
+  "smallList": [],
+  "tiny": 0,
+  "cell": null,
+  "overlap": 0,
+  "errors": []
+ },
+ {
+  "name": "09-board-430",
+  "over": false,
+  "small": 0,
+  "smallList": [],
+  "tiny": 0,
+  "cell": 50,
+  "overlap": 0,
+  "errors": []
+ }
+]
