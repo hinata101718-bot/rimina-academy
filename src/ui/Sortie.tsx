@@ -56,7 +56,7 @@ function QuestCard({ s, q, rec, onClick }: { s: GameState; q: Quest; rec?: boole
         {o ? <OfficerFace o={o} size={48} frame={nem ? '#c0392b' : undefined} /> : <span class="tb-qmark">{q.real ? '依' : '演'}</span>}
         <div class="grow">
           <b>{q.title}</b>{rec && <span class="chip-o" style={{ marginLeft: 6 }}>おすすめ</span>}{q.mustGo && <span class="chip-o red" style={{ marginLeft: 6 }}>断れない</span>}
-          <div class="small">{q.client}{q.clientCountry ? `（${COUNTRY_SHORT[q.clientCountry]}）` : ''}・{OBJECTIVE_NAMES[q.objective]}・危険 <Stars n={q.danger} /></div>
+          <div class="small">{q.client}{q.clientCountry ? `（${COUNTRY_SHORT[q.clientCountry]}）` : ''}・{OBJECTIVE_NAMES[q.objective]}・危険 <Stars n={q.danger + Math.floor((questStages(q) - 1) / 2)} max={questStages(q) >= 3 ? 5 : 3} /></div>
           <div class="small muted">報酬 {q.reward}G{o ? `・敵将 ${officerName(o)}（${rankName(o)}）` : ''}</div>
           {questStages(q) > 1 && <div class={`small tb-stages${questStages(q) >= 3 ? ' big' : ''}`}>{stageLabel(q)}</div>}
           {nem && <div class="small red">宿敵がいる：{q.nemesisKind === 'challenge' ? '果たし状が届いた' : q.nemesisKind === 'rush' ? `${s.students[q.rushBy ?? '']?.given ?? '教え子'}が先に向かってしまった` : 'この依頼の先に、因縁の相手が待っている'}</div>}

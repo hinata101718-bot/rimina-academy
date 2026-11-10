@@ -70,7 +70,7 @@ const BOARD = () => {
   q.stages = 3; q.stageNames = R.march.stageNames(q, 3); q.reward = Math.max(q.reward, 1200);
   // 宿敵にする（因縁のある子がいれば）
   const o = R.flow.officerForQuest(g, q);
-  if (o) { q.officerId = o.id; o.knownWeak = (o.weak || []).slice(0, 1); }
+  if (o) { q.officerId = o.id; R.tsetup.ensureOfficerCombat(o); o.knownWeak = (o.weak || []).slice(0, 1); }
   window.__q = q.id;
   g.pending = [{ type: 'questBoard' }];
   return true;
@@ -127,7 +127,8 @@ const START = (stageIdx) => {
     await p.evaluate(() => { const e = document.querySelector('.tb-mem'); if (e) e.scrollIntoView({ block: 'start' }); });
     await p.waitForTimeout(300);
     await shot(p, `08-sortie-members${W}`);
-    // 8×10の盤
+    // 8×10の盤（390では、敵将が1つ目の戦場から出る2つの進軍にして、宿敵戦に）
+    if (w === 390) await p.evaluate(() => { const R = window.__rimina; const g = window.__g; const q = g.quests.find((x) => x.id === window.__q); q.stages = 2; q.stageNames = R.march.stageNames(q, 2); const o = R.flow.officerForQuest(g, q); if (o) { q.nemesisId = o.id; q.nemesisKind = 'quest'; } });
     await p.evaluate(START, 0);
     await setG(p);
     await p.waitForTimeout(1500);
