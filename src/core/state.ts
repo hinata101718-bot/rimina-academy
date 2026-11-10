@@ -65,6 +65,8 @@ export interface Student {
   mind?: Mind;
   lessons?: Lesson[];
   epithet?: string;
+  /** 22夜目⑤：装備している武器（武器庫の uid）。なければ出撃のたびに自動で選ぶ */
+  equip?: string | null;
   /** 22夜目：古いセーブの才能「隠れた統率者」（人望が高く出る） */
   bornLeader?: boolean;
   scars?: { year: number; text: string }[];

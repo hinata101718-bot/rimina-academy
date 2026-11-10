@@ -1,7 +1,7 @@
 // バランス値。ゲームの数値はすべてここに集める（設計書の「ふつう」が初期値）。
 import type { Rank, SkillId, StatId } from '../core/types';
 
-export const SAVE_VERSION = 22; // 22夜目：魔防を足した
+export const SAVE_VERSION = 23; // 22夜目：魔防を足した（22）・生徒ごとの武器の装備（23）
 
 /** 20夜目④：宿敵が味方になる・好敵手・密偵 */
 export const BONDS = {

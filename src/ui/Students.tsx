@@ -19,6 +19,7 @@ import { OfficerFace, Portrait } from './Portrait';
 import { STAT_GUARD_NOTE, SKILL_NAMES, STAT_NAMES, PERSONALITIES, TRAITS, TALENTS, DREAMS, COUNTRY_NAMES, HOUSE_NAMES, PATH_NAMES, PATH_LINES, PATH_SAY } from '../data/people';
 import { CLASSES, CLASS_LIST } from '../data/classes';
 import { renownParts, renownStars, renownWord } from '../core/renown';
+import { EquipCard } from './Equip';
 import { B, SKILLS, STATS, RANK_POINTS, LEAD_SKILLS } from '../data/balance';
 import { goodOf, badOf, budKnown, budHinted, budName } from '../core/aptitude';
 import { suitablePath } from '../core/career';
@@ -178,6 +179,7 @@ function Detail({ s, st, exam, sub }: { s: GameState; st: Student; exam?: boolea
               </div>
             )}
           </div>
+          {!grad && <EquipCard s={s} st={st} />}
           <MindCard s={s} st={st} />
           <details class="card dt-fold">
             <summary><b>成長率の内わけを見る</b><span class="small muted">（本人と兵種と特徴）</span></summary>

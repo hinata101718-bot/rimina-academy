@@ -15,6 +15,9 @@ import { bondOf } from '../core/nemesis';
 import { CLASSES } from '../data/classes';
 import { B } from '../data/balance';
 import { COUNTRY_SHORT } from '../data/people';
+import { armoryItem } from '../core/loot';
+import { itemName } from '../core/rarity';
+import { EquipSheet } from './Equip';
 
 export function SortiePrep({ s }: { s: GameState }) {
   const [qid, setQid] = useState<string | null>(() => s.quests.find((q) => q.mustGo)?.id ?? (s.quests.length === 1 ? s.quests[0].id : null));
@@ -62,6 +65,9 @@ function Members({ s, q, onBack }: { s: GameState; q: Quest; onBack?: () => void
   };
   const go = (manual: boolean) => { sfx('ok'); act((g) => startSortie(g, [{ questId: q.id, deploy: deployFor(g, ids), manual }])); };
   const yearBattles = (id: string) => (s.students[id].evalLog ?? []).filter((e) => e.year === s.year).length;
+  // 22夜目⑤：だれが何を持つか（装備した武器・装備のない子は自動で選ぶ武器）
+  const plan = deployFor(s, ids);
+  const [eq, setEq] = useState<string | null>(null);
   return (
     <Sheet title="出撃する教え子">
       <QuestCard s={s} q={q} />
@@ -74,6 +80,15 @@ function Members({ s, q, onBack }: { s: GameState; q: Quest; onBack?: () => void
           </button>
         ))}
       </div>
+      {ids.length > 0 && <div class="tb-arms">
+        <div class="small"><b>持っていく武器</b><span class="muted">（タップで付け替え）</span></div>
+        {plan.map((d) => { const st = s.students[d.studentId]; const a = armoryItem(s, d.armoryUid); return (
+          <button class="row nowrap gap6 tb-arm" onClick={() => { sfx('move'); setEq(st.id); }}>
+            <b style={{ minWidth: '4em' }}>{st.given}</b><span class="grow small">{a ? itemName(a) : '武器なし（魔法・素手）'}</span><span class="small muted">{st.equip ? '装備' : 'おまかせ'}</span>
+          </button>
+        ); })}
+      </div>}
+      {eq && s.students[eq] && <EquipSheet s={s} st={s.students[eq]} onClose={() => setEq(null)} />}
       <div class="row nowrap gap8" style={{ marginTop: 10 }}>
         <button class="btn primary grow" disabled={!ids.length} onClick={() => go(true)}>自分で戦う</button>
         <button class="btn accent grow" disabled={!ids.length} onClick={() => go(false)}>おまかせ</button>

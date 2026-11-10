@@ -2263,3 +2263,10 @@ body[data-light="day"] .desk-candle::before { display: none; }
 .tb-arrows line.a2 { stroke: #ffd9a0; stroke-width: 2; stroke-dasharray: 5 4; opacity: .6; }
 .tb-card.swapc { border-color: #d39bff; background: #2c1d3a; }
 .tb-card.swapc .tb-ct { background: #6a3c8f; }
+
+/* 22夜目⑤：装備 */
+.eq-item { display: block; width: 100%; text-align: left; margin: 6px 0 0; min-height: 44px; }
+.eq-item.on { outline: 2px solid var(--good); }
+.sc-equip { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tb-arms { margin-top: 8px; background: #f3ede0; border-radius: 8px; padding: 6px 8px; }
+.tb-arm { width: 100%; min-height: 44px; background: none; border: none; border-top: 1px dashed var(--line); text-align: left; font: inherit; color: inherit; padding: 4px 0; cursor: pointer; }

@@ -52,9 +52,9 @@ describe('22夜目①：魔防', () => {
     expect(CLASSES.armor_knight.growth.res ?? 0).toBeLessThan(0);
   });
   it('21夜目版のセーブを読み込むと、魔防を魔力から分ける（守りはそのまま）。1年遊べる', () => {
-    const raw = readFileSync(new URL('./fixtures/v20-night21.json', import.meta.url), 'utf8');
+    const raw = readFileSync(new URL('./fixtures/v21-night21.json', import.meta.url), 'utf8');
     const old = JSON.parse(raw);
-    expect(old.version).toBe(20);
+    expect(old.version).toBe(21);
     const defs: Record<string, number> = {};
     for (const [id, st] of Object.entries(old.state.students) as [string, { stats: Record<string, number> }][]) { expect(st.stats.res).toBeUndefined(); defs[id] = st.stats.def; }
     const s = deserialize(raw);
@@ -172,5 +172,51 @@ describe('22夜目④：魅力の後始末', () => {
     const s = newGame({ name: 'テスト', background: 'mage', seed: 1 });
     expect(s.instructor.cha).toBeUndefined();
     expect(B.support.senpaiCalm).toBeGreaterThan(0);
+  });
+});
+
+// ---------- ⑤ 生徒ごとの武器の装備 ----------
+import { equipItem, equippable, holderOf, autoEquip, checkEquips, equipped } from '../src/core/equip';
+import { deployFor } from '../src/core/sortie';
+
+describe('22夜目⑤：生徒ごとの武器の装備', () => {
+  function school() {
+    const s = newGame({ name: 'テスト', background: 'knight', seed: 31 });
+    const kids = enrolled(s).slice(0, 2);
+    for (const k of kids) { k.classId = 'swordsman'; k.skills.sword = RANK_POINTS.C; }
+    s.armory.push({ uid: 'w1', weaponId: 'steel_sword' }, { uid: 'w2', weaponId: 'silver_sword' });
+    return { s, a: kids[0], b: kids[1] };
+  }
+  it('1つの武器を持てるのは1人だけ。ほかの子が持つ武器を選ぶと付け替わる', () => {
+    const { s, a, b } = school();
+    expect(equippable(s, a).map((x) => x.uid)).toContain('w1');
+    expect(equipItem(s, a.id, 'w1').ok).toBe(true);
+    expect(holderOf(s, 'w1')?.id).toBe(a.id);
+    const r = equipItem(s, b.id, 'w1');
+    expect(r.ok).toBe(true); expect(r.from).toBe(a.given);
+    expect(a.equip).toBeNull(); expect(b.equip).toBe('w1');
+    equipItem(s, b.id, null); expect(equipped(s, b)).toBeNull();
+  });
+  it('出撃は装備した武器で出る。装備のない子は、ほかの子の装備を避けて自動で選ぶ', () => {
+    const { s, a, b } = school();
+    equipItem(s, a.id, 'w1');
+    const d = deployFor(s, [a.id, b.id]);
+    expect(d.find((x) => x.studentId === a.id)?.armoryUid).toBe('w1');
+    expect(d.find((x) => x.studentId === b.id)?.armoryUid).not.toBe('w1');
+    const best = autoEquip(s, b.id);
+    expect(best?.uid).not.toBe('w1');
+  });
+  it('兵種が変わって使えなくなった武器は自動で外し、お知らせが出る', () => {
+    const { s, a } = school();
+    equipItem(s, a.id, 'w1');
+    a.classId = 'archer';
+    const out = checkEquips(s);
+    expect(a.equip).toBeNull();
+    expect(out.length).toBe(1);
+    expect(s.notices.some((n) => n.text.includes('装備を外しました'))).toBe(true);
+  });
+  it('前の版のセーブでは、だれも装備していない（自動のまま）', () => {
+    const s = deserialize(readFileSync(new URL('./fixtures/v21-night21.json', import.meta.url), 'utf8'));
+    for (const st of Object.values(s.students)) expect(st.equip ?? null).toBeNull();
   });
 });

@@ -33,6 +33,7 @@ import { prepareCareers, graduate, type CareerPlan } from './career';
 import { generateStudent } from './student';
 import { absMonth, MONTH_NAMES } from './util';
 import { retireCheck, teacherRankYear, retireThought } from './instructor';
+import { checkEquips } from './equip';
 import { checkEndings, peaceEraYear } from './ending';
 import { supportValue, bestFriend } from './support';
 import { closeYear, markYear } from './review';
@@ -349,6 +350,7 @@ export function startMonth(s: GameState): void {
   lines.push(...monthlyWorld(s, r));
   checkEndings(s, r, 'month');
   lines.push(...startMonthStudents(s, r));
+  checkEquips(s); // 22夜目⑤：使えなくなった装備を外す
   ensureRosters(s, r);
   freshQuests(s);
   // 月の始め：目標技能（7夜目。「自動で決める」の子は担任の方針・おすすめで）
@@ -369,6 +371,7 @@ export function finishCareers(s: GameState, plans: CareerPlan[]): void {
   const r = rng(s);
   const cohort = enrolled(s).find((x) => x.grade === 3)?.cohort ?? 0;
   const lines = graduate(s, r, plans);
+  checkEquips(s);
   s.pending = s.pending.filter((p) => p.type !== 'career');
   s.pending.push({ type: 'graduation', cohort, lines });
   yearEnd(s, lines.map((l) => l.id));

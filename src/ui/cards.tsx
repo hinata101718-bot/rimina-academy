@@ -12,6 +12,7 @@ import { isGood, isBad, budKnown, budHinted } from '../core/aptitude';
 import { rankOf, nextRankPoints } from '../core/util';
 import { skillUnlocked } from '../core/week';
 import { examCandidates } from '../core/exam';
+import { equipLabel } from './Equip';
 
 /** 武器の種類 → 線画アイコン */
 const WEAPON_ICON: Record<string, string> = { sword: 'sword', lance: 'lance', axe: 'axe', bow: 'bow', magic: 'tome', holy: 'staff', staff: 'staff', gun: 'gun' };
@@ -141,6 +142,7 @@ export function StuCard({ s, st, exams, onClick, extra }: { s: GameState; st: St
           <span class="nowrap">やる気 <MoodDots m={st.motivation} /></span>
         </div>
         <div class="dream">夢：{dream?.text ? dream.name : 'まだない'}</div>
+        {st.status === 'enrolled' && <div class="sc-equip small muted">装備：{equipLabel(s, st)}</div>}
         {extra}
       </div>
     </div>

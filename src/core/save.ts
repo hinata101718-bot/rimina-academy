@@ -39,6 +39,7 @@ export function migrate(s: GameState, from: number): GameState {
   if (from < 20) convertTo20(s);
   if (from < 21) convertTo21(s);
   if (from < 22) convertTo22(s);
+  if (from < 23) convertTo23(s);
   s.heirs ??= [];
   s.archive ??= {};
   s.notices ??= [];
@@ -76,6 +77,11 @@ export function convertTo22(s: GameState): void {
     if (st.train && st.train.res === undefined) st.train.res = 0;
   }
   // 戦いの途中のセーブ：魔防のない駒は、守りから出す（engine の resOf）
+}
+
+/** 22夜目⑤（セーブの版23）：生徒ごとの武器の装備。前の版では、だれも装備していない（出撃のたびに自動のまま） */
+export function convertTo23(s: GameState): void {
+  for (const st of Object.values(s.students ?? {})) if (st.equip === undefined) st.equip = null;
 }
 
 /** 古い能力（9つ）→ 体の6つ：守りは守備と魔防から。幸運・魅力はなくす */

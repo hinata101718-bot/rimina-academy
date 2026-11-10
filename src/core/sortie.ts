@@ -34,10 +34,12 @@ export function bestArmoryWeapon(s: GameState, st: Student, used: Set<string>): 
 }
 /** 決めた子に、武器庫の武器と傷薬を持たせる */
 export function deployFor(s: GameState, ids: string[]): Deploy[] {
-  const used = new Set<string>();
+  // 22夜目⑤：装備した武器があればそれで。装備のない子は、ほかの子が装備していない武器から自動で
+  const used = new Set<string>(Object.values(s.students).filter((x) => x.status === 'enrolled' && x.equip).map((x) => x.equip!));
   let items = s.items.vulnerary;
   return ids.map((id) => s.students[id]).filter(Boolean).map((st) => {
-    const w = bestArmoryWeapon(s, st, used);
+    const own = st.equip && s.armory.some((a) => a.uid === st.equip) && canEquip(st, s.armory.find((a) => a.uid === st.equip)!.weaponId) ? st.equip : null;
+    const w = own ?? bestArmoryWeapon(s, st, used);
     if (w && !isStock(w)) used.add(w);
     const item = items > 0 ? (items--, 'vulnerary' as const) : null;
     return { studentId: st.id, armoryUid: w, item };
