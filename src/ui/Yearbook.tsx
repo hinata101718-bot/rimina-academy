@@ -1,3 +1,4 @@
+import { cohortName } from '../core/game';
 import { useState, useEffect } from 'preact/hooks';
 import { loadHall } from './storage';
 import { ENDING_NAMES, ENDING_SUB, endingTitle, buildHallEntry, hallRecords, hallCompareRow, type HallEntry, type HallStudent } from '../core/ending';
@@ -9,7 +10,7 @@ import { Portrait, OfficerFace } from './Portrait';
 import { officerName, factionName, rankName } from '../core/officers';
 import { titleOf } from '../core/alumni';
 import { COUNTRY_SHORT, PATH_NAMES, COUNTRIES } from '../data/people';
-import { MONTH_NAMES, cohortName } from '../core/util';
+import { MONTH_NAMES } from '../core/util';
 import type { GameState, Student } from '../core/state';
 import { NewsView } from './Pending';
 import { MiniCard, CountryChip, countryColor } from './cards';

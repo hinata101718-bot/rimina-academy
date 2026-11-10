@@ -1,7 +1,7 @@
 // バランス値。ゲームの数値はすべてここに集める（設計書の「ふつう」が初期値）。
 import type { Rank, SkillId, StatId } from '../core/types';
 
-export const SAVE_VERSION = 21; // 22夜目：魔防を足した
+export const SAVE_VERSION = 22; // 22夜目：魔防を足した
 
 /** 20夜目④：宿敵が味方になる・好敵手・密偵 */
 export const BONDS = {
@@ -325,13 +325,13 @@ export const B = {
   /** 19夜目：人の地図。教え子が領主になる役職の段階・見込み、大きな戦で将の力をどれだけ足すか */
   rulers: { alumniRank: 3, alumniChance: 0.5, generalWeight: 0.05, /** 評判で仲立ち・和平の席 */ mediateRep: 65, mediateChance: 0.3, mediateRel: 12, mediateTension: 6 },
   /** 19夜目⑧：長い時間。蘇り（死んだと思われた者が1年に戻る見込み・呪いで蘇る見込み）・捕らわれて生きていた教え子・追放・二代目・先生がさらわれる・敵に回る教え子 */
-  long: { revive: 0.25, curse: 0.03, captured: 0.2, exileShame: 3, exile: 0.25, heir: 0.35, teacherCaptured: 0.07, /** 20夜目：おまかせで先生が引退する年 */ autoRetireAge: 57, /** 21夜目：卒業して何年までの子が敵に回りうるか */ turnYears: 8, /** 20夜目：故郷へ帰った子・傭兵になった子が宿敵の陣に加わる見込み（軍に入った子の何倍か） */ turnHomeMul: 0.6, turnMercMul: 1.2, teacherReturn: [3, 6] as [number, number], turnMax: 6, turnBase: 0.6, turnPerDistrust: 0.01, turnForced: 0.3 },
+  long: { revive: 0.25, curse: 0.03, captured: 0.2, exileShame: 3, exile: 0.25, heir: 0.35, teacherCaptured: 0.07, /** 20夜目：おまかせで先生が引退する年（21夜目：引退を考える場面の翌年＝58） */ autoRetireAge: 58, /** 20夜目：故郷へ帰った子・傭兵になった子が宿敵の陣に加わる見込み（軍に入った子の何倍か） */ turnHomeMul: 0.6, turnMercMul: 1.2, teacherReturn: [3, 6] as [number, number], turnMax: 6, /** 21夜目：卒業してこの年数までの子が敵に回る（4→8） */ turnYears: 8, /** 21夜目：0.5→0.4（上限と年を広げたぶん） */ turnBase: 0.4, turnPerDistrust: 0.01, turnForced: 0.3 },
   /** 19夜目：入学の希望者（10人ほど＋評判25ごとに1人）・仇討ちの子が来る見込み */
   admission: { base: 10, perRep: 25, avenger: 0.3 },
   /** 19夜目：全盛期と衰え（年齢）：伸び盛り〜27歳、28〜34歳は伸びが0.6倍、35〜44歳は0.3倍、45歳から伸びなくなり、毎年少しずつ衰える */
   prime: { peakEnd: 27, slowEnd: 34, slowMul: 0.6, stopAt: 44, lateMul: 0.3, declineAt: 45, declineChance: 0.15, declinePerYear: 0.02 },
   /** 19夜目：月末の出撃（教え子の人数）・出撃しない子の罠の傷 */
-  sortie: { members: 4, trapDmg: 6, /** 21夜目③：おまかせは、宿敵よりこれだけ以上レベルの低い子を宿敵戦に出さない */ nemesisLvGap: 3, /** ふつうの戦いで討った名前のある将が、深手を負って逃げのびる見込み */ officerEscape: 0.5 },
+  sortie: { members: 4, trapDmg: 6, /** 21夜目：宿敵戦には、重傷から戻ってこの週数までの子（深手の治りかけ）を出さない（おすすめ・おまかせ） */ nemRestWeeks: 12, /** 21夜目：おまかせの宿敵戦で、体力がこの割合以下の子は宿敵の届く所へ出ない */ nemLowHp: 0.5, /** 21夜目：宿敵の大技の一撃で体力のこの割合を失う子は、宿敵戦に出さない（ほかに出せる子がいるとき） */ nemFragile: 0.75, /** ふつうの戦いで討った名前のある将が、深手を負って逃げのびる見込み */ officerEscape: 0.5 },
   battle: {
     width: 8, height: 12,
     deployBase: 6, deployAt12: 8, deployAt20: 10,
@@ -473,7 +473,7 @@ export const B = {
     promoteLevel: 22, // 昇進のしやすさの基準のレベル（7夜目：卒業時のレベルが上がったので 15→22）
     tier4Level: 45,
     /** 20夜目：卒業後の戦いで、最上級の条件の出来事を成し遂げる見込みの倍率（data/deeds の odds に掛ける） */
-    deedMul: 0.2, // 21夜目：0.6→0.3（最上級を半分に）、22夜目：0.3→0.2（兵種の道が広がり、上級の卒業生が増えたので）
+    deedMul: 0.3, // 21夜目：0.6→0.3（半分に）
   },
   // ---- 戦況 ----
   world: {
@@ -503,7 +503,7 @@ export const B = {
       neutralDefenseChance: 0.12, // 中立宣言の条件が防衛戦以外そろっているとき、激戦期でなくても学校が狙われる（毎月）
       peaceRel: 0,
       peaceTension: 45,             // 関係がすべて0以上で、緊張度がこれ未満なら和平会議が開かれやすい
-      peaceChance: 0.22, // 20夜目：0.3→0.22
+      peaceChance: 0.14, // 20夜目：0.3→0.22、21夜目：0.22→0.14
       diplomatTalksTension: 62,     // 教え子の大使が二国以上にいれば、戦争中でなければ会議を呼びかけられる
       diplomatTalksChance: 0.02,
       peaceCooldown: 30,
@@ -516,7 +516,9 @@ export const B = {
   },
   // ---- 教官 ----
   instructor: {
-    retireMin: 57, retireMax: 65, // 21夜目：50→57（57歳ごろに「引退を考える」）
+    retireMin: 50, retireMax: 65,
+    /** 21夜目：この年になった年度末に「引退を考える」場面を出す */
+    thinkAge: 57,
     // 教えるほど上がる技能（ポイント。D=50→B=270 は苦手科目を重点にし続けて約10年）
     growFocus: 0.42,         // その科目がどこかの学年の重点科目だった週
     growFocusExtraGrade: 0.05, // 2学年め・3学年めも重点にしていれば少し上乗せ
@@ -539,9 +541,9 @@ export const B = {
   ending: {
     unifyYears: 2,               // 一国の国力が他の二国の合計を上回る状態が2年続く
     /** 19夜目：最初の戦争のエンディングは、この年から（和平の大成功などの早い道でも） */
-    minYear: 22, // 20夜目：17→21、21夜目：21→22
-    ceasefireWarYears: 15, // 21夜目：13→15、 19夜目：8→11、20夜目：11→13（最初のエンディングを20〜30年目に）        // 戦いの疲れ（激戦期1年=1、緊張期1年=0.5、平和期は−1）が8年分
-    ceasefirePower: 30,          // 三国すべての国力が30以下（20夜目：35→32、21夜目：32→30）
+    minYear: 21, // 20夜目：17→21
+    ceasefireWarYears: 16, // 19夜目：8→11、20夜目：11→13、21夜目：13→16（最初のエンディングを20〜30年目に）        // 戦いの疲れ（激戦期1年=1、緊張期1年=0.5、平和期は−1）が8年分
+    ceasefirePower: 29,          // 三国すべての国力が29以下（20夜目：35→32、21夜目：32→29）
     neutralRep: 90, neutralGrads: 100, neutralFriendship: 60, // 学校の中立宣言（4夜目にゆるめた）
     neutralBalance: 1.15, neutralAlumniMin: 10, // 三国にいる教え子の数が釣り合っている（多い国が少ない国の1.15倍まで・各国10人以上）
     neutralRevealRep: 70,        // 評判70になるまで、戦況タブの「中立宣言への道」は「？？？」

@@ -232,6 +232,8 @@ export interface Instructor {
   since?: number;
   /** 20夜目：この先生が勝った宿敵戦の数（先生の兵種が上がる） */
   nemWins?: number; rankShown?: number;
+  /** 21夜目：「引退を考える」場面を見た */
+  thought?: boolean;
   /** 先生の体力（7夜目）と、寝込んでいる残りの日数 */
   stamina?: number;
   sickDays?: number;

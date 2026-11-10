@@ -4,11 +4,11 @@ import { COUNTRIES, COUNTRY_NAMES, COUNTRY_SHORT, PATH_NAMES } from '../data/peo
 import type { CountryId } from './types';
 import type { GameState, Student, SceneLine, EndingKind, FaceParts } from './state';
 import { Rng } from './rng';
-import { chronicle, enrolled } from './game';
+import { chronicle, enrolled, cohortName } from './game';
 import { activeAlumni, diplomats, recalcTension, PAIRS } from './world';
 import { titleOf } from './alumni';
 import { RANK_TITLES } from '../data/people';
-import { clamp, cohortName } from './util';
+import { clamp } from './util';
 import { SEEDS, SMOLDER_STAGES, warOrdinal } from '../data/aftermath';
 
 export const ENDING_NAMES: Record<EndingKind, string> = { peace: '和平の円卓', unify: '統一', ceasefire: '疲弊の停戦', neutral: '学校の中立宣言' };

@@ -1,3 +1,4 @@
+import { cohortName } from '../core/game';
 import { useState } from 'preact/hooks';
 import { officerById, officerName } from '../core/officers';
 import { FACTION_COLOR } from '../data/officers';
@@ -36,7 +37,7 @@ import { RankUpPlayer, DiscoveryView } from './RankUp';
 import { LessonResultView } from './Lessons';
 import { Icon } from './icons';
 import { countryColor, CountryChip, Chip, Stars, Num, LvBadge, MiniCard, NameLine, OBJECTIVE_ICON, WEATHER_ICON } from './cards';
-import { rankOf, cohortName } from '../core/util';
+import { rankOf } from '../core/util';
 import { SKILL_NAMES } from '../data/people';
 import { SKILLS } from '../data/balance';
 import { TechLearnView, NemesisPendingView } from './Nemesis';

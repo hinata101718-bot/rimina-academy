@@ -1,3 +1,4 @@
+import { cohortName } from '../core/game';
 // 敵将の名簿（6夜目）：三国の軍と盗賊団の幹部。会うほど情報が増える
 import { KILL_REACT } from '../data/aftermath_war';
 import { NemDetail } from './Nemesis';
@@ -8,7 +9,7 @@ import { ROSTER_FACTIONS, FACTION_COLOR, OFFICER_TRAITS, RANK_NAMES, ageBand, ty
 import { SCAR_TEXT } from '../data/officers_text';
 import { LEADER_NAMES } from '../data/autobattle';
 import { CLASSES } from '../data/classes';
-import { MONTH_NAMES, cohortName } from '../core/util';
+import { MONTH_NAMES } from '../core/util';
 import { OfficerFace, Portrait } from './Portrait';
 import { Sheet } from './common';
 import { Chip, LvBadge, countryColor } from './cards';

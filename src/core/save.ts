@@ -38,6 +38,7 @@ export function migrate(s: GameState, from: number): GameState {
   if (from < 19) convertTo19(s, from);
   if (from < 20) convertTo20(s);
   if (from < 21) convertTo21(s);
+  if (from < 22) convertTo22(s);
   s.heirs ??= [];
   s.archive ??= {};
   s.notices ??= [];
@@ -53,13 +54,20 @@ export function convertTo20(s: GameState): void {
   // 古い隠れた兵種の記録（双星の縁など）は、そのまま残す（使わない）
 }
 
-/** 22夜目：魔防を足す。守りはそのまま。魔防は、魔力とレベルからほどよく分ける（兵種の上乗せは兵種の表から足される） */
+/** 21夜目：宿敵との縁（友情・恋）・宝箱・火矢などは、なくてもよい項目として足しただけ。
+ *  20夜目版のセーブで、すでに引退を考える年をかなり過ぎた先生には、「引退を考える」場面を出さない */
+export function convertTo21(s: GameState): void {
+  if (s.instructor && s.instructor.thought === undefined && s.instructor.age >= 60) s.instructor.thought = true;
+  for (const rv of Object.values(s.rivalries ?? {})) if (rv.heart && rv.heart.letters === undefined) rv.heart.letters = 0;
+}
+
+/** 22夜目（セーブの版22）：魔防を足す。守りはそのまま。魔防は、魔力とレベルからほどよく分ける（兵種の上乗せは兵種の表から足される） */
 export function resFromOld(st: { stats: Partial<Stats>; level?: number }): number {
   const mag = st.stats.mag ?? 4;
   const lv = Math.max(1, st.level ?? 1);
   return Math.max(1, Math.round(mag * SAVE_RES.magRate + (SAVE_RES.base + (lv - 1) * SAVE_RES.perLevel) * (1 - SAVE_RES.magRate)));
 }
-export function convertTo21(s: GameState): void {
+export function convertTo22(s: GameState): void {
   for (const st of [...Object.values(s.students ?? {}), ...(s.applicants ?? [])]) {
     if (!st.stats) continue;
     const cap = st.status === 'graduated' ? B.student.statCapGrad : B.student.statCapSchool;

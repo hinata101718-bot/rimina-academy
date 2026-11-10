@@ -1,5 +1,5 @@
 // 教官：教えるほど上がる技能（③）、加齢・引退・後継（④）、副教官（⑤）。DOMに依存しない
-import { cohortName } from './util';
+import { cohortName } from './game';
 import { goodOf } from './aptitude';
 import { RANK_TITLES } from '../data/people';
 import { B, SKILLS, RANK_POINTS, TEACHER_RANK } from '../data/balance';
@@ -109,6 +109,22 @@ function titleShort(st: Student): string {
 }
 
 /** 引退を決める：歴代の教官に記録し、別れの場面を作る。後継選びへ */
+/** 21夜目：年度末、57歳ごろに「引退を考える」場面（一度だけ）。だれに後を頼めそうかも */
+export function retireThought(s: GameState): void {
+  const ins = s.instructor;
+  if (ins.thought || ins.age < B.instructor.thinkAge || ins.age >= B.instructor.retireMax) return;
+  ins.thought = true;
+  const cand = successorCandidates(s)[0];
+  const years = s.year - (ins.since ?? 1) + 1;
+  s.pending.push({ type: 'scene', title: `${ins.name}先生、引退を考える`, lines: [
+    { by: 'narr', text: `${ins.name}先生は、${ins.age}歳になった。この学校で教えて、${years}年がたつ。` },
+    { by: 'narr', text: '朝の稽古で、若い教え子の踏み込みに、体が少し遅れた。夜、机に向かうと、名簿の名前がにじんで見えた。' },
+    { by: 'narr', text: cand ? `——そろそろ、後を頼むことを考える時かもしれない。頭に浮かんだのは、${cand.st.given}の顔だった。` : '——そろそろ、後を頼むことを考える時かもしれない。だが、まだ頼める顔が浮かばない。' },
+    { by: 'narr', text: `年度の終わりに「引退する」を選べます（${B.instructor.retireMax}歳で必ず引退）。後を継ぐ人は、信頼の厚い教え子や卒業生から頼めます。` },
+  ] });
+  chronicle(s, `${ins.name}先生が、引退を考えはじめた（${ins.age}歳）`, 'school');
+}
+
 export function retireInstructor(s: GameState, rng: Rng): void {
   const ins = s.instructor;
   s.pastInstructors ??= [];

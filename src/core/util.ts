@@ -36,5 +36,3 @@ export function bestSkillOf(st: { skills: Record<string, number> }): import('./t
   return (['sword', 'lance', 'axe', 'bow', 'magic', 'faith', 'riding', 'heavy', 'flying', 'gun', 'tactics', 'command'] as import('./types').SkillId[]).filter((k) => k !== 'gun' || (st.skills.gun ?? 0) > 0).sort((a, b) => (st.skills[b] ?? 0) - (st.skills[a] ?? 0))[0];
 }
 
-/** 21夜目④：期の呼び名。はじめからいた上級生（期が0以下）は「はじめの上級生」 */
-export function cohortName(n: number, short = false): string { return n >= 1 ? `${n}期${short ? '' : '生'}` : 'はじめの上級生'; }

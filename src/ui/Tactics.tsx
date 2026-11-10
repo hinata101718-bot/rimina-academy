@@ -141,8 +141,8 @@ export function TacticsView() {
     }
     {
       const ch = b!.chests?.find((c) => !c.opened && c.x === x && c.y === y);
-      if (ch || b!.doors?.includes(key(x, y))) { setMsg(<span>{ch ? '宝箱' : '閉じた扉'}：盗賊の系統（盗賊・トリックスター・道化王）だけが開けられる。{selU && !hasTrait(selU, 'steal') ? `${selU.name}には開けられない。` : ''}</span>); return; }
-      if (b!.gate === key(x, y)) { setMsg(<span>砦の木の門：火矢の系統（火矢兵・焔弓・劫火）の「火矢」で焼き落とせる。</span>); return; }
+      if (ch || b!.doors?.includes(key(x, y))) { setSel(null); setTgt(null); setMsg(<span>{ch ? '宝箱' : '閉じた扉'}：盗賊の系統（盗賊・トリックスター・道化王）だけが開けられる。{selU && !hasTrait(selU, 'steal') ? `${selU.name}には開けられない。` : ''}</span>); return; }
+      if (b!.gate === key(x, y)) { setSel(null); setTgt(null); setMsg(<span>砦の木の門：火矢の系統（火矢兵・焔弓・劫火）の「火矢」で焼き落とせる。</span>); return; }
     }
     if (u?.side === 'me' && selU && healOk.some((o) => o.uid === u.uid)) { const h = healsOf(selU)[0]; if (h) { run((g) => heal(g.battle!, selU.uid, u.uid, h)); return; } }
     if (u?.side === 'me' && selU && swapT.some((o) => o.uid === u.uid)) { run((g) => swapUnits(g.battle!, selU.uid, u.uid)); return; }
@@ -214,7 +214,7 @@ export function TacticsView() {
           })}
           {aim2List.length > 0 && !busy && (
             <svg class="tb-arrows" viewBox={`0 0 ${b.w} ${b.h}`} preserveAspectRatio="none" aria-hidden="true">
-              <defs><marker id="tbah2" viewBox="0 0 10 10" refX="8" refY="5" markerUnits="userSpaceOnUse" markerWidth=".38" markerHeight=".38" orient="auto"><path d="M0 0L10 5L0 10z" fill="#ffd9a0" /></marker><marker id="tbah1" viewBox="0 0 10 10" refX="8" refY="5" markerUnits="userSpaceOnUse" markerWidth=".38" markerHeight=".38" orient="auto"><path d="M0 0L10 5L0 10z" fill="#ff8a7a" /></marker></defs>
+              <defs><marker id="tbah2" viewBox="0 0 10 10" refX="8" refY="5" markerUnits="userSpaceOnUse" markerWidth=".22" markerHeight=".22" orient="auto"><path d="M0 0L10 5L0 10z" fill="#ffd9a0" /></marker><marker id="tbah1" viewBox="0 0 10 10" refX="8" refY="5" markerUnits="userSpaceOnUse" markerWidth=".22" markerHeight=".22" orient="auto"><path d="M0 0L10 5L0 10z" fill="#ff8a7a" /></marker></defs>
               {aim1List.map(({ f, t }) => <line x1={f.x + 0.5} y1={f.y + 0.5} x2={t.x + 0.5} y2={t.y + 0.5} class="a1" marker-end="url(#tbah1)" />)}
               {aim2List.map(({ f, t }) => <line x1={f.x + 0.5} y1={f.y + 0.5} x2={t.x + 0.5} y2={t.y + 0.5} class="a2" marker-end="url(#tbah2)" />)}
             </svg>

@@ -1,5 +1,5 @@
+import { cohortName } from '../core/game';
 // 場面の画面：タップで1ページずつ進む（教官の代替わり・エンディング）
-import { cohortName } from '../core/util';
 import { useEffect, useRef, useState } from 'preact/hooks';
 import type { GameState, SceneLine } from '../core/state';
 import { Portrait } from './Portrait';

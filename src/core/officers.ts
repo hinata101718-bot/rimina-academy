@@ -11,9 +11,9 @@ import type { GameState, EnemyOfficer, Rivalry, Nemesis, Quest, Student, BattleF
 import type { CountryId, Gender } from './types';
 import { Rng } from './rng';
 import { generateFace } from './student';
-import { chronicle, mail } from './game';
+import { chronicle, mail, cohortName } from './game';
 import { supportValue, getSupport } from './support';
-import { MONTH_NAMES, cohortName } from './util';
+import { MONTH_NAMES } from './util';
 
 // ---------- 小さな道具 ----------
 function hash(s: string): number { let h = 7; for (const c of s) h = (h * 31 + c.charCodeAt(0)) | 0; return Math.abs(h); }

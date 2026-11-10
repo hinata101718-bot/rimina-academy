@@ -1,10 +1,11 @@
 // 新聞（8夜目）：半年に一回の前期号（9月の終わり）・後期号（3月の年度末）と、大事件の月の号外。DOMに依存しない
+import { cohortName } from './game';
 import { COUNTRIES, COUNTRY_SHORT } from '../data/people';
 import { POWER_UP, POWER_DOWN, REL_DOWN, REL_UP, TENSION_UP, TENSION_DOWN, QUIET, STANCE_NAMES, STANCE_TEXT, EVENT_TEXT, tensionLabel, peaceLabel, ORG_TAGS, NEXT_ISSUE, type Stance } from '../data/newspaper';
 import type { CountryId } from './types';
 import type { GameState, NewsPaper, ChronicleEntry } from './state';
 import { Rng } from './rng';
-import { clamp, cohortName } from './util';
+import { clamp } from './util';
 import { officerName, rankName, factionName } from './officers';
 import { titleOf } from './alumni';
 

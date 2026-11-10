@@ -1,4 +1,4 @@
-import { cohortName } from '../core/util';
+import { cohortName } from '../core/game';
 import { useState } from 'preact/hooks';
 import type { ComponentChildren } from 'preact';
 import type { Student, GameState } from '../core/state';

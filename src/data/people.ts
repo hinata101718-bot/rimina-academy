@@ -132,10 +132,10 @@ export interface BackgroundDef {
   realRewardMul: number;
 }
 export const BACKGROUNDS: BackgroundDef[] = [
-  { id: 'knight', name: '元王国騎士', desc: '剣・槍・騎乗が得意。王国と縁がある。', age: 39,
+  { id: 'knight', name: '元王国騎士', desc: '剣・槍・騎乗が得意。王国と縁がある。', age: 38,
     skills: { sword: 'B', lance: 'B', riding: 'B' }, defaultRank: 'D',
     friendship: { kingdom: 15, empire: -5, alliance: 0 }, realRewardMul: 1 },
-  { id: 'merc', name: '元帝国の傭兵', desc: '斧と実戦に強い。実戦の報酬+20%。', age: 37,
+  { id: 'merc', name: '元帝国の傭兵', desc: '斧と実戦に強い。実戦の報酬+20%。', age: 36,
     skills: { axe: 'B', sword: 'C', bow: 'C', heavy: 'C' }, defaultRank: 'D',
     friendship: { kingdom: -5, empire: 15, alliance: 0 }, realRewardMul: 1.2 },
   { id: 'mage', name: '元同盟の宮廷魔道士', desc: '魔道と信仰が得意。同盟と縁がある。', age: 42,

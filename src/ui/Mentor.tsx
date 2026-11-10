@@ -1,3 +1,4 @@
+import { cohortName } from '../core/game';
 // 教官の画面（8夜目）：教官手帳の頁で、経験ポイント・技能・特殊能力の木・副教官・歴代の教官
 import { useState } from 'preact/hooks';
 import type { GameState } from '../core/state';
@@ -12,7 +13,7 @@ import { Icon } from './icons';
 import { sfx } from './sound';
 import { B, SKILLS, TEACHER_RANK } from '../data/balance';
 import { SKILL_NAMES, PERSONALITIES } from '../data/people';
-import { rankOf, nextRankPoints, cohortName } from '../core/util';
+import { rankOf, nextRankPoints } from '../core/util';
 import { RANK_POINTS } from '../data/balance';
 import { skillUnlocked } from '../core/week';
 import { instructorCaps, goodSkillsOf, viceEligible, viceOf, setVice, removeVice, VICE_POLICY_NAMES, teacherRank, teacherNext, teacherClassName } from '../core/instructor';

@@ -1,6 +1,5 @@
 // 卒業生の毎年のシミュレーション
 import { nextClasses, recommendedOf, decideClass, deedOk } from './exam';
-import { cohortName } from './util';
 import { renown } from './renown';
 import type { SkillId } from './types';
 import { ARM_SKILLS } from '../data/balance';
@@ -12,7 +11,7 @@ import type { CountryId } from './types';
 import type { GameState, Student } from './state';
 import { Rng } from './rng';
 import { gainExp, markClassSeen } from './growth';
-import { effectiveStats, chronicle, mail, addFriendship, notify } from './game';
+import { effectiveStats, chronicle, mail, addFriendship, notify , cohortName } from './game';
 import { tensionStage, atWar } from './world';
 import { loveOf } from './support';
 import { fx } from './mentor';

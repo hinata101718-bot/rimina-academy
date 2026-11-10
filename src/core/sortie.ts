@@ -9,6 +9,8 @@ import { enrolled, available } from './game';
 import { isStock, stockList, armScore } from './loot';
 import { meetsRank } from './util';
 import { officerForQuest } from './flow';
+import { createTactics } from './tactics/setup';
+import { calc } from './tactics/engine';
 
 export function canEquip(st: Student, weaponId: string): boolean {
   const w = WEAPONS[weaponId];
@@ -48,29 +50,34 @@ export function mustJoin(s: GameState, q: Quest): string[] {
   if (q.rushBy && s.students[q.rushBy] && available(s.students[q.rushBy])) out.push(q.rushBy);
   const o = officerForQuest(s, q);
   if (!o || !q.nemesisId) return out;
-  const rv = Object.values(s.rivalries ?? {}).filter((x) => x.oid === o.id && !x.settled && s.students[x.sid]?.status === 'enrolled' && available(s.students[x.sid]))
+  const rv = Object.values(s.rivalries ?? {}).filter((x) => x.oid === o.id && !x.settled && s.students[x.sid]?.status === 'enrolled' && available(s.students[x.sid]) && !healing(s, s.students[x.sid]))
     .sort((a, c) => Number(!!c.vow) - Number(!!a.vow) || c.stage - a.stage || c.battles - a.battles);
   for (const x of rv) if (!out.includes(x.sid) && out.length < 2) out.push(x.sid);
   return out;
 }
 
 /** おすすめの顔ぶれ：必ず入る子 → 癒し手1人 → 今年まだ出ていない子（交代で全員） → レベル */
-/** 21夜目③：宿敵戦に出すと命が危ない子（この年に深い傷を負った子・宿敵よりずっとレベルの低い子）。おまかせは出さない */
-export function fragileFor(s: GameState, q: Quest, st: Student): boolean {
-  if (!q.nemesisId) return false;
-  if ((st.scars ?? []).some((x) => x.year === s.year)) return true;
-  const o = officerForQuest(s, q);
-  return !!o && st.level < o.level - B.sortie.nemesisLvGap;
+/** 21夜目：宿敵の大技の一撃で、体力のほとんどを持っていかれる子（宿敵戦には出さない） */
+export function fragileVsNemesis(s: GameState, q: Quest, list: Student[]): Set<string> {
+  const out = new Set<string>();
+  if (!q.nemesisId || !list.length) return out;
+  try {
+    const b = createTactics(s, q, list.slice(0, 9).map((st) => ({ studentId: st.id })), { nemesisId: q.nemesisId, officer: officerForQuest(s, q) });
+    const nem = b.units.find((u) => u.nemesis);
+    if (!nem) return out;
+    for (const u of b.units) if (u.studentId && !u.teacher && u.side === 'me' && calc(b, nem, u, null, { rage: true }).total >= u.max * B.sortie.nemFragile) out.add(u.studentId);
+  } catch { /* 試しに組めないときは、だれも外さない */ }
+  return out;
 }
-export function recommendDeploy(s: GameState, q: Quest, limit = B.sortie.members, auto = false): string[] {
-  let list = enrolled(s).filter(available);
-  let must = mustJoin(s, q);
-  if (auto && q.nemesisId) {
-    const safe = list.filter((st) => !fragileFor(s, q, st));
-    // 出せる子が足りないときは、レベルの高い順に足す（宿敵の挑戦は断れない）
-    if (safe.length >= limit) { list = safe; must = must.filter((id) => safe.some((x) => x.id === id)); }
-  }
-  const out = must.slice(0, limit);
+/** 21夜目：深手の治りかけ（重傷から戻って間もない子） */
+export function healing(s: GameState, st: Student): boolean { return (st.recent ?? []).some((e) => e.type === 'ev_injury' && s.absWeek - e.week <= B.sortie.nemRestWeeks); }
+export function recommendDeploy(s: GameState, q: Quest, limit = B.sortie.members): string[] {
+  // 21夜目：宿敵戦には、深手の治りかけの子を出さない（ほかに出せる子が足りないときだけ）
+  const all = enrolled(s).filter(available);
+  const frag = q.nemesisId ? fragileVsNemesis(s, q, all) : new Set<string>();
+  const fresh = q.nemesisId ? all.filter((st) => !healing(s, st) && !frag.has(st.id)) : all;
+  const list = fresh.length >= Math.min(limit, all.length) ? fresh : all.filter((st) => !healing(s, st)).length >= Math.min(limit, all.length) ? all.filter((st) => !healing(s, st)) : all;
+  const out = mustJoin(s, q).filter((id) => id === q.rushBy || list.some((st) => st.id === id)).slice(0, limit);
   const yearBattles = (st: Student) => (st.evalLog ?? []).filter((e) => e.year === s.year).length;
   const healer = list.filter((st) => !out.includes(st.id) && (st.techs ?? []).some((t) => t === 'heal' || t === 'recover')).sort((a, c) => c.level - a.level)[0];
   if (healer && out.length < limit && q.danger >= 1) out.push(healer.id);
@@ -79,7 +86,7 @@ export function recommendDeploy(s: GameState, q: Quest, limit = B.sortie.members
   return out;
 }
 export function recommendSquad(s: GameState, q: Quest, manual = false): SquadPlan {
-  return { questId: q.id, deploy: deployFor(s, recommendDeploy(s, q, B.sortie.members, !manual)), manual };
+  return { questId: q.id, deploy: deployFor(s, recommendDeploy(s, q)), manual };
 }
 /** おすすめの依頼（宿敵の挑戦は断れない） */
 export function recommendQuest(s: GameState): Quest | null {

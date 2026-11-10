@@ -11,9 +11,9 @@ import { WEAPONS } from '../data/weapons';
 import type { CountryId, Path, SkillId } from './types';
 import type { GameState, Student, CareerInfo } from './state';
 import { Rng } from './rng';
-import { effectiveStats, chronicle, addFriendship, enrolled } from './game';
+import { effectiveStats, chronicle, addFriendship, enrolled, cohortName } from './game';
 import { addTrust } from './support';
-import { bestSkillOf, cohortName } from './util';
+import { bestSkillOf } from './util';
 import { renown } from './renown';
 import { fx } from './mentor';
 

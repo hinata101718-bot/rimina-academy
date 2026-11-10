@@ -1,5 +1,5 @@
+import { cohortName } from '../core/game';
 // 大陸の勢力図（13夜目）：地形の絵の上に、地域ごとに治める国の色。⚔・教え子の数・地域をタップで吹き出し・三国の帯・この前から変わったこと
-import { cohortName } from '../core/util';
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { act, useStore, navigate } from './store';
 import { sfx } from './sound';

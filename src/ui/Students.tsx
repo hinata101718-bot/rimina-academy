@@ -1,3 +1,4 @@
+import { cohortName } from '../core/game';
 import { Badge } from './Results';
 import { BADGES } from '../data/evaluation';
 import { useState } from 'preact/hooks';
@@ -26,7 +27,7 @@ import { TECH_BY_ID, ATK_NAME } from '../data/tactics';
 import { battleTechs } from '../core/techs';
 import { primeLabel } from '../core/growth';
 import { MIND_NAMES, MIND_DESC } from '../data/people';
-import { rankOf, nextRankPoints, MONTH_NAMES, cohortName } from '../core/util';
+import { rankOf, nextRankPoints, MONTH_NAMES } from '../core/util';
 import type { SkillId, Rank } from '../core/types';
 import type { GameState, Student, RankUpItem } from '../core/state';
 import { supportRank, archiveOf } from '../core/support';

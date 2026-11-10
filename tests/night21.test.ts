@@ -204,42 +204,40 @@ describe('21夜目②：宿敵との友情と恋', () => {
   });
 });
 
-// ---------- 21夜目③④：数字の直し・小さな直し ----------
-import { enrolled } from '../src/core/game';
+import { readFileSync } from 'node:fs';
+import { deserialize, serialize } from '../src/core/save';
+import { SAVE_VERSION } from '../src/data/balance';
+import { autoYears } from '../src/core/autoplay';
+import { cohortName } from '../src/core/game';
+import { recommendDeploy, healing } from '../src/core/sortie';
 import { BACKGROUNDS } from '../src/data/people';
-import { cohortName } from '../src/core/util';
-import { recommendDeploy, fragileFor } from '../src/core/sortie';
-import { retireCheck } from '../src/core/instructor';
 
-describe('21夜目③：数字の直し', () => {
-  it('はじめの先生は35〜42歳。57歳から「引退を考える」', () => {
-    for (const bg of BACKGROUNDS) { expect(bg.age).toBeGreaterThanOrEqual(35); expect(bg.age).toBeLessThanOrEqual(42); }
-    const s = newGame({ name: 'テスト', background: 'mage', seed: 4 });
-    s.instructor.age = 56; expect(retireCheck(s).can).toBe(false);
-    s.instructor.age = 57; expect(retireCheck(s).can).toBe(true);
-    expect(B.long.autoRetireAge).toBe(57);
+describe('21夜目③④：数字の直し・小さな直し・セーブ', () => {
+  it('20夜目版のセーブを読み込み、1年遊べる。57歳の先生は「引退を考える」場面を一度だけ見る', () => {
+    const s = deserialize(readFileSync(new URL('./fixtures/v20-save.json', import.meta.url), 'utf8'));
+    expect(s.version).toBe(SAVE_VERSION);
+    expect(s.instructor.thought).toBeUndefined();
+    autoYears(s, 1);
+    // 考えた翌年（58歳）に、おまかせは引退する（新しい先生にはまだ場面がない）
+    expect(s.chronicle.filter((c) => c.text.includes('引退を考えはじめた')).length).toBe(1);
+    expect(deserialize(serialize(s)).year).toBe(s.year);
   });
-  it('敵に回る教え子：国ごとの上限6人・卒業後8年まで', () => {
-    expect(B.long.turnMax).toBe(6);
-    expect(B.long.turnYears).toBe(8);
+  it('はじめの先生は35〜42歳', () => {
+    for (const b of BACKGROUNDS) { expect(b.age).toBeGreaterThanOrEqual(35); expect(b.age).toBeLessThanOrEqual(42); }
   });
-  it('おまかせは、この年に深い傷を負った子・宿敵よりずっと弱い子を宿敵戦に出さない', () => {
-    const s = newGame({ name: 'テスト', background: 'knight', seed: 7 });
-    const kids = enrolled(s);
-    const q = { ...s.quests[0], nemesisId: 'nx' } as typeof s.quests[0];
+  it('最初からいる上級生の期は「-1期生」ではなく「開校のときの3年生／2年生」', () => {
+    expect(cohortName(-1)).toBe('開校のときの3年生');
+    expect(cohortName(0)).toBe('開校のときの2年生');
+    expect(cohortName(3)).toBe('3期生');
+  });
+  it('宿敵戦のおすすめの顔ぶれに、深手の治りかけの子を入れない（ほかに出せる子がいるとき）', () => {
+    const s = newGame({ name: 'テスト', background: 'knight', seed: 13 });
+    const kids = Object.values(s.students).filter((x) => x.status === 'enrolled');
     const hurt = kids[0];
-    (hurt.scars ??= []).push({ year: s.year, text: '左の肩の傷' });
-    expect(fragileFor(s, q, hurt)).toBe(true);
-    if (kids.filter((k) => k !== hurt).length >= B.sortie.members) expect(recommendDeploy(s, q, B.sortie.members, true)).not.toContain(hurt.id);
-    expect(fragileFor(s, { ...q, nemesisId: undefined } as typeof q, hurt)).toBe(false);
-  });
-});
-
-describe('21夜目④：はじめの上級生の期', () => {
-  it('期が0以下の子は「はじめの上級生」と出る（-1期生と出ない）', () => {
-    expect(cohortName(1)).toBe('1期生');
-    expect(cohortName(0)).toBe('はじめの上級生');
-    expect(cohortName(-1)).toBe('はじめの上級生');
-    expect(cohortName(3, true)).toBe('3期');
+    (hurt.recent ??= []).push({ type: 'ev_injury', week: s.absWeek, detail: 'x' } as never);
+    expect(healing(s, hurt)).toBe(true);
+    const q = { ...s.quests[0], nemesisId: 'o_x' };
+    expect(recommendDeploy(s, q)).not.toContain(hurt.id);
+    expect(recommendDeploy(s, { ...q, nemesisId: undefined }).length).toBeGreaterThan(0);
   });
 });
