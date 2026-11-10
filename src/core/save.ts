@@ -40,6 +40,7 @@ export function migrate(s: GameState, from: number): GameState {
   if (from < 21) convertTo21(s);
   if (from < 22) convertTo22(s);
   if (from < 23) convertTo23(s);
+  if (from < 24) convertTo24(s);
   s.heirs ??= [];
   s.archive ??= {};
   s.notices ??= [];
@@ -100,6 +101,11 @@ export function convertTo23(s: GameState): void {
   s.march = null;
   // まだ選んでいない今月の依頼には、あとで戦場の数がつく（ensureStages）。戦っている依頼は1つの戦場のまま
   if (s.battle) for (const q of s.quests ?? []) if (q.id === s.battle.questId) q.stages = 1;
+}
+
+/** 24夜目：依頼を断った数（国ごと・その年）を数えはじめる。評判はそのまま（95に張りついていても、年ごとに少しずつ落ち着く） */
+export function convertTo24(s: GameState): void {
+  if (s.world) s.world.declined ??= {};
 }
 
 /** 古い能力（9つ）→ 体の6つ：守りは守備と魔防から。幸運・魅力はなくす */

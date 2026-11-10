@@ -272,6 +272,8 @@ export interface WorldState {
   exhaustion?: number;
   /** 学校防衛戦に勝った年 */
   defenseWonYear?: number;
+  /** 24夜目②：この年に、その国の依頼を断った数・受けた数（年度末に評判へ） */
+  declined?: Partial<Record<CountryId, { off: number; took: number }>>;
   /** エンディングのあと「この学校を続ける」を選んだ平和な時代 */
   era?: 'peace' | null;
   /** 次の戦争の火種（7夜目）。くすぶり0〜100、100で次の戦争 */

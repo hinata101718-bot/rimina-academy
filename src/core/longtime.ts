@@ -8,7 +8,7 @@ import type { CountryId } from './types';
 import { Rng } from './rng';
 import { officers, officerName, newOfficer, ensureRivalry, alumniOfficer, activeOf } from './officers';
 import { memoryOf, setEpithet, pushReunion, reunionLines, moveMind } from './nemesis';
-import { chronicle, mail, notify, enrolled } from './game';
+import { chronicle, mail, notify, enrolled, addRep } from './game';
 import { decline } from './growth';
 import { retireInstructor } from './instructor';
 import { makeAlly, yearlyAllies } from './bonds';
@@ -114,6 +114,7 @@ function turnAlumni(s: GameState, r: Rng, report: string[]): void {
     const t = `卒業生の${st.given}が、${why}学校の前に立ちはだかる`;
     st.history.push({ year: s.year, text: `${why}、学校と刃を交える道へ` });
     chronicle(s, t, 'student'); report.push(t); notify(s, t, st.id);
+    addRep(s, B.reputation.turned); // 24夜目②：教え子が敵に回ると、学校の評判も下がる
     // 同級生との因縁（敵国の友・裏切った同級生）
     for (const kk of enrolled(s).concat(Object.values(s.students).filter((x) => x.status === 'graduated' && x.cohort === st.cohort))) if (kk.id !== st.id && kk.cohort === st.cohort) ensureRivalry(s, kk.id, o.id);
   }

@@ -2395,3 +2395,21 @@ body[data-light="day"] .desk-candle::before { display: none; }
 .mm-chip.on { border-color: #ffd34a; box-shadow: inset 0 0 0 2px #ffd34a; }
 .mm-go { min-height: 52px; font-size: 16px; }
 .mm-wrap .tb-mw { color: #f1e3c2; border-color: #8b6a3a; }
+
+/* ===== 24夜目⑦：敵の駒の印。兵種の文字（弓・剣など）を隠さない ===== */
+/* 盾は駒の内側の上（上のマスにはみ出さない）・兵種の文字は真ん中より少し上・弱点は駒の下の帯 */
+.tb-u.foe .tb-ss { top: 5px; left: 50%; transform: translateX(-50%); gap: 1px; z-index: 3; }
+.tb-u.foe .tb-ss .sh { width: 7px; height: 8px; }
+.tb-u.foe .tb-ss .tb-brk { font-size: 12px; line-height: 12px; padding: 0 2px; }
+.tb-u.foe .tb-mark { position: absolute; left: 0; right: 0; top: 7px; height: auto; bottom: 46%; font-size: 13px; line-height: 1; }
+.tb-u.foe .tb-marks { left: 3px; right: 3px; bottom: 5px; height: 38%; min-height: 14px; align-items: center; gap: 1px; background: #000c; border-radius: 0 0 5px 5px; }
+.tb-u.foe .tb-marks:empty { display: none; }
+.tb-u.foe .tb-marks .atk.sm { min-width: 12px; height: 13px; font-size: 12px; padding: 0; border-radius: 2px; transform: none; }
+.tb-u.foe .tb-marks .atk.wk { box-shadow: 0 0 0 1px #ffd34a; }
+
+/* ===== 24夜目⑧：出撃の画面の相性の印。攻撃の種類の印（四角・塗りつぶし）と見分けるため、縁取りの丸い札にする ===== */
+.aff { display: inline-flex; align-items: center; justify-content: center; height: 20px; min-width: 0; border-radius: 10px; font: 700 12px/1 var(--sans, sans-serif); padding: 0 7px; background: #fff; border: 2px solid currentColor; white-space: nowrap; }
+.aff.weak { color: #00695c; background: #e6f4f1; }
+.aff.frag { color: #ad1457; background: #fcebf2; }
+.aff.bond { color: #263238; background: #f1f1ee; border-style: double; border-width: 3px; }
+.tb-arow { display: flex; flex-wrap: wrap; gap: 3px; margin: 2px 0 1px; }

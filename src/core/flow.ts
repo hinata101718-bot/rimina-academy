@@ -1,6 +1,7 @@
 // ゲームの流れ：週→月末の戦闘→月の終わり→年度末→入学試験
 import { heartsMonth } from './hearts';
 import { B } from '../data/balance';
+import { CLASSES as CLASS_DEFS } from '../data/classes';
 import { COUNTRIES, COUNTRY_SHORT, COUNTRY_NAMES, SKILL_NAMES } from '../data/people';
 import { WEAPONS } from '../data/weapons';
 import { ATK_NAME } from '../data/tactics';
@@ -163,7 +164,20 @@ export function startSortie(s: GameState, squads: SquadPlan[]): void {
   s.pending = s.pending.filter((p) => p.type !== 'questBoard');
   for (const x of sq.deploy) if (x.item) s.items[x.item] = Math.max(0, s.items[x.item] - 1);
   s.sortie = { squads: [sq], idx: 0, reports: [], pendFrom: s.pending.length };
+  countDeclined(s, sq.questId);
   startBattle(s, sq.questId, sq.deploy, !sq.manual);
+}
+/** 24夜目②：選ばなかった国の依頼を数える（年度末に、断り続けた国は学校の評判を下げる） */
+export function countDeclined(s: GameState, questId: string): void {
+  const chosen = s.quests.find((q) => q.id === questId);
+  const d = (s.world.declined ??= {});
+  const seen = new Set<string>();
+  for (const q of s.quests) {
+    if (!q.real || q.small || !q.clientCountry || seen.has(q.clientCountry)) continue;
+    seen.add(q.clientCountry);
+    const e = (d[q.clientCountry] ??= { off: 0, took: 0 });
+    if (chosen?.clientCountry === q.clientCountry) e.took += 1; else e.off += 1;
+  }
 }
 export function squadAway(_sq: SquadPlan, _idx: number): boolean { return false; }
 export function moreEscorted(_s: GameState): boolean { return false; }
@@ -456,6 +470,12 @@ export function yearEnd(s: GameState, graduated: string[]): void {
     const target = Math.min(100, D.base + D.perAlumni * activeAlumni(s, c).length);
     if (s.world.friendship[c] > target) s.world.friendship[c] -= (s.world.friendship[c] - target) * D.rate;
   }
+  // 24夜目②：依頼を断り続けた国（1つも受けなかった）は、学校を「頼りにならない」と言いふらす
+  for (const c of COUNTRIES) {
+    const e = s.world.declined?.[c];
+    if (e && e.took === 0 && e.off >= B.reputation.declinedMin) { addRep(s, B.reputation.declined); chronicle(s, `${COUNTRY_SHORT[c]}の依頼を断り続け、「頼りにならない学校だ」と噂された`, 'school'); }
+  }
+  s.world.declined = {};
   // 評判は放っておくと少しずつ落ち着く（高いほど維持が難しい）
   if (s.reputation > B.reputation.decayFloor) addRep(s, -(s.reputation - B.reputation.decayFloor) * B.reputation.yearlyDecay);
   // 6. 教官の加齢（50歳から年度末に引退を選べる。65歳で必ず引退）
@@ -576,7 +596,23 @@ export function admit(s: GameState, ids: string[]): void {
 
 export function autoAdmitIds(s: GameState): string[] {
   const score = (st: Student) => Object.values(st.stats).reduce((a, b) => a + b, 0) + (st.parents.length ? 50 : 0);
-  return [...s.applicants].sort((a, b) => score(b) - score(a)).slice(0, capacity(s)).map((x) => x.id);
+  // 24夜目③：学校に多い系統の子は少し後ろへ（隊の釣り合い）。卒業する3年生は数えない
+  const M = B.classMix;
+  const n: Record<string, number> = {};
+  let total = 0;
+  for (const x of Object.values(s.students)) if (x.status === 'enrolled' && x.grade < 3) { const l = (CLASS_DEFS as Record<string, { line?: string }>)[x.classId]?.line; if (l) { n[l] = (n[l] ?? 0) + 1; total += 1; } }
+  const left = [...s.applicants];
+  const out: string[] = [];
+  const cap = capacity(s);
+  while (out.length < cap && left.length) {
+    const fair = (total + 1) / M.lines;
+    const val = (st: Student) => score(st) - Math.max(0, (n[(CLASS_DEFS as Record<string, { line?: string }>)[st.classId]?.line ?? ''] ?? 0) + 1 - fair) * M.admit;
+    left.sort((a, b) => val(b) - val(a));
+    const st = left.shift()!;
+    out.push(st.id);
+    const l = (CLASS_DEFS as Record<string, { line?: string }>)[st.classId]?.line; if (l) { n[l] = (n[l] ?? 0) + 1; total += 1; }
+  }
+  return out;
 }
 
 export type { Quest };

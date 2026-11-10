@@ -1,7 +1,7 @@
 // バランス値。ゲームの数値はすべてここに集める（設計書の「ふつう」が初期値）。
 import type { Rank, SkillId, StatId } from '../core/types';
 
-export const SAVE_VERSION = 23;
+export const SAVE_VERSION = 24;
 
 /** 20夜目④：宿敵が味方になる・好敵手・密偵 */
 export const BONDS = {
@@ -300,10 +300,23 @@ export const B = {
   /** 施設の維持費（段階1つにつき毎月） */
   upkeepPerLevel: 30,
   reputation: {
-    questWin: [1, 3] as [number, number], questWinByDanger: [0, 1.1, 1.5, 2.0], questLose: -2, deathInSchool: -3, dropout: -1,
+    // 24夜目②：上がり方をゆるやかに（1.1/1.5/2.0→0.8/1.1/1.5）、下がる出来事をはっきり（失敗−2→−4・戦死−3→−5・敵に回った教え子−2・断り続けた国−2）
+    questWin: [1, 3] as [number, number], questWinByDanger: [0, 0.8, 1.1, 1.5], questLose: -4, deathInSchool: -5, dropout: -1,
     exhibition: [2, 4] as [number, number], promotionDiv: 4, promotionMax: 3,
-    yearlyDecay: 0.08, decayFloor: 40, schoolDefenseWin: 3,
+    yearlyDecay: 0.13, decayFloor: 40, schoolDefenseWin: 3,
+    /** 24夜目②：高いほど上がりにくい（from より上は、span で上がり方が min まで細る） */
+    gain: { from: 60, span: 40, min: 0.15 },
+    /** 24夜目②：評判がまだ低い学校は、失うものも少ない（lossFrom より下は、下がり方が lossMin まで小さく） */
+    lossFrom: 40, lossMin: 0.4,
+    /** 24夜目②：softCap より上へは、bigEvent 以上の大きな出来事でしか上がらない */
+    softCap: 95, bigEvent: 3,
+    /** 24夜目②：卒業生が敵に回った・依頼を断り続けた国（1年に declinedMin 回以上断り、1つも受けなかった） */
+    turned: -2, declined: -2, declinedMin: 4,
   },
+  /** 24夜目③：学校の兵種の釣り合い（系統ごと。8つの系統なので、ちょうど半々なら1つ12.5%）。
+   *  over より多い系統の子は、ほかに合う初級（得意・夢）が少ない系統にあれば移る。under より少ない系統は勧めで少し上に。
+   *  rec＝先生の勧めの点数（ちょうどの割合から1つの系統ぶん離れるごと）・admit＝入学のおまかせで、多い系統の子を後ろへ（1人ぶん多いごと） */
+  classMix: { lines: 8, over: 0.19, under: 0.11, rec: 1.5, admit: 6, minSchool: 8 },
   // ---- 試験 ----
   exam: { baseRate: 60, perPoints: 5, max: 100, levelReq: [0, 0, 6, 14, 30] as number[], heroLevel: 25, /** 19夜目：中級は2年生（1年目の終わり）から、上級は3年生から。出撃の回数（宿敵戦は2回に数える） */ tier2Grade: 2, tier3Grade: 3, sorties: [0, 0, 3, 8, 15] as number[],
     /** 22夜目：先生の勧めの点数（枝分かれの先・夢・得意・苦手・宿敵の弱点・技能のゆとり） */

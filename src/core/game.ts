@@ -159,9 +159,12 @@ export function addMoney(s: GameState, amount: number): void {
   const m = amount > 0 ? Math.round(amount * s.settings.mods.money) : amount;
   s.money = Math.max(0, Math.round(s.money + m));
 }
+/** 24夜目：評判の増減を外から数える（シミュレーションの調べ用。ふだんは空） */
+export const repTrace: { fn?: (d: number) => void } = {};
 export function addRep(s: GameState, d: number): void {
   const before = s.reputation;
-  addRepRaw(s, d > 0 ? d * (1 + fx(s, 'repMul')) : d);
+  repTrace.fn?.(d);
+  addRepRaw(s, d > 0 ? repGain(s.reputation, d * (1 + fx(s, 'repMul'))) : d * Math.max(B.reputation.lossMin, Math.min(1, s.reputation / B.reputation.lossFrom)));
   if (s.reputation > before) {
     reputationRankUp(s, before, s.reputation);
     // 10夜目：評判の段階が上がると、国から武器が届くことがある
@@ -171,6 +174,14 @@ export function addRep(s: GameState, d: number): void {
       if (g) { takeLoot(s, [g]); notify(s, `学校の評判を聞いて、${WEAPONS[g.weaponId]?.name}が届いた。武器庫に飾っています`); }
     }
   }
+}
+/** 24夜目②：評判の上がり方。高いほど上がりにくく、softCap より上は大きな出来事だけ */
+export function repGain(rep: number, d: number): number {
+  const R = B.reputation;
+  const mul = Math.max(R.gain.min, Math.min(1, 1 - (rep - R.gain.from) / R.gain.span));
+  let g = d * mul;
+  if (d < R.bigEvent) g = Math.min(g, Math.max(0, R.softCap - rep));
+  return g;
 }
 function addRepRaw(s: GameState, d: number): void {
   s.reputation = clamp(Math.round((s.reputation + d) * 10) / 10, 0, B.school.reputationMax);

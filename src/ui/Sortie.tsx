@@ -100,12 +100,12 @@ function Members({ s, q, onBack }: { s: GameState; q: Quest; onBack?: () => void
         <p class="small grow" style={{ margin: 0 }}>教え子を{B.sortie.members}人まで選びます（今 {ids.length}人）。出撃しない子は、後ろで支えます。</p>
         <button class="btn small accent" disabled={same} onClick={() => { sfx('ok'); setIds(recIds); }}>先生のおすすめの{B.sortie.members}人</button>
       </div>
-      <div class="tb-legend-row small muted"><span class="aff weak">弱</span>弱点を突ける <span class="aff frag">狙</span>狙われやすい <span class="aff bond">縁</span>宿敵と因縁あり</div>
+      <div class="tb-legend-row small muted"><span class="aff weak">弱点◎</span>弱点を突ける <span class="aff frag">狙われ注意</span>狙われやすい <span class="aff bond">因縁</span>宿敵と因縁あり</div>
       <div class="tb-mem">
         {list.map((st) => { const af = affinityOf(s, st, o, team); return (
           <button class={`tb-mc${ids.includes(st.id) ? ' on' : ''}${must.includes(st.id) ? ' must' : ''}`} onClick={() => toggle(st.id)} aria-pressed={ids.includes(st.id)}>
             <Portrait st={st} size={44} />
-            <span class="tb-mt"><b>{nameTag(s, st)}</b><small>Lv{st.level} {CLASSES[st.classId]?.name}</small><span class="tb-mrow"><AtkMarksSmall list={studentAttacks(st).slice(0, 3)} />{af.weak && <span class="aff weak" title="弱点を突ける">弱</span>}{af.fragile && <span class="aff frag" title="狙われやすい">狙</span>}{af.bond && <span class="aff bond" title="宿敵と因縁あり">縁</span>}</span><small>{must.includes(st.id) ? '必ず出る（因縁）' : `今年 ${yearBattles(st.id)}回`}</small></span>
+            <span class="tb-mt"><b>{nameTag(s, st)}</b><small>Lv{st.level} {CLASSES[st.classId]?.name}</small><span class="tb-mrow"><AtkMarksSmall list={studentAttacks(st).slice(0, 3)} /></span>{(af.weak || af.fragile || af.bond) && <span class="tb-arow">{af.weak && <span class="aff weak" title="弱点を突ける">弱点◎</span>}{af.fragile && <span class="aff frag" title="狙われやすい">狙われ注意</span>}{af.bond && <span class="aff bond" title="宿敵と因縁あり">因縁</span>}</span>}<small>{must.includes(st.id) ? '必ず出る（因縁）' : `今年 ${yearBattles(st.id)}回`}</small></span>
           </button>
         ); })}
       </div>

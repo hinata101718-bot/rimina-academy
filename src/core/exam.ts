@@ -109,6 +109,22 @@ export function pathClassesMissing(s: GameState, st: Student): ClassDef[] {
 }
 
 /** 22夜目：先生の勧めの点数（枝分かれの先・夢・得意・宿敵の弱点・技能のゆとり） */
+/** 24夜目③：在籍の子の、兵種の系統ごとの数と割合（exclude の子は数えない） */
+export function lineCounts(s: GameState, exclude?: string): { n: Record<string, number>; total: number } {
+  const n: Record<string, number> = {};
+  let total = 0;
+  for (const x of Object.values(s.students)) {
+    if (x.status !== 'enrolled' || x.id === exclude) continue;
+    const l = (CLASSES[x.classId] as ClassDefX | undefined)?.line;
+    if (!l || l === 'none' || l === 'any') continue;
+    n[l] = (n[l] ?? 0) + 1; total += 1;
+  }
+  return { n, total };
+}
+export function lineShare(s: GameState, line: string, exclude?: string): number {
+  const { n, total } = lineCounts(s, exclude);
+  return total >= B.classMix.minSchool ? (n[line] ?? 0) / total : 1 / B.classMix.lines;
+}
 export function recommendScore(s: GameState, st: Student, c: ClassDef): number {
   const E = B.exam.rec;
   const req = Object.keys(c.req) as SkillId[];
@@ -129,6 +145,10 @@ export function recommendScore(s: GameState, st: Student, c: ClassDef): number {
     if (o && (o.knownWeak ?? []).some((t) => atk.includes(t as never))) { v += E.nemesis; break; }
   }
   if (c.hidden) v += E.hidden;
+  // 24夜目③：隊の釣り合い（学校に多い系統は少し下げ、少ない系統は少し上げる）
+  const M = B.classMix;
+  const line = (c as ClassDefX).line;
+  if (line && line !== 'none' && line !== 'any') v -= (lineShare(s, line, st.id) - 1 / M.lines) * M.lines * M.rec;
   return v;
 }
 /** 先生の勧め（受けられる兵種のうち、いちばん勧めたいもの） */
@@ -267,7 +287,16 @@ export function autoSideChange(s: GameState, st: Student): string | null {
   const cur = CLASSES[st.classId];
   if (!good.length || !cur || cur.tier !== 1 || !canSideChange(s, st)) return null;
   const fits = (c: ClassDef) => (Object.keys(c.req) as SkillId[]).some((k) => good.includes(k));
-  if (fits(cur)) return null;
+  const M = B.classMix;
+  const lineOf = (c: ClassDef) => (c as ClassDefX).line;
+  if (fits(cur)) {
+    // 24夜目③：合っていても、学校にその系統が多すぎるときは、得意や夢に合う、少ない系統の初級へ（1年目だけ）
+    if (st.grade !== 1 || lineShare(s, lineOf(cur), st.id) <= M.over) return null;
+    const dream = DREAMS.find((d) => d.id === st.dream);
+    const likes = (c: ClassDef) => fits(c) || (Object.keys(c.req) as SkillId[]).some((k) => dream?.skills.includes(k));
+    const few = sideClasses(st).filter((c) => likes(c) && lineShare(s, lineOf(c), st.id) < M.under).sort((a, b) => recommendScore(s, st, b) - recommendScore(s, st, a));
+    return few.length ? sideChange(s, st, few[0].id).text : null;
+  }
   const opts = sideClasses(st).filter(fits).sort((a, b) => recommendScore(s, st, b) - recommendScore(s, st, a));
   if (!opts.length) return null;
   return sideChange(s, st, opts[0].id).text;
