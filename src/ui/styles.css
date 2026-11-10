@@ -2399,12 +2399,14 @@ body[data-light="day"] .desk-candle::before { display: none; }
 /* ===== 24夜目⑦：敵の駒の印。兵種の文字（弓・剣など）を隠さない ===== */
 /* 盾は駒の内側の上（上のマスにはみ出さない）・兵種の文字は真ん中より少し上・弱点は駒の下の帯 */
 .tb-u.foe .tb-ss { top: 5px; left: 50%; transform: translateX(-50%); gap: 1px; z-index: 3; }
-.tb-u.foe .tb-ss .sh { width: 7px; height: 8px; }
+.tb-u.foe .tb-ss .sh { width: 7px; height: 7px; }
 .tb-u.foe .tb-ss .tb-brk { font-size: 12px; line-height: 12px; padding: 0 2px; }
-.tb-u.foe .tb-mark { position: absolute; left: 0; right: 0; top: 7px; height: auto; bottom: 46%; font-size: 13px; line-height: 1; }
-.tb-u.foe .tb-marks { left: 3px; right: 3px; bottom: 5px; height: 38%; min-height: 14px; align-items: center; gap: 1px; background: #000c; border-radius: 0 0 5px 5px; }
+/* 幅360（マス43px）でも重ならないよう、px で上から：盾（駒の上から2〜10px）・兵種の文字（10〜23px）・弱点の帯（下の12px）・体力の帯 */
+.tb-u.foe .tb-mark { position: absolute; left: 0; right: 0; top: 9px; height: 12px; font-size: 12px; line-height: 12px; }
+.tb-u.foe .tb-marks { left: 3px; right: 3px; bottom: 5px; height: 12px; align-items: center; gap: 1px; background: #000c; border-radius: 0 0 5px 5px; }
+@media (min-width: 380px) { .tb-u.foe .tb-mark { top: 10px; height: 14px; font-size: 14px; line-height: 14px; } .tb-u.foe .tb-marks { height: 13px; } }
 .tb-u.foe .tb-marks:empty { display: none; }
-.tb-u.foe .tb-marks .atk.sm { min-width: 12px; height: 13px; font-size: 12px; padding: 0; border-radius: 2px; transform: none; }
+.tb-u.foe .tb-marks .atk.sm { min-width: 12px; height: 12px; font-size: 12px; line-height: 12px; padding: 0; border-radius: 2px; transform: none; }
 .tb-u.foe .tb-marks .atk.wk { box-shadow: 0 0 0 1px #ffd34a; }
 
 /* ===== 24夜目⑧：出撃の画面の相性の印。攻撃の種類の印（四角・塗りつぶし）と見分けるため、縁取りの丸い札にする ===== */

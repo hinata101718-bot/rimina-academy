@@ -90,6 +90,8 @@ export function summarizeMoves(list: { faction: string; tag: string; name: strin
   const word: Record<string, string> = { [ORG_TAGS.dead]: '討たれた将', [ORG_TAGS.promote]: '昇進', [ORG_TAGS.rise]: '新しく名を連ねた将', [ORG_TAGS.retire]: '引退', [ORG_TAGS.epithet]: '新しい二つ名' };
   return [...by.entries()].map(([f, tags]) => `${f}：${[...tags.entries()].map(([tag, names]) => `${word[tag] ?? tag}${names.length}人（${names.slice(0, 2).join('・')}${names.length > 2 ? 'ほか' : ''}）`).join('、')}`);
 }
+/** 敵将の二つ名・昇進・引退・跡目などの話 */
+export const OFFICER_NEWS = /と呼ばれるようになった|昇進|引退|将軍に就いた|頭目に|権力争い|名のりをあげた|を追われた|幹部に/;
 /** 1つの号に同じ種類の話は2つまで */
 export const NEWS_SAME_MAX = 2;
 
@@ -166,7 +168,8 @@ function politics(s: GameState, r: Rng, events: ChronicleEntry[]): NonNullable<N
   return COUNTRIES.map((c) => {
     const st = stanceOf(s, c);
     const parts: string[] = [];
-    const ev = events.find((e) => e.text.includes(COUNTRY_SHORT[c]));
+    // 24夜目⑤：敵将の二つ名・昇進・引退などは、政治の欄に入れない（各国の動きの欄へ）
+    const ev = events.find((e) => e.text.includes(COUNTRY_SHORT[c]) && !OFFICER_NEWS.test(e.text));
     if (ev) parts.push(ev.text.replace(/^【[^】]*】/, ''));
     if (c === 'kingdom' && s.world.kingDied && events.some((e) => e.text.includes('王'))) parts.push(EVENT_TEXT.kingDied);
     if (s.world.famine) parts.push(EVENT_TEXT.famine);

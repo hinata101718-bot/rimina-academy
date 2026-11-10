@@ -253,7 +253,7 @@ function RepLedger({ s }: { s: GameState }) {
       <div class="row between nowrap"><b class="serif" style={{ fontSize: 18 }}>{cur.name}</b><span class="small muted">評判 {Math.round(s.reputation)}</span></div>
       <div class="rep-steps">{REP_TIERS.map((x, i) => <span class={i < t ? 'past' : i === t ? 'now' : ''}>{x.name}</span>)}</div>
       {next ? <><div class="row nowrap gap6"><span class="gauge skill grow"><span style={{ width: `${pct}%` }} /></span><span class="small">「{next.name}」まで あと{Math.ceil(next.at - s.reputation)}</span></div>
-        <div class="small muted">評判が上がると、入学したい子や寄付が増えます。教え子にも声がかかりやすくなります。依頼に勝ったり、演武会や卒業生が活躍したりすると上がります。</div></> : <div class="small">これ以上ない、伝説の学び舎です。</div>}
+        <div class="small muted">評判が上がると、入学したい子や寄付が増えます。教え子にも声がかかりやすくなります。依頼に勝ったり、演武会や卒業生が活躍したりすると上がります。依頼に失敗したり、教え子が戦死したり、卒業生が敵に回ったりすると下がります。高くなるほど、上がりにくくなります。</div></> : <div class="small">これ以上ない、伝説の学び舎です。</div>}
       {s.world.vassal && <div class="small" style={{ color: 'var(--accent)' }}>いまは{COUNTRY_SHORT[s.world.vassal]}の傘下です。評判が{B.school.independenceRep}になれば、年度末に独立を取り戻せます。</div>}
     </div>
   );
