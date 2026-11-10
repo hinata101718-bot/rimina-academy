@@ -4,7 +4,8 @@ import type { GameState, Student, Quest } from '../core/state';
 import type { SkillId, Origin, CountryId } from '../core/types';
 import { Portrait } from './Portrait';
 import { Icon } from './icons';
-import { navigate } from './store';
+import { navigate, getGame } from './store';
+import { nameTag } from '../core/student';
 import { CLASSES } from '../data/classes';
 import { COUNTRY_COLOR, COUNTRY_SHORT, PERSONALITIES, DREAMS, SKILL_NAMES, TALENTS } from '../data/people';
 import { B, SKILLS, RANK_POINTS } from '../data/balance';
@@ -109,11 +110,13 @@ export function isBirthdayWeek(s: GameState, st: Student): boolean {
 
 /** 長い名前は1行に収める（文字を小さく、それでも長ければ省略） */
 export function NameLine({ st, size = 20, family = true }: { st: Student; size?: number; family?: boolean }) {
-  const len = st.given.length;
+  const g = getGame();
+  const shown = !family && g ? nameTag(g, st) : st.given;
+  const len = shown.length;
   const fs = len >= 9 ? size * 0.68 : len >= 7 ? size * 0.8 : size;
   return (
     <div class="nameline">
-      <b class="given" style={{ fontSize: fs }}>{st.given}</b>
+      <b class="given" style={{ fontSize: fs }}>{shown}</b>
       {family && <span class="family">{st.family}</span>}
     </div>
   );
@@ -176,7 +179,7 @@ export function FaceRow({ list, size = 40 }: { list: { st: Student; label?: stri
       {list.map(({ st, label }) => (
         <div class="fr-item" onClick={() => navigate({ tab: 'students', page: 'detail', id: st.id })}>
           <Portrait st={st} size={size} frame={countryColor(st.origin)} />
-          <div class="fr-name">{st.given}</div>
+          <div class="fr-name">{(() => { const g = getGame(); return g ? nameTag(g, st) : st.given; })()}</div>
           {label && <div class="fr-label">{label}</div>}
         </div>
       ))}

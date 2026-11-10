@@ -1,4 +1,5 @@
 // 会話の画面：1セリフずつタップで進める（支援会話・面談）。読み返し用のまとめ表示も
+import { nameTag } from '../core/student';
 import { useEffect, useRef, useState } from 'preact/hooks';
 import type { GameState, TalkLog, TalkLineLog, Student } from '../core/state';
 import { Portrait } from './Portrait';
@@ -40,7 +41,7 @@ function SpeakerFace({ s, id, size }: { s: GameState; id: string; size: number }
 function speakerName(s: GameState, id: string): string {
   if (id === 'teacher') return `${s.instructor.name}（先生）`;
   if (id === 'narr') return '';
-  return s.students[id]?.given ?? '';
+  return s.students[id] ? nameTag(s, s.students[id]) : '';
 }
 
 /** タップ送りで会話を流す */

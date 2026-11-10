@@ -1053,6 +1053,8 @@ body[data-season="winter"] { --tint: rgba(190, 210, 235, .14); }
 .btn.glow { animation: examGlow 1.6s ease-in-out infinite alternate; }
 @keyframes examGlow { from { box-shadow: 0 0 0 0 rgba(233, 199, 106, .0); } to { box-shadow: 0 0 10px 3px rgba(233, 199, 106, .85); } }
 .flag.gray-flag { background: #9a8f7c; }
+.flag.blue-flag { background: #4f7fa8; }
+.side-btn { min-height: 44px; padding: 0 10px; font-size: 13px; }
 .stucard .sc-body .row.nowrap { overflow: hidden; }
 @media (max-width: 380px) { .page-paper { padding-left: 10px; padding-right: 10px; } .page-paper.binder { padding-left: 28px; } .page-paper.binder::before { left: 5px; } .content { padding: 10px 8px; } }
 
@@ -2251,6 +2253,7 @@ body[data-light="day"] .desk-candle::before { display: none; }
 .tb-cell.openable::after { content: ""; position: absolute; inset: 1px; border-radius: 5px; background: rgba(240, 150, 40, .3); box-shadow: inset 0 0 0 3px #ffb84a; animation: tbpulse 1s infinite; z-index: 3; pointer-events: none; }
 .tb-obj-ic { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: #ffd27a; z-index: 1; }
 .tb-obj-ic.gate { font: 900 15px var(--serif, serif); color: #f3e7cc; }
+.tb-obj-ic.trapic { font: 900 13px var(--serif, serif); color: #ffb35c; background: rgba(60,30,10,.55); border: 1px dashed #ffb35c; border-radius: 6px; inset: 18%; }
 .tb-cell.chest { background: #4a3a22; } .tb-cell.chest.open { background: #3f5130; }
 .tb-cell.door { background: #6a4426; box-shadow: inset 0 0 0 3px #3e2612; cursor: default; }
 .tb-cell.gate { background: repeating-linear-gradient(90deg, #8a5a34 0 22%, #5e3b20 22% 26%); box-shadow: inset 0 0 0 3px #3e2612; }

@@ -13,7 +13,7 @@ import { round5 } from './growth';
 import { entryClassFor } from '../data/classes';
 import { learnTechs } from './techs';
 import { assignApt, assignBud, fitTotal } from './aptitude';
-import { takenNames } from './officers';
+import { pickGiven } from './officers';
 import { regionMul } from './regions';
 
 export interface GenOptions {
@@ -22,6 +22,8 @@ export interface GenOptions {
   quality?: number;    // 0..1 評判による質
   orphanBias?: number; // 戦災孤児の増加
   parents?: [Student, Student];
+  /** 23夜目：同じときにまとめて作る子どうしで、名前をかぶらせない */
+  avoid?: Set<string>;
 }
 
 function weightedKey<T extends string>(rng: Rng, w: Record<T, number>): T {
@@ -74,10 +76,8 @@ export function generateStudent(s: GameState, rng: Rng, opt: GenOptions = {}): S
   if (parents) house = parents[0].house === 'noble' || parents[1].house === 'noble' ? 'noble' : 'commoner';
   const gender: Gender = rng.chance(0.5) ? 'm' : 'f';
   const list = NAMES[origin];
-  // 10夜目：今いる生徒・敵将（名を得た一般兵も）と同じ名前はなるべく避ける
-  const taken = takenNames(s);
-  let given = rng.pick(gender === 'm' ? list.male : list.female);
-  for (let k = 0; k < 8 && taken.has(given); k++) given = rng.pick(gender === 'm' ? list.male : list.female);
+  // 23夜目：同じ時期にいる人と、下の名前が必ず重ならないように
+  const given = pickGiven(s, rng, origin, gender, opt.avoid);
   let family = parents ? parents[0].family : rng.pick(list.family);
   if (!parents && house === 'noble' && list.noblePrefix && !family.startsWith(list.noblePrefix)) family = `${list.noblePrefix}・${family}`;
   if (house === 'orphan' && !parents) family = rng.chance(0.5) ? family : '';
@@ -202,4 +202,11 @@ export function birthdayFor(key: string): { month: number; week: number } {
   let h = 7;
   for (const c of key) h = (h * 33 + c.charCodeAt(0)) >>> 0;
   return { month: h % 12, week: 1 + (Math.floor(h / 12) % 4) };
+}
+
+/** 23夜目：前からのセーブで、同じ下の名前の子が在籍中に2人いるときは、姓の頭を添えて見分ける（「ジークハルト・ア」） */
+export function nameTag(s: GameState, st: Student): string {
+  if (!st.family) return st.given;
+  const same = Object.values(s.students).some((x) => x.id !== st.id && x.given === st.given && (x.status === 'enrolled' || st.status !== 'enrolled'));
+  return same ? `${st.given}・${st.family.replace(/^(フォン|ド|ディ)・/, '')[0]}` : st.given;
 }

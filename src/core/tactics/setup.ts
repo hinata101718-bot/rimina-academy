@@ -1,4 +1,5 @@
 // 19夜目：新しい戦いを組み立てる（依頼・出撃する子・先生・敵将から）。DOMに依存しない
+import { nameTag } from '../student';
 import { TB, ENEMY_KINDS, ENEMY_MIX, ENEMY_BASE, BOSS_MUL, WTYPE_ATK, SPELL_MIGHT, FIELD_BY_ID, ATK_TYPES, ATK_NAME, MAGIC_TYPES, type AtkType } from '../../data/tactics';
 import { CLASSES, newClassId, resLevelOf } from '../../data/classes';
 import { WEAPONS } from '../../data/weapons';
@@ -77,7 +78,7 @@ export function unitFromStudent(s: GameState, st: Student, uid: string, x: numbe
   const atk = WTYPE_ATK[w.wtype] ?? WTYPE_ATK.sword;
   const techs = battleTechs(st).map((t) => ({ id: t.id, left: t.uses }));
   const u: TUnit = {
-    uid, side: 'me', name: st.given, studentId: st.id, classId: st.classId, x, y,
+    uid, side: 'me', name: nameTag(s, st), studentId: st.id, classId: st.classId, x, y,
     hp: e.hp, max: e.hp, str: e.str, mag: e.mag, skl: e.skl, spd: e.spd, def: e.def, res: Math.max(0, e.res),
     mov: c.move, rmin: atk.range[0], rmax: atk.range[1], type: atk.type, magic: !!atk.magic, might: w.might,
     techs, sh: 0, shMax: 0, weak: [], resist: [], known: [], broken: 0, acted: false, alive: true,
@@ -130,7 +131,8 @@ export function startTraits(b: TBattle): void {
     const has = (t: string) => !!u.traits?.includes(t);
     if (bs && (has('farsight') || has('allseeing'))) { for (const w of bs.weak) if (!bs.known.includes(w)) bs.known.push(w); b.log.push({ turn: 1, text: `${u.name}の${has('allseeing') ? '天眼' : '読み切り'}：${bs.name}の弱点がすべて分かった${has('allseeing') && bs.resist.length ? '（効かない種類も）' : ''}` }); }
     else if (bs && has('spot')) { const h = bs.weak.find((w) => !bs.known.includes(w)); if (h) { bs.known.push(h); b.log.push({ turn: 1, text: `${u.name}の見抜き：${bs.name}の弱点は「${ATK_NAME[h]}」` }); } }
-    if (has('trap')) { const f = b.units.filter((x) => x.side === 'foe' && !x.boss).sort((a, c) => c.hp - a.hp)[0]; if (f) { const d = Math.min(f.hp - 1, 6); f.hp -= d; b.log.push({ turn: 1, text: `${u.name}の罠に、${f.name}がかかった（−${d}）` }); } }
+    // 23夜目③：罠は、置く場所を選べる（戦いのはじめに1つ。踏んだ敵は傷を負って止まる）
+    if (has('trap')) { (b.trapLeft ??= {})[u.uid] = TB.trap.count; b.log.push({ turn: 1, text: `${u.name}は罠を1つ仕掛けられる（「罠」ボタンで置く場所を選ぶ）` }); }
     if (bs && has('ambush') && bs.broken === 0) { bs.sh = 0; bs.broken = 2; b.log.push({ turn: 1, text: `${u.name}の闇討ち！ ${bs.name}が崩れた`, big: true }); }
     // 結界：前（敵の側）に光の壁を立てる。3ターンで消える
     if (has('barrier')) {

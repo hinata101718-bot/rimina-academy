@@ -10,7 +10,7 @@ import { faceImageFor, FaceSvg, enemyUrl } from './Portrait';
 import { getGame } from './store';
 import type { GameState } from '../core/state';
 import type { TBattle, TUnit, TFx } from '../core/tactics/types';
-import { reach, attackable, healable, attacksOf, healsOf, bestSpot, calc, unit, foes, mine, key, attack, heal, moveOnly, wait, usePotion, command, insight, insightTargets, endTurn, undoLast, techOf, boss as bossOf, isForest, swapTargets, swapFoeTargets, swapUnits, openables, openAt, ignitables, ignite, T as hasTrait, walkPath } from '../core/tactics/engine';
+import { reach, attackable, healable, attacksOf, healsOf, bestSpot, calc, unit, foes, mine, key, attack, heal, moveOnly, wait, usePotion, command, insight, insightTargets, endTurn, undoLast, techOf, boss as bossOf, isForest, swapTargets, swapFoeTargets, swapUnits, openables, openAt, ignitables, ignite, T as hasTrait, walkPath, trapSpots, placeTrap } from '../core/tactics/engine';
 import { Icon } from './icons';
 import { autoTurn } from '../core/tactics/ai';
 import { finishBattle, finishAuto, noDeath } from '../core/flow';
@@ -77,7 +77,7 @@ export function TacticsView() {
   const b = s?.battle;
   const [sel, setSel] = useState<string | null>(null);
   const [tgt, setTgt] = useState<string | null>(null);
-  const [mode, setMode] = useState<'none' | 'command' | 'insight' | 'ignite' | 'swapfoe'>('none');
+  const [mode, setMode] = useState<'none' | 'command' | 'insight' | 'ignite' | 'swapfoe' | 'trap'>('none');
   const [swapFirst, setSwapFirst] = useState<string | null>(null);
   const [msg, setMsg] = useState<ComponentChildren>(null);
   const [replay, setReplay0] = useState<{ view: TBattle; queue: QFx[]; i: number } | null>(null);
@@ -203,6 +203,9 @@ export function TacticsView() {
   const opens = selU && !selU.acted && mode === 'none' ? openables(b, selU) : [];
   const igns = selU && !selU.acted ? ignitables(b, selU) : [];
   const ignT = mode === 'ignite' ? igns : [];
+  // 23夜目③：罠を置くマス
+  const trapT = mode === 'trap' && selU ? trapSpots(b, selU) : [];
+  const canTrap = selU && !selU.acted && b.phase === 'player' ? trapSpots(b, selU).length > 0 : false;
 
   /** 演出つきで行動する */
   function run(fn: (g: GameState) => void) {
@@ -220,6 +223,7 @@ export function TacticsView() {
     if (mode === 'insight') { if (u && insT.some((f) => f.uid === u.uid)) run((g) => insight(g.battle!, u.uid)); else setMode('none'); return; }
     if (mode === 'command') { if (u && cmdT.some((f) => f.uid === u.uid)) run((g) => command(g.battle!, u.uid)); else setMode('none'); return; }
     if (mode === 'ignite') { if (selU && ignT.some((o) => o.x === x && o.y === y)) run((g) => ignite(g.battle!, selU.uid, x, y)); else { setMode('none'); setMsg(null); } return; }
+    if (mode === 'trap') { if (selU && trapT.some((o) => o.x === x && o.y === y)) { const uid = selU.uid; act((g) => { placeTrap(g.battle!, uid, x, y); }); sfx('ok'); setMode('none'); setMsg(<span>罠を仕掛けた。踏んだ敵は傷を負い、そこで止まる。<b>{selU.name}</b>はまだ動ける</span>); } else { setMode('none'); setMsg(null); } return; }
     if (mode === 'swapfoe') { if (selU && swapFirst && u && swapFoeT.some((f) => f.uid === u.uid)) { const first = swapFirst; run((g) => swapUnits(g.battle!, selU.uid, first, u.uid)); } else { setMode('none'); setMsg(null); } setSwapFirst(null); return; }
     if (selU && !u && opens.some((o) => o.x === x && o.y === y)) { run((g) => openAt(g.battle!, selU.uid, x, y)); return; }
     if (u?.side === 'foe') {
@@ -274,7 +278,9 @@ export function TacticsView() {
           const door = b.doors?.includes(k), gate = b.gate === k;
           let cls = 'tb-cell' + (rock ? ' rock' : '') + (forest ? ' forest' : '') + (b.walls?.includes(k) ? ' wall' : '') + (b.burn?.[k] ? (b.wild?.includes(k) ? ' burn wild' : ' burn') : '') + (chest ? (chest.opened ? ' chest open' : ' chest') : '') + (door ? ' door' : '') + (gate ? ' gate' : '');
           if (!busy && (swapT.some((f) => f.uid === u?.uid) || swapFoeT.some((f) => f.uid === u?.uid))) cls += ' swap';
-          if (!busy && (opens.some((o) => o.x === x && o.y === y) || ignT.some((o) => o.x === x && o.y === y))) cls += ' openable';
+          if (!busy && (opens.some((o) => o.x === x && o.y === y) || ignT.some((o) => o.x === x && o.y === y) || trapT.some((o) => o.x === x && o.y === y))) cls += ' openable';
+          const trapHere = b.traps?.some((p) => p.x === x && p.y === y);
+          if (trapHere) cls += ' trap';
           if (!busy && R && k in R && (!u || u.uid === sel)) cls += ' move';
           if (!busy && u && atkable.some((f) => f.uid === u.uid)) cls += ' tgt';
           if (!busy && u && selU && u.side === 'foe' && atkable.some((f) => f.uid === u.uid) && weakFor(selU, u) === 'gold') cls += ' gold';
@@ -283,7 +289,7 @@ export function TacticsView() {
           if (!busy && tgtU && cards[0]?.spot && cards[0].spot.x === x && cards[0].spot.y === y) cls += ' spot';
           if (b.captive && !b.captive.freed && b.captive.x === x && b.captive.y === y) cls += ' captive';
           if (b.objective === 'escape' && y === (b.exitRow ?? 0)) cls += ' exit';
-          return <button class={cls} aria-label={`${x + 1}列${y + 1}行${u ? ` ${u.name}` : ''}${chest && !chest.opened ? ' 宝箱' : ''}${door ? ' 扉' : ''}${gate ? ' 木の門' : ''}`} onClick={() => tapCell(x, y)}>{b.captive && !b.captive.freed && b.captive.x === x && b.captive.y === y ? <span class="tb-captive">救</span> : chest && !chest.opened ? <span class="tb-obj-ic"><Icon name="chest" size={22} /></span> : door ? <span class="tb-obj-ic"><Icon name="door" size={22} /></span> : gate ? <span class="tb-obj-ic gate">門</span> : null}</button>;
+          return <button class={cls} aria-label={`${x + 1}列${y + 1}行${u ? ` ${u.name}` : ''}${chest && !chest.opened ? ' 宝箱' : ''}${door ? ' 扉' : ''}${gate ? ' 木の門' : ''}`} onClick={() => tapCell(x, y)}>{b.captive && !b.captive.freed && b.captive.x === x && b.captive.y === y ? <span class="tb-captive">救</span> : chest && !chest.opened ? <span class="tb-obj-ic"><Icon name="chest" size={22} /></span> : door ? <span class="tb-obj-ic"><Icon name="door" size={22} /></span> : gate ? <span class="tb-obj-ic gate">門</span> : trapHere ? <span class="tb-obj-ic trapic">罠</span> : null}</button>;
         }))}
         <div class="tb-layer">
           {view.units.filter((u) => u.alive).map((u) => {
@@ -354,6 +360,7 @@ export function TacticsView() {
               {!!selU.potion && selU.hp < selU.max && <button class="btn small grow" onClick={() => run((g) => usePotion(g.battle!, selU.uid))}>傷薬</button>}
               {selU.teacher && b.command > 0 && mine(b).some((m) => m.acted && !m.teacher) && <button class="btn small accent grow" onClick={() => { setMode('command'); setSel(null); setMsg('号令：もう一度動かす子（光っている子）をタップ'); }}>号令</button>}
               {selU.teacher && insightTargets(b).length > 0 && <button class="btn small accent grow" onClick={() => { setMode('insight'); setSel(null); setMsg('見極め：弱点を見たい敵（光っている敵）をタップ'); }}>見極め</button>}
+              {canTrap && <button class="btn small accent grow" onClick={() => { setMode('trap'); setMsg(<span>罠：置くマス（光っているマス）をタップ。敵が通ると傷を負い、そこで止まる（のこり{b.trapLeft?.[selU.uid] ?? 0}）</span>); }}>罠</button>}
               {igns.length > 0 && <button class="btn small accent grow" onClick={() => { setMode('ignite'); setMsg(<span>火矢：燃やすマス（光っている森{igns.some((o) => o.gate) ? '・木の門' : ''}）をタップ。燃える森は、通る者が傷を負う</span>); }}>火矢</button>}
               <button class="btn small ghost grow" onClick={() => setSel(null)}>選びなおす</button>
             </div>

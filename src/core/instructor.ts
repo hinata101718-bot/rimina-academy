@@ -4,7 +4,7 @@ import { RANK_TITLES } from '../data/people';
 import { B, SKILLS, RANK_POINTS, TEACHER_RANK } from '../data/balance';
 import { skillRankUp } from './discovery';
 import { BACKGROUNDS, COUNTRY_SHORT, SKILL_NAMES, PERSONALITIES, TALENTS, DREAMS } from '../data/people';
-import { NAMES } from '../data/names';
+import { pickGiven } from './officers';
 import type { SkillId, CountryId } from './types';
 import type { GameState, Student, Teacher, SceneLine, VicePolicy, Instructor } from './state';
 import { Rng } from './rng';
@@ -221,7 +221,7 @@ export function externalSuccessor(s: GameState, rng: Rng): void {
   const bg = BACKGROUNDS[3];
   const origin = rng.pick(['kingdom', 'empire', 'alliance'] as const);
   const male = rng.chance(0.5);
-  const name = rng.pick(male ? NAMES[origin].male : NAMES[origin].female);
+  const name = pickGiven(s, rng, origin, male ? 'm' : 'f');
   const skills = emptySkills(RANK_POINTS.C);
   skills.gun = s.world.gunUnlocked ? RANK_POINTS.D : 0;
   const prev = s.instructor;

@@ -9,7 +9,7 @@ import { recommendCard, recommendSocial, todayCards } from './lessons';
 import { startOpeningBattle, finishBattle } from './flow';
 import { autoFinish } from './tactics/ai';
 import { chooseWeek, startSortie, finishCareers, admit, autoAdmitIds, rng } from './flow';
-import { autoExam } from './exam';
+import { autoExam, autoSideChange } from './exam';
 import { autoSpy } from './bonds';
 import { autoRecommend, suitablePath, availableChoices as availableChoicesOf, type CareerChoice, type CareerPlan } from './career';
 import { activeAlumni } from './world';
@@ -108,7 +108,7 @@ export function autoSuccessor(s: GameState): void {
 /** 学校の自動判断（月に1回）：兵種試験・先生の経験ポイント */
 export function autoManage(s: GameState): void {
   const r = rng(s);
-  for (const st of enrolled(s)) autoExam(s, r, st);
+  for (const st of enrolled(s)) { autoSideChange(s, st); autoExam(s, r, st); }
   autoSpend(s, instructorCaps(s), goodSkillsOf(s));
 }
 

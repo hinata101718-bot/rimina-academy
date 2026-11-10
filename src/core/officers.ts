@@ -78,11 +78,34 @@ function persForAge(r: Rng, kind: 'army' | 'bandit', band: AgeBand): LeaderPerso
 }
 
 /** 使われている名前（生徒・卒業生・志願者・敵将。10夜目：一般兵の名前もこれと重ならないように） */
+/** 23夜目：同じ時期に使われている下の名前（在籍中・希望者・先生と講師・生きている敵将と宿敵・便りのある卒業生） */
 export function takenNames(s: GameState): Set<string> {
-  const t = new Set(Object.values(s.students).map((x) => x.given));
+  const t = new Set<string>();
+  for (const x of Object.values(s.students ?? {})) {
+    if (x.status === 'enrolled') t.add(x.given);
+    else if (x.status === 'graduated' && x.career && x.career.alive !== false && !x.career.retired) t.add(x.given);
+  }
   for (const st of s.applicants ?? []) t.add(st.given);
-  for (const o of officers(s)) t.add(o.given);
+  for (const o of officers(s)) if (o.status === 'active') t.add(o.given);
+  if (s.instructor?.name) t.add(s.instructor.name.split('・')[0]);
+  for (const te of s.teachers ?? []) t.add(te.name.split('・')[0]);
   return t;
+}
+
+/** 23夜目：かぶらない下の名前を選ぶ。その出身の表で尽きたら、ほかの国の表からも */
+export function pickGiven(s: GameState, r: Rng, origin: keyof typeof NAMES, gender: Gender, avoid?: Set<string>): string {
+  const taken = takenNames(s);
+  if (avoid) for (const n of avoid) taken.add(n);
+  const key = gender === 'f' ? 'female' : 'male';
+  const order: (keyof typeof NAMES)[] = [origin, ...(Object.keys(NAMES) as (keyof typeof NAMES)[]).filter((o) => o !== origin)];
+  for (const o of order) {
+    const free = NAMES[o][key].filter((n) => !taken.has(n));
+    if (free.length) { const g = r.pick(free); avoid?.add(g); return g; }
+  }
+  // どの表も尽きたとき（ふつうは起きない）：数字を添える
+  const base = r.pick(NAMES[origin][key]);
+  let k = 2; while (taken.has(`${base}${k}`)) k++;
+  return `${base}${k}`;
 }
 
 export function newOfficer(s: GameState, r: Rng, faction: FactionId, rank: number): EnemyOfficer {
@@ -97,9 +120,7 @@ export function newOfficer(s: GameState, r: Rng, faction: FactionId, rank: numbe
   const age = r.int(...OFFICER.ageRange[realBand]);
   const origin = faction === 'bandit' ? 'frontier' : faction;
   const nl = NAMES[origin as keyof typeof NAMES];
-  const taken = takenNames(s);
-  let given = r.pick(gender === 'f' ? nl.female : nl.male);
-  for (let k = 0; k < 10 && taken.has(given); k++) given = r.pick(gender === 'f' ? nl.female : nl.male);
+  const given = pickGiven(s, r, origin as keyof typeof NAMES, gender);
   const pers = persForAge(r, kind, realBand);
   // 盗賊の二つ名は、今いる盗賊どうしで重ならないように
   const usedEp = new Set(activeOf(s, 'bandit').map((o) => o.epithet));

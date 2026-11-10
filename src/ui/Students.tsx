@@ -14,7 +14,7 @@ import { careerTitleOnly, sidesFor } from '../core/discovery';
 import { SIDES } from '../data/discovery';
 import { StuCard, SecTitle, MoodDots, studentFlags, countryColor, LvBadge, ClassName, CountryChip, Chip, Gauge, FatigueBar, SkillBox, FaceRow, MiniCard, Num } from './cards';
 import { Icon } from './icons';
-import { examCandidates, missingReqs, levelReq, recommendClass, onPath, pathClassesMissing } from '../core/exam';
+import { examCandidates, missingReqs, levelReq, recommendClass, onPath, pathClassesMissing, sameTier, sideClasses, canSideChange, sideChange } from '../core/exam';
 import { OfficerFace, Portrait } from './Portrait';
 import { SKILL_NAMES, STAT_NAMES, PERSONALITIES, TRAITS, TALENTS, DREAMS, COUNTRY_NAMES, HOUSE_NAMES, PATH_NAMES, PATH_LINES, PATH_SAY } from '../data/people';
 import { CLASSES } from '../data/classes';
@@ -112,7 +112,9 @@ function Detail({ s, st, exam, sub }: { s: GameState; st: Student; exam?: boolea
   const [tab, setTab0] = useState<DetailTab>(sub ?? s.settings.detailTab ?? 'stats');
   const setTab = (x: DetailTab) => { sfx('move'); setTab0(x); act((g) => { g.settings.detailTab = x; }, true); };
   const [examOpen, setExamOpen] = useState(!!exam);
-  const examReady = !st.status || st.status === 'enrolled' ? nextClasses(s, st).some((c) => classUnlocked(s, c) && meetsReq(st, c)) && canTakeExam(s, st) : false;
+  const [sideOpen, setSideOpen] = useState(false);
+  const examReady = !st.status || st.status === 'enrolled' ? nextClasses(s, st).some((c) => !sameTier(st, c) && classUnlocked(s, c) && meetsReq(st, c)) && canTakeExam(s, st) : false;
+  const sides = st.status === 'enrolled' ? sideClasses(st) : [];
   const promo = promotionItems(st);
   const markSeen = () => act((g) => { const x = g.students[st.id]; if (x) { x.seenTitle = careerTitleOnly(titleOf(x)); x.seenClass = x.classId; } });
   const es = effectiveStats(st);
@@ -131,6 +133,7 @@ function Detail({ s, st, exam, sub }: { s: GameState; st: Student; exam?: boolea
   return (
     <div>
       {examOpen && <ExamSheet s={s} st={st} onClose={() => setExamOpen(false)} />}
+      {sideOpen && <SideSheet s={s} st={st} onClose={() => setSideOpen(false)} />}
       {promo.length > 0 && <Sheet><RankUpPlayer s={s} items={promo} title="卒業生の昇進" onDone={markSeen} /></Sheet>}
       <Back to={() => { const bk = getRoute().back; if (bk) navigate(bk); else if (history.length) navigate(grad ? { tab: 'yearbook' } : { tab: 'students' }); }} />
       <div class="pcard" style={{ ['--band' as string]: color }}>
@@ -138,7 +141,7 @@ function Detail({ s, st, exam, sub }: { s: GameState; st: Student; exam?: boolea
           <div class="hero-face"><Portrait st={st} size={96} frame={color} /><LvBadge lv={st.level} big /></div>
           <div class="grow" style={{ minWidth: 0 }}>
             <NameLineBig st={st} />
-            <div class="row gap4" style={{ marginTop: 2 }}><ClassName classId={st.classId} size={16} /><CountryChip o={st.origin} /><Chip>{PERSONALITIES[st.personality].name}</Chip></div>
+            <div class="row gap4" style={{ marginTop: 2 }}><ClassName classId={st.classId} size={16} />{sides.length > 0 && <button class="btn small side-btn" onClick={() => { sfx('move'); setSideOpen(true); }}>初級を変える</button>}<CountryChip o={st.origin} /><Chip>{PERSONALITIES[st.personality].name}</Chip></div>
             <div class="muted small" style={{ marginTop: 2 }}>{st.age}歳・{st.gender === 'm' ? '男性' : '女性'}・{grad ? `${cohortName(st.cohort)}` : `${st.grade}年生`}・{HOUSE_NAMES[st.house]}</div>
             <div class="row nowrap gap6" style={{ marginTop: 4 }}><span class="small muted dt-gl">HP</span><Gauge v={es.hp} max={capHp} tone="main" /><span class="small muted">{es.hp}</span></div>
             <div class="row nowrap gap6" style={{ marginTop: 2 }}><span class="small muted dt-gl">EXP</span><Gauge v={st.exp} max={B.student.expPerLevel} tone="exp" /><span class="small muted">{st.exp}/100</span></div>
@@ -398,7 +401,7 @@ function ExamSheet({ s, st, onClose }: { s: GameState; st: Student; onClose: () 
       {opts.map((c) => {
         const ok = classUnlocked(s, c) && meetsReq(st, c);
         const miss = missingReqs(s, st, c);
-        const mark = c === rec ? <span class="flag main">先生の勧め</span> : c.hidden ? <span class="flag red">隠れた道</span> : onPath(st, c) ? <span class="flag gray-flag">おすすめの道</span> : <span class="flag gray-flag">ほかの枝</span>;
+        const mark = c === rec ? <span class="flag main">先生の勧め</span> : c.hidden ? <span class="flag red">隠れた道</span> : onPath(st, c) ? <span class="flag gray-flag">おすすめの道</span> : sameTier(st, c) ? <span class="flag blue-flag">同じ段階</span> : <span class="flag gray-flag">ほかの枝</span>;
         return (
           <div class="pcard" style={{ ['--band' as string]: ok ? 'var(--good)' : '#cfc6b2', margin: '8px 0 0' }}>
             <div class="row between nowrap">
@@ -411,13 +414,36 @@ function ExamSheet({ s, st, onClose }: { s: GameState; st: Student; onClose: () 
             <div class="small" style={{ marginTop: 4 }}><b>{CLASSES[st.classId].name} → {c.name}</b>に変わると</div>
             <ClassCompare from={CLASSES[st.classId]} to={c} />
             <div class="small muted">兵種が変わっても、これまでに伸びた分はそのまま残ります。<HelpTip text="「いるあいだ」の補正だけが、新しい兵種のものに入れ替わります。" /></div>
-            <button class={`btn block${ok && can ? ' primary' : ''}`} style={{ marginTop: 6 }} disabled={!ok || !can} onClick={() => { let ok = false; act((g) => { const from = CLASSES[g.students[st.id].classId]?.name ?? ''; const n0 = g.pending.length; const r = takeExam(g, rng(g), g.students[st.id], c.id); ok = r.ok; setMsg(r.text); sfx(r.ok ? 'pass' : 'cancel'); if (r.ok) { /* 15夜目：受かったら、そのまま兵種昇格の演出（2タップ）。22夜目：生徒が自分で選んだときは、その兵種 */ const item = { icon: 'exam', title: `${st.given}の兵種`, from, to: CLASSES[r.classId ?? c.id]?.name ?? c.name, p0: 0.4, p1: 1, studentId: st.id, note: r.own ? '自分で選んだ道！' : '兵種昇格！' }; const p0 = g.pending[n0]; if (p0 && p0.type === 'rankup') p0.items.unshift(item); else g.pending.push({ type: 'rankup', items: [item] }); } }); if (ok) onClose(); }}>{ok ? `${c.name}になる` : '条件が足りません'}</button>
+            <button class={`btn block${ok && can ? ' primary' : ''}`} style={{ marginTop: 6 }} disabled={!ok || !can} onClick={() => { let ok = false; act((g) => { const from = CLASSES[g.students[st.id].classId]?.name ?? ''; const n0 = g.pending.length; const r = takeExam(g, rng(g), g.students[st.id], c.id); ok = r.ok; setMsg(r.text); sfx(r.ok ? 'pass' : 'cancel'); if (r.ok) { /* 15夜目：受かったら、そのまま兵種昇格の演出（2タップ）。22夜目：生徒が自分で選んだときは、その兵種 */ const item = { icon: 'exam', title: `${st.given}の兵種`, from, to: CLASSES[r.classId ?? c.id]?.name ?? c.name, p0: 0.4, p1: 1, studentId: st.id, note: r.own ? '自分で選んだ道！' : sameTier(st, c) ? '同じ段階の兵種へ！' : '兵種昇格！' }; const p0 = g.pending[n0]; if (p0 && p0.type === 'rankup') p0.items.unshift(item); else g.pending.push({ type: 'rankup', items: [item] }); } }); if (ok) onClose(); }}>{ok ? `${c.name}になる` : '条件が足りません'}</button>
           </div>
         );
       })}
       {!opts.length && <div class="empty-note">技能の条件を満たした兵種は、まだありません</div>}
       {more.length > 0 && <div class="small muted" style={{ marginTop: 8 }}>おすすめの道で、あと少しの兵種：{more.map((c) => `${c.name}（${Object.entries(c.req).filter(([k, r]) => st.skills[k as SkillId] < RANK_POINTS[r as Rank]).map(([k, r]) => `${SKILL_NAMES[k as SkillId]}を${r}に`).join('・')}）`).join('、')}</div>}
       {!can && <div class="muted small" style={{ marginTop: 4 }}>けがで休んでいるあいだは、試験を受けられません</div>}
+    </Sheet>
+  );
+}
+
+/** 23夜目④：初級どうしは試験なしで移れる（月に1回まで） */
+function SideSheet({ s, st, onClose }: { s: GameState; st: Student; onClose: () => void }) {
+  const [msg, setMsg] = useState('');
+  const opts = sideClasses(st);
+  const can = canSideChange(s, st);
+  return (
+    <Sheet title={`${st.given}の兵種を変える（初級）`} onClose={onClose}>
+      <div class="small muted">初級どうしは、試験なしで移れます（月に1回まで）。技能の条件を満たした兵種だけが並びます。前の兵種の特技はなくなりますが、覚えた技は残ります。使えなくなった武器は外れます。</div>
+      {msg && <div class="guide">{msg}</div>}
+      {!can && <div class="small" style={{ color: 'var(--accent)', marginTop: 4 }}>今月はもう兵種を変えました。来月また変えられます</div>}
+      {opts.map((c) => (
+        <div class="pcard" style={{ ['--band' as string]: 'var(--good)', margin: '8px 0 0' }}>
+          <div class="row between nowrap"><div class="grow"><ClassName classId={c.id} size={17} /> <span class="muted small">初級</span></div>{(st.apt?.good ?? []).some((k) => k in c.req) && <span class="flag main">得意に合う</span>}</div>
+          <div class="small muted">{c.desc}</div>
+          <div class="small" style={{ marginTop: 4 }}><b>{CLASSES[st.classId].name} → {c.name}</b>に変わると</div>
+          <ClassCompare from={CLASSES[st.classId]} to={c} />
+          <button class={`btn block${can ? ' primary' : ''}`} style={{ marginTop: 6 }} disabled={!can} onClick={() => { let ok = false; act((g) => { const from = CLASSES[g.students[st.id].classId]?.name ?? ''; const r = sideChange(g, g.students[st.id], c.id); ok = r.ok; setMsg(r.text); sfx(r.ok ? 'pass' : 'cancel'); if (r.ok) g.pending.push({ type: 'rankup', items: [{ icon: 'exam', title: `${st.given}の兵種`, from, to: c.name, p0: 0.4, p1: 1, studentId: st.id, note: '初級の兵種を変えた' }] }); }); if (ok) onClose(); }}>{c.name}に変える</button>
+        </div>
+      ))}
     </Sheet>
   );
 }

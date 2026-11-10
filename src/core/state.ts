@@ -134,6 +134,8 @@ export interface Student {
   /** 最後に魔法を覚えた週・兵種が変わった週（自動の戦闘の出来事に使う） */
   lastSpellWeek?: number;
   lastClassWeek?: number;
+  /** 23夜目④：初級どうしで兵種を変えた絶対月（月に1回まで） */
+  sideMonth?: number;
   /** 個人ページで最後に見た肩書き・兵種（卒業生の昇進の演出に使う。6夜目） */
   seenTitle?: string;
   seenClass?: string;

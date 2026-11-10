@@ -89,9 +89,13 @@ function nextTierPool(s: GameState, st: Student): ClassDefX[] {
     if (c.tier === 4) return !!c.deed && (st.deeds?.[c.deed] ?? 0) >= (c.need ?? 1);
     return true;
   });
+  // 23夜目④：中級より上は、同じ段階の兵種へも試験で移れる（「同じ段階」として並ぶ）
+  if (tier >= 2 && !cur?.hidden) for (const c of CLASS_LIST) if (c.tier === tier && c.id !== st.classId && !c.hidden) out.push(c);
   // 隠れた兵種の子が、同じ段階より下の兵種に戻ることはない
   return out.filter((c) => !(cur?.hidden && !c.hidden && c.tier <= (cur?.tier ?? 0)));
 }
+/** 23夜目④：同じ段階の兵種か */
+export function sameTier(st: Student, c: ClassDef): boolean { return !c.hidden && c.tier === (CLASSES[st.classId]?.tier ?? 0); }
 /** 枝分かれの先（おすすめの道） */
 export function onPath(st: Student, c: ClassDef): boolean { return c.prereq.includes(st.classId); }
 
@@ -129,21 +133,21 @@ export function recommendScore(s: GameState, st: Student, c: ClassDef): number {
 }
 /** 先生の勧め（受けられる兵種のうち、いちばん勧めたいもの） */
 export function recommendClass(s: GameState, st: Student, opts?: ClassDef[]): ClassDef | null {
-  const list = (opts ?? nextClasses(s, st)).filter((c) => !c.hidden);
+  const list = (opts ?? nextClasses(s, st)).filter((c) => !c.hidden && !sameTier(st, c));
   if (!list.length) return null;
   return [...list].sort((a, b) => recommendScore(s, st, b) - recommendScore(s, st, a))[0];
 }
 /** 並べる順：①先生の勧め ②枝分かれの先（おすすめの道）③そのほか */
 function sortExamOptions(s: GameState, st: Student, list: ClassDef[]): ClassDef[] {
   const rec = recommendClass(s, st, list);
-  const rank = (c: ClassDef) => (c === rec ? 0 : c.hidden ? 1 : onPath(st, c) ? 2 : 3);
+  const rank = (c: ClassDef) => (c === rec ? 0 : c.hidden ? 1 : onPath(st, c) ? 2 : sameTier(st, c) ? 4 : 3);
   return [...list].sort((a, b) => rank(a) - rank(b) || recommendScore(s, st, b) - recommendScore(s, st, a));
 }
 
 /** 22夜目：生徒が自分で選ぶ兵種（夢・得意・執念・性格から）。先生の勧めと同じなら null */
 export function ownChoice(s: GameState, st: Student, picked: ClassDef, opts: ClassDef[]): ClassDef | null {
   const dream = DREAMS.find((d) => d.id === st.dream);
-  const others = opts.filter((c) => c.id !== picked.id && !c.hidden && meetsReq(st, c));
+  const others = opts.filter((c) => c.id !== picked.id && !c.hidden && meetsReq(st, c) && sameTier(st, c) === sameTier(st, picked));
   if (!others.length) return null;
   const like = (c: ClassDef) => {
     const req = Object.keys(c.req) as SkillId[];
@@ -180,7 +184,7 @@ export function canTakeExam(s: GameState, st: Student): boolean {
 }
 
 export function examCandidates(s: GameState): Student[] {
-  return Object.values(s.students).filter((st) => canTakeExam(s, st) && nextClasses(s, st).some((c) => classUnlocked(s, c) && meetsReq(st, c)));
+  return Object.values(s.students).filter((st) => canTakeExam(s, st) && nextClasses(s, st).some((c) => !sameTier(st, c) && classUnlocked(s, c) && meetsReq(st, c)));
 }
 
 export function takeExam(s: GameState, rng: Rng, st: Student, classId: string, opt: { force?: boolean } = {}): { ok: boolean; rate: number; text: string; classId?: string; own?: boolean } {
@@ -229,4 +233,42 @@ export function autoExam(s: GameState, rng: Rng, st: Student): string | null {
   const best = recommendClass(s, st, opts);
   if (!best || passRate(st, best) < 70) return null;
   return takeExam(s, rng, st, best.id).text;
+}
+
+// ---------------------------------------------------------------
+// 23夜目④：初級どうしは試験なしで移れる（個人ページの兵種の欄から。月に1回まで）
+// ---------------------------------------------------------------
+/** 初級どうしで移れる兵種（技能の条件を満たすもの） */
+export function sideClasses(st: Student): ClassDef[] {
+  const cur = CLASSES[st.classId];
+  if (!cur || cur.tier !== 1 || st.status !== 'enrolled') return [];
+  return CLASS_LIST.filter((c) => c.tier === 1 && c.id !== cur.id && !c.hidden && meetsSkillReq(st, c));
+}
+/** 今月、初級どうしで移れるか */
+export function canSideChange(s: GameState, st: Student): boolean { return sideClasses(st).length > 0 && st.sideMonth !== absMonth(s.year, s.month); }
+/** 初級どうしで移る。前の兵種の特技は残らない（覚えた技は残る）。使えなくなった武器は外す */
+export function sideChange(s: GameState, st: Student, classId: string): { ok: boolean; text: string } {
+  const c = CLASSES[classId];
+  if (!c || !canSideChange(s, st) || !sideClasses(st).some((x) => x.id === classId)) return { ok: false, text: '今は変えられません' };
+  const from = CLASSES[st.classId]?.name ?? '';
+  st.classId = c.id;
+  st.sideMonth = absMonth(s.year, s.month);
+  st.lastClassWeek = s.absWeek;
+  markClassSeen(s, c.id);
+  learnTechs(s, st);
+  checkEquip(s, st);
+  st.history.push({ year: s.year, text: `${from}から${c.name}に移った` });
+  notify(s, `${st.given}が${from}から${c.name}に移った`, st.id);
+  return { ok: true, text: `${st.given}は${c.name}になった（${from}の特技はなくなり、覚えた技は残る）` };
+}
+/** おまかせ：得意な技能と兵種が合っていない子だけ、初級のうちに移す */
+export function autoSideChange(s: GameState, st: Student): string | null {
+  const good = st.apt?.good ?? [];
+  const cur = CLASSES[st.classId];
+  if (!good.length || !cur || cur.tier !== 1 || !canSideChange(s, st)) return null;
+  const fits = (c: ClassDef) => (Object.keys(c.req) as SkillId[]).some((k) => good.includes(k));
+  if (fits(cur)) return null;
+  const opts = sideClasses(st).filter(fits).sort((a, b) => recommendScore(s, st, b) - recommendScore(s, st, a));
+  if (!opts.length) return null;
+  return sideChange(s, st, opts[0].id).text;
 }

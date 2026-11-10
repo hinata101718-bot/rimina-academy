@@ -68,7 +68,8 @@ export function newGame(opts: { name: string; background: string; seed: number; 
   if (!st0.deadline) s.noDeadline = true;
   // 一期生
   const n = r.int(...(opts.start ? st0.cohort : B.student.firstYearCount));
-  enrollCohort(s, Array.from({ length: n }, () => generateStudent(s, r, { quality: st0.quality })));
+  const avoid = new Set<string>();
+  enrollCohort(s, Array.from({ length: n }, () => generateStudent(s, r, { quality: st0.quality, avoid })));
   if (opts.startGrade && opts.startGrade > 1) {
     // デバッグ：在校生を上の学年として始める
     for (const st of enrolled(s)) {

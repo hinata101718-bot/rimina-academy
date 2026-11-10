@@ -180,6 +180,10 @@ export interface TBattle {
   wild?: string[];
   /** 21夜目：宝箱・扉の奥で見つけたもの（戦いのあと学校に） */
   found?: { weaponId?: string; money?: number; by: string }[];
+  /** 23夜目③：斥候の罠（置いたマス）と、置ける残りの数（uid→数）。踏んだ敵は傷を負って止まる */
+  traps?: { x: number; y: number; by: string }[]; trapLeft?: Record<string, number>;
+  /** 23夜目②：負けそうになり、おまかせが兵をまとめて退いた */
+  retreated?: boolean;
   /** 21夜目：2手先を読むための、試しの計算中（保存しない） */
   peek?: boolean;
 }

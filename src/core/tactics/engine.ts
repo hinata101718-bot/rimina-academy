@@ -942,7 +942,9 @@ export function endTurn(b: TBattle, opt: { noDeath?: boolean } = {}): TFx[] {
     if (!spot) {
       for (const [k] of Object.entries(R)) { const [x, y] = k.split('-').map(Number); const sc = Math.abs(x - target.x) + Math.abs(y - target.y); if (!spot || sc < spot.sc) spot = { x, y, sc }; }
     }
-    if (spot && (spot.x !== f.x || spot.y !== f.y)) { f.x = spot.x; f.y = spot.y; fx.push({ k: 'move', uid: f.uid, x: f.x, y: f.y }); scorch(b, f, fx, !!opt.noDeath); }
+    const trap = spot ? trapOnPath(b, f, spot.x, spot.y) : null;
+    if (trap) { f.x = trap.x; f.y = trap.y; fx.push({ k: 'move', uid: f.uid, x: f.x, y: f.y }); springTrap(b, f, trap, fx, !!opt.noDeath); checkEnd(b); if (!inRangeBasic(f, target) && !mine(b).some((m) => inRangeBasic(f, m))) continue; }
+    else if (spot && (spot.x !== f.x || spot.y !== f.y)) { f.x = spot.x; f.y = spot.y; fx.push({ k: 'move', uid: f.uid, x: f.x, y: f.y }); scorch(b, f, fx, !!opt.noDeath); }
     // 槍衾：隣に来た敵を、先に突く
     for (const m of mine(b).filter((m) => T(m, 'pike') && near(m, f, 1))) { if (!f.alive) break; log(b, `${m.name}の槍衾！`); strike(b, m, f, null, fx, opt.noDeath ?? false, false, 0, undefined, true); }
     checkEnd(b);
@@ -998,6 +1000,48 @@ export function checkEnd(b: TBattle): void {
     case 'escape': if (t && t.y <= (b.exitRow ?? 0)) return finish(b, 'win', '囲みを抜けた！'); if (!fl.length) return finish(b, 'win', '敵をすべて倒した！'); break;
   }
   if (b.turn > TB.maxTurns) return finish(b, b.objective === 'defend' ? 'win' : 'lose', b.objective === 'defend' ? '守り抜いた！' : '日が暮れ、引き上げた');
+}
+/** 23夜目③：罠を置けるマス（自分から近く・空いている・まだ罠のないマス） */
+export function trapSpots(b: TBattle, u: TUnit): { x: number; y: number }[] {
+  if (!(b.trapLeft?.[u.uid] ?? 0) || b.phase !== 'player') return [];
+  const out: { x: number; y: number }[] = [];
+  for (let y = 0; y < b.h; y++) for (let x = 0; x < b.w; x++) {
+    const d = Math.abs(x - u.x) + Math.abs(y - u.y);
+    if (d < 1 || d > TB.trap.range || blocked(b, x, y) || at(b, x, y) || b.traps?.some((t) => t.x === x && t.y === y)) continue;
+    out.push({ x, y });
+  }
+  return out;
+}
+/** 罠を置く（動いたことにはならない） */
+export function placeTrap(b: TBattle, uid: string, x: number, y: number): TFx[] {
+  const u = unit(b, uid);
+  if (!u || !trapSpots(b, u).some((c) => c.x === x && c.y === y)) return [];
+  b.trapLeft![uid] -= 1;
+  (b.traps ??= []).push({ x, y, by: uid });
+  log(b, `${u.name}が罠を仕掛けた`);
+  b.fx = [];
+  return [];
+}
+/** 敵が歩く道に罠があれば、そこで止まる（止まったマスを返す） */
+function trapOnPath(b: TBattle, f: TUnit, tx: number, ty: number): { x: number; y: number; by: string } | null {
+  if (!b.traps?.length || f.side !== 'foe') return null;
+  for (const c of walkPath(b, f, tx, ty)) { const t = b.traps.find((p) => p.x === c.x && p.y === c.y); if (t && !at(b, c.x, c.y)) return t; }
+  return null;
+}
+function springTrap(b: TBattle, f: TUnit, t: { x: number; y: number; by: string }, fx: TFx[], noDeath: boolean): void {
+  b.traps = b.traps!.filter((p) => p !== t);
+  const by = unit(b, t.by) ?? mine(b)[0];
+  const dmg = Math.min(TB.trap.dmg, f.hp - 1);
+  if (dmg > 0 && by) { f.hp -= dmg; by.dealt += dmg; f.taken += dmg; fx.push({ k: 'hit', a: by.uid, d: f.uid, dmg, weak: false, resisted: false, shield: false, brk: false, kill: false, tech: '罠', broken: false }); }
+  log(b, `${f.name}が${by?.name ?? ''}の罠にかかった（−${Math.max(0, dmg)}・足が止まった）`, true);
+  void noDeath;
+}
+
+/** 23夜目②：退く（負けになるが、残った子はそれ以上傷つかない） */
+export function retreat(b: TBattle): void {
+  if (b.phase === 'done') return;
+  b.retreated = true;
+  finish(b, 'lose', '勝ち目が薄い。先生の合図で、兵をまとめて退いた');
 }
 function finish(b: TBattle, r: 'win' | 'lose', text: string): void {
   b.phase = 'done';
