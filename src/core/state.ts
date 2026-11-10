@@ -110,6 +110,8 @@ export interface Student {
   lowMotivWeeks: number;
   dropoutSign: DropoutSign | null;
   lastAttention: number; // 最後に注目された絶対週
+  /** 24夜目⑥：最後に先生へ書いた手紙の型（同じ型を続けない） */
+  lastLetter?: string;
   spotlightCount: number;
   examMonth: number;     // 最後に試験を受けた絶対月（-1=なし）
   face: FaceParts;
@@ -343,6 +345,9 @@ export interface NewsPaper {
   front?: { head: string; sub?: string; text: string; art?: string };
   /** 各組織の移り変わり（昇進・討死・争い・二つ名・抜擢・引退）。officerId で組織図へ */
   orgs?: { tag: string; text: string; name?: string; officerId?: string }[];
+  /** 24夜目⑤：二面（一面の次に大きな話・因縁のある宿敵の動き）と、各国の動き（ほかの敵将の二つ名・昇進・引退をまとめた小さな欄） */
+  second?: { head: string; text: string }[];
+  moves?: string[];
   /** 政治の動き：三国の方針と出来事 */
   politics?: { country: string; stance: string; text: string }[];
   /** 緊張度と和平のゲージ（0〜100）と、その言葉 */
@@ -359,6 +364,8 @@ export interface NewsDesk {
   relations: { ke: number; ea: number; ak: number };
   tension: number; reputation: number;
   officers: Record<string, { st: string; rk: number; ep: string }>;
+  /** 24夜目⑤：前の号を出したときの年表の長さ（古い控えにはない） */
+  chron?: number;
 }
 
 export interface ChronicleEntry { year: number; month: number; text: string; kind: 'school' | 'world' | 'student' }

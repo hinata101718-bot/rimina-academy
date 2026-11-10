@@ -87,3 +87,63 @@ describe('24夜目：前の版（23夜目）のセーブ', () => {
     expect(t.version).toBe(24);
   });
 });
+
+import { classifyNews, summarizeMoves, NEWS_SAME_MAX } from '../src/core/newspaper';
+import { alumniLetter, simulateAlumni } from '../src/core/alumni';
+import { Rng } from '../src/core/rng';
+
+describe('24夜目⑤：新聞の一面', () => {
+  it('大きな話ほど重い。ほかの敵将の二つ名・昇進・引退は一面・二面に載せない（因縁のある宿敵だけ二面）', () => {
+    const w = (text: string, kind: 'world' | 'school' | 'student' = 'world', names: string[] = []) => classifyNews({ text, kind }, names);
+    expect(w('平和な時代が始まった')!.w).toBeGreaterThan(w('王国と帝国の国境紛争')!.w);
+    expect(w('ローザが「砦の攻略」で戦死', 'student')!.w).toBeGreaterThan(8);
+    expect(w('卒業生のオットーが、王国の将として学校の前に立ちはだかる', 'student')!.w).toBeGreaterThan(8);
+    expect(w('帝国軍のアウレリウス・タウルスが幹部に昇進した')).toBeNull();
+    expect(w('王国軍のグスタフ・ローゼンが引退した')).toBeNull();
+    expect(w('帝国軍のクレメンスは、「隻眼のクレメンス」と呼ばれるようになった（光に焼かれた右目）')).toBeNull();
+    expect(w('帝国軍のクレメンスは、「隻眼のクレメンス」と呼ばれるようになった（光に焼かれた右目）', 'world', ['クレメンス'])!.cat).toBe('nemOrg');
+    expect(w('帝国軍のクレメンスを討ち取った', 'school')).toBeNull();
+    expect(w('帝国軍のクレメンスを討ち取った', 'school', ['クレメンス'])!.cat).toBe('nemesis');
+  });
+  it('ほかの敵将の動きは「各国の動き」にまとめる', () => {
+    const l = summarizeMoves([{ faction: '帝国軍', tag: '昇進', name: 'ア' }, { faction: '帝国軍', tag: '昇進', name: 'イ' }, { faction: '帝国軍', tag: '昇進', name: 'ウ' }, { faction: '王国軍', tag: '引退', name: 'エ' }]);
+    expect(l).toHaveLength(2);
+    expect(l[0]).toContain('昇進3人');
+  });
+  it('12年回して：一面に二つ名・昇進・引退が来ない。1つの号に同じ種類の話は2つまで', () => {
+    const s = newGame({ name: 'テスト', background: 'knight', seed: 1001 });
+    autoYears(s, 12);
+    const papers = s.news.filter((n) => n.kind === 'first' || n.kind === 'second');
+    expect(papers.length).toBeGreaterThan(10);
+    for (const n of papers) {
+      expect(n.front!.head).not.toMatch(/と呼ばれるようになった|幹部に昇進|が引退した/);
+      const tags: Record<string, number> = {};
+      for (const o of n.orgs ?? []) tags[o.tag] = (tags[o.tag] ?? 0) + 1;
+      for (const v of Object.values(tags)) expect(v).toBeLessThanOrEqual(NEWS_SAME_MAX);
+    }
+    const heads = new Set(papers.map((n) => n.front!.head.replace(/[^぀-ヿ一-鿿]/g, '').slice(-6)));
+    expect(heads.size).toBeGreaterThan(5);
+  }, 120_000);
+});
+
+describe('24夜目⑥：卒業生の手紙', () => {
+  it('中身と題が広がり、同じ人から同じ型が続かない。1年に十数通まで', () => {
+    const s = newGame({ name: 'テスト', background: 'knight', seed: 1003 });
+    autoYears(s, 10);
+    const grads = Object.values(s.students).filter((x) => x.status === 'graduated' && x.career?.alive && !x.career.retired);
+    expect(grads.length).toBeGreaterThan(20);
+    const r = new Rng({ rng: 77 } as never);
+    const kinds = new Set<string>(); const titles = new Set<string>();
+    for (const st of grads) for (let i = 0; i < 3; i++) { const l = alumniLetter(s, r, st); kinds.add(l.kind); titles.add(l.title); expect(l.kind).not.toBe(st.lastLetter); st.lastLetter = l.kind; expect(l.body).not.toMatch(/\{\w+\}/); }
+    expect(kinds.size).toBeGreaterThanOrEqual(6);
+    expect(titles.size).toBeGreaterThanOrEqual(10);
+    // 1年に届く数
+    for (const st of grads) st.trust = 100;
+    const before = s.mail.length;
+    const ids = new Set(s.mail.map((m) => m.id));
+    simulateAlumni(s, new Rng({ rng: 5 } as never));
+    const fresh = s.mail.filter((m) => !ids.has(m.id) && m.studentId && !/差し入れ|昇格/.test(m.title));
+    expect(fresh.length).toBeLessThanOrEqual(B.letters.yearMax);
+    void before;
+  }, 120_000);
+});

@@ -2413,3 +2413,11 @@ body[data-light="day"] .desk-candle::before { display: none; }
 .aff.frag { color: #ad1457; background: #fcebf2; }
 .aff.bond { color: #263238; background: #f1f1ee; border-style: double; border-width: 3px; }
 .tb-arow { display: flex; flex-wrap: wrap; gap: 3px; margin: 2px 0 1px; }
+
+/* ===== 24夜目⑤：新聞の二面・各国の動き ===== */
+.np-second { margin-top: 4px; }
+.np-story { padding: 4px 0; border-bottom: 1px dashed #8a7a5a; font-size: 14px; line-height: 1.5; }
+.np-story:last-child { border-bottom: none; }
+.np-story .small { font-size: 13px; }
+.np-moves { margin-top: 8px; padding: 6px 8px; border: 1px solid #5a4a32; font-size: 12px; line-height: 1.6; background: #0000000a; }
+.np-moves b { display: block; font-size: 13px; margin-bottom: 2px; }

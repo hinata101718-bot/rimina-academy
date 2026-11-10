@@ -89,6 +89,8 @@ export function takenNames(s: GameState): Set<string> {
   }
   for (const st of s.applicants ?? []) t.add(st.given);
   for (const o of officers(s)) if (o.status === 'active') t.add(o.given);
+  // 24夜目：死んだと思われた・討たれたばかりの敵将は、蘇ることがある（名前はそのまま）。しばらく名前を取っておく
+  for (const o of officers(s)) if (o.status === 'dead' && !o.revived && (o.presumed === 'dead' || (o.endYear ?? 0) >= (s.year ?? 0) - 8)) t.add(o.given);
   if (s.instructor?.name) t.add(s.instructor.name.split('・')[0]);
   // さらわれた先代の先生は、いつか敵として戻ってくる（名前はそのまま）
   if (s.capturedTeacher && !s.capturedTeacher.done) t.add(s.capturedTeacher.name.split('・')[0]);

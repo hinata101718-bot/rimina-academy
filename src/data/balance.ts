@@ -634,7 +634,7 @@ export const B = {
   },
   // ---- 誕生日（誕生日の週：やる気+1、お茶会で支援が上がりやすい） ----
   birthday: { motivation: 1, teaMul: 1.5, trust: 2 },
-  letters: { birthdayChance: 0.4, careChance: 0.08 }, // 誕生日の月の家族の便り・卒業生からの差し入れ
+  letters: { birthdayChance: 0.4, careChance: 0.08, /** 24夜目⑥：1年に届く「先生へ」の手紙の上限（卒業生が増えても十数通ほど） */ yearMax: 12 }, // 誕生日の月の家族の便り・卒業生からの差し入れ
   // ---- その他 ----
   exportReminderDays: 14,
   itemPrice: { vulnerary: 100, elixir: 500 },

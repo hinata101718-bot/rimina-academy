@@ -58,11 +58,18 @@ export function NewsView({ id, onLeave }: { id: string; onLeave?: () => void }) 
           <p class="np-body">{n.front.text}</p>
         </section>
       )}
+      {(n.second ?? []).length > 0 && (
+        <section class="np-second">
+          <div class="np-rule thin" />
+          <span class="np-tag">二面</span>
+          {(n.second ?? []).map((x) => <div class="np-story"><b>{x.head}</b><div class="small">{x.text}</div></div>)}
+        </section>
+      )}
       {(n.orgs?.length || n.politics?.length) ? (
         <div class="np-cols">
           <section class="np-col">
-            <h3 class="np-sec">各組織の移り変わり</h3>
-            {!(n.orgs ?? []).length && <div class="small muted">目立った動きはありませんでした</div>}
+            <h3 class="np-sec">{n.moves ? '宿敵と敵将の動き' : '各組織の移り変わり'}</h3>
+            {!(n.orgs ?? []).length && <div class="small muted">{n.moves ? '因縁のある宿敵に、目立った動きはありませんでした' : '目立った動きはありませんでした'}</div>}
             {(n.orgs ?? []).map((o) => {
               const off = officerById(s, o.officerId);
               return (
@@ -72,6 +79,7 @@ export function NewsView({ id, onLeave }: { id: string; onLeave?: () => void }) 
                 </div>
               );
             })}
+            {(n.moves ?? []).length > 0 && <div class="np-moves"><b>各国の動き</b>{(n.moves ?? []).map((m) => <div>{m}</div>)}</div>}
             {(n.orgs ?? []).length > 0 && <div class="np-link" onClick={() => { sfx('move'); leave(); navigate({ tab: 'war', page: 'officers' }); }}>→ 組織図を見る</div>}
           </section>
           <section class="np-col">

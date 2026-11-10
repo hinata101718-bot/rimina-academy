@@ -16,6 +16,7 @@ import { tensionStage, atWar } from './world';
 import { loveOf } from './support';
 import { fx } from './mentor';
 import { DEEDS } from '../data/deeds';
+import { LETTERS, MEMORY_LINES, type LetterKind } from '../data/letters';
 
 export function titleOf(st: Student): string {
   if (!st.career) return '';
@@ -86,6 +87,7 @@ export function simulateAlumni(s: GameState, rng: Rng): AlumniNews[] {
   const news: AlumniNews[] = [];
   const stage = tensionStage(s.world.tension);
   const big = (st: Student, text: string) => { news.push({ id: st.id, text: `${st.given}（${cohortName(st.cohort)}）${text}`, big: true }); st.history.push({ year: s.year, text }); };
+  const writers: Student[] = [];
   for (const st of Object.values(s.students)) {
     if (st.status !== 'graduated' || !st.career || !st.career.alive || st.career.retired) continue;
     if (st.career.instructor) { st.age = s.instructor.age; classUp(s, rng, st, news, big); continue; } // 教官になった教え子は教官として年をとる
@@ -181,14 +183,17 @@ export function simulateAlumni(s: GameState, rng: Rng): AlumniNews[] {
     // 引退
     const retireAge = B.alumni.retireAge[0] + ((st.id.charCodeAt(st.id.length - 1) * 7) % (B.alumni.retireAge[1] - B.alumni.retireAge[0] + 1));
     if (st.age >= retireAge) { c.retired = true; big(st, 'が引退した'); continue; }
-    // 手紙
-    if (st.trust >= B.trust.letterAt && rng.chance(B.alumni.letterRate)) mail(s, `${st.given}（${cohortName(st.cohort)}）`, '先生へ', letterBody(rng, st, s), st.id);
+    // 手紙（24夜目⑥：書きたい子を集めて、年の終わりに十数通まで）
+    if (st.trust >= B.trust.letterAt && rng.chance(B.alumni.letterRate)) writers.push(st);
     // 後輩への差し入れ（傷薬が届く）
     else if (st.trust >= B.trust.letterAt && rng.chance(B.letters.careChance)) {
       s.items.vulnerary += 2;
       mail(s, `${st.given}（${cohortName(st.cohort)}）`, '後輩たちへの差し入れ', `先生、${c.country ? `${COUNTRY_SHORT[c.country]}の` : ''}町で良い傷薬を見つけたので、少し送ります。後輩たちが無事に帰ってこられますように。—${st.given}（${cohortName(st.cohort)}）（傷薬が2つ武器庫に届いた）`, st.id);
     }
   }
+  // 24夜目⑥：話したいことがある子（宿敵との再会・結婚・子ども・出世など）を先に。1年に十数通まで
+  const letters = writers.map((st) => ({ st, l: alumniLetter(s, rng, st) })).sort((a, b) => b.l.pri - a.l.pri || rng.next() - 0.5).slice(0, B.letters.yearMax);
+  for (const { st, l } of letters) { mail(s, `${st.given}（${cohortName(st.cohort)}）`, l.title, l.body, st.id); st.lastLetter = l.kind; }
   return news;
 }
 
@@ -211,18 +216,54 @@ function promotionLetter(rng: Rng, st: Student, cls: string, nation: boolean, he
   return `${head}${tail}—${st.given}（${cohortName(st.cohort)}）`.replace(/わたし/g, st.gender === 'm' ? '僕' : 'わたし');
 }
 
-function letterBody(rng: Rng, st: Student, s?: GameState): string {
+/** 24夜目⑥：「先生へ」の手紙。近況だけでなく、宿敵との因縁・結婚や子ども・出世や落ちぶれ・弱音・昔の仲間・学校の思い出・後輩への助言・敵国の友。
+ *  pri が大きいほど、その年に書きたいことがある（年に届く数を絞るときに先に選ぶ）。同じ人から同じ型を続けない */
+export function alumniLetter(s: GameState, rng: Rng, st: Student): { kind: LetterKind; title: string; body: string; pri: number } {
   const c = st.career!;
+  const me = st.gender === 'm' ? '僕' : 'わたし';
   const where = c.kind === 'army' ? `${COUNTRY_SHORT[c.country!]}で${RANK_TITLES[c.path][Math.min(c.rank, RANK_TITLES[c.path].length - 1)]}をしています` : c.kind === 'home' ? '故郷で元気にやっています' : c.kind === 'merc' ? '傭兵としてあちこちを回っています' : '学校で後輩たちに教えています';
-  const extra = rng.pick([
-    c.country === 'kingdom' ? '北は寒いです。' : c.country === 'empire' ? '帝都はいつも騒がしいです。' : c.country === 'alliance' ? '港町の市場はにぎやかです。' : '空がきれいです。',
-    '後輩たちにもよろしく伝えてください。',
-    'ときどき、学校の食堂の味を思い出します。',
-    '先生も体に気をつけてください。',
-    ...(s && s.world.era === 'peace' ? ['戦のない毎日に、まだ少しとまどっています。でも、悪くないです。'] : s && s.world.tension > B.world.warAbove ? ['前線は厳しいですが、先生の「生きて帰れ」を毎晩思い出しています。'] : []),
-    ...(s && s.instructor.generation > 1 ? [`新しい先生にもよろしくお伝えください。${s.instructor.name}先生なら、きっと大丈夫です。`] : []),
-  ]);
-  return `先生、お元気ですか。${where}。${extra}—${st.given}（${cohortName(st.cohort)}）`;
+  const now = (st.history ?? []).filter((h) => h.year === s.year).map((h) => h.text);
+  // 昔の仲間がいまどうしているか（手紙の言い方）
+  const doing = (x: Student) => { const k = x.career; if (!k) return ''; if (k.instructor || k.kind === 'stay') return '学校で後輩たちを教えている'; if (k.kind === 'home') return '故郷で暮らしている'; if (k.kind === 'merc') return '傭兵として旅を続けている'; const t = RANK_TITLES[k.path]; return `${COUNTRY_SHORT[k.country!]}で${t[Math.min(k.rank, t.length - 1)]}をしている`; };
+  const mates = Object.values(s.students).filter((x) => x.id !== st.id && x.cohort === st.cohort && x.status !== 'enrolled' && x.status !== 'dropped');
+  const alive = mates.filter((x) => x.status === 'graduated' && x.career?.alive);
+  const lost = mates.filter((x) => x.status === 'dead' || (x.career && !x.career.alive));
+  const opts: { kind: LetterKind; pri: number; v: Record<string, string> }[] = [];
+  // 宿敵との因縁
+  for (const rv of Object.values(s.rivalries ?? {})) {
+    if (rv.sid !== st.id || !(rv.stage >= 1 || rv.vow || rv.oath)) continue;
+    const o = (s.officers ?? []).find((x) => x.id === rv.oid && x.status === 'active');
+    if (o) { opts.push({ kind: 'nemesis', pri: o.meets.some((m) => m.year === s.year) ? 7 : 5, v: { o: o.given } }); break; }
+  }
+  const spouse = st.spouse ? s.students[st.spouse] : null;
+  if (now.some((t) => t.includes('結婚')) && spouse) opts.push({ kind: 'marriage', pri: 8, v: { spouse: spouse.given } });
+  if (now.includes('子どもが生まれた')) opts.push({ kind: 'child', pri: 8, v: { spouse: spouse?.given ?? '連れあい' } });
+  if (now.some((t) => /昇進/.test(t))) opts.push({ kind: 'rise', pri: c.rank >= 2 ? 6 : 3, v: { t: c.kind === 'army' ? RANK_TITLES[c.path][Math.min(c.rank, RANK_TITLES[c.path].length - 1)] : '新しい務め' } });
+  if (now.some((t) => /寝返|兵がついてこず|追われ|失脚|左遷|任を解かれ/.test(t))) opts.push({ kind: 'fall', pri: 6, v: {} });
+  if (now.some((t) => /負傷/.test(t))) opts.push({ kind: 'hurt', pri: 3, v: {} });
+  // 敵国にいる仲間（戦っている国にいる同期・敵に回った同期）
+  const foe = alive.find((x) => (s.officers ?? []).some((o) => o.alumniId === x.id && o.status === 'active')) ?? alive.find((x) => x.career?.country && c.country && x.career.country !== c.country && atWar(s, x.career.country, c.country));
+  const turned = !!foe && (s.officers ?? []).some((o) => o.alumniId === foe.id && o.status === 'active');
+  if (foe?.career?.country) opts.push({ kind: 'enemyFriend', pri: turned ? 4 : 3, v: { f: foe.given, c: COUNTRY_SHORT[foe.career.country], fw: turned ? `いまは${COUNTRY_SHORT[foe.career.country]}の将として、学校と刃を交える側にいる` : `いまは${doing(foe)}` } });
+  // 学校の思い出（在学中の出来事を名前つきで）
+  const mem = s.chronicle.filter((e) => e.year >= st.enrollYear && e.year <= st.enrollYear + 2).map((e) => { const m = MEMORY_LINES.find((x) => x.re.test(e.text)); return m ? m.text.replace('{y}', String(e.year)).replace('{x}', e.text.replace(/を討ち取った$/, '')) : null; }).filter((x): x is string => !!x);
+  if (mem.length) opts.push({ kind: 'memory', pri: 3, v: { mem: rng.pick(mem), f: alive.length ? rng.pick(alive).given : lost.length ? rng.pick(lost).given : '同じ期の仲間' } });
+  if (lost.length) opts.push({ kind: 'friendLost', pri: 2, v: { f: rng.pick(lost).given } });
+  if (alive.length) { const f = rng.pick(alive); opts.push({ kind: 'friend', pri: 2, v: { f: f.given, fw: `いまは${doing(f)}` } }); }
+  // 後輩への助言（同じ系統の兵種の在校生へ）
+  const line = CLASSES[st.classId]?.line;
+  const jrs = Object.values(s.students).filter((x) => x.status === 'enrolled' && line && CLASSES[x.classId]?.line === line);
+  if (jrs.length) { const j = rng.pick(jrs); opts.push({ kind: 'advice', pri: 2, v: { jr: j.given, cls: CLASSES[st.classId]?.name ?? '' } }); }
+  opts.push({ kind: 'worry', pri: (s.world.tension > B.world.warAbove || (st.mind?.calm ?? 50) < 40) ? 2 : 1, v: {} });
+  opts.push({ kind: 'news', pri: 0, v: {} });
+  const pool = opts.filter((o) => o.kind !== st.lastLetter);
+  const top = Math.max(...pool.map((o) => o.pri));
+  // いちばん話したいことを中心に、ときどきほかの話も（同じ重さのものからは無作為）
+  const pick = rng.chance(0.75) ? rng.pick(pool.filter((o) => o.pri === top)) : rng.pick(pool);
+  const tpl = rng.pick(LETTERS[pick.kind]);
+  const v: Record<string, string> = { me, where, name: st.given, c: c.country ? COUNTRY_SHORT[c.country] : '旅先', ...pick.v };
+  const fill = (t: string) => t.replace(/\{(\w+)\}/g, (_, k) => v[k] ?? '');
+  return { kind: pick.kind, title: fill(tpl.title), body: `${tpl.body.map(fill).join('')}—${st.given}（${cohortName(st.cohort)}）`, pri: pick.pri };
 }
 
 export function aidMoney(s: GameState): Record<CountryId, number> {
