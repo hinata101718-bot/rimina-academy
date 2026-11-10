@@ -57,7 +57,7 @@ interface Pop { id: number; x: number; y: number; text: string; cls: string }
 /** 22夜目⑦：演出の列。敵の番は1人ずつ「枠が乗る（focus）→ 歩く → 攻撃 → 間（gap）」 */
 type QFx = (TFx | { k: 'focus'; uid: string } | { k: 'gap' } | { k: 'gmove'; moves: { uid: string; x: number; y: number }[] }) & { foe?: boolean };
 function actorOf(f: TFx): string | null { return f.k === 'move' || f.k === 'flee' ? f.uid : f.k === 'hit' || f.k === 'heal' ? f.a : f.k === 'say' || f.k === 'cutin' ? f.by : null; }
-/** 23夜目⑧：敵の番は、雑兵はまとめて同時に歩き（そのあと順に攻撃）、敵将と宿敵は1人ずつ枠が乗って歩く */
+/** 敵の番は、雑兵も敵将も1人ずつ枠が乗り、歩き終えてから攻撃する（23夜目⑧の「雑兵はまとめて」は25夜目の前にやめた） */
 function stage(view: TBattle, fx: TFx[]): QFx[] {
   const out: QFx[] = [];
   let foe = view.phase === 'enemy';
@@ -78,7 +78,8 @@ function stage(view: TBattle, fx: TFx[]): QFx[] {
     };
     for (const f of seg) {
       const a = actorOf(f);
-      if (leader(a) && (f.k === 'move' || f.k === 'hit' || f.k === 'heal')) {
+      // 25夜目の前の直し（ヒナタさん「雑兵が攻撃してから移動している。ボスと同じように移動してから攻撃」）：雑兵も敵将と同じく1人ずつ、歩き終えてから攻撃
+      if ((leader(a) || grunt(a)) && (f.k === 'move' || f.k === 'hit' || f.k === 'heal')) {
         flushBlock();
         if (a !== last) { if (last) out.push({ k: 'gap', foe }); out.push({ k: 'focus', uid: a!, foe }); last = a; }
         out.push({ ...f, foe });
@@ -156,14 +157,14 @@ export function TacticsView() {
     if (f.k === 'focus') {
       const u = U(f.uid); rushRef.current = false;
       setOver(null); setFocus(f.uid); setLine(u ? `${u.name}の番` : ''); followUnit(f.uid);
-      ms = 480;
+      ms = u && u.side === 'foe' && !u.boss && !u.nemesis ? 220 : 480;
     } else if (f.k === 'gap') { setFocus(null); ms = 220; }
     else if (f.k === 'move') {
       const u = U(f.uid);
       setOver((o) => (o?.kind === 'duel' || o?.kind === 'phase' ? null : o));
       if (u) {
         const path = walkPath(view, u, f.x, f.y);
-        const step = Math.max(0.03, 0.12 * M);
+        const step = Math.max(0.03, (u.side === 'foe' && !u.boss && !u.nemesis ? 0.08 : 0.12) * M);
         setWalk(step);
         path.forEach((c, n) => later(() => { u.x = c.x; u.y = c.y; setTick((t) => t + 1); followUnit(u.uid); if (n === 0) sfx('move'); }, n * step * 1000));
         if (u.side === 'foe') movedRef.current[u.uid] = isForest(view, f.x, f.y) ? '森へ進み、' : path.length ? '進み、' : '';
@@ -171,7 +172,7 @@ export function TacticsView() {
         ms = (path.length * step * 1000 + 80) / M;
       }
     }
-    else if (f.k === 'phase') { setFocus(null); setOver({ kind: 'phase', title: f.side === 'foe' ? '敵の番' : `ターン${f.turn}`, sub: f.side === 'foe' ? '兵はまとめて、敵将は1人ずつ動きます（画面をタップで早送り）' : 'こちらの番' }); ms = 650; }
+    else if (f.k === 'phase') { setFocus(null); setOver({ kind: 'phase', title: f.side === 'foe' ? '敵の番' : `ターン${f.turn}`, sub: f.side === 'foe' ? '1人ずつ、歩いてから攻撃します（画面をタップで早送り）' : 'こちらの番' }); ms = 650; }
     else if (f.k === 'cutin') { const a = U(f.by); setOver({ kind: 'cutin', a, title: f.title, sub: f.sub, tap: tapSay }); sfx('cutin'); ms = 950; hold = tapSay; }
     else if (f.k === 'say') { const a = U(f.by); setOver({ kind: 'say', a, text: f.text, tap: tapSay }); if (a?.nemesis) sfx('nemesis'); ms = 1500; hold = tapSay; }
     else if (f.k === 'reveal') { const d = U(f.d); if (d && !d.known.includes(f.type)) d.known.push(f.type); if (d) addPop(d, `弱点：${ATK_NAME[f.type]}`, 'sh'); sfx('weak'); ms = 700; }
