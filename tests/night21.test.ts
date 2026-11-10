@@ -103,10 +103,10 @@ describe('21夜目①：火矢で森と門を燃やす', () => {
     expect(b.forest).not.toContain('1-3');
   });
   it('森にいる敵に火矢を当てると、森が燃える', () => {
-    const fa = withClass({ ...base(), uid: 'fa', name: 'ヒヤ', x: 2, y: 5, mag: 12 }, 'firearcher');
+    const fa = withClass({ ...base(), uid: 'fa', name: 'ヒヤ', x: 2, y: 4, mag: 12 }, 'firearcher');
     const b = mini([fa], { forest: ['2-2'] });
     b.units = b.units.filter((u) => u.uid !== 'a');
-    attack(b, 'fa', 'boss', null, { x: 2, y: 5 });
+    attack(b, 'fa', 'boss', null, { x: 2, y: 4 });
     expect(b.wild).toContain('2-2');
   });
   it('砦の木の門は通れず、火矢で焼き落とせる（劫火の条件）', () => {

@@ -72,6 +72,8 @@ export interface Student {
   scars?: { year: number; text: string }[];
   /** 19夜目：使える技（技能のランクで覚える。技のid） */
   techs?: string[];
+  /** 25夜目①：戦いに持っていく技（自分で選んだもの。4つまで。ないときはおまかせ） */
+  techPick?: string[];
   /** 19夜目：宿敵戦に出た回数・討った宿敵の数・仲間をかばった回数・蘇った（呪い）・双星の縁 */
   nemBattles?: number; nemKills?: number; guards?: number; revivedBy?: string; twinStar?: string;
   /** 20夜目：最上級の条件になる出来事の記録（鍵→回数。data/classes の deed） */

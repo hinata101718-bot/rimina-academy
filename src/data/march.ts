@@ -13,7 +13,7 @@ export const MARCH_STAGES: Record<'army' | 'bandit' | 'monster' | 'defend' | 're
 export const REST_TEXT: Record<RestKind, { name: string; desc: string }> = {
   heal: { name: '手当て', desc: 'みなの体力を、もう少し戻す（最大の4分の1）' },
   swap: { name: '入れ替え', desc: '後ろで支える子と、1人入れ替える' },
-  equip: { name: '武器の付け替え', desc: '持っていく武器を見直す' },
+  equip: { name: '武器と技の付け替え', desc: '持っていく武器と技を見直す' },
   scout: { name: '偵察', desc: '次の戦場の敵将の弱点を、1つ明かす' },
 };
 

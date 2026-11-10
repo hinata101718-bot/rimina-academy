@@ -36,10 +36,10 @@ const list: WeaponDef[] = [
   { id: 'piercing_bow', name: '貫きの弓', type: 'bow', might: 9, hit: 75, crit: 25, minRange: 2, maxRange: 2, rank: 'C', price: 0, effective: ['flying'], desc: '急所を射抜く鋭い弓。' },
 
   // ---------- 銃（守備を半分無視） ----------
-  { id: 'matchlock', name: '火縄銃', type: 'gun', might: 10, hit: 70, crit: 0, minRange: 2, maxRange: 4, rank: 'E', price: 500, desc: '火縄で撃つ初期の銃。' },
-  { id: 'improved_gun', name: '改良銃', type: 'gun', might: 13, hit: 75, crit: 0, minRange: 2, maxRange: 4, rank: 'D', price: 1000, desc: '命中を高めた改良型の銃。' },
-  { id: 'master_gun', name: '名工の長銃', type: 'gun', might: 18, hit: 85, crit: 5, minRange: 2, maxRange: 4, rank: 'B', price: 4500, desc: '名工が仕上げた精密な長銃。' },
-  { id: 'long_gun', name: '長銃', type: 'gun', might: 15, hit: 80, crit: 0, minRange: 2, maxRange: 4, rank: 'C', price: 2200, desc: '銃身を伸ばした精密な銃。' },
+  { id: 'matchlock', name: '火縄銃', type: 'gun', might: 10, hit: 70, crit: 0, minRange: 2, maxRange: 2, rank: 'E', price: 500, desc: '火縄で撃つ初期の銃。' },
+  { id: 'improved_gun', name: '改良銃', type: 'gun', might: 13, hit: 75, crit: 0, minRange: 2, maxRange: 2, rank: 'D', price: 1000, desc: '命中を高めた改良型の銃。' },
+  { id: 'master_gun', name: '名工の長銃', type: 'gun', might: 18, hit: 85, crit: 5, minRange: 2, maxRange: 2, rank: 'B', price: 4500, desc: '名工が仕上げた精密な長銃。' },
+  { id: 'long_gun', name: '長銃', type: 'gun', might: 15, hit: 80, crit: 0, minRange: 2, maxRange: 2, rank: 'C', price: 2200, desc: '銃身を伸ばした精密な銃。' },
 ];
 
 export const WEAPONS: Record<string, WeaponDef> = Object.fromEntries(list.map((w) => [w.id, w]));

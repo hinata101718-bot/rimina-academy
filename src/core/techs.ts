@@ -23,16 +23,58 @@ export function learnTechs(s: GameState | null, st: Student, show = true): strin
 }
 export function learnedText(st: Student, id: string): string { return `${st.given}は「${TECH_BY_ID[id]?.name ?? id}」を覚えた！`; }
 
-/** 戦いに持っていく技（兵種の武器に合うものを先に。多すぎると札が並ばないので4つまで） */
-export function battleTechs(st: Pick<Student, 'skills' | 'classId' | 'techs'>): TechDef[] {
+/** 今の兵種で使える技か（兵種の武器に合う・兵種の技なら今の兵種のもの） */
+export function techUsable(st: Pick<Student, 'classId'>, t: TechDef): boolean {
   const c = CLASSES[st.classId] ?? CLASSES.novice;
+  if (t.cls) return t.cls.includes(st.classId);
+  if (st.classId === 'novice') return true;
   const fit = new Set<SkillId>(c.weapons.map((w) => WT_SKILL[w]));
   if (c.moveType === 'cavalry') fit.add('riding');
   if (c.moveType === 'flying') fit.add('flying');
   if (c.moveType === 'armor') fit.add('heavy');
-  const known = (st.techs ?? techsFor(st).map((t) => t.id)).map((id) => TECH_BY_ID[id]).filter((t): t is TechDef => !!t);
-  const list = known.filter((t) => (t.cls ? t.cls.includes(st.classId) : fit.has(t.skill) || st.classId === 'novice'));
-  // 強い技（覚えるのが遅い技）を先に
+  return fit.has(t.skill);
+}
+function knownTechs(st: Pick<Student, 'skills' | 'classId' | 'techs'>): TechDef[] {
+  return (st.techs ?? techsFor(st).map((t) => t.id)).map((id) => TECH_BY_ID[id]).filter((t): t is TechDef => !!t);
+}
+/** おまかせの選び方（兵種の武器に合う技から、癒しを先に、覚えるのが遅い（強い）順に4つまで） */
+export function autoBattleTechs(st: Pick<Student, 'skills' | 'classId' | 'techs'>): TechDef[] {
+  const list = knownTechs(st).filter((t) => techUsable(st, t));
   list.sort((a, b) => Number(!!b.heal) - Number(!!a.heal) || b.at - a.at);
   return list.slice(0, TECH_MAX);
 }
+
+/** 戦いに持っていく技。25夜目①：自分で選んだ技（techPick）を先に。選んでいない子はおまかせ。
+ *  選んだ技が兵種を変えて使えなくなったら、その数だけおまかせで埋める */
+export function battleTechs(st: Pick<Student, 'skills' | 'classId' | 'techs'> & { techPick?: string[] }): TechDef[] {
+  const auto = autoBattleTechs(st);
+  if (!st.techPick?.length) return auto;
+  const known = new Set(knownTechs(st).map((t) => t.id));
+  const picked = st.techPick.map((id) => TECH_BY_ID[id]).filter((t): t is TechDef => !!t && known.has(t.id) && techUsable(st, t)).slice(0, TECH_MAX);
+  if (!picked.length) return auto;
+  const lost = Math.min(TECH_MAX, st.techPick.length) - picked.length;
+  const out = [...picked];
+  for (const t of auto) { if (out.length >= picked.length + lost || out.length >= TECH_MAX) break; if (!out.includes(t)) out.push(t); }
+  return out;
+}
+/** 自分で選んでいるか（おまかせでないか） */
+export function techPicked(st: Pick<Student, 'techPick'>): boolean { return !!st.techPick?.length; }
+
+export type TechToggle = { ok: true } | { ok: false; why: 'unusable' | 'full' | 'last' };
+/** 「戦いで使う」をつけ外し。4つ選んでいて5つ目を選ぶと full（入れ替える技を選ぶ）。replace を渡すとその技と入れ替え */
+export function toggleBattleTech(st: Student, id: string, replace?: string): TechToggle {
+  const t = TECH_BY_ID[id];
+  if (!t || !(st.techs ?? []).includes(id) || !techUsable(st, t)) return { ok: false, why: 'unusable' };
+  const now = battleTechs(st).map((x) => x.id);
+  if (now.includes(id)) {
+    if (now.length <= 1) return { ok: false, why: 'last' };
+    st.techPick = now.filter((x) => x !== id);
+    return { ok: true };
+  }
+  if (replace && now.includes(replace)) { st.techPick = now.map((x) => (x === replace ? id : x)); return { ok: true }; }
+  if (now.length >= TECH_MAX) return { ok: false, why: 'full' };
+  st.techPick = [...now, id];
+  return { ok: true };
+}
+/** おまかせに戻す */
+export function autoPickTechs(st: Student): void { delete st.techPick; }

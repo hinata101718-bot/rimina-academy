@@ -112,7 +112,9 @@ export type TFx =
   | { k: 'cutin'; by: string; title: string; sub: string }
   | { k: 'reveal'; d: string; type: AtkType }
   | { k: 'flee'; uid: string }
-  | { k: 'phase'; side: 'me' | 'foe'; turn: number };
+  | { k: 'phase'; side: 'me' | 'foe'; turn: number }
+  /** 25夜目③：敵の番で、この敵が動きはじめる（演出で1人ずつ光らせる。broken＝崩れて動けない） */
+  | { k: 'actor'; uid: string; broken?: boolean };
 
 export interface TLog { turn: number; text: string; big?: boolean }
 

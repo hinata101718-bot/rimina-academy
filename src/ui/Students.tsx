@@ -23,7 +23,7 @@ import { goodOf, badOf, budKnown, budHinted, budName } from '../core/aptitude';
 import { suitablePath } from '../core/career';
 import { StudentNemeses } from './Nemesis';
 import { TECH_BY_ID, ATK_NAME } from '../data/tactics';
-import { battleTechs } from '../core/techs';
+import { TechPicker } from './TechPick';
 import { primeLabel } from '../core/growth';
 import { MIND_NAMES, MIND_DESC } from '../data/people';
 import { renown, renownStars, renownWord, isLeader, epithetCount } from '../core/renown';
@@ -297,13 +297,10 @@ function RenownRow({ st }: { st: Student }) {
 }
 /** 19夜目：技（技能のランクで増える。1回の戦いで使える回数が決まっている） */
 function TechsCard({ st }: { st: Student }) {
-  const all = (st.techs ?? []).map((id) => TECH_BY_ID[id]).filter(Boolean);
-  const carry = new Set(battleTechs(st).map((t) => t.id));
   return (
     <div class="card">
       <h3>技</h3>
-      {all.length ? all.map((t) => <div class="row nowrap gap6 small" style={{ marginTop: 3 }}><AtkMark t={t.type} /><b>{t.name}</b><span class="muted grow">{t.desc}・{t.uses}回まで</span>{carry.has(t.id) && <span class="flag">戦いで使う</span>}</div>) : <div class="small muted">まだありません。技能のランクが上がると覚えます。</div>}
-      <div class="small muted" style={{ marginTop: 4 }}>今の兵種の武器に合う技を、4つまで戦いに持っていきます。技ごとに攻撃の種類（斬・突・打・射・炎・雷・光）が違い、いろいろな弱点を突けます。</div>
+      <TechPicker st={st} />
     </div>
   );
 }

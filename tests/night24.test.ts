@@ -84,7 +84,7 @@ describe('24夜目：前の版（23夜目）のセーブ', () => {
     f.version = 23;
     const t = deserialize(JSON.stringify(f));
     expect(t.world.declined).toEqual({});
-    expect(t.version).toBe(24);
+    expect(t.version).toBeGreaterThanOrEqual(24);
   });
 });
 

@@ -13,6 +13,7 @@ import { FIELD_BY_ID } from '../data/tactics';
 import { armoryItem } from '../core/loot';
 import { itemName } from '../core/rarity';
 import { EquipSheet } from './Equip';
+import { TechSheet, techLine } from './TechPick';
 import { CLASSES } from '../data/classes';
 
 const OBJ_SHORT: Record<string, string> = { boss: '敵将を倒す', rout: '全員倒す', defend: '守り抜く', rescue: '救い出す', escape: '逃げきる' };
@@ -40,6 +41,7 @@ export function MarchBreak({ s, m }: { s: GameState; m: MarchState }) {
   const [swapIn, setSwapIn] = useState<string | null>(rec.swapIn ?? bench[0] ?? null);
   const [swapOut, setSwapOut] = useState<string | null>(rec.swapOut ?? null);
   const [eq, setEq] = useState<string | null>(null);
+  const [tp, setTp] = useState<string | null>(null);
   const foe = m.foe ? officerById(s, m.foe.officerId) : null;
   const next = m.idx + 1;
   const nf = FIELD_BY_ID[m.fields[next]];
@@ -81,6 +83,8 @@ export function MarchBreak({ s, m }: { s: GameState; m: MarchState }) {
         {rest === 'equip' && (
           <div class="mm-swap">
             {m.deploy.map((d) => { const st = s.students[d.studentId]; const a = armoryItem(s, st?.equip ?? d.armoryUid); return st && <button class="tb-mw" onClick={() => { sfx('move'); setEq(st.id); }}><b>{st.given}</b>：{a ? itemName(a) : 'おまかせ'}（タップで付け替え）</button>; })}
+            <div class="small" style={{ marginTop: 6 }}><b>持っていく技</b></div>
+            {m.deploy.map((d) => { const st = s.students[d.studentId]; return st && <button class="tb-mw" onClick={() => { sfx('move'); setTp(st.id); }}><b>{st.given}</b>：{techLine(st)}（タップで付け替え）</button>; })}
           </div>
         )}
       </div>
@@ -97,6 +101,7 @@ export function MarchBreak({ s, m }: { s: GameState; m: MarchState }) {
       </div>
       <button class="btn primary block mm-go" onClick={go}>次の戦場へ（{m.names[next]}）</button>
       {eq && s.students[eq] && <EquipSheet s={s} st={s.students[eq]} onClose={() => setEq(null)} />}
+      {tp && s.students[tp] && <TechSheet st={s.students[tp]} onClose={() => setTp(null)} />}
     </div>
   );
 }
