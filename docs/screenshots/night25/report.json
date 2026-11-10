@@ -65,8 +65,8 @@
   "small": 0,
   "smallList": [],
   "tiny": 0,
-  "focus": "片目のアル斬雷",
-  "dim": 16,
+  "focus": "エーベルハルト・",
+  "dim": 17,
   "errors": []
  },
  {
@@ -75,8 +75,8 @@
   "small": 0,
   "smallList": [],
   "tiny": 0,
-  "focus": "斧兵斧射？",
-  "dim": 16,
+  "focus": "魔道兵魔射？",
+  "dim": 17,
   "errors": []
  },
  {
@@ -85,8 +85,8 @@
   "small": 0,
   "smallList": [],
   "tiny": 0,
-  "focus": "斧兵斧射？",
-  "dim": 16,
+  "focus": "槍兵槍斬？",
+  "dim": 17,
   "errors": []
  },
  {
@@ -95,8 +95,8 @@
   "small": 0,
   "smallList": [],
   "tiny": 0,
-  "focus": "斧兵斧射？",
-  "dim": 16,
+  "focus": "剣兵剣打？",
+  "dim": 17,
   "errors": []
  },
  {
@@ -105,15 +105,15 @@
   "small": 0,
   "smallList": [],
   "tiny": 0,
-  "focus": "剣兵剣打？",
-  "dim": 16,
+  "focus": "魔道兵魔射？",
+  "dim": 17,
   "errors": []
  },
  {
   "name": "foe-turn-time",
-  "sec": 5.823,
+  "sec": 5.681,
   "actors": 9,
-  "foes": 10
+  "foes": 11
  },
  {
   "name": "01-techs-auto-360",
