@@ -339,7 +339,7 @@ export function TacticsView() {
                 <button class={`tb-card${c.weak ? ' weak' : ''}${c.brk ? ' brk' : ''}`} disabled={!c.spot} onClick={() => run((g) => attack(g.battle!, selU.uid, tgtU.uid, c.id, c.spot, { noDeath: nd }))}>
                   <span class="tb-cn">{c.name} <AtkMark t={c.type} state={c.weak ? 'weak' : c.resisted ? 'no' : undefined} /></span>
                   <span class="tb-cd">{c.spot ? <>ダメージ <b>{c.total}</b>{c.hits > 1 ? `（${c.per}×${c.hits}）` : ''}</> : '届かない'}</span>
-                  <span class="tb-ctag">{c.weak && <em class="w">弱点！盾−{c.shields}</em>}{c.brk && <em class="b">ブレイク！</em>}{c.kill && <em class="k">倒せる</em>}{c.resisted && <em class="n">効かない</em>}{c.broken && <em class="b">傷2倍</em>}{c.left !== null && <em class="l">のこり{c.left}</em>}</span>
+                  <span class="tb-ctag">{c.weak && <em class="w">弱点！盾−{c.shields}</em>}{c.hidden && <em class="l">効き目は？</em>}{c.brk && <em class="b">ブレイク！</em>}{c.kill && <em class="k">倒せる</em>}{c.resisted && <em class="n">効かない</em>}{c.broken && <em class="b">傷2倍</em>}{c.left !== null && <em class="l">のこり{c.left}</em>}</span>
                 </button>
               ))}
             </div>
@@ -381,7 +381,7 @@ export function TacticsView() {
   );
 }
 
-interface Card { id: string | null; name: string; type: import('../data/tactics').AtkType; total: number; per: number; hits: number; weak: boolean; shields: number; brk: boolean; kill: boolean; resisted: boolean; broken: boolean; left: number | null; spot: { x: number; y: number } | null }
+interface Card { id: string | null; name: string; type: import('../data/tactics').AtkType; total: number; per: number; hits: number; weak: boolean; hidden: boolean; shields: number; brk: boolean; kill: boolean; resisted: boolean; broken: boolean; left: number | null; spot: { x: number; y: number } | null }
 function attackCards(b: TBattle, u: TUnit, f: TUnit): Card[] {
   return attacksOf(u).map((t) => {
     const spot = bestSpot(b, u, f, t);
@@ -391,7 +391,10 @@ function attackCards(b: TBattle, u: TUnit, f: TUnit): Card[] {
     const c = calc(b, u, f, t, { steps });
     u.x = ox; u.y = oy;
     const tech = techOf(t);
-    return { id: t, name: tech?.name ?? '攻撃', type: c.type, total: c.total, per: c.per, hits: c.hits, weak: c.weak, shields: c.shields, brk: c.brk, kill: c.kill, resisted: c.resisted, broken: c.broken, left: tech ? u.techs.find((x) => x.id === t)?.left ?? 0 : null, spot };
+    // 23夜目の前の直し：まだ分かっていない弱点は、札で明かさない（打ってみるまで「？」）
+    const known = c.weak && f.known.includes(c.type) && f.weak.includes(c.type);
+    const hidden = c.weak && !known;
+    return { id: t, name: tech?.name ?? '攻撃', type: c.type, total: c.total, per: c.per, hits: c.hits, weak: known, hidden, shields: c.shields, brk: c.brk && !hidden, kill: c.kill, resisted: c.resisted, broken: c.broken, left: tech ? u.techs.find((x) => x.id === t)?.left ?? 0 : null, spot };
   });
 }
 
