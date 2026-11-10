@@ -27,6 +27,7 @@ import { battleTechs } from '../core/techs';
 import { primeLabel } from '../core/growth';
 import { MIND_NAMES, MIND_DESC } from '../data/people';
 import { renown, renownStars, renownWord, isLeader, epithetCount } from '../core/renown';
+import { EquipCard } from './Equip';
 import { rankOf, nextRankPoints, MONTH_NAMES } from '../core/util';
 import type { SkillId, Rank } from '../core/types';
 import type { GameState, Student, RankUpItem } from '../core/state';
@@ -178,6 +179,7 @@ function Detail({ s, st, exam, sub }: { s: GameState; st: Student; exam?: boolea
             )}
           </div>
           <MindCard s={s} st={st} />
+          {!grad && <EquipCard s={s} st={st} />}
           <details class="card dt-fold">
             <summary><b>成長率の内わけを見る</b><span class="small muted">（本人と兵種と特徴）</span></summary>
             <GrowthTable s={s} st={st} />

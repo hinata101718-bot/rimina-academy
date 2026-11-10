@@ -6,7 +6,7 @@ import type { SkillId } from './types';
 import type { GameState, Student, Quest, SquadPlan } from './state';
 import type { Deploy } from './tactics/types';
 import { enrolled, available } from './game';
-import { isStock, stockList, armScore } from './loot';
+import { isStock, stockList, armScore, armoryItem } from './loot';
 import { meetsRank } from './util';
 import { officerForQuest } from './flow';
 import { createTactics } from './tactics/setup';
@@ -34,10 +34,13 @@ export function bestArmoryWeapon(s: GameState, st: Student, used: Set<string>): 
 }
 /** 決めた子に、武器庫の武器と傷薬を持たせる */
 export function deployFor(s: GameState, ids: string[]): Deploy[] {
-  const used = new Set<string>();
+  // 22夜目：装備した武器で出る（ほかの子が装備している武器は、自動では持たせない）。装備のない子だけ自動
+  const used = new Set<string>(Object.values(s.students).filter((x) => x.status === 'enrolled' && x.equip).map((x) => x.equip!));
   let items = s.items.vulnerary;
-  return ids.map((id) => s.students[id]).filter(Boolean).map((st) => {
-    const w = bestArmoryWeapon(s, st, used);
+  const list = ids.map((id) => s.students[id]).filter(Boolean);
+  const own = new Map(list.map((st) => [st.id, st.equip && armoryItem(s, st.equip) && !isStock(st.equip) && canEquip(st, armoryItem(s, st.equip)!.weaponId) ? st.equip : null]));
+  return list.map((st) => {
+    const w = own.get(st.id) ?? bestArmoryWeapon(s, st, used);
     if (w && !isStock(w)) used.add(w);
     const item = items > 0 ? (items--, 'vulnerary' as const) : null;
     return { studentId: st.id, armoryUid: w, item };

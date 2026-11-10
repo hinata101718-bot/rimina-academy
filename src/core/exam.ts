@@ -11,6 +11,7 @@ import { addRecent } from './support';
 import { SKILL_NAMES, DREAMS } from '../data/people';
 import { rankOf } from './util';
 import { learnTechs } from './techs';
+import { checkEquip } from './equip';
 
 /** 学校で受けられる段階（設計書：上級まで。1夜目は中級までを主対象にするが、上級もデータ上は受験可） */
 export const SCHOOL_MAX_TIER = 3;
@@ -206,6 +207,8 @@ export function takeExam(s: GameState, rng: Rng, st: Student, classId: string, o
     if (c.tier >= 2) chronicle(s, `${st.given}が${c.name}に`, 'student');
     if (c.hidden) { st.growthKnown = true; chronicle(s, `${st.given}が隠れた兵種「${c.name}」への道を選んだ`, 'student'); }
     learnTechs(s, st);
+    // 22夜目：兵種が変わって使えなくなった武器は外す（お知らせ）
+    checkEquip(s, st);
     if (own) {
       st.history.push({ year: s.year, text: `先生の勧め（${picked.name}）ではなく、自分で選んだ${c.name}の道へ` });
       notify(s, `${st.given}は、先生の勧めた${picked.name}ではなく、自分で選んだ${c.name}になった`, st.id);

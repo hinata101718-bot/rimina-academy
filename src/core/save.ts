@@ -14,6 +14,7 @@ import { ensureRegions, yearlyRulers } from './regions';
 import { startNewsDesk } from './newspaper';
 import { ensureLegends } from './rarity';
 import { rebuildReviews } from './review';
+import { cleanEquips } from './equip';
 
 export interface SaveFile { app: 'rimina-academy'; version: number; savedAt: number; state: GameState }
 
@@ -41,6 +42,7 @@ export function migrate(s: GameState, from: number): GameState {
   s.heirs ??= [];
   s.archive ??= {};
   s.notices ??= [];
+  try { cleanEquips(s); } catch { /* 装備がなくても先へ */ }
   s.version = SAVE_VERSION;
   return s;
 }

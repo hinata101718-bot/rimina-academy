@@ -61,6 +61,8 @@ export interface Student {
   spells: string[];
   /** 会話の記録（GameState.archive の id、新しいものが後ろ） */
   archive?: string[];
+  /** 22夜目：装備している武器（武器庫の uid。1つの武器は1人だけ。なければ出撃のたびに自動） */
+  equip?: string;
   /** 19夜目：心の3つ（闘志・平静・執念）・教訓・二つ名・傷跡 */
   mind?: Mind;
   lessons?: Lesson[];
