@@ -12,7 +12,8 @@ import { TECH_BY_ID, TECH_MAX, type TechDef } from '../data/tactics';
 export function TechPicker({ st }: { st: Student }) {
   const [swap, setSwap] = useState<string | null>(null);
   const [msg, setMsg] = useState('');
-  const all = (st.techs ?? []).map((id) => TECH_BY_ID[id]).filter((t): t is TechDef => !!t);
+  // 今の兵種で使える技を上に、使えない技は下にまとめて暗く
+  const all = (st.techs ?? []).map((id) => TECH_BY_ID[id]).filter((t): t is TechDef => !!t).sort((x, y) => Number(techUsable(st, y)) - Number(techUsable(st, x)));
   const carry = battleTechs(st);
   const on = new Set(carry.map((t) => t.id));
   const tap = (t: TechDef) => {
@@ -33,7 +34,7 @@ export function TechPicker({ st }: { st: Student }) {
   if (!all.length) return <div class="small muted">まだありません。技能のランクが上がると覚えます。</div>;
   return (
     <div class="tp-wrap">
-      <div class="row between nowrap" style={{ marginBottom: 4 }}>
+      <div class="tp-head">
         <span class="small"><b>戦いで使う {carry.length}／{TECH_MAX}</b>{techPicked(st) ? '（自分で選んだ）' : '（おまかせ）'}</span>
         <button class="btn small" disabled={!techPicked(st)} onClick={() => act((g) => { autoPickTechs(g.students[st.id]); sfx('ok'); setSwap(null); setMsg('おまかせで選びました（強い技・癒しの技を先に）'); })}>おまかせで選ぶ</button>
       </div>

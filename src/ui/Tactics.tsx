@@ -169,7 +169,7 @@ export function TacticsView() {
         setWalk(step);
         path.forEach((c, n) => later(() => { u.x = c.x; u.y = c.y; setTick((t) => t + 1); followUnit(u.uid); if (n === 0) sfx('move'); }, n * step * 1000));
         if (u.side === 'foe') movedRef.current[u.uid] = isForest(view, f.x, f.y) ? '森へ進み、' : path.length ? '進み、' : '';
-        if (u.side === 'foe' && f.foe) setLine(`${u.name}：${movedRef.current[u.uid] ? movedRef.current[u.uid].replace('、', '') : '動いた'}`);
+        if (u.side === 'foe' && f.foe) setLine(`${u.name}：${movedRef.current[u.uid] ? movedRef.current[u.uid].replace('進み、', '進んだ') : '動いた'}`);
         ms = (path.length * step * 1000 + 80) / M;
       }
     }

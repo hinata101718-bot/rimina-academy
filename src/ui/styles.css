@@ -2441,3 +2441,5 @@ body[data-light="day"] .desk-candle::before { display: none; }
 /* 25夜目③：敵の番は、動く敵だけ光らせ、ほかは少し暗く */
 .tb-board.foeturn .tb-u:not(.focus) .tb-uin { filter: brightness(.6) saturate(.65); transition: filter .1s; }
 .tb-board.foeturn .tb-u.focus .tb-uin { filter: brightness(1.12); }
+.tp-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px; margin-bottom: 4px; }
+.tp-head .btn { min-height: 44px; }
