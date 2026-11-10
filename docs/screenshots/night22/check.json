@@ -168,5 +168,69 @@
   "smallList": [],
   "tiny": 0,
   "errors": []
+ },
+ {
+  "name": "14-board-marks-360",
+  "over": false,
+  "small": 0,
+  "smallList": [],
+  "tiny": 0,
+  "errors": []
+ },
+ {
+  "name": "15-gold-weak-360",
+  "over": false,
+  "small": 0,
+  "smallList": [],
+  "tiny": 0,
+  "errors": []
+ },
+ {
+  "name": "14-board-marks-390",
+  "over": false,
+  "small": 0,
+  "smallList": [],
+  "tiny": 0,
+  "errors": []
+ },
+ {
+  "name": "15-gold-weak-390",
+  "over": false,
+  "small": 0,
+  "smallList": [],
+  "tiny": 0,
+  "errors": []
+ },
+ {
+  "name": "16-foe-info-390",
+  "over": false,
+  "small": 0,
+  "smallList": [],
+  "tiny": 0,
+  "errors": []
+ },
+ {
+  "name": "17-atk-legend-390",
+  "over": false,
+  "small": 0,
+  "smallList": [],
+  "tiny": 0,
+  "errors": []
+ },
+ {
+  "name": "18-foe-walk-390",
+  "over": false,
+  "small": 0,
+  "smallList": [],
+  "tiny": 0,
+  "errors": []
+ },
+ {
+  "name": "19-say-tap-390",
+  "over": false,
+  "small": 0,
+  "smallList": [],
+  "tiny": 0,
+  "errors": []
  }
 ]

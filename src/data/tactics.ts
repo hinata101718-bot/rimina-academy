@@ -7,6 +7,12 @@ export type AtkType = 'slash' | 'thrust' | 'shot' | 'crush' | 'blunt' | 'fire' |
 export const ATK_TYPES: AtkType[] = ['slash', 'thrust', 'shot', 'crush', 'blunt', 'fire', 'thunder', 'ice', 'light', 'dark'];
 export const ATK_NAME: Record<AtkType, string> = { slash: '斬', thrust: '突', shot: '射', crush: '砕', blunt: '打', fire: '炎', thunder: '雷', ice: '氷', light: '光', dark: '闇' };
 /** 魔力で戦う種類（守りを少し通り抜ける） */
+/** 22夜目⑧：攻撃の種類の色（盤・札・個人ページ・図鑑・武器の一覧で同じ印）。fg＝字の色 */
+export const ATK_COLOR: Record<AtkType, { bg: string; fg: string }> = {
+  slash: { bg: '#6f7f92', fg: '#fff' }, thrust: { bg: '#3a6fb3', fg: '#fff' }, shot: { bg: '#4b8a37', fg: '#fff' }, crush: { bg: '#8a5426', fg: '#fff' }, blunt: { bg: '#b07a3a', fg: '#fff' },
+  fire: { bg: '#d24a26', fg: '#fff' }, thunder: { bg: '#e0b52a', fg: '#2a1d00' }, ice: { bg: '#5ec0d8', fg: '#062a33' }, light: { bg: '#f3e6a0', fg: '#4a3a00' }, dark: { bg: '#4b2d6e', fg: '#fff' },
+};
+export const ATK_DESC: Record<AtkType, string> = { slash: '剣で斬る', thrust: '槍で突く', shot: '弓で射る', crush: '斧で砕く', blunt: '拳や棍で打つ', fire: '炎の魔法', thunder: '雷の魔法', ice: '氷の魔法', light: '光（癒し手の攻め）', dark: '闇（呪い）' };
 export const MAGIC_TYPES: AtkType[] = ['fire', 'thunder', 'ice', 'light', 'dark'];
 
 /** 戦いの数値 */

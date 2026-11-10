@@ -10,7 +10,7 @@ import { faceImageFor, FaceSvg, enemyUrl } from './Portrait';
 import { getGame } from './store';
 import type { GameState } from '../core/state';
 import type { TBattle, TUnit, TFx } from '../core/tactics/types';
-import { reach, attackable, healable, attacksOf, healsOf, bestSpot, calc, unit, foes, mine, key, attack, heal, moveOnly, wait, usePotion, command, insight, insightTargets, endTurn, undoLast, techOf, boss as bossOf, isForest, swapTargets, swapFoeTargets, swapUnits, openables, openAt, ignitables, ignite, T as hasTrait } from '../core/tactics/engine';
+import { reach, attackable, healable, attacksOf, healsOf, bestSpot, calc, unit, foes, mine, key, attack, heal, moveOnly, wait, usePotion, command, insight, insightTargets, endTurn, undoLast, techOf, boss as bossOf, isForest, swapTargets, swapFoeTargets, swapUnits, openables, openAt, ignitables, ignite, T as hasTrait, walkPath } from '../core/tactics/engine';
 import { Icon } from './icons';
 import { autoTurn } from '../core/tactics/ai';
 import { finishBattle, finishAuto, noDeath } from '../core/flow';
@@ -18,6 +18,23 @@ import { ATK_NAME, TB, FIELD_BY_ID } from '../data/tactics';
 import { TEACHER_RANK } from '../data/balance';
 import { CLASSES } from '../data/classes';
 import { officerById } from '../core/officers';
+import { AtkMark, AtkLegend } from './atk';
+import type { AtkType } from '../data/tactics';
+
+/** 22夜目⑧：その子が使える攻撃の種類（ふつうの攻撃と技） */
+function typesOf(u: TUnit): AtkType[] {
+  const out: AtkType[] = [...(u.atks?.length ? u.atks : [u.type])];
+  if (u.dual && !out.includes(u.dual)) out.push(u.dual);
+  for (const t of u.techs) { const d = techOf(t.id); if (d && !d.heal && !out.includes(d.type)) out.push(d.type); }
+  return out;
+}
+/** 選んだ子で、分かっている弱点を突けるか（金色）・どれも効かないか（暗く） */
+function weakFor(u: TUnit, f: TUnit): 'gold' | 'dim' | '' {
+  const ts = typesOf(u);
+  if (ts.some((t) => f.known.includes(t) && f.weak.includes(t) && !f.resist.includes(t))) return 'gold';
+  if (ts.every((t) => f.resist.includes(t))) return 'dim';
+  return '';
+}
 
 const OBJ_TEXT: Record<string, string> = { boss: '敵将を倒す（討ち取る・退ける）', rout: '敵を全員倒す', defend: '守り抜く', rescue: '捕らわれた人を救い出す', escape: '先生が北の端へ逃げきる' };
 
@@ -36,7 +53,24 @@ function UnitFace({ u }: { u: TUnit }) {
 }
 
 interface Pop { id: number; x: number; y: number; text: string; cls: string }
-interface Over { kind: 'cutin' | 'say' | 'break' | 'phase' | 'duel'; a?: TUnit; d?: TUnit; title?: string; sub?: string; text?: string; dmg?: number; tags?: string[] }
+/** 22夜目⑦：演出の列。敵の番は1人ずつ「枠が乗る（focus）→ 歩く → 攻撃 → 間（gap）」 */
+type QFx = (TFx | { k: 'focus'; uid: string } | { k: 'gap' }) & { foe?: boolean };
+function actorOf(f: TFx): string | null { return f.k === 'move' || f.k === 'flee' ? f.uid : f.k === 'hit' || f.k === 'heal' ? f.a : f.k === 'say' || f.k === 'cutin' ? f.by : null; }
+function stage(view: TBattle, fx: TFx[]): QFx[] {
+  const out: QFx[] = [];
+  let foe = view.phase === 'enemy';
+  let last: string | null = null;
+  for (const f of fx) {
+    if (f.k === 'phase') { foe = f.side === 'foe'; last = null; out.push({ ...f, foe }); continue; }
+    const a = actorOf(f);
+    const u = a ? view.units.find((x) => x.uid === a) : null;
+    if (foe && u && u.side === 'foe' && a !== last && (f.k === 'move' || f.k === 'hit' || f.k === 'heal')) { if (last) out.push({ k: 'gap', foe }); out.push({ k: 'focus', uid: a!, foe }); last = a; }
+    out.push({ ...f, foe });
+  }
+  return out;
+}
+const VERB: Record<string, string> = { slash: '斬った', thrust: '突いた', shot: '射た', crush: '砕いた', blunt: '打ちすえた', fire: '炎で焼いた', thunder: '雷を落とした', ice: '凍らせた', light: '光で撃った', dark: '闇で呑んだ' };
+interface Over { kind: 'cutin' | 'say' | 'break' | 'phase' | 'duel'; a?: TUnit; d?: TUnit; title?: string; sub?: string; text?: string; dmg?: number; tags?: string[]; /** 22夜目⑦：タップするまで止まる（▼） */ tap?: boolean }
 
 export function TacticsView() {
   const { s } = useStore();
@@ -46,7 +80,21 @@ export function TacticsView() {
   const [mode, setMode] = useState<'none' | 'command' | 'insight' | 'ignite' | 'swapfoe'>('none');
   const [swapFirst, setSwapFirst] = useState<string | null>(null);
   const [msg, setMsg] = useState<ComponentChildren>(null);
-  const [replay, setReplay] = useState<{ view: TBattle; queue: TFx[]; i: number } | null>(null);
+  const [replay, setReplay0] = useState<{ view: TBattle; queue: QFx[]; i: number } | null>(null);
+  const setReplay = (r: { view: TBattle; queue: TFx[]; i: number } | null) => { if (r) { foeLogRef.current = []; movedRef.current = {}; setLine(''); } setReplay0(r ? { ...r, queue: stage(r.view, r.queue) } : null); };
+  // 22夜目⑦：いま動いている敵（枠）・1行の記録・ふりかえり・早送り・台詞のタップ待ち・歩く速さ
+  const [focus, setFocus] = useState<string | null>(null);
+  const [line, setLine] = useState('');
+  const [review, setReview] = useState<string[] | null>(null);
+  const [lastFoe, setLastFoe] = useState<string[]>([]);
+  const [waitTap, setWaitTap] = useState(false);
+  const [lunge, setLunge] = useState<{ uid: string; dx: number; dy: number } | null>(null);
+  const [walk, setWalk] = useState(0.12);
+  const [, setTick] = useState(0);
+  const foeLogRef = useRef<string[]>([]);
+  const movedRef = useRef<Record<string, string>>({});
+  const rushRef = useRef(false);
+  const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
   const [pops, setPops] = useState<Pop[]>([]);
   const [over, setOver] = useState<Over | null>(null);
   const [shake, setShake] = useState<string | null>(null);
@@ -60,26 +108,53 @@ export function TacticsView() {
     if (s.battle.nemesisId) sfx('nemesis');
     if (s.battle.fx.length && s.battle.turn === 1) { const fx = s.battle.fx; act((g) => { if (g.battle) g.battle.fx = []; }, false); setReplay({ view: clone(s.battle), queue: fx, i: 0 }); }
   }, []);
-  // 演出を1つずつ
+  // 演出を1つずつ（22夜目⑦：敵は1人ずつ枠が乗り、通り道を1マスずつ歩き、向きを変えて攻撃する）
   useEffect(() => {
     if (!replay || !s) return;
     const { view, queue, i } = replay;
-    if (i >= queue.length) { setReplay(null); setOver(null); return; }
+    if (i >= queue.length) { setReplay0(null); setOver(null); setFocus(null); setWaitTap(false); setLunge(null); if (foeLogRef.current.length) setLastFoe([...foeLogRef.current]); return; }
     const f = queue[i];
-    const M = speedMul(s);
+    const foeMul = f.foe && s.settings.foeSpeed === 'fast' ? 0.55 : 1;
+    const M = speedMul(s) * foeMul * (rushRef.current ? 0.25 : 1);
     const duelMode = s.settings.duel ?? 'short';
+    const tapSay = (s.settings.sayMode ?? 'tap') === 'tap';
     let ms = 300;
-    const next = () => setReplay((r) => (r && r.i === i ? { ...r, i: i + 1 } : r));
+    let hold = false;
+    const next = () => setReplay0((r) => (r && r.i === i ? { ...r, i: i + 1 } : r));
     const U = (uid: string) => view.units.find((u) => u.uid === uid);
-    if (f.k === 'move') { const u = U(f.uid); if (u) { u.x = f.x; u.y = f.y; } sfx('move'); ms = 220; }
-    else if (f.k === 'phase') { setOver({ kind: 'phase', title: f.side === 'foe' ? '敵の番' : `ターン${f.turn}`, sub: f.side === 'foe' ? '赤い札が、狙われている子' : 'こちらの番' }); ms = 650; }
-    else if (f.k === 'cutin') { const a = U(f.by); setOver({ kind: 'cutin', a, title: f.title, sub: f.sub }); sfx('cutin'); ms = 950; }
-    else if (f.k === 'say') { const a = U(f.by); setOver({ kind: 'say', a, text: f.text }); if (a?.nemesis) sfx('nemesis'); ms = 1500; }
+    const later = (fn: () => void, t: number) => { timers.current.push(setTimeout(fn, t)); };
+    if (f.k === 'focus') {
+      const u = U(f.uid); rushRef.current = false;
+      setOver(null); setFocus(f.uid); setLine(u ? `${u.name}の番` : ''); followUnit(f.uid);
+      ms = 480;
+    } else if (f.k === 'gap') { setFocus(null); ms = 220; }
+    else if (f.k === 'move') {
+      const u = U(f.uid);
+      setOver((o) => (o?.kind === 'duel' || o?.kind === 'phase' ? null : o));
+      if (u) {
+        const path = walkPath(view, u, f.x, f.y);
+        const step = Math.max(0.03, 0.12 * M);
+        setWalk(step);
+        path.forEach((c, n) => later(() => { u.x = c.x; u.y = c.y; setTick((t) => t + 1); followUnit(u.uid); if (n === 0) sfx('move'); }, n * step * 1000));
+        if (u.side === 'foe') movedRef.current[u.uid] = isForest(view, f.x, f.y) ? '森へ進み、' : path.length ? '進み、' : '';
+        if (u.side === 'foe' && f.foe) setLine(`${u.name}：${movedRef.current[u.uid] ? movedRef.current[u.uid].replace('、', '') : '動いた'}`);
+        ms = (path.length * step * 1000 + 80) / M;
+      }
+    }
+    else if (f.k === 'phase') { setFocus(null); setOver({ kind: 'phase', title: f.side === 'foe' ? '敵の番' : `ターン${f.turn}`, sub: f.side === 'foe' ? '敵が1人ずつ動きます（画面をタップで早送り）' : 'こちらの番' }); ms = 650; }
+    else if (f.k === 'cutin') { const a = U(f.by); setOver({ kind: 'cutin', a, title: f.title, sub: f.sub, tap: tapSay }); sfx('cutin'); ms = 950; hold = tapSay; }
+    else if (f.k === 'say') { const a = U(f.by); setOver({ kind: 'say', a, text: f.text, tap: tapSay }); if (a?.nemesis) sfx('nemesis'); ms = 1500; hold = tapSay; }
     else if (f.k === 'reveal') { const d = U(f.d); if (d && !d.known.includes(f.type)) d.known.push(f.type); if (d) addPop(d, `弱点：${ATK_NAME[f.type]}`, 'sh'); sfx('weak'); ms = 700; }
-    else if (f.k === 'flee') { const u = U(f.uid); if (u) { u.alive = false; u.down = 'fled'; } ms = 500; }
-    else if (f.k === 'heal') { const d = U(f.d); if (d) { d.hp = Math.min(d.max, d.hp + f.amt); addPop(d, `+${f.amt}`, 'heal'); } sfx('heal'); ms = 500; }
+    else if (f.k === 'flee') { const u = U(f.uid); if (u) { u.alive = false; u.down = 'fled'; if (f.foe) { const t = `${u.name}：退いた`; setLine(t); foeLogRef.current.push(t); } } ms = 500; }
+    else if (f.k === 'heal') { const d = U(f.d); const a = U(f.a); if (d) { d.hp = Math.min(d.max, d.hp + f.amt); addPop(d, `+${f.amt}`, 'heal'); } if (a && f.foe && a.side === 'foe' && d) { const t = `${a.name}：${d.name}の傷を癒した（+${f.amt}）`; setLine(t); foeLogRef.current.push(t); } sfx('heal'); ms = 500; }
     else if (f.k === 'hit') {
       const a = U(f.a), d = U(f.d);
+      if (a && d) { setLunge({ uid: a.uid, dx: Math.sign(d.x - a.x), dy: Math.sign(d.y - a.y) }); later(() => setLunge(null), 260); }
+      if (a && d && a.side === 'foe') {
+        const t = `${a.name}：${movedRef.current[a.uid] ?? ''}${d.name}を${f.tech ? `「${f.tech}」で` : ''}${VERB[a.type] ?? '攻撃した'}（−${f.dmg}${f.kill ? '・倒れた' : ''}）`;
+        movedRef.current[a.uid] = '';
+        setLine(t); if (f.foe) foeLogRef.current.push(t);
+      }
       if (d) {
         d.hp = Math.max(0, d.hp - f.dmg);
         if (f.shield) d.sh = Math.max(0, d.sh - 1);
@@ -92,11 +167,22 @@ export function TacticsView() {
       const tags = [f.weak ? '弱点！' : '', f.shield ? '盾 −1' : '', f.brk ? 'ブレイク！' : '', f.resisted ? '効かない' : '', f.kill ? (d?.side === 'me' ? '倒れた' : '倒した！') : ''].filter(Boolean);
       if (duelMode !== 'off' && a && d) { setOver({ kind: 'duel', a, d, dmg: f.dmg, tags, title: f.tech }); ms = duelMode === 'full' ? 900 : 520; }
       else ms = 420;
-      if (f.brk) { setTimeout(() => setOver({ kind: 'break', d, title: 'ブレイク！', sub: '次の番は動けず、受ける傷が2倍' }), ms); ms += 1000; }
+      if (f.brk) { later(() => setOver({ kind: 'break', d, title: 'ブレイク！', sub: '次の番は動けず、受ける傷が2倍' }), ms * M); ms += 1000; }
     }
+    if (hold) { setWaitTap(true); return () => { timers.current.forEach(clearTimeout); timers.current = []; }; }
+    setWaitTap(false);
     const t = setTimeout(next, ms * M);
-    return () => clearTimeout(t);
+    return () => { clearTimeout(t); timers.current.forEach(clearTimeout); timers.current = []; };
   }, [replay?.i, replay?.queue]);
+  /** 台詞・カットインのタップ待ちを進める */
+  function tapOver() { setOver(null); if (waitTap) { setWaitTap(false); setReplay0((r) => (r ? { ...r, i: r.i + 1 } : r)); } }
+  /** 動いている子が画面の外なら、盤が追う */
+  function followUnit(uid: string) {
+    const el = document.querySelector(`[data-uid="${uid}"]`) as HTMLElement | null;
+    if (!el?.getBoundingClientRect) return;
+    const r = el.getBoundingClientRect();
+    if (r.top < 60 || r.bottom > window.innerHeight - 140) el.scrollIntoView?.({ block: 'center', behavior: 'smooth' });
+  }
   useEffect(() => { if (!shake) return; const t = setTimeout(() => setShake(null), 320); return () => clearTimeout(t); }, [shake]);
   function addPop(u: TUnit, text: string, cls: string) { const id = popId.current++; setPops((p) => [...p, { id, x: u.x, y: u.y, text, cls }]); setTimeout(() => setPops((p) => p.filter((x) => x.id !== id)), 900); }
 
@@ -128,7 +214,8 @@ export function TacticsView() {
     if (fx.length) setReplay({ view: before, queue: fx, i: 0 });
   }
   function tapCell(x: number, y: number) {
-    if (busy || b!.phase !== 'player') return;
+    if (busy) { rushRef.current = true; return; }
+    if (b!.phase !== 'player') return;
     const u = view.units.find((o) => o.alive && o.x === x && o.y === y) ?? null;
     if (mode === 'insight') { if (u && insT.some((f) => f.uid === u.uid)) run((g) => insight(g.battle!, u.uid)); else setMode('none'); return; }
     if (mode === 'command') { if (u && cmdT.some((f) => f.uid === u.uid)) run((g) => command(g.battle!, u.uid)); else setMode('none'); return; }
@@ -137,7 +224,7 @@ export function TacticsView() {
     if (selU && !u && opens.some((o) => o.x === x && o.y === y)) { run((g) => openAt(g.battle!, selU.uid, x, y)); return; }
     if (u?.side === 'foe') {
       if (selU && (atkable.some((f) => f.uid === u.uid) || swapT.some((f) => f.uid === u.uid))) { setTgt(u.uid); sfx('ok'); setMsg(null); return; }
-      setTgt(null); setMsg(foeInfo(b!, u)); return;
+      setSel(null); setTgt(null); setMsg(foeInfo(b!, u)); sfx('move'); return;
     }
     {
       const ch = b!.chests?.find((c) => !c.opened && c.x === x && c.y === y);
@@ -190,6 +277,7 @@ export function TacticsView() {
           if (!busy && (opens.some((o) => o.x === x && o.y === y) || ignT.some((o) => o.x === x && o.y === y))) cls += ' openable';
           if (!busy && R && k in R && (!u || u.uid === sel)) cls += ' move';
           if (!busy && u && atkable.some((f) => f.uid === u.uid)) cls += ' tgt';
+          if (!busy && u && selU && u.side === 'foe' && atkable.some((f) => f.uid === u.uid) && weakFor(selU, u) === 'gold') cls += ' gold';
           if (!busy && u && healOk.some((f) => f.uid === u.uid)) cls += ' ally';
           if (!busy && u && (insT.some((f) => f.uid === u.uid) || cmdT.some((f) => f.uid === u.uid))) cls += ' special';
           if (!busy && tgtU && cards[0]?.spot && cards[0].spot.x === x && cards[0].spot.y === y) cls += ' spot';
@@ -201,10 +289,15 @@ export function TacticsView() {
           {view.units.filter((u) => u.alive).map((u) => {
             const aim = aimMap[u.uid];
             return (
-              <div class={`tb-u ${u.side}${u.boss ? ' boss' : ''}${u.teacher ? ' teacher' : ''}${u.acted && u.side === 'me' ? ' done' : ''}${u.uid === sel ? ' sel' : ''}${u.broken > 0 ? ' broken' : ''}${shake === u.uid ? ' shake' : ''}`}
-                style={{ left: `${(u.x / b.w) * 100}%`, top: `${(u.y / b.h) * 100}%`, width: `${100 / b.w}%`, height: `${100 / b.h}%` }}>
+              <div data-uid={u.uid} class={`tb-u ${u.side}${!busy && selU && u.side === 'foe' && weakFor(selU, u) === 'dim' ? ' dimfoe' : ''}${u.boss ? ' boss' : ''}${u.teacher ? ' teacher' : ''}${u.acted && u.side === 'me' && !busy ? ' done' : ''}${u.uid === sel ? ' sel' : ''}${u.broken > 0 ? ' broken' : ''}${shake === u.uid ? ' shake' : ''}${busy && focus === u.uid ? ' focus' : ''}${lunge?.uid === u.uid ? ' lunge' : ''}`}
+                style={{ left: `${(u.x / b.w) * 100}%`, top: `${(u.y / b.h) * 100}%`, width: `${100 / b.w}%`, height: `${100 / b.h}%`, ['--walk' as string]: `${walk}s`, ['--ldx' as string]: `${(lunge?.uid === u.uid ? lunge.dx : 0) * 22}%`, ['--ldy' as string]: `${(lunge?.uid === u.uid ? lunge.dy : 0) * 22}%` }}>
+                {busy && focus === u.uid && <div class="tb-fname">{u.name}</div>}
                 <div class="tb-uin"><UnitFace u={u} /></div>
                 <div class="tb-hp"><i style={{ width: `${Math.max(0, (u.hp / u.max) * 100)}%` }} /></div>
+                {!busy && selU && u.side === 'foe' && atkable.some((f) => f.uid === u.uid) && weakFor(selU, u) === 'gold' && <div class="tb-goldtag">弱点</div>}
+                <div class="tb-marks">{u.side === 'foe'
+                  ? [...u.weak.slice(0, 2).map((w) => (u.known.includes(w) && !u.resist.includes(w) ? <AtkMark small t={w} state="weak" /> : u.resist.includes(w) ? null : <AtkMark small state="q" />)), ...u.resist.slice(0, 1).map((r) => <AtkMark small t={r} state="no" />)]
+                  : u.teacher ? null : typesOf(u).slice(0, 3).map((t) => <AtkMark small t={t} />)}</div>
                 {u.side === 'foe' && u.shMax > 0 && <div class="tb-ss">{u.broken > 0 ? <span class="tb-brk">崩</span> : Array.from({ length: u.sh }, () => <span class="sh" />)}</div>}
                 {aim && <div class={`tb-inc${aim.lethal ? ' lethal' : ''}`}>{aim.lethal ? '命' : ''}−{aim.dmg}</div>}
                 {aim2Map[u.uid] && !busy && <div class="tb-inc2">次の次−{aim2Map[u.uid]}</div>}
@@ -225,7 +318,7 @@ export function TacticsView() {
       {lethalWarn.length > 0 && !busy && b.phase === 'player' && <div class="tb-warn">⚠ 命の危険：{lethalWarn.map(({ f, t }) => `${f.name}が${t?.name ?? ''}を狙っている`).join('、')}{nd ? '（この戦いでは死なず、大けがで済む）' : '。倒れると死んでしまう。動かして避けよう'}</div>}
       <div class="tb-panel">
         {b.phase === 'done' && !busy ? <EndPanel b={b} /> : busy ? (
-          <div class="tb-msg">{b.phase === 'enemy' || replay?.queue.some((f) => f.k === 'phase') ? '― 敵の番 ―' : '……'}<button class="btn small ghost" style={{ float: 'right' }} onClick={() => { setReplay(null); setOver(null); }}>演出を飛ばす</button></div>
+          <div class="tb-msg tb-line">{line || (replay?.queue.some((f) => f.k === 'phase') ? '― 敵の番 ―' : '……')}{waitTap && <span class="tb-tapnext">▼ タップで進む</span>}<button class="btn small ghost" style={{ float: 'right' }} onClick={() => { if (foeLogRef.current.length) setLastFoe([...foeLogRef.current]); setReplay(null); setOver(null); setFocus(null); setWaitTap(false); }}>演出を飛ばす</button></div>
         ) : selU && tgtU ? (
           <>
             <div class="tb-who"><span class="tb-wf"><UnitFace u={selU} /></span><b>{selU.name}</b> → <b class="red">{tgtU.name}</b>　札を選ぶ</div>
@@ -244,7 +337,7 @@ export function TacticsView() {
               )}
               {atkable.some((f) => f.uid === tgtU.uid) && cards.map((c) => (
                 <button class={`tb-card${c.weak ? ' weak' : ''}${c.brk ? ' brk' : ''}`} disabled={!c.spot} onClick={() => run((g) => attack(g.battle!, selU.uid, tgtU.uid, c.id, c.spot, { noDeath: nd }))}>
-                  <span class="tb-cn">{c.name}<span class="tb-ct">{ATK_NAME[c.type]}</span></span>
+                  <span class="tb-cn">{c.name} <AtkMark t={c.type} state={c.weak ? 'weak' : c.resisted ? 'no' : undefined} /></span>
                   <span class="tb-cd">{c.spot ? <>ダメージ <b>{c.total}</b>{c.hits > 1 ? `（${c.per}×${c.hits}）` : ''}</> : '届かない'}</span>
                   <span class="tb-ctag">{c.weak && <em class="w">弱点！盾−{c.shields}</em>}{c.brk && <em class="b">ブレイク！</em>}{c.kill && <em class="k">倒せる</em>}{c.resisted && <em class="n">効かない</em>}{c.broken && <em class="b">傷2倍</em>}{c.left !== null && <em class="l">のこり{c.left}</em>}</span>
                 </button>
@@ -254,7 +347,7 @@ export function TacticsView() {
           </>
         ) : selU ? (
           <>
-            <div class="tb-who"><span class="tb-wf"><UnitFace u={selU} /></span><div><b>{selU.name}</b>　HP {selU.hp}/{selU.max}　{selU.teacher ? `${selU.classId !== 'novice' && CLASSES[selU.classId] ? `${CLASSES[selU.classId].name}の` : ''}${TEACHER_RANK.names[b.teacherRank ?? 0]}` : CLASSES[selU.classId]?.name ?? ''}<div class="tb-techs">{selU.teacher ? <span>号令 のこり{b.command}・見極め のこり{b.insight}</span> : selU.techs.map((t) => <span class="tb-tch">{techOf(t.id)?.name}<small>{ATK_NAME[techOf(t.id)!.type]}・のこり{t.left}</small></span>)}</div></div></div>
+            <div class="tb-who"><span class="tb-wf"><UnitFace u={selU} /></span><div><b>{selU.name}</b>　HP {selU.hp}/{selU.max}　{selU.teacher ? `${selU.classId !== 'novice' && CLASSES[selU.classId] ? `${CLASSES[selU.classId].name}の` : ''}${TEACHER_RANK.names[b.teacherRank ?? 0]}` : CLASSES[selU.classId]?.name ?? ''}<div class="tb-techs">{selU.teacher ? <span>号令 のこり{b.command}・見極め のこり{b.insight}</span> : <><span class="tb-tch">ふつう <AtkMarksInline list={(selU.atks?.length ? selU.atks : [selU.type])} /></span>{selU.techs.map((t) => <span class="tb-tch">{techOf(t.id)?.name} <AtkMark small t={techOf(t.id)!.type} /><small>のこり{t.left}</small></span>)}</>}</div></div></div>
             {mode !== 'none' && msg ? <div class="tb-msg small">{msg}　<button class="btn small ghost" onClick={() => { setMode('none'); setSwapFirst(null); setMsg(null); }}>やめる</button></div> : <div class="tb-msg small">{atkable.length ? '赤く光る敵をタップすると、札が並びます。' : '届く敵がいない。'}{healOk.length ? '緑の仲間をタップで回復。' : ''}{swapT.length ? '紫に光る相手をタップで入れ替え。' : ''}{opens.length ? '光る宝箱・扉をタップで開ける。' : ''}動くだけなら青いマス。</div>}
             <div class="tb-acts">
               <button class="btn small grow" onClick={() => run((g) => wait(g.battle!, selU.uid))}>待機</button>
@@ -272,6 +365,7 @@ export function TacticsView() {
               <button class="btn primary grow" onClick={() => { sfx('ok'); run((g) => endTurn(g.battle!, { noDeath: nd })); }}>ターンを終える{left ? `（あと${left}人）` : ''}</button>
               <button class="btn small ghost" disabled={!b.undo} onClick={() => { sfx('cancel'); act((g) => { undoLast(g.battle!); }); setSel(null); setTgt(null); }}>ひとつ戻す</button>
             </div>
+            {lastFoe.length > 0 && <div class="tb-acts"><button class="btn small ghost grow" onClick={() => { sfx('move'); setReview(lastFoe); }}>敵の番のふりかえり（{lastFoe.length}）</button></div>}
             <div class="tb-acts">
               <button class="btn small ghost grow" onClick={() => run((g) => autoTurn(g.battle!, { noDeath: nd }))}>このターンはおまかせ</button>
               <button class="btn small ghost grow" onClick={() => { if (confirm('最後までおまかせで進めますか？（同じ計算で自動に進み、名場面は残ります）')) act((g) => finishAuto(g)); }}>最後までおまかせ</button>
@@ -279,8 +373,9 @@ export function TacticsView() {
           </>
         )}
       </div>
-      <div class="tb-help">運はありません。攻撃は必ず当たります。弱点を突くと盾が割れ、0になると「ブレイク」（次の番は動けず、受ける傷が2倍）。</div>
-      {over && <Overlay o={over} onTap={() => setOver(null)} />}
+      <div class="tb-help">運はありません。攻撃は必ず当たります。弱点を突くと盾が割れ、0になると「ブレイク」（次の番は動けず、受ける傷が2倍）。 <AtkLegend /></div>
+      {over && <Overlay o={over} onTap={tapOver} />}
+      {review && <ReviewSheet lines={review} onClose={() => setReview(null)} />}
       {guide >= 0 && !busy && <GuideBox step={guide} tutorial={!!b.tutorial} onNext={() => { if (guide >= 2) { setGuide(-1); act((g) => { g.tutorial ??= { tour: 99, seen: [] }; if (!g.tutorial.seen.includes('tactics')) g.tutorial.seen.push('tactics'); }); } else setGuide(guide + 1); }} />}
     </div>
   );
@@ -301,9 +396,14 @@ function attackCards(b: TBattle, u: TUnit, f: TUnit): Card[] {
 }
 
 function foeInfo(b: TBattle, f: TUnit): ComponentChildren {
-  const weak = f.weak.map((w) => (f.known.includes(w) ? ATK_NAME[w] : '？')).join('・');
   const aim = f.aim && 't' in f.aim ? unit(b, f.aim.t) : null;
-  return <span><b>{f.name}</b>　HP {f.hp}/{f.max}　盾 {f.sh}　弱点：{weak || 'なし'}{f.resist.length ? `　効かない：${f.resist.map((r) => ATK_NAME[r]).join('・')}` : ''}{aim ? `　次は${aim.name}を狙う` : f.broken ? '　ブレイク中' : ''}</span>;
+  return (
+    <span class="tb-foeinfo"><b>{f.name}</b><span>HP {f.hp}/{f.max}</span><span>盾 {f.sh}</span>
+      <span>弱点 {f.weak.length ? f.weak.map((w) => (f.known.includes(w) && !f.resist.includes(w) ? <AtkMark t={w} state="weak" /> : f.resist.includes(w) ? null : <AtkMark state="q" />)) : 'なし'}</span>
+      {f.resist.length > 0 && <span>効かない {f.resist.map((r) => <AtkMark t={r} state="no" />)}</span>}
+      <span>攻撃 <AtkMark t={f.type} /></span>
+      <span>{aim ? `次は${aim.name}を狙う` : f.broken ? 'ブレイク中' : ''}</span></span>
+  );
 }
 
 function BossCard({ u }: { u: TUnit }) {
@@ -315,7 +415,7 @@ function BossCard({ u }: { u: TUnit }) {
         <div class="tb-bn">{u.name}{u.nemesis && <span class="tb-tag">宿敵</span>}{!u.alive && <small>{u.down === 'fled' ? '（退いた）' : '（倒れた）'}</small>}</div>
         <div class="tb-bhp"><i style={{ width: `${Math.max(0, (u.hp / u.max) * 100)}%` }} /></div>
         <div class="tb-shs">盾 {Array.from({ length: u.shMax }, (_, i) => <span class={`sh${i < u.sh && u.broken === 0 ? '' : ' off'}`} />)}{u.broken > 0 && <b class="gold">ブレイク中！傷2倍</b>}{u.fleeing && u.alive && <b class="red">逃げようとしている</b>}{u.rage && <b class="red">大技の構え</b>}</div>
-        <div class="tb-wks">{types.map((t) => u.resist.includes(t) ? <span class="wk no">{ATK_NAME[t]}（もう効かない）</span> : u.known.includes(t) ? <span class="wk">弱点 {ATK_NAME[t]}</span> : <span class="wk q">弱点 ？</span>)}</div>
+        <div class="tb-wks">{types.map((t) => u.resist.includes(t) ? <span class="wk no"><AtkMark t={t} state="no" /> もう効かない</span> : u.known.includes(t) ? <span class="wk">弱点 <AtkMark t={t} state="weak" /></span> : <span class="wk q">弱点 <AtkMark state="q" /></span>)}</div>
       </div>
     </div>
   );
@@ -333,10 +433,22 @@ function Overlay({ o, onTap }: { o: Over; onTap: () => void }) {
       </div>
     </div>
   );
-  if (o.kind === 'cutin') return <div class="tb-ov" onClick={onTap}><div class="tb-cutin">{o.a && <span class="tb-cf"><UnitFace u={o.a} /></span>}<span class="tb-ctx"><b>{o.title}</b><span>{o.sub}</span></span></div></div>;
+  if (o.kind === 'cutin') return <div class="tb-ov" onClick={onTap}><div class={`tb-cutin${o.tap ? ' hold' : ''}`}>{o.a && <span class="tb-cf"><UnitFace u={o.a} /></span>}<span class="tb-ctx"><b>{o.title}</b><span>{o.sub}</span></span>{o.tap && <span class="tb-tri">▼</span>}</div></div>;
   if (o.kind === 'break') return <div class="tb-ov" onClick={onTap}><div class="tb-breakfx">ブレイク！<small>{o.sub}</small></div></div>;
   if (o.kind === 'phase') return <div class="tb-ov" onClick={onTap}><div class="tb-phase"><b>{o.title}</b><small>{o.sub}</small></div></div>;
-  return <div class="tb-ov say" onClick={onTap}><div class={`tb-say${o.a?.nemesis ? ' nem' : ''}`}>{o.a && <span class="tb-sf"><UnitFace u={o.a} /></span>}<p><b>{o.a?.name}</b>「{o.text}」</p></div></div>;
+  return <div class="tb-ov say" onClick={onTap}><div class={`tb-say${o.a?.nemesis ? ' nem' : ''}`}>{o.a && <span class="tb-sf"><UnitFace u={o.a} /></span>}<p><b>{o.a?.name}</b>「{o.text}」</p>{o.tap && <span class="tb-tri">▼</span>}</div></div>;
+}
+
+/** 22夜目⑦：敵の番のふりかえり（その番の動きを並べる） */
+function ReviewSheet({ lines, onClose }: { lines: string[]; onClose: () => void }) {
+  return (
+    <div class="overlay top" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+      <div class="sheet">
+        <div class="row between"><h2 class="grow">敵の番のふりかえり</h2><button class="btn ghost small" onClick={() => { sfx('cancel'); onClose(); }}>閉じる</button></div>
+        <ol class="tb-review">{lines.map((l) => <li>{l}</li>)}</ol>
+      </div>
+    </div>
+  );
 }
 
 function EndPanel({ b }: { b: TBattle }) {
@@ -367,3 +479,5 @@ function GuideBox({ step, tutorial, onNext }: { step: number; tutorial: boolean;
   );
 }
 void useMemo; void TB;
+
+function AtkMarksInline({ list }: { list: AtkType[] }) { return <>{list.map((t) => <AtkMark small t={t} />)}</>; }

@@ -2295,3 +2295,35 @@ body[data-light="day"] .desk-candle::before { display: none; }
 .tg-foot { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 8px; margin-top: 6px; }
 .tg-foot .btn { min-height: 44px; flex: 1 1 auto; }
 .tg-foot .tg-auto { display: flex; align-items: center; gap: 4px; min-height: 44px; }
+
+/* 22夜目⑦：動いている時を見せる（敵は1人ずつ枠が乗り、道に沿って歩く） */
+.tb-u { transition: left var(--walk, .22s) linear, top var(--walk, .22s) linear; }
+.tb-u.focus { z-index: 6; }
+.tb-u.focus::after { content: ''; position: absolute; inset: 0; border: 3px solid #ffd34a; border-radius: 9px; box-shadow: 0 0 12px #ffd34a; animation: tbcur .6s ease-in-out infinite alternate; pointer-events: none; }
+@keyframes tbcur { from { inset: 0; } to { inset: -3px; } }
+.tb-fname { position: absolute; left: 50%; top: -20px; transform: translateX(-50%); z-index: 7; white-space: nowrap; background: #1a0f08ee; color: #ffe6a8; font: 700 12px var(--sans, sans-serif); padding: 1px 6px; border-radius: 6px; border: 1px solid #ffd34a; pointer-events: none; }
+.tb-u .tb-uin { transition: transform .12s ease-out; }
+.tb-u.lunge .tb-uin { transform: translate(var(--ldx, 0), var(--ldy, 0)); }
+.tb-line { min-height: 44px; line-height: 1.5; }
+.tb-tapnext { display: inline-block; margin-left: 8px; color: #b8860b; font-weight: 700; animation: tbtri .8s ease-in-out infinite alternate; }
+.tb-tri { position: absolute; right: 10px; bottom: 6px; color: #ffd34a; font-size: 14px; animation: tbtri .8s ease-in-out infinite alternate; }
+@keyframes tbtri { from { transform: translateY(0); } to { transform: translateY(3px); } }
+.tb-say { position: relative; }
+.tb-review { margin: 8px 0 0; padding-left: 1.4em; line-height: 1.7; font-size: 14px; }
+.tb-cutin.hold { animation: tbcuthold .25s forwards; }
+@keyframes tbcuthold { 0% { transform: skewY(-8deg) translateX(100%); } 100% { transform: skewY(-8deg) translateX(0); } }
+/* 22夜目⑧：攻撃の種類の印 */
+.atk { display: inline-flex; align-items: center; justify-content: center; min-width: 18px; height: 18px; padding: 0 2px; border-radius: 4px; font: 700 12px/1 var(--sans, sans-serif); vertical-align: middle; box-shadow: inset 0 0 0 1px #0003; position: relative; }
+.atk.sm { min-width: 15px; height: 15px; font-size: 12px; border-radius: 3px; padding: 0 1px; }
+.atk.q { background: #2a2420; color: #ffe6a8; box-shadow: inset 0 0 0 1px #ffd34a88; }
+.atk.no { opacity: .75; }
+.atk.no::after { content: ''; position: absolute; inset: 0; background: linear-gradient(45deg, transparent 44%, #c0392b 44% 56%, transparent 56%), linear-gradient(-45deg, transparent 44%, #c0392b 44% 56%, transparent 56%); border-radius: inherit; }
+.atk.wk { box-shadow: 0 0 0 2px #ffd34a; }
+.atks { display: inline-flex; gap: 2px; flex-wrap: wrap; vertical-align: middle; }
+.tb-marks { position: absolute; left: 1px; right: 1px; bottom: 6px; display: flex; gap: 1px; justify-content: center; z-index: 3; pointer-events: none; }
+.tb-cell.gold { box-shadow: inset 0 0 0 3px #ffd34a, 0 0 12px #ffd34a; background: #7a5a10 !important; }
+.tb-u .tb-goldtag { position: absolute; left: 50%; top: -9px; transform: translateX(-50%); z-index: 5; background: #ffd34a; color: #3a2400; font: 800 12px var(--sans, sans-serif); padding: 0 5px; border-radius: 6px; white-space: nowrap; pointer-events: none; }
+.tb-u.dimfoe .tb-uin { filter: brightness(.45) grayscale(.6); }
+.atk-legend { display: inline-block; }
+.atk-legend-box { margin-top: 6px; padding: 8px; border: 1px solid var(--line); border-radius: 8px; background: #fffaf0; color: #2a2016; display: grid; gap: 4px; text-align: left; }
+.tb-foeinfo { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; }

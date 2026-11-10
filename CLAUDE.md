@@ -5,7 +5,7 @@ FE風の士官学校育成SRPG（スマホ縦画面のブラウザゲーム、Gi
 ## 正本
 - 何を作るか：`docs/new/kikaku.md`（19夜目から。古い `docs/design.md` と食い違うときは企画書が正しい）
 - 依頼者の意図（ヒアリング原文）：`docs/new/hearing.md`（新しい企画、問1〜問112。問78〜は兵種）・`docs/hearing.md`（はじめの企画）
-- 今回の作業：いちばん新しい `docs/nightN.md`（今は `docs/night21.md`：20夜目の残りと数字の直し。兵種の正本は `docs/new/classes.md`）
+- 今回の作業：いちばん新しい `docs/nightN.md`（今は `docs/night22.md`：魔防・兵種試験の受け方・人望・装備・目標技能・戦いを分かりやすく。兵種の正本は `docs/new/classes.md`）
 - 遊んだ感想：`docs/feedback.md`
 - これまでの報告：`docs/reports/`
 

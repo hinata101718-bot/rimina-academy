@@ -6,6 +6,7 @@ import type { GameState, Student } from '../core/state';
 import type { ClassDef, Stats, StatId, Rank } from '../core/types';
 import { CLASSES, CLASS_LIST, TRAITS_C, type ClassDefX } from '../data/classes';
 import { STAT_NAMES, SKILL_NAMES, COUNTRY_SHORT } from '../data/people';
+import { AtkMark, AtkMarks } from './atk';
 import { STATS, B } from '../data/balance';
 import { growthParts } from '../core/growth';
 import { act, navigate } from './store';
@@ -212,7 +213,8 @@ function ClassSheet({ s, c, known, onClose }: { s: GameState; c: ClassDef; known
             <div class="small">移動 {c.move}・使える武器：{c.weapons.map((w) => WEAPON_NAMES[w]).join('・')}</div>
           </>
         ) : <div class="small muted">まだ誰もなっていない兵種です。生徒か卒業生が初めてなると、補正やスキルが分かります。</div>}
-        {known && <div class="small ruled">この兵種で使える技：{TECHS.filter((t) => c.weapons.some((w) => ({ sword: 'sword', lance: 'lance', axe: 'axe', bow: 'bow', magic: 'magic', holy: 'faith', staff: 'faith', gun: 'gun' } as Record<string, string>)[w] === t.skill)).map((t) => `${t.name}（${ATK_NAME[t.type]}）`).join('・') || 'なし'}</div>}
+        {known && <div class="small ruled">攻撃の種類：<AtkMarks list={(c as ClassDefX).atk} /></div>}
+        {known && <div class="small ruled">この兵種で使える技：{TECHS.filter((t) => c.weapons.some((w) => ({ sword: 'sword', lance: 'lance', axe: 'axe', bow: 'bow', magic: 'magic', holy: 'faith', staff: 'faith', gun: 'gun' } as Record<string, string>)[w] === t.skill)).map((t) => <span class="nowrap" style={{ marginRight: 6 }}>{t.name}<AtkMark small t={t.type} /></span>)}{!TECHS.some((t) => c.weapons.some((w) => ({ sword: 'sword', lance: 'lance', axe: 'axe', bow: 'bow', magic: 'magic', holy: 'faith', staff: 'faith', gun: 'gun' } as Record<string, string>)[w] === t.skill)) && 'なし'}</div>}
         {known && <div class="small ruled"><b>特技</b>{(c as ClassDefX).traits.map((t) => TRAITS_C[t] && <div class="ct-trait"><b>{TRAITS_C[t].name}</b>：{TRAITS_C[t].desc}{TRAITS_C[t].todo ? <em class="ct-todo">（まだ説明だけ）</em> : TRAITS_C[t].part ? <em class="ct-todo">（{TRAITS_C[t].part}）</em> : null}</div>)}<div class="muted">下の段階の特技は、上がっても残ります。</div></div>}
         {(c as ClassDefX).unlock && <div class="small ruled"><b>{c.hidden ? '道が開く出来事' : 'なる条件の出来事'}</b>：{c.hidden && !known ? '？？？' : unlockText(c as ClassDefX, c.hidden ? 2 : deedReveal(s, c as ClassDefX, seenClasses(s)))}{c.tier === 4 && <div class="muted">卒業生のうち、この出来事を成し遂げた子だけがなれます。</div>}</div>}
         {known && c.tier >= 2 && holders(s, c.id).length > 0 && <div class="small ruled">なった子：{holders(s, c.id).slice(0, 8).join('・')}</div>}

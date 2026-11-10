@@ -50,6 +50,32 @@ export function reach(b: TBattle, u: TUnit, mov = u.mov): Record<string, number>
   for (const k of Object.keys(seen)) { const [x, y] = k.split('-').map(Number); const o = at(b, x, y); if ((o && o !== u) || b.rock.includes(k)) delete seen[k]; }
   return seen;
 }
+/** 22夜目⑦：表示用の通り道（いまの場所から (tx,ty) まで、マスを1つずつ。見つからなければ行き先だけ）。計算には使わない */
+export function walkPath(b: TBattle, u: TUnit, tx: number, ty: number): { x: number; y: number }[] {
+  if (u.x === tx && u.y === ty) return [];
+  const prev: Record<string, string | null> = { [key(u.x, u.y)]: null };
+  const q: [number, number][] = [[u.x, u.y]];
+  const fly = flyer(u);
+  while (q.length) {
+    const [x, y] = q.shift()!;
+    if (x === tx && y === ty) break;
+    for (const [dx, dy] of DIRS) {
+      const nx = x + dx, ny = y + dy, k = key(nx, ny);
+      if (k in prev || nx < 0 || ny < 0 || nx >= b.w || ny >= b.h) continue;
+      const goal = nx === tx && ny === ty;
+      if (!goal && blocked(b, nx, ny) && !(fly && b.rock.includes(k))) continue;
+      const o = at(b, nx, ny);
+      if (o && o.side !== u.side && !goal) continue;
+      prev[k] = key(x, y);
+      q.push([nx, ny]);
+    }
+  }
+  const end = key(tx, ty);
+  if (!(end in prev)) return [{ x: tx, y: ty }];
+  const out: { x: number; y: number }[] = [];
+  for (let k: string | null = end; k && k !== key(u.x, u.y); k = prev[k]) { const [x, y] = k.split('-').map(Number); out.unshift({ x, y }); }
+  return out.length > 14 ? [{ x: tx, y: ty }] : out;
+}
 /** 道のり（敵が近づくときの目安） */
 export function pathDist(b: TBattle, u: TUnit, tx: number, ty: number): number {
   const seen: Record<string, number> = { [key(u.x, u.y)]: 0 };

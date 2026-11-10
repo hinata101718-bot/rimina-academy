@@ -28,6 +28,7 @@ import { primeLabel } from '../core/growth';
 import { MIND_NAMES, MIND_DESC } from '../data/people';
 import { renown, renownStars, renownWord, isLeader, epithetCount } from '../core/renown';
 import { EquipCard } from './Equip';
+import { AtkMark } from './atk';
 import { rankOf, nextRankPoints, MONTH_NAMES } from '../core/util';
 import type { SkillId, Rank } from '../core/types';
 import type { GameState, Student, RankUpItem } from '../core/state';
@@ -298,7 +299,7 @@ function TechsCard({ st }: { st: Student }) {
   return (
     <div class="card">
       <h3>技</h3>
-      {all.length ? all.map((t) => <div class="row nowrap gap6 small" style={{ marginTop: 3 }}><span class="chip-o">{ATK_NAME[t.type]}</span><b>{t.name}</b><span class="muted grow">{t.desc}・{t.uses}回まで</span>{carry.has(t.id) && <span class="flag">戦いで使う</span>}</div>) : <div class="small muted">まだありません。技能のランクが上がると覚えます。</div>}
+      {all.length ? all.map((t) => <div class="row nowrap gap6 small" style={{ marginTop: 3 }}><AtkMark t={t.type} /><b>{t.name}</b><span class="muted grow">{t.desc}・{t.uses}回まで</span>{carry.has(t.id) && <span class="flag">戦いで使う</span>}</div>) : <div class="small muted">まだありません。技能のランクが上がると覚えます。</div>}
       <div class="small muted" style={{ marginTop: 4 }}>今の兵種の武器に合う技を、4つまで戦いに持っていきます。技ごとに攻撃の種類（斬・突・打・射・炎・雷・光）が違い、いろいろな弱点を突けます。</div>
     </div>
   );

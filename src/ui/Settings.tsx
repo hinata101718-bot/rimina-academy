@@ -61,6 +61,11 @@ function SettingsBody({ s, set, days }: { s: GameState; set: (fn: (x: GameState[
         <div class="row between nowrap" style={{ marginTop: 8 }}><span class="grow"><b>生徒が死なない</b><small class="muted" style={{ display: 'block' }}>命の危険のある攻撃で倒れても、大けがで済みます（傷跡は残ります）</small></span><input type="checkbox" checked={!!s.settings.noDeath} onChange={(e) => set((x) => { x.noDeath = (e.target as HTMLInputElement).checked; })} /></div>
         <div class="small" style={{ marginTop: 8 }}><b>攻撃のたびの1対1の場面</b></div>
         <div class="seg" style={{ marginTop: 4 }}>{(['full', 'short', 'off'] as const).map((v) => <button class={(s.settings.duel ?? 'short') === v ? 'on' : ''} onClick={() => set((x) => { x.duel = v; })}>{{ full: 'ふつう', short: '短く', off: '切る' }[v]}</button>)}</div>
+        <div class="small" style={{ marginTop: 8 }}><b>台詞とカットイン</b></div>
+        <div class="seg" style={{ marginTop: 4 }}>{(['tap', 'auto'] as const).map((v) => <button class={(s.settings.sayMode ?? 'tap') === v ? 'on' : ''} onClick={() => set((x) => { x.sayMode = v; })}>{{ tap: 'タップで進む', auto: '自動で進む' }[v]}</button>)}</div>
+        <div class="small" style={{ marginTop: 8 }}><b>敵の番の速さ</b>（はやいでも、歩く動きは省きません）</div>
+        <div class="seg" style={{ marginTop: 4 }}>{(['normal', 'fast'] as const).map((v) => <button class={(s.settings.foeSpeed ?? 'normal') === v ? 'on' : ''} onClick={() => set((x) => { x.foeSpeed = v; })}>{{ normal: 'ふつう', fast: 'はやい' }[v]}</button>)}</div>
+        <div class="muted small">敵の番に画面をタップすると、その敵の動きを早送りします。</div>
         <div class="small" style={{ marginTop: 8 }}>戦の描写：倒れたときの文で、傷や死をどこまで書くか</div>
         <div class="seg" style={{ marginTop: 4 }}>{(['normal', 'dense', 'brutal'] as const).map((v) => <button class={(s.settings.battleProse ?? 'dense') === v ? 'on' : ''} onClick={() => { if (v === 'brutal' && !s.settings.proseAsked && !confirm('むごい描写が増えます。よろしいですか？')) return; set((x) => { x.battleProse = v; if (v === 'brutal') x.proseAsked = true; }); }}>{PROSE_NAMES[v]}</button>)}</div>
       </div>

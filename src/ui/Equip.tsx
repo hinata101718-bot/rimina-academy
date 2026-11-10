@@ -11,6 +11,7 @@ import { WEAPONS } from '../data/weapons';
 import { WTYPE_ATK, ATK_NAME, type AtkType } from '../data/tactics';
 import { RARITY_NAME, RARITY_COLOR } from '../data/rarity';
 import { rarityOf } from '../core/rarity';
+import { AtkMark } from './atk';
 import type { ArmoryItem } from '../core/state';
 
 const WICON: Record<string, string> = { sword: 'sword', lance: 'lance', axe: 'axe', bow: 'bow', magic: 'tome', holy: 'staff', staff: 'staff', gun: 'gun' };
@@ -71,7 +72,7 @@ export function EquipSheet({ s, st, onClose }: { s: GameState; st: Student; onCl
             <span class="todoicon"><Icon name={WICON[w.type]} size={18} /></span>
             <span class="grow" style={{ minWidth: 0, textAlign: 'left' }}>
               <b class="eq-name">{o.name}</b>
-              <span class="small eq-sub">威力{o.might}・{ATK_NAME[o.atk as AtkType]}・<span style={{ color: RARITY_COLOR[o.rarity] }}>{RARITY_NAME[o.rarity]}</span>{o.uses ? `・愛用${o.uses}回` : ''}</span>
+              <span class="small eq-sub">威力{o.might} <AtkMark small t={o.atk as AtkType} />・<span style={{ color: RARITY_COLOR[o.rarity] }}>{RARITY_NAME[o.rarity]}</span>{o.uses ? `・愛用${o.uses}回` : ''}</span>
               {o.holder && <span class="small eq-holder">{o.holder.given}が装備中</span>}
             </span>
             <span class="small eq-state">{on ? '装備中' : o.holder ? '付け替える' : '装備する'}</span>

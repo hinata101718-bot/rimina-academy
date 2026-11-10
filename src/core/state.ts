@@ -651,6 +651,9 @@ export interface Settings {
   noDeath?: boolean;
   /** 19夜目：攻撃のたびの1対1の場面（full＝ふつう・short＝短く・off＝切る） */
   duel?: 'full' | 'short' | 'off';
+  /** 22夜目⑦：台詞とカットインの進め方（tap＝タップするまで止まる・はじめ／auto＝自動で進む）・敵の番の速さ */
+  sayMode?: 'tap' | 'auto';
+  foeSpeed?: 'normal' | 'fast';
   /** 19夜目：効果音 */
   sfx?: boolean;
 }
