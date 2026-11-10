@@ -130,21 +130,20 @@ export interface BackgroundDef {
   defaultRank: string;
   friendship: Record<CountryId, number>;
   realRewardMul: number;
-  cha: number;
 }
 export const BACKGROUNDS: BackgroundDef[] = [
   { id: 'knight', name: '元王国騎士', desc: '剣・槍・騎乗が得意。王国と縁がある。', age: 38,
     skills: { sword: 'B', lance: 'B', riding: 'B' }, defaultRank: 'D',
-    friendship: { kingdom: 15, empire: -5, alliance: 0 }, realRewardMul: 1, cha: 8 },
+    friendship: { kingdom: 15, empire: -5, alliance: 0 }, realRewardMul: 1 },
   { id: 'merc', name: '元帝国の傭兵', desc: '斧と実戦に強い。実戦の報酬+20%。', age: 36,
     skills: { axe: 'B', sword: 'C', bow: 'C', heavy: 'C' }, defaultRank: 'D',
-    friendship: { kingdom: -5, empire: 15, alliance: 0 }, realRewardMul: 1.2, cha: 6 },
-  { id: 'mage', name: '元同盟の宮廷魔道士', desc: '魔道と信仰が得意。人望が厚い。', age: 42,
+    friendship: { kingdom: -5, empire: 15, alliance: 0 }, realRewardMul: 1.2 },
+  { id: 'mage', name: '元同盟の宮廷魔道士', desc: '魔道と信仰が得意。同盟と縁がある。', age: 42,
     skills: { magic: 'B', faith: 'C' }, defaultRank: 'D',
-    friendship: { kingdom: 0, empire: 0, alliance: 15 }, realRewardMul: 1, cha: 14 },
+    friendship: { kingdom: 0, empire: 0, alliance: 15 }, realRewardMul: 1 },
   { id: 'wanderer', name: '流れの旅人', desc: 'なんでもそこそこ。どの国とも縁がない。', age: 35,
     skills: {}, defaultRank: 'C',
-    friendship: { kingdom: 0, empire: 0, alliance: 0 }, realRewardMul: 1, cha: 10 },
+    friendship: { kingdom: 0, empire: 0, alliance: 0 }, realRewardMul: 1 },
 ];
 
 export const SKILL_NAMES: Record<SkillId, string> = {
@@ -173,7 +172,7 @@ export const PATH_SAY: Record<Path, string> = {
 export const PATH_LINES: Record<Path, string> = {
   warrior: '兵を率いて戦う。統率の高い子ほど、上の位へ上りやすい',
   strategist: '後ろから策を立てる。軍略の高い子ほど、無駄な戦を避けさせる',
-  civil: '国と国のあいだを取り持つ。魅力の高い子ほど、和平に近づける',
+  civil: '国と国のあいだを取り持つ。人望の高い子ほど、和平に近づける',
   champion: '兵を率いるより、自分で道を切り開く。武勲で名を上げる',
 };
 export const RANK_TITLES: Record<Path, string[]> = {

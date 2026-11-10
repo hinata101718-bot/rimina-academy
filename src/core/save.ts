@@ -88,6 +88,8 @@ export function convertTo22(s: GameState): void {
     u.res = Math.max(0, Math.round(u.def * 0.5 + u.mag * 0.2) + (lv === 'high' ? 2 : lv === 'low' ? -1 : 0));
   };
   for (const u of s.battle?.units ?? []) fix(u);
+  // 先生の魅力（使っていなかった）ははずす
+  if (s.instructor) delete (s.instructor as { cha?: number }).cha;
 }
 
 /** 古い能力（9つ）→ 体の6つ：守りは守備と魔防から。幸運・魅力はなくす */

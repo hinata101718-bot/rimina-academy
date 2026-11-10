@@ -271,8 +271,11 @@ function resolveLessonMain(s: GameState, r: Rng, idx: number, talkWith?: string,
 
   for (const st of list) {
     const b = boostOf(card, st.id);
-    // 11夜目：先輩後輩のタッグ：後輩はよく伸び、先輩は教えることで人を動かす力（魅力）が少し育つ
-    if (b.tag && seniorInTag(s, card, st.id)) { b.tag = false; trainUp(st, 'skl', B.support.senpaiChaTrain); }
+    // 11夜目：先輩後輩のタッグ：後輩はよく伸びる。22夜目：先輩は教えることで平静が少し上がる（人望につながる）
+    if (b.tag && seniorInTag(s, card, st.id)) { b.tag = false; moveMind(st, 'calm', B.support.senpaiCalm); }
+    // 22夜目：礼法・外交の作法は、平静を上げる授業（外交の作法は、顔の子の先生への信頼も少し）
+    if (l.calm) moveMind(st, 'calm', B.week.mindCalm * l.calm * (b.face ? 1.5 : 0.5) * WMUL);
+    if (l.trust && b.face) st.trust = Math.min(100, st.trust + l.trust);
     const faceM = faceMulOf(s, b);
     const tagM = tagMulOf(s, b);
     // 技能

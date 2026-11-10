@@ -251,8 +251,8 @@ export const B = {
     },
     range: 2, maxPartners: 2,
     loveChance: 0.35,
-    /** 11夜目：学年の違う二人が支援Cになったとき、先輩と後輩になる見込み。先輩後輩のタッグは後輩だけ伸び（×tagMul）、先輩は魅力の鍛錬が少したまる */
-    senpaiChance: 0.6, senpaiChaTrain: 6,
+    /** 11夜目：学年の違う二人が支援Cになったとき、先輩と後輩になる見込み。先輩後輩のタッグは後輩だけ伸び（×tagMul）。22夜目：先輩は教えることで平静が少し上がる（人望につながる。前は技の鍛錬） */
+    senpaiChance: 0.6, senpaiCalm: 2,
     /** 11夜目：同じ授業のカードに顔が並んだ、学年の違う子どうしの支援 */
     crossFace: 3,
   },
@@ -402,7 +402,8 @@ export const B = {
   },
   // ---- 敵の強さ（7夜目：生徒の成長率を下げた分、敵の1レベルあたりの伸びも下げた。6夜目は hp .75 str .42 …、武器は Lv7・15 で持ち替え） ----
   enemy: {
-    growth: { hp: 0.5, str: 0.31, mag: 0.23, skl: 0.3, spd: 0.3, lck: 0.23, def: 0.25, res: 0.19, cha: 0.15 } as Record<string, number>,
+    /** 22夜目：幸運・魅力（もう使わない）を片づけた。敵の伸びは data/tactics の ENEMY_BASE */
+    growth: { hp: 0.5, str: 0.31, mag: 0.23, skl: 0.3, spd: 0.3, def: 0.25, res: 0.19 } as Record<string, number>,
     weaponLv: [12, 26] as [number, number],
     // 8夜目「2ピン保証」：生徒のレベルアップは最低2つの能力が上がるので、敵の1レベルあたりの伸びも数値で同じだけ上げる
     pinMul: 1.22,
@@ -423,6 +424,16 @@ export const B = {
     reward: [200, 1500] as [number, number],
     friendshipUp: 3, powerUp: 1, enemyFriendshipDown: 2,
     mercBonus: 0.2,
+  },
+  // ---- 22夜目：人望（問113。平静・先生への信頼・家柄・二つ名から。統率が得意な子＝隠れた統率者は高め） ----
+  renown: {
+    calm: 0.12, trust: 0.1, house: { noble: 4, commoner: 1, orphan: 0 } as Record<string, number>,
+    /** 二つ名：1つ目で+3、2つ目から1つごとに+1.5（4つまで） */
+    epithet: 3, epithetMore: 1.5, epithetMax: 4, leader: 3,
+    /** 星の区切り（この点から星が1つ増える） */
+    stars: [9, 13, 17, 21] as number[],
+    /** 文官として和平に近づける力：人望12で1倍、1点ごとに3%（0.7〜1.4倍） */
+    civilBase: 12, civilPer: 0.03, civilMin: 0.7, civilMax: 1.4,
   },
   // ---- 進路 ----
   career: {

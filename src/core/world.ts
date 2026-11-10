@@ -1,5 +1,6 @@
 // 戦況：国力・関係・緊張度・学校との友好度・大事件
 import { B } from '../data/balance';
+import { civilMul } from './renown';
 import { COUNTRIES, COUNTRY_NAMES, COUNTRY_SHORT } from '../data/people';
 import type { CountryId } from './types';
 import type { GameState, Student } from './state';
@@ -46,7 +47,8 @@ export function rankPoints(st: Student): number {
   return table[Math.min(st.career.rank, table.length - 1)] ?? 0;
 }
 export function pathPoints(s: GameState, c: CountryId, path: 'warrior' | 'strategist' | 'civil' | 'champion'): number {
-  return activeAlumni(s, c).filter((st) => st.career!.path === path).reduce((a, st) => a + rankPoints(st), 0);
+  // 22夜目：人望の高い文官ほど、和平に近づける
+  return activeAlumni(s, c).filter((st) => st.career!.path === path).reduce((a, st) => a + rankPoints(st) * (path === 'civil' ? civilMul(st) : 1), 0);
 }
 
 /** 大使以上（文官の段階2以上）の現役の教え子の数 */

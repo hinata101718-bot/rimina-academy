@@ -1,5 +1,5 @@
-import { presence } from './util';
 import { meetsSkillReq, recommendClass } from './exam';
+import { renown } from './renown';
 // 卒業生の毎年のシミュレーション
 import type { SkillId } from './types';
 import { ARM_SKILLS } from '../data/balance';
@@ -104,7 +104,7 @@ export function simulateAlumni(s: GameState, rng: Rng): AlumniNews[] {
       const max = RANK_TITLES[c.path].length - 1;
       const e = effectiveStats(st);
       let p = B.alumni.promoteBase + (st.level - B.alumni.promoteLevel - c.rank * 7) * 0.02 + c.rankYears * 0.03;
-      if (c.path === 'civil') p += (presence(e) - 10) * 0.015 + (st.house === 'noble' ? 0.05 : 0);
+      if (c.path === 'civil') p += (renown(st) - 10) * 0.015 + (st.house === 'noble' ? 0.05 : 0);
       // 10夜目：将は統率、参謀は軍略のランクが出世に大きく効く。勇士は隊長どまりになりやすい
       const A = B.alumni;
       if (c.path === 'warrior') p += ((st.skills.command ?? 0) - A.rankSkillBase) * A.rankSkill;
@@ -112,7 +112,7 @@ export function simulateAlumni(s: GameState, rng: Rng): AlumniNews[] {
       if (c.path === 'champion' && c.rank >= 1) p *= A.championRankMul;
       if (c.country === 'kingdom') p += st.house === 'noble' ? 0.08 : -0.06;
       if (c.country === 'empire') p += 0.05;
-      if (c.country === 'alliance') p += (presence(e) - 10) * 0.01;
+      if (c.country === 'alliance') p += (renown(st) - 10) * 0.01;
       p += c.growthMul;
       if (c.rank < max && rng.chance(Math.max(0.02, Math.min(0.7, p)))) {
         c.rank += 1; c.rankYears = 0;

@@ -36,6 +36,8 @@ export interface LessonDef {
   note?: string;
   /** 札に出す伸びるもの（技能・能力以外） */
   extra?: { label: string; big?: boolean }[];
+  /** 22夜目：平静の上がり方（心の鍛錬の何倍か。顔の子はさらに）・顔の子の信頼 */
+  calm?: number; trust?: number;
 }
 
 export const LESSONS: LessonDef[] = [
@@ -67,8 +69,8 @@ export const LESSONS: LessonDef[] = [
   { id: 'command', name: '指揮の演習', mark: '指', group: 'mind', skills: { command: 1 }, stats: {}, exp: 1.5, stamina: -6, weight: 8, likes: ['serious', 'hot', 'competitive'] },
   { id: 'march', name: '行軍', mark: '行', group: 'body', skills: { command: 0.5 }, stats: { hp: 0.5, def: 0.5 }, exp: 1.5, stamina: -11, weight: 6, likes: ['hot', 'serious', 'cheerful'] },
   { id: 'letters', name: '読み書き', mark: '書', group: 'mind', stats: { mag: 0.5 }, exp: 1, reveal: 2, stamina: -2, weight: 6, likes: ['gentle', 'shy'], extra: [{ label: '芽の発見' }] },
-  { id: 'manners', name: '礼法', mark: '礼', group: 'mind', stats: {}, exp: 1, stamina: -3, weight: 6, likes: ['serious', 'calm'] },
-  { id: 'diplomacy', name: '外交の作法', mark: '外', group: 'mind', stats: {}, exp: 1, stamina: -3, weight: 5, likes: ['cheerful', 'gentle'] },
+  { id: 'manners', name: '礼法', mark: '礼', group: 'mind', stats: {}, calm: 0.5, exp: 1, stamina: -3, weight: 6, likes: ['serious', 'calm'], extra: [{ label: '平静', big: true }], note: '落ち着いた心は、人望につながる' },
+  { id: 'diplomacy', name: '外交の作法', mark: '外', group: 'mind', stats: {}, calm: 0.35, trust: 2, exp: 1, stamina: -3, weight: 5, likes: ['cheerful', 'gentle'], extra: [{ label: '平静' }, { label: '信頼' }], note: '人望が育ち、文官に向く' },
   { id: 'meditate', name: '瞑想', mark: '瞑', group: 'mind', stats: { res: 1 }, exp: 0.8, reveal: 1, stamina: 3, weight: 6, likes: ['calm', 'gentle', 'timid'], extra: [{ label: '体力' }] },
   // ---- 交流5 ----
   { id: 'tea', name: 'お茶会', mark: '茶', group: 'social', special: 'tea', stamina: 5, weight: 7, likes: ['gentle', 'cheerful', 'shy'], extra: [{ label: '支援', big: true }, { label: 'やる気' }], note: '顔の子どうしの支援が上がる' },

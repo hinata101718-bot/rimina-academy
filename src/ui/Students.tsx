@@ -26,6 +26,7 @@ import { TECH_BY_ID, ATK_NAME } from '../data/tactics';
 import { battleTechs } from '../core/techs';
 import { primeLabel } from '../core/growth';
 import { MIND_NAMES, MIND_DESC } from '../data/people';
+import { renown, renownStars, renownWord, isLeader, epithetCount } from '../core/renown';
 import { rankOf, nextRankPoints, MONTH_NAMES } from '../core/util';
 import type { SkillId, Rank } from '../core/types';
 import type { GameState, Student, RankUpItem } from '../core/state';
@@ -269,9 +270,22 @@ function MindCard({ s, st }: { s: GameState; st: Student }) {
       {st.epithet && <div class="small">二つ名：<b>「{st.epithet}{st.given}」</b></div>}
       {(['fight', 'calm', 'grudge'] as const).map((k) => <div class="row nowrap gap6" style={{ marginTop: 4 }}><span class="small" style={{ width: 40 }}>{MIND_NAMES[k]}</span><Gauge v={m[k]} max={100} thin tone={k === 'fight' && m[k] > 90 ? 'warn' : k === 'grudge' && m[k] >= 60 ? 'red' : 'main'} /><Num v={Math.round(m[k])} /></div>)}
       <div class="small muted">{MIND_DESC.fight}。{MIND_DESC.calm}。{MIND_DESC.grudge}。</div>
+      <RenownRow st={st} />
       <div class="small" style={{ marginTop: 6 }}><b>教訓</b>（戦いの経験から身についた力）</div>
       {(st.lessons ?? []).length ? <ul class="list">{(st.lessons ?? []).map((l) => <li class="small"><b>{l.text}</b>（{l.why}・{l.year}年目）</li>)}</ul> : <div class="small muted">まだありません。戦いの中の大きな出来事で身につきます。</div>}
       {(st.scars ?? []).length > 0 && <div class="small" style={{ marginTop: 4 }}>傷跡：{(st.scars ?? []).map((x) => x.text).join('・')}</div>}
+    </div>
+  );
+}
+/** 22夜目：人望（平静・先生への信頼・家柄・二つ名から。数字は出さず、星とことばで） */
+function RenownRow({ st }: { st: Student }) {
+  const v = renown(st);
+  const n = renownStars(v);
+  return (
+    <div class="renown" style={{ marginTop: 6 }}>
+      <div class="row between nowrap"><span class="small"><b>人望</b></span><span class="renown-stars" aria-label={`星${n}つ`}>{'★'.repeat(n)}<i>{'★'.repeat(5 - n)}</i></span></div>
+      <div class="small"><b>{renownWord(v)}</b>{isLeader(st) ? '（人の上に立つ力がある）' : ''}</div>
+      <div class="small muted">平静・先生への信頼・家柄・二つ名で上がります。人望の高い子は、国から声がかかりやすく、文官として和平に近づけます。<HelpTip text={`礼法や外交の作法の授業、心の鍛錬で平静が上がります。先輩として後輩に教えても、少し上がります。二つ名は、つくたびに人望が増えます（いま${epithetCount(st)}つ）。統率が得意な子も、人望が高く出ます。`} /></div>
     </div>
   );
 }

@@ -26,7 +26,7 @@ export interface LegendDef {
   art: string; artText: string;
   /** 伝説の文（手に入ったとき1行ずつ） */
   lore: string[];
-  cond: { rank: Rank; kind?: 'trust' | 'noble' | 'frontier' | 'kills' | 'cha' | 'grade3'; text: string };
+  cond: { rank: Rank; kind?: 'trust' | 'noble' | 'frontier' | 'kills' | 'grade3'; text: string };
 }
 export const LEGENDS: LegendDef[] = [
   { id: 'aurora', name: '暁剣アウロラ', type: 'sword', base: 'master_sword', mod: { dmg: 4, hit: 10, crit: 10 }, art: '夜明けの一閃', artText: '一撃が急所に入りやすく、よく当たる',
@@ -50,7 +50,7 @@ export const LEGENDS: LegendDef[] = [
   { id: 'asteria', name: '星読みの弓アステリア', type: 'bow', base: 'master_bow', mod: { dmg: 3, hit: 20, crit: 5 }, art: '星の導き', artText: '矢がとても当たりやすい',
     lore: ['星を読んで嵐を当てた賢者が、弟子に遺した弓。', '夜に引くと、弦がかすかに歌う。', '矢は、射手が見ている星の方へ、まっすぐ飛ぶ。'], cond: { rank: 'B', text: '弓の技能ランクB' } },
   { id: 'sylphe', name: '風切りの弓シルフェ', type: 'bow', base: 'master_bow', mod: { dmg: 4, hit: 10, avo: 10 }, art: '風読み', artText: 'よく当たり、身をかわしやすい',
-    lore: ['森の狩人たちが、風の精から借りたと語る弓。', '矢羽根は、どんな鳥のものとも違う。', '持ち主が森で迷うことは、決してない。'], cond: { rank: 'C', kind: 'cha', text: '弓の技能ランクC・魅力10' } },
+    lore: ['森の狩人たちが、風の精から借りたと語る弓。', '矢羽根は、どんな鳥のものとも違う。', '持ち主が森で迷うことは、決してない。'], cond: { rank: 'C', kind: 'trust', text: '弓の技能ランクC・先生との信頼60' } },
   { id: 'helge', name: '鉄鳴りの長銃ヘルゲ', type: 'gun', base: 'master_gun', mod: { dmg: 5, hit: 15 }, art: '鉄の声', artText: '一撃が重く、よく当たる',
     lore: ['銃が生まれた年、最初の名工が「これ以上は作れない」と言って筆を置いた長銃。', '撃つと、鐘のような音が遠くまで響く。', 'その音を聞いた敵は、戦う前に膝が震えたという。'], cond: { rank: 'C', text: '銃の技能ランクC' } },
 ];

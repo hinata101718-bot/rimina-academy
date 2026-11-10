@@ -2263,3 +2263,8 @@ body[data-light="day"] .desk-candle::before { display: none; }
 .tb-arrows line.a2 { stroke: #ffd9a0; stroke-width: 2; stroke-dasharray: 5 4; opacity: .6; }
 .tb-card.swapc { border-color: #d39bff; background: #2c1d3a; }
 .tb-card.swapc .tb-ct { background: #6a3c8f; }
+
+/* 22夜目：人望 */
+.renown { border-top: 1px dashed var(--line); padding-top: 6px; }
+.renown-stars { color: #c9962a; font-size: 16px; letter-spacing: 1px; white-space: nowrap; }
+.renown-stars i { font-style: normal; color: #d8d0bf; }

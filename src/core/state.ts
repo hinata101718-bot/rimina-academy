@@ -219,7 +219,8 @@ export interface Instructor {
   age: number;
   experience: number;
   skills: Record<SkillId, number>;
-  cha: number;
+  /** 22夜目：魅力（使っていなかった）ははずした。古いセーブの値は読み込みのときに消す */
+  cha?: number;
   generation: number;
   /** 技能の上限（ポイント）。得意科目はS、それ以外はB */
   caps?: Record<SkillId, number>;
