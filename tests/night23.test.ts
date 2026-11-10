@@ -162,10 +162,11 @@ describe('23夜目④：同じ段階の兵種へ', () => {
 });
 
 describe("23夜目①⑤'：40年回して（名前のかぶり・二つ名）", () => {
-  it('同じ時期に同じ下の名前が2人いない。3年以内に二つ名が2回変わらない（より大きな出来事は別）・傷と二つ名が合う・一生で3つまで', () => {
+  it('同じ時期に同じ下の名前が2人いない。3年以内に二つ名が2回変わらない（より大きな出来事は別）・傷と二つ名が合う・一生で3つまで', async () => {
     const s = newGame({ name: 'テスト', background: 'merc', seed: 77 });
     const found: string[] = [];
-    autoYears(s, 40, (g: GameState) => { const d = dups(sameTimeNames(g)); if (d.length) found.push(`${g.year}:${d.join(',')}`); });
+    // 24夜目：1年ごとに一息つく（長く止まると、テストの作業者どうしの連絡が時間切れになるため）
+    for (let y = 0; y < 40; y++) { autoYears(s, 1, (g: GameState) => { const d = dups(sameTimeNames(g)); if (d.length) found.push(`${g.year}:${d.join(',')}`); }); await new Promise((r) => setTimeout(r, 0)); }
     expect(found).toEqual([]);
     const woundEp = new Map<string, string>();
     for (const list of Object.values(WOUNDS)) for (const w of list) if (w.ep) woundEp.set(w.text, w.ep);
