@@ -7,6 +7,7 @@ import { CLASSES } from '../src/data/classes';
 import { B } from '../src/data/balance';
 import type { GameState } from '../src/core/state';
 
+const tick = () => new Promise((r) => setTimeout(r, 0));
 function entranceAt(rep: number, seed: number): GameState['applicants'] {
   const s = newGame({ name: 'テスト', background: 'knight', seed });
   s.reputation = rep;
@@ -44,15 +45,19 @@ describe('24夜目②：評判', () => {
     expect(farHi).toBeGreaterThanOrEqual(farLo);
     expect(qHi).toBeGreaterThan(qLo);
   });
-  it('12年のあいだ、評判は95に張りつかず動きつづける（入学の希望者の変わり方が効きつづける）・兵種の系統がかたよらない', () => {
+  it('12年のあいだ、評判は95に張りつかず動きつづける（入学の希望者の変わり方が効きつづける）・兵種の系統がかたよらない', async () => {
     const s = newGame({ name: 'テスト', background: 'merc', seed: 1002 });
     const reps: number[] = [];
     const lines: Record<string, number> = {};
     let total = 0;
-    autoYears(s, 12, (g) => {
-      reps.push(g.reputation);
-      for (const st of enrolled(g)) { const l = CLASSES[st.classId]?.line ?? '?'; lines[l] = (lines[l] ?? 0) + 1; total += 1; }
-    });
+    // 25夜目：1年ごとに一息つく（テストの作業者どうしの連絡が時間切れにならないように）
+    for (let y = 0; y < 12; y++) {
+      autoYears(s, 1, (g) => {
+        reps.push(g.reputation);
+        for (const st of enrolled(g)) { const l = CLASSES[st.classId]?.line ?? '?'; lines[l] = (lines[l] ?? 0) + 1; total += 1; }
+      });
+      await tick();
+    }
     const late = reps.slice(5);
     expect(Math.max(...late)).toBeLessThan(B.reputation.softCap);
     expect(Math.min(...late)).toBeGreaterThan(40);
@@ -84,7 +89,7 @@ describe('24夜目：前の版（23夜目）のセーブ', () => {
     f.version = 23;
     const t = deserialize(JSON.stringify(f));
     expect(t.world.declined).toEqual({});
-    expect(t.version).toBe(24);
+    expect(t.version).toBeGreaterThanOrEqual(24);
   });
 });
 
@@ -110,9 +115,9 @@ describe('24夜目⑤：新聞の一面', () => {
     expect(l).toHaveLength(2);
     expect(l[0]).toContain('昇進3人');
   });
-  it('12年回して：一面に二つ名・昇進・引退が来ない。1つの号に同じ種類の話は2つまで', () => {
+  it('12年回して：一面に二つ名・昇進・引退が来ない。1つの号に同じ種類の話は2つまで', async () => {
     const s = newGame({ name: 'テスト', background: 'knight', seed: 1001 });
-    autoYears(s, 12);
+    for (let y = 0; y < 12; y++) { autoYears(s, 1); await tick(); }
     const papers = s.news.filter((n) => n.kind === 'first' || n.kind === 'second');
     expect(papers.length).toBeGreaterThan(10);
     for (const n of papers) {
@@ -127,9 +132,9 @@ describe('24夜目⑤：新聞の一面', () => {
 });
 
 describe('24夜目⑥：卒業生の手紙', () => {
-  it('中身と題が広がり、同じ人から同じ型が続かない。1年に十数通まで', () => {
+  it('中身と題が広がり、同じ人から同じ型が続かない。1年に十数通まで', async () => {
     const s = newGame({ name: 'テスト', background: 'knight', seed: 1003 });
-    autoYears(s, 10);
+    for (let y = 0; y < 10; y++) { autoYears(s, 1); await tick(); }
     const grads = Object.values(s.students).filter((x) => x.status === 'graduated' && x.career?.alive && !x.career.retired);
     expect(grads.length).toBeGreaterThan(20);
     const r = new Rng({ rng: 77 } as never);

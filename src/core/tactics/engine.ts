@@ -122,7 +122,7 @@ export function pathDists(b: TBattle, u: TUnit): Record<string, number> {
 /** 届く距離。20夜目：斧と弓・弓と剣は、ふつうの攻撃の種類で変わる（近くは斧・剣、遠くは弓） */
 export function rangeOf(u: TUnit, tech: TechDef | null, techId?: string | null): [number, number] {
   if (tech?.range) return tech.range;
-  if (!tech && (T(u, 'axebow') || T(u, 'bowsword'))) return basicType(u, techId) === 'shot' ? [2, 3] : [1, 1];
+  if (!tech && (T(u, 'axebow') || T(u, 'bowsword'))) return basicType(u, techId) === 'shot' ? [2, TB.bowRange.base] : [1, 1];
   return [u.rmin, u.rmax];
 }
 const flyer = (u: TUnit) => T(u, 'fly') || T(u, 'roar');
@@ -260,8 +260,9 @@ export function healsOf(u: TUnit): string[] { return u.techs.filter((t) => TECH_
 export function inRange(b: TBattle, u: TUnit, x: number, y: number, d: TUnit, techId: string | null): boolean {
   const tech = techOf(techId);
   const [mn, mx0] = rangeOf(u, tech, techId);
-  // 遠撃ち：動かずに撃つと5マス先まで
-  const mx = !tech && T(u, 'farshot') && x === u.x && y === u.y ? Math.max(mx0, 5) : mx0;
+  // 25夜目②：動かなかった番は、狙い澄まし3マス・遠撃ち4マス先まで（ふつうの射だけ）
+  const still = !tech && x === u.x && y === u.y && basicType(u, techId) === 'shot';
+  const mx = still && T(u, 'farshot') ? Math.max(mx0, TB.bowRange.far) : still && T(u, 'aim') ? Math.max(mx0, TB.bowRange.aim) : mx0;
   const dd = Math.abs(x - d.x) + Math.abs(y - d.y);
   return dd >= mn && dd <= mx;
 }
@@ -954,6 +955,7 @@ export function endTurn(b: TBattle, opt: { noDeath?: boolean } = {}): TFx[] {
   for (const f of [...foes(b)]) {
     if (b.phase !== 'enemy') break;
     if (!f.alive) continue;
+    fx.push({ k: 'actor', uid: f.uid, ...(f.broken > 0 ? { broken: true } : {}) });
     if (f.broken > 0) continue;
     if (f.fleeing) {
       if (f.edge) { f.alive = false; f.down = 'fled'; say(b, f, 'fled', fx); fx.push({ k: 'flee', uid: f.uid }); log(b, `${f.name}は逃げ去った`, true); checkEnd(b); continue; }

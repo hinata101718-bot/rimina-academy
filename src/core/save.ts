@@ -41,6 +41,7 @@ export function migrate(s: GameState, from: number): GameState {
   if (from < 22) convertTo22(s);
   if (from < 23) convertTo23(s);
   if (from < 24) convertTo24(s);
+  if (from < 25) convertTo25(s);
   s.heirs ??= [];
   s.archive ??= {};
   s.notices ??= [];
@@ -106,6 +107,16 @@ export function convertTo23(s: GameState): void {
 /** 24夜目：依頼を断った数（国ごと・その年）を数えはじめる。評判はそのまま（95に張りついていても、年ごとに少しずつ落ち着く） */
 export function convertTo24(s: GameState): void {
   if (s.world) s.world.declined ??= {};
+}
+
+/** 25夜目：戦いに持っていく技を選べるように。今までの子はみな「おまかせ」のまま（techPick なし）。
+ *  覚えていない技の id が混ざっていたら取り除く */
+export function convertTo25(s: GameState): void {
+  for (const st of Object.values(s.students ?? {})) {
+    if (!st.techPick) continue;
+    st.techPick = st.techPick.filter((id) => (st.techs ?? []).includes(id));
+    if (!st.techPick.length) delete st.techPick;
+  }
 }
 
 /** 古い能力（9つ）→ 体の6つ：守りは守備と魔防から。幸運・魅力はなくす */

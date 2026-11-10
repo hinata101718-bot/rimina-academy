@@ -1,0 +1,158 @@
+[
+ {
+  "name": "01-techs-auto-390",
+  "over": false,
+  "small": 0,
+  "smallList": [],
+  "tiny": 0,
+  "focus": "",
+  "dim": 0,
+  "errors": []
+ },
+ {
+  "name": "02-techs-unusable-390",
+  "over": false,
+  "small": 0,
+  "smallList": [],
+  "tiny": 0,
+  "focus": "",
+  "dim": 0,
+  "errors": []
+ },
+ {
+  "name": "03-techs-swap-390",
+  "over": false,
+  "small": 0,
+  "smallList": [],
+  "tiny": 0,
+  "focus": "",
+  "dim": 0,
+  "errors": []
+ },
+ {
+  "name": "04-techs-picked-390",
+  "over": false,
+  "small": 0,
+  "smallList": [],
+  "tiny": 0,
+  "focus": "",
+  "dim": 0,
+  "errors": []
+ },
+ {
+  "name": "05-sortie-techs-390",
+  "over": false,
+  "small": 0,
+  "smallList": [],
+  "tiny": 0,
+  "focus": "",
+  "dim": 0,
+  "errors": []
+ },
+ {
+  "name": "06-sortie-techsheet-390",
+  "over": false,
+  "small": 0,
+  "smallList": [],
+  "tiny": 0,
+  "focus": "",
+  "dim": 0,
+  "errors": []
+ },
+ {
+  "name": "07-foe-turn1-390",
+  "over": false,
+  "small": 0,
+  "smallList": [],
+  "tiny": 0,
+  "focus": "エーベルハルト・",
+  "dim": 17,
+  "errors": []
+ },
+ {
+  "name": "08-foe-turn2-390",
+  "over": false,
+  "small": 0,
+  "smallList": [],
+  "tiny": 0,
+  "focus": "魔道兵魔射？",
+  "dim": 17,
+  "errors": []
+ },
+ {
+  "name": "09-foe-turn3-390",
+  "over": false,
+  "small": 0,
+  "smallList": [],
+  "tiny": 0,
+  "focus": "槍兵槍斬？",
+  "dim": 17,
+  "errors": []
+ },
+ {
+  "name": "10-foe-turn4-390",
+  "over": false,
+  "small": 0,
+  "smallList": [],
+  "tiny": 0,
+  "focus": "剣兵剣打？",
+  "dim": 17,
+  "errors": []
+ },
+ {
+  "name": "11-foe-turn5-390",
+  "over": false,
+  "small": 0,
+  "smallList": [],
+  "tiny": 0,
+  "focus": "魔道兵魔射？",
+  "dim": 17,
+  "errors": []
+ },
+ {
+  "name": "foe-turn-time",
+  "sec": 5.681,
+  "actors": 9,
+  "foes": 11
+ },
+ {
+  "name": "01-techs-auto-360",
+  "over": false,
+  "small": 0,
+  "smallList": [],
+  "tiny": 0,
+  "focus": "",
+  "dim": 0,
+  "errors": []
+ },
+ {
+  "name": "02-techs-unusable-360",
+  "over": false,
+  "small": 0,
+  "smallList": [],
+  "tiny": 0,
+  "focus": "",
+  "dim": 0,
+  "errors": []
+ },
+ {
+  "name": "03-techs-swap-360",
+  "over": false,
+  "small": 0,
+  "smallList": [],
+  "tiny": 0,
+  "focus": "",
+  "dim": 0,
+  "errors": []
+ },
+ {
+  "name": "04-techs-picked-360",
+  "over": false,
+  "small": 0,
+  "smallList": [],
+  "tiny": 0,
+  "focus": "",
+  "dim": 0,
+  "errors": []
+ }
+]

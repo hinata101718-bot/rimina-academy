@@ -15,7 +15,8 @@ import { Icon } from './icons';
 import { autoTurn, autoOne } from '../core/tactics/ai';
 import { finishBattle, finishAuto, noDeath } from '../core/flow';
 import { ATK_NAME, TB, FIELD_BY_ID } from '../data/tactics';
-import { TEACHER_RANK } from '../data/balance';
+import { TEACHER_RANK, B as BAL } from '../data/balance';
+const FT = BAL.anim.foeTurn;
 import { CLASSES } from '../data/classes';
 import { officerById } from '../core/officers';
 import { AtkMark, AtkLegend } from './atk';
@@ -54,50 +55,47 @@ function UnitFace({ u }: { u: TUnit }) {
 }
 
 interface Pop { id: number; x: number; y: number; text: string; cls: string }
-/** 22夜目⑦：演出の列。敵の番は1人ずつ「枠が乗る（focus）→ 歩く → 攻撃 → 間（gap）」 */
-type QFx = (TFx | { k: 'focus'; uid: string } | { k: 'gap' } | { k: 'gmove'; moves: { uid: string; x: number; y: number }[] }) & { foe?: boolean };
+/** 22夜目⑦：演出の列。敵の番は1人ずつ「枠が乗る（focus）→ 歩く → 攻撃 → 間（gap）」
+ *  25夜目③：雑兵も1人ずつ順に（速めに）。動かない雑兵（その場で攻撃・待つ・崩れて動けない）も一瞬光らせる */
+type Still = 'attack' | 'wait' | 'broken' | null;
+type QFx = (TFx | { k: 'focus'; uid: string; grunt?: boolean; still?: Still } | { k: 'gap'; grunt?: boolean }) & { foe?: boolean };
 function actorOf(f: TFx): string | null { return f.k === 'move' || f.k === 'flee' ? f.uid : f.k === 'hit' || f.k === 'heal' ? f.a : f.k === 'say' || f.k === 'cutin' ? f.by : null; }
-/** 敵の番は、雑兵も敵将も1人ずつ枠が乗り、歩き終えてから攻撃する（23夜目⑧の「雑兵はまとめて」は25夜目の前にやめた） */
 function stage(view: TBattle, fx: TFx[]): QFx[] {
   const out: QFx[] = [];
   let foe = view.phase === 'enemy';
-  let seg: TFx[] = [];
-  const leader = (uid: string | null) => { const u = uid ? view.units.find((x) => x.uid === uid) : null; return !!u && u.side === 'foe' && (!!u.boss || !!u.nemesis); };
-  const grunt = (uid: string | null) => { const u = uid ? view.units.find((x) => x.uid === uid) : null; return !!u && u.side === 'foe' && !u.boss && !u.nemesis; };
-  const flush = () => {
-    if (!seg.length) return;
-    if (!foe) { out.push(...seg.map((f) => ({ ...f, foe }))); seg = []; return; }
-    let last: string | null = null;
-    let block: TFx[] = [];
-    const flushBlock = () => {
-      if (!block.length) return;
-      const moves = block.filter((f) => f.k === 'move' && grunt(f.uid)) as Extract<TFx, { k: 'move' }>[];
-      if (moves.length) { if (last) out.push({ k: 'gap', foe }); out.push({ k: 'gmove', moves: moves.map((m) => ({ uid: m.uid, x: m.x, y: m.y })), foe }); last = 'grunts'; }
-      for (const f of block) if (!(f.k === 'move' && grunt(f.uid))) out.push({ ...f, foe });
-      block = [];
-    };
-    for (const f of seg) {
-      const a = actorOf(f);
-      // 25夜目の前の直し（ヒナタさん「雑兵が攻撃してから移動している。ボスと同じように移動してから攻撃」）：雑兵も敵将と同じく1人ずつ、歩き終えてから攻撃
-      if ((leader(a) || grunt(a)) && (f.k === 'move' || f.k === 'hit' || f.k === 'heal')) {
-        flushBlock();
-        if (a !== last) { if (last) out.push({ k: 'gap', foe }); out.push({ k: 'focus', uid: a!, foe }); last = a; }
-        out.push({ ...f, foe });
-        continue;
-      }
-      if (leader(a)) { flushBlock(); out.push({ ...f, foe }); continue; }
-      block.push(f);
-    }
-    flushBlock();
-    seg = [];
+  let last: string | null = null;
+  const U = (uid: string | null) => (uid ? view.units.find((x) => x.uid === uid) : undefined);
+  const minor = (uid: string | null) => { const u = U(uid); return !!u && u.side === 'foe' && !u.boss && !u.nemesis; };
+  const start = (uid: string, broken?: boolean) => {
+    if (last) out.push({ k: 'gap', grunt: minor(last), foe });
+    out.push({ k: 'focus', uid, grunt: minor(uid), still: broken ? 'broken' : null, foe });
+    last = uid;
   };
   for (const f of fx) {
-    if (f.k === 'phase') { flush(); foe = f.side === 'foe'; out.push({ ...f, foe }); continue; }
-    seg.push(f);
+    if (f.k === 'phase') { foe = f.side === 'foe'; last = null; out.push({ ...f, foe }); continue; }
+    if (!foe) { if (f.k !== 'actor') out.push({ ...f, foe }); continue; }
+    if (f.k === 'actor') { start(f.uid, f.broken); continue; }
+    // 古い記録（actor のないもの）でも、敵が替わったら枠を乗せる
+    const a = actorOf(f);
+    if (a && a !== last && U(a)?.side === 'foe' && (f.k === 'move' || f.k === 'hit' || f.k === 'heal')) start(a);
+    out.push({ ...f, foe });
   }
-  flush();
+  // 動かない雑兵：次の枠までに歩きがなければ「その場で攻撃」、攻撃もなければ「待つ」
+  for (let i = 0; i < out.length; i++) {
+    const f = out[i];
+    if (f.k !== 'focus' || f.still) continue;
+    let moved = false, hit = false;
+    for (let j = i + 1; j < out.length; j++) {
+      const g = out[j];
+      if (g.k === 'focus' || g.k === 'phase') break;
+      if (g.k === 'move' && g.uid === f.uid) moved = true;
+      if ((g.k === 'hit' || g.k === 'heal') && g.a === f.uid) hit = true;
+    }
+    if (!moved) f.still = hit ? 'attack' : 'wait';
+  }
   return out;
 }
+const STILL_TEXT: Record<string, string> = { attack: 'その場で攻撃', wait: 'その場で待つ', broken: '崩れて動けない' };
 const VERB: Record<string, string> = { slash: '斬った', thrust: '突いた', shot: '射た', crush: '砕いた', blunt: '打ちすえた', fire: '炎で焼いた', thunder: '雷を落とした', ice: '凍らせた', light: '光で撃った', dark: '闇で呑んだ' };
 interface Over { kind: 'cutin' | 'say' | 'break' | 'phase' | 'duel'; a?: TUnit; d?: TUnit; title?: string; sub?: string; text?: string; dmg?: number; tags?: string[]; /** 22夜目⑦：タップするまで止まる（▼） */ tap?: boolean }
 
@@ -145,8 +143,8 @@ export function TacticsView() {
     const { view, queue, i } = replay;
     if (i >= queue.length) { setReplay0(null); setOver(null); setFocus(null); setWaitTap(false); setLunge(null); if (foeLogRef.current.length) setLastFoe([...foeLogRef.current]); return; }
     const f = queue[i];
-    const foeMul = f.foe && s.settings.foeSpeed === 'fast' ? 0.55 : 1;
-    const M = speedMul(s) * foeMul * (rushRef.current ? 0.25 : 1);
+    const foeMul = f.foe && s.settings.foeSpeed === 'fast' ? FT.fastMul : 1;
+    const M = speedMul(s) * foeMul * (rushRef.current ? FT.rushMul : 1);
     const duelMode = s.settings.duel ?? 'short';
     const tapSay = (s.settings.sayMode ?? 'tap') === 'tap';
     let ms = 300;
@@ -155,24 +153,27 @@ export function TacticsView() {
     const U = (uid: string) => view.units.find((u) => u.uid === uid);
     const later = (fn: () => void, t: number) => { timers.current.push(setTimeout(fn, t)); };
     if (f.k === 'focus') {
-      const u = U(f.uid); rushRef.current = false;
-      setOver(null); setFocus(f.uid); setLine(u ? `${u.name}の番` : ''); followUnit(f.uid);
-      ms = u && u.side === 'foe' && !u.boss && !u.nemesis ? 220 : 480;
-    } else if (f.k === 'gap') { setFocus(null); ms = 220; }
+      const u = U(f.uid);
+      setOver(null); setFocus(f.uid); followUnit(f.uid);
+      const st = f.still ? STILL_TEXT[f.still] : '';
+      setLine(u ? `${u.name}の番${st ? `：${st}` : ''}` : '');
+      if (u && (f.still === 'wait' || f.still === 'broken')) foeLogRef.current.push(`${u.name}：${st}`);
+      ms = f.grunt ? (f.still === 'wait' || f.still === 'broken' ? FT.gruntStill : FT.gruntFocus) : FT.leaderFocus;
+    } else if (f.k === 'gap') { setFocus(null); ms = f.grunt ? FT.gruntGap : FT.leaderGap; }
     else if (f.k === 'move') {
       const u = U(f.uid);
       setOver((o) => (o?.kind === 'duel' || o?.kind === 'phase' ? null : o));
       if (u) {
         const path = walkPath(view, u, f.x, f.y);
-        const step = Math.max(0.03, (u.side === 'foe' && !u.boss && !u.nemesis ? 0.08 : 0.12) * M);
+        const step = Math.max(0.02, ((f.foe && u.side === 'foe' && !u.boss && !u.nemesis ? FT.gruntStep : FT.leaderStep) / 1000) * M);
         setWalk(step);
         path.forEach((c, n) => later(() => { u.x = c.x; u.y = c.y; setTick((t) => t + 1); followUnit(u.uid); if (n === 0) sfx('move'); }, n * step * 1000));
         if (u.side === 'foe') movedRef.current[u.uid] = isForest(view, f.x, f.y) ? '森へ進み、' : path.length ? '進み、' : '';
-        if (u.side === 'foe' && f.foe) setLine(`${u.name}：${movedRef.current[u.uid] ? movedRef.current[u.uid].replace('、', '') : '動いた'}`);
+        if (u.side === 'foe' && f.foe) setLine(`${u.name}：${movedRef.current[u.uid] ? movedRef.current[u.uid].replace('進み、', '進んだ') : '動いた'}`);
         ms = (path.length * step * 1000 + 80) / M;
       }
     }
-    else if (f.k === 'phase') { setFocus(null); setOver({ kind: 'phase', title: f.side === 'foe' ? '敵の番' : `ターン${f.turn}`, sub: f.side === 'foe' ? '1人ずつ、歩いてから攻撃します（画面をタップで早送り）' : 'こちらの番' }); ms = 650; }
+    else if (f.k === 'phase') { setFocus(null); rushRef.current = false; setOver({ kind: 'phase', title: f.side === 'foe' ? '敵の番' : `ターン${f.turn}`, sub: f.side === 'foe' ? '敵が1人ずつ動きます（光っている敵の番。画面をタップで早送り）' : 'こちらの番' }); ms = 650; }
     else if (f.k === 'cutin') { const a = U(f.by); setOver({ kind: 'cutin', a, title: f.title, sub: f.sub, tap: tapSay }); sfx('cutin'); ms = 950; hold = tapSay; }
     else if (f.k === 'say') { const a = U(f.by); setOver({ kind: 'say', a, text: f.text, tap: tapSay }); if (a?.nemesis) sfx('nemesis'); ms = 1500; hold = tapSay; }
     else if (f.k === 'reveal') { const d = U(f.d); if (d && !d.known.includes(f.type)) d.known.push(f.type); if (d) addPop(d, `弱点：${ATK_NAME[f.type]}`, 'sh'); sfx('weak'); ms = 700; }
@@ -197,7 +198,7 @@ export function TacticsView() {
       sfx(f.brk ? 'break' : f.shield ? 'shield' : f.weak ? 'weak' : f.kill ? 'kill' : 'hit');
       const tags = [f.weak ? '弱点！' : '', f.shield ? '盾 −1' : '', f.brk ? 'ブレイク！' : '', f.resisted ? '効かない' : '', f.kill ? (d?.side === 'me' ? '倒れた' : '倒した！') : ''].filter(Boolean);
       const quick = !!f.foe && !!a && a.side === 'foe' && !a.boss && !a.nemesis;
-      if (duelMode !== 'off' && a && d) { setOver({ kind: 'duel', a, d, dmg: f.dmg, tags, title: f.tech }); ms = duelMode === 'full' ? 900 : quick ? 380 : 520; }
+      if (duelMode !== 'off' && a && d) { setOver({ kind: 'duel', a, d, dmg: f.dmg, tags, title: f.tech }); ms = duelMode === 'full' ? 900 : quick ? FT.gruntHit : 520; }
       else ms = 420;
       if (f.brk) { later(() => setOver({ kind: 'break', d, title: 'ブレイク！', sub: '次の番は動けず、受ける傷が2倍' }), ms * M); ms += 1000; }
     }
@@ -312,7 +313,7 @@ export function TacticsView() {
       {b.march && b.march.total > 1 && <MarchMap names={b.march.names} idx={b.march.idx} small />}
       <div class="tb-obj">勝ち方：{OBJ_TEXT[b.objective]}{b.objective === 'defend' ? `（${b.holdTurns}ターン）` : ''}　先生が倒れると負け</div>
       {bs && <BossCard u={bs} />}
-      <div class={`tb-board${b.w >= 8 ? ' w8' : ''}${shake && view.units.find((u) => u.uid === shake)?.boss ? ' bshake' : ''}`} style={{ gridTemplateColumns: `repeat(${b.w}, 1fr)`, gridTemplateRows: `repeat(${b.h}, 1fr)`, aspectRatio: `${b.w} / ${b.h}` }}>
+      <div class={`tb-board${b.w >= 8 ? ' w8' : ''}${busy && focus && view.units.find((u) => u.uid === focus)?.side === 'foe' ? ' foeturn' : ''}${shake && view.units.find((u) => u.uid === shake)?.boss ? ' bshake' : ''}`} style={{ gridTemplateColumns: `repeat(${b.w}, 1fr)`, gridTemplateRows: `repeat(${b.h}, 1fr)`, aspectRatio: `${b.w} / ${b.h}` }}>
         {Array.from({ length: b.h }, (_, y) => Array.from({ length: b.w }, (_, x) => {
           const k = key(x, y);
           const rock = b.rock.includes(k), forest = isForest(b, x, y);

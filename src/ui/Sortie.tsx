@@ -28,6 +28,8 @@ import { COUNTRY_SHORT } from '../data/people';
 import { armoryItem } from '../core/loot';
 import { itemName } from '../core/rarity';
 import { EquipSheet } from './Equip';
+import { TechSheet, techLine } from './TechPick';
+import { techPicked } from '../core/techs';
 
 export function SortiePrep({ s }: { s: GameState }) {
   const [qid, setQid] = useState<string | null>(() => s.quests.find((q) => q.mustGo)?.id ?? (s.quests.length === 1 ? s.quests[0].id : null));
@@ -80,6 +82,7 @@ function Members({ s, q, onBack }: { s: GameState; q: Quest; onBack?: () => void
   // 22夜目：だれが何を持つか（装備した武器。ない子は自動）
   const plan = deployFor(s, ids);
   const [eq, setEq] = useState<string | null>(null);
+  const [tp, setTp] = useState<string | null>(null);
   // 23夜目⑤：敵将の札・敵の顔ぶれ・相性の印・先生のおすすめ
   const o = officerForQuest(s, q);
   const line = useMemo(() => lineupFor(s, q, ids.slice(0, 1)), [q.id]);
@@ -112,7 +115,10 @@ function Members({ s, q, onBack }: { s: GameState; q: Quest; onBack?: () => void
       {ids.length > 0 && <div class="tb-arms">
         <div class="small" style={{ marginTop: 8 }}><b>持っていく武器</b>（タップで付け替え）</div>
         {plan.map((d) => { const st = s.students[d.studentId]; const a = armoryItem(s, d.armoryUid); return st && <button class="tb-mw" onClick={() => { sfx('move'); setEq(st.id); }}><b>{st.given}</b>：{a ? itemName(a) : '武器なし'}{st.equip && st.equip === d.armoryUid ? '（装備）' : '（おまかせ）'}</button>; })}
+        <div class="small" style={{ marginTop: 8 }}><b>持っていく技</b>（タップで付け替え）</div>
+        {plan.map((d) => { const st = s.students[d.studentId]; return st && <button class="tb-mw" onClick={() => { sfx('move'); setTp(st.id); }}><b>{st.given}</b>：{techLine(st)}{techPicked(st) ? '' : '（おまかせ）'}</button>; })}
       </div>}
+      {tp && s.students[tp] && <TechSheet st={s.students[tp]} onClose={() => setTp(null)} />}
       {eq && s.students[eq] && <EquipSheet s={s} st={s.students[eq]} onClose={() => setEq(null)} />}
       {book && o && <Sheet top title="因縁の帳" onClose={() => setBook(false)}>{o.meets.length > 0 ? <NemDetail s={s} o={o} /> : <p class="small muted">まだ刃を交えたことのない相手です。</p>}</Sheet>}
       <div class="row nowrap gap8" style={{ marginTop: 10 }}>

@@ -109,15 +109,15 @@ export function applyClass(u: TUnit, classId: string, wtype?: string, enemy = fa
   else u.atks = atks.length > 1 ? [...atks] : [u.type];
   if (has('allarts') && !has('rune')) u.atks = ['fire', 'thunder', 'ice', 'light', 'dark'];
   // 届く距離
-  if (u.type === 'shot' || has('longshot')) { u.rmin = 2; u.rmax = 3; }
+  if (u.type === 'shot' || has('longshot')) { u.rmin = 2; u.rmax = TB.bowRange.base; }
   if (u.magic) { u.rmin = 1; u.rmax = 2; }
   if (has('rune') || has('flameblade')) { u.rmin = 1; u.rmax = 1; }
   if (has('reach')) { u.rmin = 1; u.rmax = 2; }
   if (has('spear')) { u.rmin = 1; u.rmax = 3; }
-  if (has('aim')) { u.rmin = 2; u.rmax = 4; }
-  if (has('axebow') || has('bowsword')) { u.rmin = 1; u.rmax = 3; }
+  // 25夜目②：狙い澄まし・遠撃ちは「動かなかった番」だけ遠くへ（engine の inRange）
+  if (has('axebow') || has('bowsword')) { u.rmin = 1; u.rmax = TB.bowRange.base; }
   if (has('oneeye')) { u.rmin = 2; u.rmax = 2; }
-  if (has('thousand')) { u.rmin = 1; u.rmax = 8; }
+  if (has('thousand')) { u.rmin = 2; u.rmax = TB.bowRange.far; }
   if (u.type === 'blunt' && !wtype) u.might = Math.max(u.might, 4);
   // 動ける歩数（兵種の移動は data/classes の move）。天翔は盤のどこへでも
   u.mov = c.move + (has('step') ? 1 : 0);

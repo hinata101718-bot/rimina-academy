@@ -68,6 +68,8 @@ export const TB = {
   autoGuard: 400,
   /** 21夜目：入れ替えの届く距離（トリックスター・道化王） */
   swapRange: { trick: 3, jester: 4 },
+  /** 25夜目②（問120・A）：弓と銃の届く距離。ふつうは2マス先だけ。狙い澄まし（動かなかった番）は3、遠撃ち・千里の矢は4まで */
+  bowRange: { base: 2, aim: 3, far: 4 },
   /** 21夜目：宝箱と扉（盗賊の系統だけ開けられる）。出る見込み・扉もある見込み・扉の奥のお金 */
   chest: { chance: 0.3, doorChance: 0.5, potionChance: 0.5, doorMoney: 120 },
   /** 21夜目：火矢で燃えた森（のこりの番の数・通る者が負う傷）。燃え尽きた森は、ただの野原に */
@@ -108,9 +110,9 @@ export const TECHS: TechDef[] = [
   { id: 'javelin', name: '投げ槍', type: 'thrust', pow: 1, hits: 1, uses: 2, range: [2, 2], skill: 'lance', at: 270, desc: '2マス先を突く' },
   { id: 'helm', name: '兜割り', type: 'crush', pow: 7, hits: 1, uses: 2, skill: 'axe', at: 50, desc: '重い一撃（斧兵の系統は、弱点でなくても盾を割る）', smash: true },
   { id: 'cyclone', name: '大旋風', type: 'crush', pow: 2, hits: 2, uses: 1, skill: 'axe', at: 140, desc: '2回砕く' },
-  { id: 'firearrow', name: '火矢', type: 'fire', pow: 2, hits: 1, uses: 2, range: [2, 3], skill: 'bow', at: 50, desc: '燃える矢' },
-  { id: 'aimshot', name: '狙い撃ち', type: 'shot', pow: 6, hits: 1, uses: 2, range: [2, 4], skill: 'bow', at: 140, desc: '遠くから重い矢' },
-  { id: 'twin', name: '二連射', type: 'shot', pow: -2, hits: 2, uses: 2, range: [2, 3], skill: 'bow', at: 270, desc: '2本の矢' },
+  { id: 'firearrow', name: '火矢', type: 'fire', pow: 2, hits: 1, uses: 2, range: [2, 3], skill: 'bow', at: 50, desc: '2〜3マス先へ燃える矢' },
+  { id: 'aimshot', name: '狙い撃ち', type: 'shot', pow: 6, hits: 1, uses: 2, range: [2, 3], skill: 'bow', at: 140, desc: '2〜3マス先へ重い矢' },
+  { id: 'twin', name: '二連射', type: 'shot', pow: -2, hits: 2, uses: 2, range: [2, 3], skill: 'bow', at: 270, desc: '2〜3マス先へ2本の矢' },
   { id: 'fire', name: 'ファイア', type: 'fire', pow: 0, hits: 1, uses: 3, range: [1, 2], skill: 'magic', at: 0, desc: '炎の魔法' },
   { id: 'thunder', name: 'サンダー', type: 'thunder', pow: 2, hits: 1, uses: 2, range: [1, 2], skill: 'magic', at: 50, desc: '雷の魔法' },
   { id: 'blaze', name: 'ボルガノン', type: 'fire', pow: 8, hits: 1, uses: 1, range: [1, 2], skill: 'magic', at: 270, desc: '大きな炎' },
@@ -124,7 +126,7 @@ export const TECHS: TechDef[] = [
   { id: 'miasma', name: 'ミアズマ', type: 'dark', pow: 4, hits: 1, uses: 2, range: [1, 2], skill: 'magic', at: 140, desc: '闇の魔法', cls: ['hexer', 'warlock', 'necromancer', 'cursemaster', 'netherlord', 'cursechild', 'archsage', 'runelord'] },
   { id: 'barrage', name: '連打', type: 'blunt', pow: -3, hits: 3, uses: 2, skill: 'axe', at: 0, desc: '3回打つ', cls: ['brawler', 'shura', 'ashura'] },
   { id: 'mendhand', name: '手当て', type: 'light', pow: 0, hits: 1, uses: 9, range: [1, 1], heal: 8, skill: 'faith', at: 0, desc: '隣の仲間のHP+8', cls: ['cleric', 'priest', 'bishop', 'holy_saint', 'lightmage', 'holyknight', 'lightking'] },
-  { id: 'snipe', name: '狙撃', type: 'shot', pow: 10, hits: 1, uses: 1, range: [2, 4], skill: 'gun', at: 50, desc: '銃の一撃' },
+  { id: 'snipe', name: '狙撃', type: 'shot', pow: 10, hits: 1, uses: 1, range: [2, 3], skill: 'gun', at: 50, desc: '2〜3マス先へ銃の一撃' },
 ];
 export const TECH_BY_ID: Record<string, TechDef> = Object.fromEntries(TECHS.map((t) => [t.id, t]));
 /** 1人が並べる技の数の上限（多いと札が並びきらないため） */
@@ -152,7 +154,7 @@ export const ENEMY_KINDS: Record<string, EnemyKind> = {
   sword: { id: 'sword', mark: '剣', name: '剣兵', classId: 'swordsman', type: 'slash', range: [1, 1], weak: ['blunt', 'thrust'], mov: 3 },
   lance: { id: 'lance', mark: '槍', name: '槍兵', classId: 'lancer', type: 'thrust', range: [1, 1], weak: ['slash', 'fire'], mov: 3, def: 1 },
   axe: { id: 'axe', mark: '斧', name: '斧兵', classId: 'fighter', type: 'crush', range: [1, 1], weak: ['shot', 'light'], mov: 3, hp: 3, spd: -1, res: -1 },
-  bow: { id: 'bow', mark: '弓', name: '弓兵', classId: 'archer', type: 'shot', range: [2, 3], weak: ['thrust', 'slash'], mov: 3, hp: -4, def: -1 },
+  bow: { id: 'bow', mark: '弓', name: '弓兵', classId: 'archer', type: 'shot', range: [2, 2], weak: ['thrust', 'slash'], mov: 3, hp: -4, def: -1 },
   mage: { id: 'mage', mark: '魔', name: '魔道兵', classId: 'mage', type: 'fire', magic: true, range: [1, 2], weak: ['shot', 'dark'], mov: 3, hp: -4, def: -2, res: 3 },
   cav: { id: 'cav', mark: '騎', name: '騎兵', classId: 'cavalier', type: 'thrust', range: [1, 1], weak: ['shot', 'thunder'], mov: 4, hp: 2 },
   knight: { id: 'knight', mark: '鎧', name: '重装兵', classId: 'armor_knight', type: 'crush', range: [1, 1], weak: ['thunder', 'ice'], mov: 2, hp: 4, def: 4, spd: -3, res: -2 },
@@ -172,7 +174,7 @@ export const BOSS_MUL = { hp: 1.7, other: 1.15, nemesisHp: 2.2, nemesisOther: 1.
 /** 兵種の武器の種類 → 攻撃の種類・届く距離 */
 export const WTYPE_ATK: Record<string, { type: AtkType; range: [number, number]; magic?: boolean }> = {
   sword: { type: 'slash', range: [1, 1] }, lance: { type: 'thrust', range: [1, 1] }, axe: { type: 'crush', range: [1, 1] }, fist: { type: 'blunt', range: [1, 1] },
-  bow: { type: 'shot', range: [2, 3] }, gun: { type: 'shot', range: [2, 3] }, magic: { type: 'fire', range: [1, 2], magic: true },
+  bow: { type: 'shot', range: [2, 2] }, gun: { type: 'shot', range: [2, 2] }, magic: { type: 'fire', range: [1, 2], magic: true },
   holy: { type: 'light', range: [1, 2], magic: true }, staff: { type: 'light', range: [1, 1], magic: true },
 };
 /** 魔道書・杖を持たない子の魔法の威力 */

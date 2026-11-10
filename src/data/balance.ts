@@ -1,7 +1,7 @@
 // バランス値。ゲームの数値はすべてここに集める（設計書の「ふつう」が初期値）。
 import type { Rank, SkillId, StatId } from '../core/types';
 
-export const SAVE_VERSION = 24;
+export const SAVE_VERSION = 25;
 
 /** 20夜目④：宿敵が味方になる・好敵手・密偵 */
 export const BONDS = {
@@ -620,6 +620,17 @@ export const B = {
     playerWalkStep: 55,   // 味方が1マス歩く時間
     targetFlash: 330,     // 攻撃対象を光らせる時間
     enemyAfter: 260,      // 敵1体の行動のあとの間
+    /** 25夜目③：戦場の敵の番（ミリ秒）。雑兵も1人ずつ順に。敵将・宿敵は今までどおりゆっくり */
+    foeTurn: {
+      gruntFocus: 150,    // 雑兵に光が乗ってから歩き出すまで（1人ごとの間）
+      gruntStep: 80,      // 雑兵が1マス歩く時間
+      gruntGap: 60,       // 雑兵1人の行動のあとの間
+      gruntStill: 320,    // 動かない雑兵（その場で攻撃・待つ）を光らせる時間
+      gruntHit: 360,      // 雑兵の攻撃の短い対決
+      leaderFocus: 480, leaderStep: 120, leaderGap: 220,
+      fastMul: 0.55,      // 設定「敵の番の速さ：はやい」
+      rushMul: 0.25,      // 画面をタップで早送り（その敵の番のあいだずっと）
+    },
     strikeLead: 220,      // 一撃ごとの溜め
     gauge: 500,           // HPゲージが減る時間
     strikeAfter: 260,     // 一撃のあとの間

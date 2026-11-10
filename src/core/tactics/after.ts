@@ -21,6 +21,9 @@ import { afterTactics, moveMind } from '../nemesis';
 import { checkBloom } from '../aptitude';
 import { teacherWonNemesis } from '../instructor';
 
+/** 25夜目：シミュレーション用ののぞき穴（戦いが終わるたびに呼ぶ。ふだんは何もしない） */
+export const afterProbe: { fn: ((b: TBattle, win: boolean) => void) | null } = { fn: null };
+
 const WT_SKILL: Record<string, SkillId> = { sword: 'sword', lance: 'lance', axe: 'axe', bow: 'bow', magic: 'magic', holy: 'faith', staff: 'faith', gun: 'gun' };
 function gradeFor(score: number): string { return score >= 9 ? 'S' : score >= 5 ? 'A' : score >= 2 ? 'B' : 'C'; }
 
@@ -63,6 +66,7 @@ export function applyTactics(s: GameState, b: TBattle, r: Rng): TacticsOutcome {
     if (bu && !bu.alive && bu.down === 'dead' && b.nemesisId !== bu.officerId && (q?.opening || r.chance(B.sortie.officerEscape))) { bu.down = 'fled'; bu.hp = 1; bu.escapedWounded = true; lines.push(`${bu.name}は深手を負ったが、兵に担がれて逃げのびた`); }
   }
   startGrowthLog();
+  if (afterProbe.fn) afterProbe.fn(b, win);
   const bossU = b.units.find((u) => u.boss);
   for (const u of b.units) {
     if (u.side !== 'me' || !u.studentId || u.teacher) continue;
