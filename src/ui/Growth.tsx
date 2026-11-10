@@ -6,6 +6,7 @@ import { B, STATS, RANK_POINTS } from '../data/balance';
 import { SKILL_NAMES, STAT_NAMES } from '../data/people';
 import { CLASSES } from '../data/classes';
 import { WEAPONS } from '../data/weapons';
+import { TECH_BY_ID } from '../data/tactics';
 import { rankOf, nextRankPoints } from '../core/util';
 import { Portrait } from './Portrait';
 import { Seq } from './anim';
@@ -148,7 +149,7 @@ export function GrowthPlayer({ s, entries, onDone, title }: { s: GameState; entr
       </div>
       <div class={`small ${waiting ? 'ru-next' : 'muted'}`} style={{ textAlign: 'center' }}>{done ? '' : waiting ? 'タップしてつづきへ ▼' : 'タップすると早送りします'}</div>
       {lvShow && <LevelUp show={lvShow} waiting={waiting} />}
-      {learn && <div class="learn"><div><div class="small muted">新しい魔法</div><b>{st.given}は {WEAPONS[learn]?.name} を覚えました！</b><div class="small">{WEAPONS[learn]?.desc}</div>{waiting && <div class="small ru-next">タップしてつづきへ ▼</div>}</div></div>}
+      {learn && <div class="learn"><div><div class="small muted">{learnKind(learn)}</div><b>{st.given}は「{learnName(learn)}」を覚えました！</b><div class="small">{learnDesc(learn)}</div>{waiting && <div class="small ru-next">タップしてつづきへ ▼</div>}</div></div>}
       {trainUp && <div class="learn train"><div><div class="small muted">鍛錬の成果</div><Portrait st={st} size={56} /><b>{st.given}の{[...new Set(trainUp)].map((k) => `${STAT_NAMES[k]}+${trainUp.filter((x) => x === k).length}`).join('・')}！</b><div class="small">授業でためた鍛錬ゲージが、いっぱいになりました</div>{waiting && <div class="small ru-next">タップしてつづきへ ▼</div>}</div></div>}
     </div>
   );
@@ -192,7 +193,7 @@ export function GrowthList({ s, entries, onDone }: { s: GameState; entries: Grow
               {e.lv1 > e.lv0 && <span class="tag red">Lv{e.lv0}→{e.lv1}</span>}</div>
             {e.lv1 > e.lv0 && <div>{STATS.filter((k) => gains[k]).map((k) => `${STAT_NAMES[k]}+${gains[k]}`).join(' ') || '能力は変わりませんでした'}</div>}
             {e.skills.length > 0 && <div>{e.skills.map((x) => `${SKILL_NAMES[x.k]}${rankOf(x.p0) !== rankOf(x.p1) ? ` ${rankOf(x.p0)}→${rankOf(x.p1)}` : ` +${Math.round(x.p1 - x.p0)}`}`).join('・')}</div>}
-            {e.spells.length > 0 && <div><b>{e.spells.map((id) => WEAPONS[id]?.name).join('・')}</b> を覚えました</div>}
+            {e.spells.length > 0 && <div><b>{e.spells.map((id) => learnName(id)).join('・')}</b> を覚えました</div>}
             {(e.train ?? []).length > 0 && <div>鍛錬：{[...new Set(e.train)].map((k) => `${STAT_NAMES[k]}+${e.train!.filter((x) => x === k).length}`).join(' ')}</div>}
           </div>
         );
@@ -205,4 +206,13 @@ export function GrowthList({ s, entries, onDone }: { s: GameState; entries: Grow
 /** 授業の結果のあとの「成長の瞬間」（ランクアップ・レベルアップ・魔法・鍛錬の+1）。タップするまで止まる */
 export function GrowthMoments({ s, entries, onDone }: { s: GameState; entries: GrowthEntry[]; onDone: () => void }) {
   return <GrowthPlayer s={s} entries={entries} onDone={onDone} title="成長の瞬間" />;
+}
+
+/** 23夜目の前の直し：覚えたもの（いまは技。古い記録は魔法）の名前・説明・見出し */
+function learnName(id: string): string { return TECH_BY_ID[id]?.name ?? WEAPONS[id]?.name ?? id; }
+function learnDesc(id: string): string { return TECH_BY_ID[id]?.desc ?? WEAPONS[id]?.desc ?? ''; }
+function learnKind(id: string): string {
+  const t = TECH_BY_ID[id];
+  if (!t) return WEAPONS[id] ? '新しい魔法' : '新しい技';
+  return t.heal ? '新しい癒しの技' : t.skill === 'magic' || t.skill === 'faith' ? '新しい魔法' : '新しい技';
 }

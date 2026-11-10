@@ -391,7 +391,7 @@ function resolveLessonMain(s: GameState, r: Rng, idx: number, talkWith?: string,
     const tu = trainUps.get(st.id) ?? [];
     for (const k of tu) lines.push(`${st.given}の${STAT_NAMES[k]}が鍛錬で+1`);
     if (rankUp || st.level > snap.level || learned.length || tu.length || why.has(st.id)) {
-      const g = diffGrowth(st, snap, learned, why.get(st.id) ?? (st.level > snap.level ? 'レベルアップ' : learned.length ? '魔法' : rankUp ? 'ランクアップ' : tu.length ? '鍛錬' : undefined));
+      const g = diffGrowth(st, snap, learned, why.get(st.id) ?? (st.level > snap.level ? 'レベルアップ' : learned.length ? '新しい技' : rankUp ? 'ランクアップ' : tu.length ? '鍛錬' : undefined));
       if (tu.length) g.train = tu;
       growth.push(g);
     }
