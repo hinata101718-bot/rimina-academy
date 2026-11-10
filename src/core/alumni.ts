@@ -1,4 +1,5 @@
 import { presence } from './util';
+import { meetsSkillReq, recommendClass } from './exam';
 // 卒業生の毎年のシミュレーション
 import type { SkillId } from './types';
 import { ARM_SKILLS } from '../data/balance';
@@ -64,8 +65,10 @@ function classUp(s: GameState, rng: Rng, st: Student, news: AlumniNews[], big: (
   const cls = CLASSES[st.classId];
   if (cls && cls.tier === 3) alumniDeed(s, rng, st, cls.id, news);
   if (cls && cls.tier < 3 && st.level >= (B.exam.levelReq[cls.tier + 1] ?? 99)) {
+    // 22夜目：技能の条件を満たす次の段階の兵種から（枝分かれの先でなくてもよい）。満たすものがなければ、おすすめの道から
     const kids = CLASS_LIST.filter((k) => k.prereq.includes(cls.id) && !k.hidden);
-    if (kids.length && rng.chance(0.5)) { const next = rng.pick(kids); st.classId = next.id; markClassSeen(s, next.id); st.history.push({ year: s.year, text: `${next.name}になった` }); }
+    const able = CLASS_LIST.filter((k) => k.tier === cls.tier + 1 && !k.hidden && meetsSkillReq(st, k));
+    if ((able.length || kids.length) && rng.chance(0.5)) { const next = (able.length ? recommendClass(s, st, able) : null) ?? rng.pick(kids); st.classId = next.id; markClassSeen(s, next.id); st.history.push({ year: s.year, text: `${next.name}になった` }); }
   } else if (cls && cls.tier === 3 && st.level >= B.alumni.tier4Level) {
     const next = CLASS_LIST.find((k) => k.prereq.includes(cls.id) && k.tier === 4);
     if (next?.deed && (st.deeds?.[next.deed] ?? 0) >= (next.need ?? 1)) {

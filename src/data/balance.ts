@@ -305,7 +305,11 @@ export const B = {
     yearlyDecay: 0.08, decayFloor: 40, schoolDefenseWin: 3,
   },
   // ---- 試験 ----
-  exam: { baseRate: 60, perPoints: 5, max: 100, levelReq: [0, 0, 6, 14, 30] as number[], heroLevel: 25, /** 19夜目：中級は2年生（1年目の終わり）から、上級は3年生から。出撃の回数（宿敵戦は2回に数える） */ tier2Grade: 2, tier3Grade: 3, sorties: [0, 0, 3, 8, 15] as number[] }, // 段階ごとの受験レベル（7夜目：初級5・中級15・上級25・最上級（卒業後）45、英雄25）
+  exam: { baseRate: 60, perPoints: 5, max: 100, levelReq: [0, 0, 6, 14, 30] as number[], heroLevel: 25, /** 19夜目：中級は2年生（1年目の終わり）から、上級は3年生から。出撃の回数（宿敵戦は2回に数える） */ tier2Grade: 2, tier3Grade: 3, sorties: [0, 0, 3, 8, 15] as number[],
+    /** 22夜目：先生の勧めの点数（枝分かれの先・夢・得意・苦手・宿敵の弱点・技能のゆとり） */
+    rec: { path: 3, dream: 2, good: 1.5, bad: 2, nemesis: 1.5, spareDiv: 100, spareMax: 1, hidden: 0 },
+    /** 22夜目：生徒が先生の勧めを聞く見込み（信頼が高いほど聞く。性格・夢・執念で違う道を選ぶ子も） */
+    follow: { base: 0.72, perTrust: 0.003, min: 0.5, dream: 0.12, grudge: 0.08, personality: { competitive: -0.06, hot: -0.04, whimsical: -0.06, cynic: -0.05, serious: 0.05, gentle: 0.04, timid: 0.06, shy: 0.03 } as Record<string, number> } }, // 段階ごとの受験レベル（7夜目：初級5・中級15・上級25・最上級（卒業後）45、英雄25）
   // ---- 戦闘 ----
   /** 19夜目：人の地図。教え子が領主になる役職の段階・見込み、大きな戦で将の力をどれだけ足すか */
   rulers: { alumniRank: 3, alumniChance: 0.5, generalWeight: 0.05, /** 評判で仲立ち・和平の席 */ mediateRep: 65, mediateChance: 0.3, mediateRel: 12, mediateTension: 6 },

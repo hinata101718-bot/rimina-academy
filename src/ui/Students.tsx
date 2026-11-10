@@ -14,7 +14,7 @@ import { careerTitleOnly, sidesFor } from '../core/discovery';
 import { SIDES } from '../data/discovery';
 import { StuCard, SecTitle, MoodDots, studentFlags, countryColor, LvBadge, ClassName, CountryChip, Chip, Gauge, FatigueBar, SkillBox, FaceRow, MiniCard, Num } from './cards';
 import { Icon } from './icons';
-import { examCandidates, missingReqs, levelReq } from '../core/exam';
+import { examCandidates, missingReqs, levelReq, recommendClass, onPath, pathClassesMissing } from '../core/exam';
 import { OfficerFace, Portrait } from './Portrait';
 import { SKILL_NAMES, STAT_NAMES, PERSONALITIES, TRAITS, TALENTS, DREAMS, COUNTRY_NAMES, HOUSE_NAMES, PATH_NAMES, PATH_LINES, PATH_SAY } from '../data/people';
 import { CLASSES } from '../data/classes';
@@ -146,7 +146,7 @@ function Detail({ s, st, exam, sub }: { s: GameState; st: Student; exam?: boolea
         {!grad && (
           <div class="row" style={{ marginTop: 8 }}>
             <button class="btn small" onClick={() => act((g) => { g.pinned = pinned ? g.pinned.filter((x) => x !== st.id) : [...g.pinned, st.id].slice(-5); })}><span class={pinned ? 'pinstar' : ''}><Icon name="star" size={16} /></span> {pinned ? '★を外す' : '気にかける'}</button>
-            {nextClasses(s, st).length > 0 && <button class={`btn small${examReady ? ' primary glow' : ''}`} onClick={() => { sfx('move'); setExamOpen(true); }}><Icon name="exam" size={16} /> 兵種試験を受ける{examReady ? '（受験できます）' : ''}</button>}
+            {(nextClasses(s, st).length > 0 || pathClassesMissing(s, st).length > 0) && <button class={`btn small${examReady ? ' primary glow' : ''}`} onClick={() => { sfx('move'); setExamOpen(true); }}><Icon name="exam" size={16} /> 兵種試験を受ける{examReady ? '（受験できます）' : ''}</button>}
           </div>
         )}
       </div>
@@ -354,7 +354,7 @@ const TIER_NAMES = ['見習い', '初級', '中級', '上級', '最上級'];
 /** 兵種試験の入口（8夜目：受けられる子だけを並べ、個人ページの受験へ） */
 function ExamList({ s }: { s: GameState }) {
   const ready = examCandidates(s);
-  const later = enrolled(s).filter((st) => !ready.includes(st) && nextClasses(s, st).length);
+  const later = enrolled(s).filter((st) => !ready.includes(st) && (nextClasses(s, st).length || pathClassesMissing(s, st).length));
   return (
     <div>
       <Back to={() => navigate({ tab: 'students' })} />
@@ -371,30 +371,35 @@ function ExamList({ s }: { s: GameState }) {
 function ExamSheet({ s, st, onClose }: { s: GameState; st: Student; onClose: () => void }) {
   const [msg, setMsg] = useState('');
   const opts = nextClasses(s, st);
+  const rec = recommendClass(s, st, opts);
+  const more = pathClassesMissing(s, st);
   const can = canTakeExam(s, st);
   return (
     <Sheet title={`${st.given}の兵種試験`} onClose={onClose}>
-      <div class="small muted">今の兵種：<b>{CLASSES[st.classId].name}</b>（レベル{st.level}）です。条件がそろっていれば、必ず合格します。</div>
+      <div class="small muted">今の兵種：<b>{CLASSES[st.classId].name}</b>（レベル{st.level}）です。技能の条件を満たした兵種だけが並びます。枝分かれの先でなくても受けられます。<HelpTip text="条件がそろっていれば、必ず合格します。先生が勧めた兵種を、生徒が受けます。信頼が低い子や、夢に合う別の道がある子は、自分で違う兵種を選ぶこともあります。" /></div>
       {msg && <div class="guide">{msg}</div>}
       {opts.map((c) => {
         const ok = classUnlocked(s, c) && meetsReq(st, c);
         const miss = missingReqs(s, st, c);
+        const mark = c === rec ? <span class="flag main">先生の勧め</span> : c.hidden ? <span class="flag red">隠れた道</span> : onPath(st, c) ? <span class="flag gray-flag">おすすめの道</span> : <span class="flag gray-flag">ほかの枝</span>;
         return (
           <div class="pcard" style={{ ['--band' as string]: ok ? 'var(--good)' : '#cfc6b2', margin: '8px 0 0' }}>
             <div class="row between nowrap">
               <div class="grow"><ClassName classId={c.id} size={17} /> <span class="muted small">{TIER_NAMES[c.tier]}</span></div>
-              {ok ? <span class="flag" style={{ background: 'var(--good)' }}>条件がそろっています</span> : <span class="flag gray-flag">条件が足りません</span>}
+              {mark}
             </div>
+            <div class="small" style={{ color: ok ? 'var(--good)' : 'var(--sub)' }}>{ok ? '条件がそろっています' : '技能はそろっています'}</div>
             {!ok && <div class="small" style={{ color: 'var(--accent)' }}>{miss.join('／')}</div>}
             <div class="small muted">{c.desc}</div>
             <div class="small" style={{ marginTop: 4 }}><b>{CLASSES[st.classId].name} → {c.name}</b>に変わると</div>
             <ClassCompare from={CLASSES[st.classId]} to={c} />
             <div class="small muted">兵種が変わっても、これまでに伸びた分はそのまま残ります。<HelpTip text="「いるあいだ」の補正だけが、新しい兵種のものに入れ替わります。" /></div>
-            <button class={`btn block${ok && can ? ' primary' : ''}`} style={{ marginTop: 6 }} disabled={!ok || !can} onClick={() => { let ok = false; act((g) => { const from = CLASSES[g.students[st.id].classId]?.name ?? ''; const n0 = g.pending.length; const r = takeExam(g, rng(g), g.students[st.id], c.id); ok = r.ok; setMsg(r.text); sfx(r.ok ? 'pass' : 'cancel'); if (r.ok) { /* 15夜目：受かったら、そのまま兵種昇格の演出（2タップ） */ const item = { icon: 'exam', title: `${st.given}の兵種`, from, to: c.name, p0: 0.4, p1: 1, studentId: st.id, note: '兵種昇格！' }; const p0 = g.pending[n0]; if (p0 && p0.type === 'rankup') p0.items.unshift(item); else g.pending.push({ type: 'rankup', items: [item] }); } }); if (ok) onClose(); }}>{ok ? `${c.name}になる` : '条件が足りません'}</button>
+            <button class={`btn block${ok && can ? ' primary' : ''}`} style={{ marginTop: 6 }} disabled={!ok || !can} onClick={() => { let ok = false; act((g) => { const from = CLASSES[g.students[st.id].classId]?.name ?? ''; const n0 = g.pending.length; const r = takeExam(g, rng(g), g.students[st.id], c.id); ok = r.ok; setMsg(r.text); sfx(r.ok ? 'pass' : 'cancel'); if (r.ok) { /* 15夜目：受かったら、そのまま兵種昇格の演出（2タップ）。22夜目：生徒が自分で選んだときは、その兵種 */ const item = { icon: 'exam', title: `${st.given}の兵種`, from, to: CLASSES[r.classId ?? c.id]?.name ?? c.name, p0: 0.4, p1: 1, studentId: st.id, note: r.own ? '自分で選んだ道！' : '兵種昇格！' }; const p0 = g.pending[n0]; if (p0 && p0.type === 'rankup') p0.items.unshift(item); else g.pending.push({ type: 'rankup', items: [item] }); } }); if (ok) onClose(); }}>{ok ? `${c.name}になる` : '条件が足りません'}</button>
           </div>
         );
       })}
-      {!opts.length && <div class="empty-note">次の兵種はありません</div>}
+      {!opts.length && <div class="empty-note">技能の条件を満たした兵種は、まだありません</div>}
+      {more.length > 0 && <div class="small muted" style={{ marginTop: 8 }}>おすすめの道で、あと少しの兵種：{more.map((c) => `${c.name}（${Object.entries(c.req).filter(([k, r]) => st.skills[k as SkillId] < RANK_POINTS[r as Rank]).map(([k, r]) => `${SKILL_NAMES[k as SkillId]}を${r}に`).join('・')}）`).join('、')}</div>}
       {!can && <div class="muted small" style={{ marginTop: 4 }}>けがで休んでいるあいだは、試験を受けられません</div>}
     </Sheet>
   );
